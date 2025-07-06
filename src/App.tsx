@@ -36,6 +36,7 @@ import ResetPassword from './pages/ResetPassword';
 import './App.css';
 import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
+import pkg from '../package.json';
 
 const { Sider, Content, Header } = Layout;
 const { Title } = Typography;
@@ -148,96 +149,100 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f7f8fa' }}>
-      {/* 顶部导航条 */}
-      <Header className="app-header">
-        <div className="app-title">
-          <AppstoreOutlined />
-          <span>长租公寓CRM系统</span>
-        </div>
-        <div className="app-header-user">
-          <UserMenu />
-        </div>
-      </Header>
-      <Layout style={{ marginTop: 56 }}>
-        <Sider
-          width={siderWidth}
-          collapsed={collapsed}
-          collapsible
-          onCollapse={setCollapsed}
-          trigger={null}
-          className="sider-main"
-        >
-          <NavigationMenu
-            selectedKey={selectedKey}
-            onMenuClick={(path) => navigate(path)}
+    <ConfigProvider locale={zhCN}>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        {/* 顶部导航条 */}
+        <Header className="app-header">
+          <div className="app-title">
+            <AppstoreOutlined />
+            <span>长租公寓CRM系统</span>
+          </div>
+          <div className="app-header-user">
+            <UserMenu />
+          </div>
+        </Header>
+        <Layout style={{ marginTop: 56 }}>
+          <Sider
+            width={siderWidth}
             collapsed={collapsed}
-          />
-          {/* 拖动条 */}
-          {!collapsed && (
-            <div
-              className="sider-resize-bar"
-              onMouseDown={handleSiderResize}
+            collapsible
+            onCollapse={setCollapsed}
+            trigger={null}
+            className="sider-main"
+          >
+            <NavigationMenu
+              selectedKey={selectedKey}
+              onMenuClick={(path) => navigate(path)}
+              collapsed={collapsed}
             />
-          )}
-          {/* 收缩/展开按钮 */}
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            className="sider-toggle-btn"
-          />
-        </Sider>
-        <Layout style={{ marginLeft: collapsed ? minSiderWidth : siderWidth, background: 'transparent', transition: 'margin-left 0.2s', borderRadius: '12px 0 0 12px' }}>
-          <Content className="content-main">
-            <PrivateRoute>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/dashboard" element={
-                  <div style={{
-                    background: '#fff',
-                    borderRadius: 16,
-                    boxShadow: '0 2px 8px 0 rgba(0,0,0,0.03)',
-                    padding: 32,
-                    minHeight: 500,
-                  }}>
-                    <Title level={4} style={{ marginBottom: 24, fontWeight: 700, color: '#222' }}>
-                      欢迎使用长租公寓CRM系统
-                    </Title>
-                    <p style={{ fontSize: 16, color: '#666' }}>
-                      这是一个现代化的客户关系管理系统，帮助您更好地管理销售线索和客户关系。
-                    </p>
-                    <Button type="primary" size="large" style={{ marginTop: 24 }}>
-                      开始使用
-                    </Button>
-                  </div>
-                } />
-                <Route path="/leads" element={<LeadsList />} />
-                <Route path="/followups" element={<FollowupsGroupList />} />
-                <Route path="/followup-old" element={<FollowupsList />} />
-                <Route path="/deals" element={<DealsList />} />
-                <Route path="/test" element={<TestSupabase />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/403" element={<Error403 />} />
-                <Route path="/departments" element={<DepartmentPage />} />
-                <Route path="/roles" element={<RolePermissionManagement />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="*" element={<Error404 />} />
-              </Routes>
-            </PrivateRoute>
-          </Content>
+            {/* 拖动条 */}
+            {!collapsed && (
+              <div
+                className="sider-resize-bar"
+                onMouseDown={handleSiderResize}
+              />
+            )}
+            {/* 收缩/展开按钮 */}
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              className="sider-toggle-btn"
+            />
+          </Sider>
+          <Layout style={{ marginLeft: collapsed ? minSiderWidth : siderWidth, background: 'transparent', transition: 'margin-left 0.2s', borderRadius: '12px 0 0 12px' }}>
+            <Content className="content-main">
+              <PrivateRoute>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/dashboard" element={
+                    <div style={{
+                      background: '#fff',
+                      borderRadius: 16,
+                      boxShadow: '0 2px 8px 0 rgba(0,0,0,0.03)',
+                      padding: 32,
+                      minHeight: 500,
+                    }}>
+                      <Title level={4} style={{ marginBottom: 24, fontWeight: 700, color: '#222' }}>
+                        欢迎使用长租公寓CRM系统
+                      </Title>
+                      <p style={{ fontSize: 16, color: '#666' }}>
+                        这是一个现代化的客户关系管理系统，帮助您更好地管理销售线索和客户关系。
+                      </p>
+                      <Button type="primary" size="large" style={{ marginTop: 24 }}>
+                        开始使用
+                      </Button>
+                    </div>
+                  } />
+                  <Route path="/leads" element={<LeadsList />} />
+                  <Route path="/followups" element={<FollowupsGroupList />} />
+                  <Route path="/followup-old" element={<FollowupsList />} />
+                  <Route path="/deals" element={<DealsList />} />
+                  <Route path="/test" element={<TestSupabase />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/403" element={<Error403 />} />
+                  <Route path="/departments" element={<DepartmentPage />} />
+                  <Route path="/roles" element={<RolePermissionManagement />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="*" element={<Error404 />} />
+                </Routes>
+              </PrivateRoute>
+            </Content>
+          </Layout>
         </Layout>
-      </Layout>
-    </Layout>
+        {/* 页脚版本号 */}
+        <footer style={{ textAlign: 'center', color: '#bbb', fontSize: 12, padding: 12 }}>
+          版本号：v{pkg.version}
+        </footer>
+      </div>
+    </ConfigProvider>
   );
 };
 
 export default function AppWithBoundary() {
   return (
-    <ConfigProvider locale={zhCN}>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </ConfigProvider>
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   );
 }
