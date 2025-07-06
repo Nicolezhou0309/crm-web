@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>邀请流程调试</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .success {
+            color: #28a745;
+        }
+        .warning {
+            color: #ffc107;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 邀请流程调试工具</h1>
+    
+    <div class="container">
+        <h2>📧 发送邀请测试</h2>
+        <div class="form-group">
+            <label for="testEmail">测试邮箱:</label>
+            <input type="email" id="testEmail" value="test-invite@example.com" placeholder="输入测试邮箱">
+        </div>
+        <div class="form-group">
+            <label for="testName">用户姓名:</label>
+            <input type="text" id="testName" value="测试用户" placeholder="输入用户姓名">
+        </div>
+        <div class="form-group">
+            <label for="orgId">组织ID:</label>
+            <input type="text" id="orgId" value="550e8400-e29b-41d4-a716-446655440000" placeholder="输入组织ID">
+        </div>
+        <button onclick="sendInvite()">发送邀请</button>
+        <button onclick="clearLog()">清空日志</button>
+    </div>
+    
+    <div class="container">
+        <h2>🔗 邀请链接测试</h2>
+        <div class="form-group">
+            <label for="inviteUrl">邀请链接:</label>
+            <input type="text" id="inviteUrl" placeholder="粘贴邀请链接进行测试">
+        </div>
+        <button onclick="testInviteLink()">测试邀请链接</button>
+        <button onclick="parseCurrentUrl()">解析当前URL</button>
+    </div>
+    
+    <div class="container">
+        <h2>📊 调试信息</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        // Supabase配置
+        const SUPABASE_URL = 'https://wteqgprgiylmxzszcnws.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0ZXFncHJnaXlsbXh6c3pjbndzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI3NzQ1OTAsImV4cCI6MjA0ODM1MDU5MH0.SQOmGgMZNNhXCcpZGAKOBQAYOH2FbAaKvKWyqFrHcFk';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        async function sendInvite() {
+            try {
+                const email = document.getElementById('testEmail').value;
+                const name = document.getElementById('testName').value;
+                const orgId = document.getElementById('orgId').value;
+                
+                log('📤 发送邀请请求...');
+                log(`邮箱: ${email}`);
+                log(`姓名: ${name}`);
+                log(`组织ID: ${orgId}`);
+                
+                // 获取当前用户的访问令牌
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    log('❌ 用户未登录，请先登录', 'error');
+                    return;
+                }
+                
+                log('✅ 用户已登录，开始发送邀请...');
+                
+                const { data, error } = await supabase.functions.invoke('invite-user', {
+                    body: {
+                        email: email,
+                        name: name,
+                        organizationId: orgId,
+                        redirectTo: `${window.location.origin}/set-password`
+                    }
+                });
+                
+                if (error) {
+                    log(`❌ 邀请失败: ${error.message}`, 'error');
+                    return;
+                }
+                
+                log('✅ 邀请发送成功！', 'success');
+                log(`响应数据: ${JSON.stringify(data, null, 2)}`);
+                
+                // 显示邀请链接（模拟）
+                const inviteLink = `https://wteqgprgiylmxzszcnws.supabase.co/auth/v1/verify?token=test-token&type=invite&redirect_to=${encodeURIComponent(`${window.location.origin}/set-password`)}`;
+                log(`📧 邀请链接示例: ${inviteLink}`);
+                
+            } catch (error) {
+                log(`❌ 发送邀请异常: ${error.message}`, 'error');
+            }
+        }
+        
+        function testInviteLink() {
+            const url = document.getElementById('inviteUrl').value;
+            if (!url) {
+                log('❌ 请输入邀请链接', 'error');
+                return;
+            }
+            
+            log('🔍 分析邀请链接...');
+            log(`链接: ${url}`);
+            
+            try {
+                const urlObj = new URL(url);
+                log(`协议: ${urlObj.protocol}`);
+                log(`域名: ${urlObj.hostname}`);
+                log(`路径: ${urlObj.pathname}`);
+                
+                // 解析查询参数
+                const params = urlObj.searchParams;
+                log('📋 查询参数:');
+                for (const [key, value] of params) {
+                    log(`  ${key}: ${value}`);
+                }
+                
+                // 解析hash参数
+                if (urlObj.hash) {
+                    log('🔗 Hash参数:');
+                    const hashParams = new URLSearchParams(urlObj.hash.substring(1));
+                    for (const [key, value] of hashParams) {
+                        log(`  ${key}: ${value}`);
+                    }
+                }
+                
+                // 检查是否是有效的邀请链接
+                const token = params.get('token') || params.get('access_token');
+                const type = params.get('type');
+                const redirectTo = params.get('redirect_to');
+                
+                if (token) {
+                    log('✅ 找到令牌参数', 'success');
+                } else {
+                    log('⚠️ 未找到令牌参数', 'warning');
+                }
+                
+                if (type === 'invite') {
+                    log('✅ 确认是邀请类型', 'success');
+                } else {
+                    log(`⚠️ 类型不是invite: ${type}`, 'warning');
+                }
+                
+                if (redirectTo) {
+                    log(`✅ 重定向URL: ${redirectTo}`, 'success');
+                } else {
+                    log('⚠️ 未找到重定向URL', 'warning');
+                }
+                
+            } catch (error) {
+                log(`❌ 解析URL失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function parseCurrentUrl() {
+            log('🔍 解析当前页面URL...');
+            log(`当前URL: ${window.location.href}`);
+            log(`协议: ${window.location.protocol}`);
+            log(`域名: ${window.location.hostname}`);
+            log(`端口: ${window.location.port}`);
+            log(`路径: ${window.location.pathname}`);
+            log(`查询: ${window.location.search}`);
+            log(`Hash: ${window.location.hash}`);
+            
+            // 解析查询参数
+            const urlParams = new URLSearchParams(window.location.search);
+            log('📋 查询参数:');
+            for (const [key, value] of urlParams) {
+                log(`  ${key}: ${value}`);
+            }
+            
+            // 解析hash参数
+            if (window.location.hash) {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                log('🔗 Hash参数:');
+                for (const [key, value] of hashParams) {
+                    log(`  ${key}: ${value}`);
+                }
+            }
+        }
+        
+        // 页面加载时自动解析当前URL
+        window.onload = function() {
+            log('🚀 邀请流程调试工具已加载');
+            parseCurrentUrl();
+        };
+    </script>
+</body>
+</html> 

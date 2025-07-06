@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认证状态检查工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .success { border-left: 4px solid #28a745; }
+        .error { border-left: 4px solid #dc3545; }
+        .warning { border-left: 4px solid #ffc107; }
+        .info { border-left: 4px solid #17a2b8; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            font-family: monospace;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 认证状态检查工具</h1>
+        
+        <div class="status-card info">
+            <h3>📋 使用说明</h3>
+            <p>此工具用于检查您的 Supabase 认证状态，帮助诊断邀请功能问题。</p>
+            <p>请确保您已经在主应用中登录，然后点击下方按钮进行检查。</p>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <button onclick="checkAuthStatus()">检查认证状态</button>
+            <button onclick="testInviteFunction()">测试邀请功能</button>
+            <button onclick="clearLog()">清除日志</button>
+        </div>
+
+        <div id="results"></div>
+        <div id="log" class="log" style="display: none;"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // 初始化 Supabase
+        const supabaseUrl = 'https://wteqgprgiylmxzszcnws.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0ZXFncHJnaXlsbXh6c3pjbndzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExNzc5ODEsImV4cCI6MjA2Njc1Mzk4MX0.VpS4zrfPjA8e7xce7D_hVjn69um3UaSG05F79nJ8hxI';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        let logDiv = document.getElementById('log');
+        let resultsDiv = document.getElementById('results');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function showResult(type, title, content) {
+            const div = document.createElement('div');
+            div.className = `status-card ${type}`;
+            div.innerHTML = `<h3>${title}</h3><p>${content}</p>`;
+            resultsDiv.appendChild(div);
+        }
+
+        function clearLog() {
+            logDiv.innerHTML = '';
+            resultsDiv.innerHTML = '';
+            logDiv.style.display = 'none';
+        }
+
+        async function checkAuthStatus() {
+            clearLog();
+            logDiv.style.display = 'block';
+            
+            try {
+                log('🔍 开始检查认证状态...');
+                
+                // 检查会话
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                
+                if (sessionError) {
+                    log('❌ 获取会话失败: ' + sessionError.message);
+                    showResult('error', '❌ 会话错误', sessionError.message);
+                    return;
+                }
+                
+                if (!session) {
+                    log('❌ 未找到会话');
+                    showResult('error', '❌ 未登录', '请在主应用中登录后再使用此工具');
+                    return;
+                }
+                
+                log('✅ 会话存在');
+                log('📋 会话信息:');
+                log('  - 用户ID: ' + session.user.id);
+                log('  - 用户邮箱: ' + session.user.email);
+                log('  - 访问令牌: ' + (session.access_token ? '存在' : '不存在'));
+                
+                // 解析JWT
+                if (session.access_token) {
+                    try {
+                        const payload = JSON.parse(atob(session.access_token.split('.')[1]));
+                        log('🔐 JWT Claims:');
+                        log('  - sub: ' + payload.sub);
+                        log('  - role: ' + payload.role);
+                        log('  - iss: ' + payload.iss);
+                        log('  - exp: ' + new Date(payload.exp * 1000).toLocaleString());
+                        
+                        if (payload.sub) {
+                            showResult('success', '✅ 认证正常', `用户ID: ${payload.sub}<br>角色: ${payload.role}<br>邮箱: ${session.user.email}`);
+                        } else {
+                            showResult('error', '❌ JWT无效', 'JWT中缺少sub claim');
+                        }
+                    } catch (e) {
+                        log('❌ JWT解析失败: ' + e.message);
+                        showResult('error', '❌ JWT解析失败', e.message);
+                    }
+                } else {
+                    showResult('error', '❌ 访问令牌缺失', '请重新登录');
+                }
+                
+            } catch (error) {
+                log('❌ 检查认证状态失败: ' + error.message);
+                showResult('error', '❌ 检查失败', error.message);
+            }
+        }
+
+        async function testInviteFunction() {
+            clearLog();
+            logDiv.style.display = 'block';
+            
+            try {
+                log('🧪 测试邀请功能...');
+                
+                // 先检查认证
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    showResult('error', '❌ 未登录', '请先登录');
+                    return;
+                }
+                
+                log('📤 调用 invite-user 函数...');
+                const { data, error } = await supabase.functions.invoke('invite-user', {
+                    body: {
+                        email: 'test@example.com',
+                        nickname: '测试用户',
+                        organizationId: 'test-org-id',
+                        redirectTo: window.location.origin + '/login'
+                    }
+                });
+                
+                log('📥 响应数据: ' + JSON.stringify(data, null, 2));
+                
+                if (error) {
+                    log('❌ 邀请失败: ' + JSON.stringify(error, null, 2));
+                    showResult('error', '❌ 邀请测试失败', error.message || '未知错误');
+                } else {
+                    log('✅ 邀请测试成功');
+                    showResult('success', '✅ 邀请功能正常', '测试邀请调用成功');
+                }
+                
+            } catch (error) {
+                log('❌ 测试异常: ' + error.message);
+                showResult('error', '❌ 测试异常', error.message);
+            }
+        }
+    </script>
+</body>
+</html> 

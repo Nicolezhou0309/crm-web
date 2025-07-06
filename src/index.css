@@ -1,0 +1,694 @@
+/* ========== 全局基础样式 ========== */
+:root {
+  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: #f7f8fa;
+  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+
+/* ========== Ant Design 组件优化 ========== */
+/* -------- 表格样式优化 -------- */
+.ant-table {
+  background: transparent;
+}
+
+.ant-table-thead > tr > th {
+  background: #f7f8fa;
+  font-weight: 600;
+  color: #666;
+  border-bottom: 1px solid #eee;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* ========== 链接、按钮、通用元素 ========== */
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  color: white;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* 页面主卡片通用样式 */
+.page-card {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  padding-bottom: 16px;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+/* 顶部栏通用样式 */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 8px 0 8px;
+}
+
+/* 搜索框、按钮通用圆角 */
+.page-search {
+  width: 300px;
+  border-radius: 12px;
+}
+.page-btn {
+  border-radius: 12px;
+}
+
+/* 表格外层 */
+.page-table-wrap {
+  border-radius: 12px;
+}
+.page-table {
+  background: transparent;
+  border-radius: 12px;
+  table-layout: auto;
+}
+
+/* 表格列通用样式 */
+.page-col-nowrap {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 主要色、灰色、辅助色 */
+.text-primary {
+  color: #1677ff;
+}
+.text-secondary {
+  color: #888;
+}
+.text-muted {
+  color: #bbb;
+}
+
+
+/* 步骤表单区flex布局 */
+.page-step-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.page-step-field-item {
+  flex: 0 0 44%;
+  min-width: 160px;
+  margin-bottom: 0;
+}
+
+
+/* 去除导航伸缩按钮点击后的边框/轮廓 */
+.sider-toggle-btn:focus,
+.sider-toggle-btn:active,
+.sider-toggle-btn:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border: none;
+}
+
+/* ========== 侧边栏 Sider 样式 ========== */
+.sider-main {
+  background: #fff;
+  border-right: 1px solid #f0f0f0;
+  padding-top: 32px;
+  position: fixed;
+  left: 0px;
+  top: 56px;
+  bottom: 0;
+  height: calc(100vh - 56px);
+  z-index: 99;
+  box-shadow: 2px 0 8px 0 rgba(0,0,0,0.03);
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+  border-radius: 0;
+}
+
+
+/* ========== 伸缩按钮样式 ========== */
+.sider-toggle-btn {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: #1677ff;
+  border: none;
+  transition: background 0.2s, border 0.2s;
+  z-index: 101;
+  cursor: pointer;
+}
+
+
+
+.app-header {
+  background: #fff;
+  height: 56px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f0f0f0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+.app-title {
+  font-weight: 700;
+  font-size: 20px;
+  color: #222;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+}
+.app-title .anticon {
+  font-size: 28px;
+  color: #1677ff;
+  margin-right: 12px;
+}
+.app-header-user {
+  display: flex;
+  align-items: center;
+}
+.app-header-user .ant-avatar {
+  background: #1677ff;
+  margin-right: 8px;
+}
+.app-header-user span {
+  font-weight: 500;
+  color: #222;
+  font-size: 16px;
+}
+
+/* ========== 菜单项/导航栏细节优化 ========== */
+
+/* 一级菜单图标和文字左对齐 */
+.ant-menu-item, .ant-menu-submenu-title {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 0px;
+  text-align: left;
+  gap: 8px;
+  height: 44px;
+  line-height: 50px;
+  font-size: 16px;
+}
+/* 菜单项字体更细腻 */
+.ant-menu-item, .ant-menu-submenu-title, .ant-menu-item span, .ant-menu-submenu-title span {
+  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  font-weight: 500;
+}
+
+/* ========== 子菜单项样式优化 ========== */
+.ant-menu-submenu .ant-menu-item {
+  height: 32px;
+  line-height: 32px;
+  font-size: 14px;
+  padding: 0 20px;
+  margin: 0;
+  border-radius: 18px;
+  transition: background 0.2s;
+}
+
+
+
+/* ========== 响应式适配 ========== */
+@media (max-width: 768px) {
+  .ant-layout-sider {
+    width: 100%;
+    position: fixed;
+    height: 100vh;
+    z-index: 1000;
+  }
+  
+  .ant-layout-content {
+    margin-left: 0;
+    padding: 20px 16px;
+  }
+  .content-main {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .page-card {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+
+/* 主内容区左右边距，提升整体留白感 */
+.content-main {
+  padding-left: 32px;
+  padding-right: 32px;
+}
+
+/* 导航栏收缩状态下，主内容区和卡片左侧留白，避免贴边 */
+.ant-layout-sider-collapsed ~ .ant-layout .content-main,
+.ant-layout-sider-collapsed ~ .ant-layout .page-card {
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+@media (max-width: 768px) {
+  .ant-layout-sider-collapsed ~ .ant-layout .content-main,
+  .ant-layout-sider-collapsed ~ .ant-layout .page-card {
+    margin-left: 0;
+  }
+}
+
+/* ========== 跟进抽屉左侧线索信息区块 ========== */
+.page-drawer-info .mb-12 {
+  margin-bottom: 12px;
+}
+
+/* ========== 跟进抽屉内容区块整体内边距 ========== */
+.ant-drawer-body {
+  padding-left: 35px !important;
+  padding-right: 200px !important;
+}
+
+/* 分组卡片样式 */
+.group-card {
+  margin-bottom: 8px;
+  background: #f6f8fa;
+  border-radius: 8px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1677ff;
+  gap: 8px;
+}
+.group-card-title {
+  color: #1677ff;
+  font-weight: 700;
+  font-size: 16px;
+}
+.group-card-count {
+  color: #1677ff;
+  font-weight: 700;
+  font-size: 16px;
+  margin-left: 8px;
+}
+.group-card-close {
+  margin-left: 16px;
+  color: #bbb;
+  font-size: 18px;
+  cursor: pointer;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+}
+.group-card-close:hover {
+  color: #1677ff;
+}
+
+/* 分组按钮列表样式优化 */
+.group-btn {
+  width: 100%;
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  padding: 10px 15px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  cursor: pointer;
+  font-weight: 500;
+  color: #222;
+  box-shadow: none;
+  transition: all 0.2s;
+  position: relative;
+}
+.group-btn-selected {
+  background: #e6f4ff;
+  border: 1.5px solid #1677ff;
+  color: #1677ff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px 0 rgba(22,119,255,0.08);
+}
+.group-btn-title {
+  flex-shrink: 0;
+}
+.group-btn-count {
+  margin-left: auto;
+  color: #1677ff;
+  font-weight: 700;
+}
+.group-btn-close {
+  margin-left: 8px;
+  color: #bbb;
+  font-size: 16px;
+  cursor: pointer;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+}
+.group-btn-close:hover {
+  color: #1677ff;
+}
+
+/* 分组区动画样式 */
+.group-panel {
+  transition: width 0.3s cubic-bezier(.4,0,.2,1), opacity 0.3s, transform 0.3s;
+  overflow: hidden;
+  will-change: width, opacity, transform;
+  min-width: 180px;
+  width: 200px;
+}
+.group-panel.closed {
+  width: 0 !important;
+  min-width: 0 !important;
+  opacity: 0;
+  transform: translateX(-30px);
+  pointer-events: none;
+}
+.group-panel.open {
+  width: 200px;
+  min-width: 180px;
+  opacity: 1;
+  transform: none;
+}
+
+/* 自动修正主内容区和侧边栏间距重复问题 */
+.main-flex-layout {
+  display: flex;
+  position: relative;
+  gap: 0;
+}
+
+/* 分组侧边栏抽屉式动画修正 */
+.group-panel-sidebar {
+  width: 180px;
+  min-width: 180px;
+  max-width: 180px;
+  transition: width 0.3s cubic-bezier(.4,0,.2,1), transform 0.3s cubic-bezier(.4,0,.2,1), opacity 0.3s;
+  will-change: width, transform, opacity;
+  z-index: 2;
+  background: #fff;
+  position: relative;
+}
+
+.group-panel-sidebar.closed {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  opacity: 0;
+  transform: translateX(-30px);
+  pointer-events: none;
+}
+
+.group-panel-sidebar.open {
+  width: 180px;
+  min-width: 180px;
+  max-width: 180px;
+  opacity: 1;
+  transform: none;
+}
+
+.main-content-area {
+  flex: 1 1 0;
+  min-width: 0;
+  transition: none;
+  will-change: auto;
+}
+
+/* 主内容区样式最终修正：只保留一份flex布局，彻底移除所有transform和重复定义 */
+.main-content-area {
+  flex: 1 1 0;
+  min-width: 0;
+  transition: none;
+  will-change: auto;
+}
+
+/* 侧边栏展开时主内容区增加24px左边距 */
+.group-panel-sidebar.open + .main-content-area {
+  margin-left: 24px;
+}
+
+/* 冻结左侧列阴影效果 */
+.ant-table .ant-table-cell-fix-left,
+.ant-table .ant-table-cell-fix-left-first {
+  /* 只给最左侧冻结列加阴影 */
+  box-shadow: 2px 0 8px -2px rgba(22,119,255,0.12);
+  z-index: 2;
+  background: #fff; /* 保证阴影不被内容遮挡 */
+}
+
+/* 统一筛选Tag和表格Tag样式 */
+.filter-tag {
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 0 8px;
+  background: #e6f4ff;
+  color: #1677ff;
+  border: none;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+}
+.ant-tag-close-icon {
+  color: #1677ff !important;
+  margin-left: 4px;
+}
+
+/* 分组区快捷日期筛选按钮美化 */
+.quick-date-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.quick-date-btn {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0;
+  height: 28px;
+  font-size: 14px;
+  border-radius: 8px;
+  transition: border-color 0.2s, background 0.2s;
+  margin: 0;
+}
+.quick-date-btn.active,
+.quick-date-btn:active,
+.quick-date-btn:focus {
+  border-color: #1677ff !important;
+  color: #1677ff !important;
+  background: #e6f4ff !important;
+}
+
+.drawer-flex-row {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+}
+
+.page-drawer-info {
+  min-width: 220px;
+  max-width: 320px;
+}
+
+.page-drawer-form {
+  flex: 1;
+  min-width: 0;
+}
+
+.ant-form-item {
+  margin-bottom: 0px;
+}
+
+/* 左侧部门树卡片专属样式 */
+.page-card.dept-tree {
+  padding: 16px 8px 16px 16px; /* 上右下左 */
+  min-width: 220px;
+  max-width: 320px;
+  box-shadow: 0 2px 8px 0 rgba(22,119,255,0.04);
+  border: 1px solid #f0f0f0;
+  background: #fff;
+  border-radius: 12px;
+  margin-right: 24px;
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+}
+
+/* 部门树美化补充 */
+.page-card.dept-tree .ant-tree-node-content-wrapper {
+  position: relative;
+  padding-right: 24px; /* 给右侧箭头留空间 */
+  transition: background 0.2s;
+}
+.page-card.dept-tree .ant-tree-node-content-wrapper:hover,
+.page-card.dept-tree .ant-tree-node-selected {
+  background: #e6f4ff !important;
+}
+.page-card.dept-tree .ant-tree-treenode {
+  /* border-left: 2px solid #f0f0f0; */
+  margin-left: 4px;
+  padding-left: 4px;
+}
+.page-card.dept-tree .ant-tree-treenode-level-1 {
+  /* border-left: none; */
+  margin-left: 0;
+  padding-left: 0;
+}
+.page-card.dept-tree .ant-tree-treenode-level-1 > .ant-tree-node-content-wrapper > span {
+  color: #1677ff;
+  font-weight: 700;
+}
+.page-card.dept-tree .ant-tree-treenode-level-2 > .ant-tree-node-content-wrapper > span {
+  color: #222;
+}
+
+/* 导航栏风格部门树结构美化 */
+.page-card.dept-tree .ant-tree-switcher {
+  /* position: absolute; */
+  /* right: 8px; */
+  /* top: 50%; */
+  /* transform: translateY(-50%); */
+  background: transparent;
+  box-shadow: none;
+}
+.page-card.dept-tree .tree-title {
+  font-size: 15px;
+  color: #222;
+  font-weight: 500;
+}
+.page-card.dept-tree .ant-tree-treenode-selected .tree-title,
+.page-card.dept-tree .ant-tree-node-content-wrapper:hover .tree-title {
+  color: #1677ff;
+}
+.page-card.dept-tree .tree-arrow {
+  font-size: 13px;
+  color: #bbb;
+  pointer-events: none;
+}
+
+/* 移除自定义部门树相关样式，恢复Antd默认 */
+/*
+.tree-title-row {}
+.tree-title {}
+.tree-switcher {}
+.tree-switcher-triangle {}
+.tree-title-row-top-selected {}
+*/
