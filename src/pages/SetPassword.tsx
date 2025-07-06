@@ -3,6 +3,7 @@ import { Form, Input, Button, message, Card, Typography, Spin, Alert } from 'ant
 import { LockOutlined, MailOutlined, UserOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { supabase } from '../supaClient';
 import { useNavigate } from 'react-router-dom';
+import './SetPassword.css';
 
 const { Title, Text } = Typography;
 
@@ -423,6 +424,7 @@ const SetPassword: React.FC = () => {
             <Input.Password 
               prefix={<LockOutlined />}
               placeholder="请输入密码"
+              className="custom-placeholder"
             />
           </Form.Item>
 
@@ -430,6 +432,7 @@ const SetPassword: React.FC = () => {
             name="confirmPassword"
             label="确认密码"
             dependencies={['password']}
+            style={{ marginTop: 16 }}
             rules={[
               { required: true, message: '请确认密码' },
               ({ getFieldValue }) => ({
@@ -445,6 +448,7 @@ const SetPassword: React.FC = () => {
             <Input.Password 
               prefix={<LockOutlined />}
               placeholder="请再次输入密码"
+              className="custom-placeholder"
             />
           </Form.Item>
 

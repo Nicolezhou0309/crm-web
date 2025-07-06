@@ -32,6 +32,7 @@ import NavigationMenu from './components/NavigationMenu';
 import Profile from './pages/Profile';
 import DepartmentPage from './pages/DepartmentPage';
 import RolePermissionManagement from './pages/RolePermissionManagement';
+import ResetPassword from './pages/ResetPassword';
 import './App.css';
 import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
@@ -220,6 +221,7 @@ const App: React.FC = () => {
                 <Route path="/403" element={<Error403 />} />
                 <Route path="/departments" element={<DepartmentPage />} />
                 <Route path="/roles" element={<RolePermissionManagement />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="*" element={<Error404 />} />
               </Routes>
             </PrivateRoute>
