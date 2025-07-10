@@ -107,12 +107,21 @@ const rules = {
 const groups = {
   getGroups: async (): Promise<AllocationApiResponse<UserGroup[]>> => {
     try {
+      console.log('获取销售组列表...');
+      
       const { data, error } = await supabase
         .from('users_list')
         .select('*')
         .order('groupname');
       
-      if (error) throw error;
+      console.log('获取销售组 - Supabase响应:', { data, error });
+      
+      if (error) {
+        console.error('获取销售组 - Supabase错误:', error);
+        throw error;
+      }
+      
+      console.log('获取销售组 - 成功，数据条数:', data?.length || 0);
       return { success: true, data };
     } catch (error) {
       console.error('获取销售组失败:', error);
@@ -122,17 +131,30 @@ const groups = {
 
   createGroup: async (group: Partial<UserGroup>): Promise<AllocationApiResponse<UserGroup>> => {
     try {
+      console.log('创建销售组 - 输入数据:', group);
+      
       const { data, error } = await supabase
         .from('users_list')
         .insert([group])
         .select()
         .single();
       
-      if (error) throw error;
+      console.log('创建销售组 - Supabase响应:', { data, error });
+      
+      if (error) {
+        console.error('创建销售组 - Supabase错误:', error);
+        throw error;
+      }
+      
+      console.log('创建销售组 - 成功:', data);
       return { success: true, data };
     } catch (error) {
       console.error('创建销售组失败:', error);
-      return { success: false, error: '创建销售组失败' };
+      return { 
+        success: false, 
+        error: '创建销售组失败',
+        details: error instanceof Error ? error.message : '未知错误'
+      };
     }
   },
 

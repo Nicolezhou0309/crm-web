@@ -53,6 +53,7 @@ import { supabase } from '../supaClient';
 import dayjs from 'dayjs';
 import { validateRuleForm, validateGroupForm } from '../utils/validationUtils';
 
+
 const { Title, Text } = Typography;
 const { Option, OptGroup } = Select;
 const { RangePicker } = TimePicker;
@@ -218,7 +219,7 @@ const AllocationManagement: React.FC = () => {
       }), {});
 
       setUserProfileCache(prev => ({ ...prev, ...newCache }));
-    } catch (error) {
+        } catch (error) {
       console.error('加载用户信息失败:', error);
       message.error('加载用户信息失败');
     }
@@ -529,7 +530,7 @@ const AllocationManagement: React.FC = () => {
       width: 150,
       render: (userId: number) => {
         const userInfo = userProfileCache[userId] || {};
-        return (
+  return (
           <Space>
             <UserOutlined />
             <Text>{userInfo.nickname || (userId ? `用户${userId}` : '未分配')}</Text>
@@ -570,10 +571,22 @@ const AllocationManagement: React.FC = () => {
       key: 'processing_details',
       render: (text: string, record: SimpleAllocationLog) => {
         const details = record.processing_details;
-        if (!details) return null;
+        if (!details) return <Text type="secondary">无处理详情</Text>;
+
+        // 添加调试信息
+        console.log('处理详情数据:', details);
 
         return (
           <Space direction="vertical" size={4} style={{ width: '100%' }}>
+            {/* 显示规则名称 */}
+            {details.rule_name && (
+              <div>
+                <Text type="secondary">使用规则：</Text>
+                <Tag color="blue">{details.rule_name}</Tag>
+              </div>
+            )}
+            
+            {/* 显示匹配条件 */}
             {details.conditions && (
               <div>
                 <Text type="secondary">匹配条件：</Text>
@@ -605,12 +618,16 @@ const AllocationManagement: React.FC = () => {
                 </div>
               </div>
             )}
+            
+            {/* 显示销售组信息 */}
             {details.group_info && (
               <div>
                 <Text type="secondary">销售组：</Text>
                 <Tag color="purple">{details.group_info.groupname}</Tag>
               </div>
             )}
+            
+            {/* 显示分配步骤 */}
             {details.allocation_steps && details.allocation_steps.length > 0 && (
               <div>
                 <Text type="secondary">分配步骤：</Text>
@@ -629,6 +646,30 @@ const AllocationManagement: React.FC = () => {
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+            
+            {/* 显示调试信息 */}
+            {details.debug_info && (
+              <div>
+                <Text type="secondary">调试信息：</Text>
+                <div style={{ marginLeft: 8, fontSize: '12px', color: '#666' }}>
+                  <pre style={{ margin: 0, maxHeight: '100px', overflow: 'auto' }}>
+                    {JSON.stringify(details.debug_info, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+            
+            {/* 如果没有具体内容，显示原始数据 */}
+            {!details.rule_name && !details.conditions && !details.group_info && !details.allocation_steps && (
+              <div>
+                <Text type="secondary">原始数据：</Text>
+                <div style={{ marginLeft: 8, fontSize: '12px', color: '#666' }}>
+                  <pre style={{ margin: 0, maxHeight: '100px', overflow: 'auto' }}>
+                    {JSON.stringify(details, null, 2)}
+                  </pre>
                 </div>
               </div>
             )}
@@ -1000,9 +1041,9 @@ const AllocationManagement: React.FC = () => {
           showQuickJumper: true,
           showTotal: (total, range) => 
             `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
-        }}
-      />
-    </Card>
+                }}
+              />
+            </Card>
   );
 
   // 修改测试分配结果显示
@@ -1010,9 +1051,9 @@ const AllocationManagement: React.FC = () => {
     if (!testResult) return null;
 
     return (
-      <Alert
+        <Alert
         message={testResult.success ? '分配测试结果' : '分配失败'}
-        description={
+          description={
           testResult.success ? (
             <div>
               <Row gutter={[0, 8]}>
@@ -1079,7 +1120,7 @@ const AllocationManagement: React.FC = () => {
           )
         }
         type={testResult.success ? 'success' : 'error'}
-        showIcon
+          showIcon
       />
     );
   };
@@ -1091,6 +1132,233 @@ const AllocationManagement: React.FC = () => {
       padding: '16px 24px'
     }
   };
+
+  // 分配历史筛选相关 state
+  const [logFilters, setLogFilters] = useState({
+    leadid: '',
+    allocationMethod: '',
+    assignedUserId: '', // 新增：分配销售
+    ruleName: '', // 新增：使用规则
+    page: 1,
+    pageSize: 10,
+    sortBy: 'created_at',
+    sortOrder: 'desc'
+  });
+  const [logLoading, setLogLoading] = useState(false);
+  const [logData, setLogData] = useState<any[]>([]);
+  const [logTotal, setLogTotal] = useState(0);
+
+  // supabase 查询日志
+  const queryLogsBySupabase = async (filters = logFilters) => {
+    let query = supabase
+      .from('simple_allocation_logs')
+      .select('*', { count: 'exact' });
+    
+    // 基础筛选条件
+    if (filters.leadid) query = query.ilike('leadid', `%${filters.leadid}%`);
+    if (filters.allocationMethod) query = query.ilike('allocation_method', `%${filters.allocationMethod}%`);
+    
+    // 新增筛选条件
+    if (filters.assignedUserId) {
+      query = query.eq('assigned_user_id', parseInt(filters.assignedUserId));
+    }
+    
+    // 排序
+    query = query.order(filters.sortBy, { ascending: filters.sortOrder === 'asc' });
+    // 分页
+    const from = (filters.page - 1) * filters.pageSize;
+    const to = from + filters.pageSize - 1;
+    query = query.range(from, to);
+    const { data, count, error } = await query;
+    if (error) throw error;
+    
+    // 处理数据，确保 processing_details 正确解析
+    const processedData = data?.map(log => {
+      const rule = rules.find(r => r.id === log.rule_id);
+      
+      // 确保 processing_details 是对象格式
+      let processingDetails = log.processing_details;
+      if (typeof processingDetails === 'string') {
+        try {
+          processingDetails = JSON.parse(processingDetails);
+        } catch (e) {
+          console.warn('解析 processing_details 失败:', e);
+          processingDetails = {};
+        }
+      }
+      
+      return {
+        ...log,
+        processing_details: processingDetails || {},
+        rule_name: rule?.name || '默认分配'
+      };
+    }) || [];
+    
+    // 如果设置了规则名称筛选，在内存中过滤
+    let filteredData = processedData;
+    if (filters.ruleName) {
+      filteredData = processedData.filter(log => 
+        log.rule_name.toLowerCase().includes(filters.ruleName.toLowerCase())
+      );
+    }
+    
+    return {
+      data: filteredData,
+      total: count || 0,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      totalPages: Math.ceil((count || 0) / filters.pageSize)
+    };
+  };
+
+  // 查询函数
+  const fetchLogs = async (filters = logFilters) => {
+    setLogLoading(true);
+    try {
+      const res = await queryLogsBySupabase(filters);
+      setLogData(res.data);
+      setLogTotal(res.total);
+      setLogFilters(f => ({ ...f, page: res.page, pageSize: res.pageSize }));
+    } catch (error) {
+      message.error('日志查询失败');
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
+  // 副作用自动加载
+  useEffect(() => {
+    fetchLogs();
+    // eslint-disable-next-line
+  }, [logFilters.leadid, logFilters.allocationMethod, logFilters.assignedUserId, logFilters.ruleName, logFilters.page, logFilters.pageSize, logFilters.sortBy, logFilters.sortOrder]);
+
+  // 筛选表单提交
+  const onLogFilterSubmit = (values: any) => {
+    setLogFilters(f => ({
+      ...f,
+      ...values,
+      page: 1 // 筛选后重置到第一页
+    }));
+  };
+
+  // 分配历史标签页内容
+  const allocationHistoryTabContent = (
+      <Card 
+      title="分配历史记录"
+        extra={
+          <Space>
+            <Button 
+              icon={<ReloadOutlined />}
+              onClick={() => fetchLogs()}
+            >
+              刷新
+            </Button>
+            <Button 
+              type="dashed"
+              onClick={() => {
+                console.log('当前日志数据:', logData);
+                console.log('用户缓存:', userProfileCache);
+                console.log('规则数据:', rules);
+                message.info('调试信息已输出到控制台');
+              }}
+            >
+              调试数据
+            </Button>
+          </Space>
+      }
+    >
+      <Form layout="inline" onFinish={onLogFilterSubmit} initialValues={logFilters} style={{ marginBottom: 16 }}>
+        <Form.Item name="leadid" label="线索编号">
+          <Input allowClear placeholder="请输入线索编号" />
+        </Form.Item>
+        <Form.Item name="allocationMethod" label="分配方式">
+          <Select allowClear style={{ width: 120 }} placeholder="选择分配方式">
+            {ALLOCATION_METHODS.map(m => (
+              <Option key={m.value} value={m.value}>{m.label}</Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item name="assignedUserId" label="分配销售">
+          <Select 
+            allowClear 
+            style={{ width: 150 }} 
+            placeholder="选择销售"
+            showSearch
+            filterOption={(input, option) =>
+              String(option?.children || '').toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            {Object.entries(userProfileCache).map(([userId, userInfo]) => (
+              <Option key={userId} value={userId}>
+                {userInfo.nickname || `用户${userId}`}
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item name="ruleName" label="使用规则">
+          <Select 
+            allowClear 
+            style={{ width: 150 }} 
+            placeholder="选择规则"
+            showSearch
+            filterOption={(input, option) =>
+              String(option?.children || '').toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            {rules.map(rule => (
+              <Option key={rule.id} value={rule.name}>
+                {rule.name}
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit">筛选</Button>
+        </Form.Item>
+        <Form.Item>
+          <Button onClick={() => {
+            setLogFilters({
+              leadid: '',
+              allocationMethod: '',
+              assignedUserId: '',
+              ruleName: '',
+              page: 1,
+              pageSize: 10,
+              sortBy: 'created_at',
+              sortOrder: 'desc'
+            });
+          }}>重置</Button>
+        </Form.Item>
+      </Form>
+        <Table
+        columns={logColumns}
+        dataSource={logData}
+        loading={logLoading}
+          rowKey="id"
+        scroll={{ x: 1300 }}
+        pagination={{
+          current: logFilters.page,
+          pageSize: logFilters.pageSize,
+          total: logTotal,
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+          onChange: (page, pageSize) => {
+            setLogFilters(f => ({ ...f, page, pageSize }));
+          }
+        }}
+        onChange={(pagination, filters, sorter: any) => {
+          setLogFilters(f => ({
+            ...f,
+            page: pagination.current || 1,
+            pageSize: pagination.pageSize || 10,
+            sortBy: (sorter.field as 'created_at' | 'leadid' | 'assigned_user_id' | 'allocation_method') || 'created_at',
+            sortOrder: sorter.order === 'ascend' ? 'asc' : 'desc'
+          }));
+        }}
+        />
+      </Card>
+  );
 
   // 在组件内部修改 Card 的使用
   return (
@@ -1271,33 +1539,7 @@ const AllocationManagement: React.FC = () => {
                 分配历史
               </span>
             ),
-            children: (
-              <Card 
-                title="分配历史记录"
-                extra={
-                  <Button 
-                    icon={<ReloadOutlined />}
-                    onClick={loadAllocationLogs}
-                  >
-                    刷新
-                  </Button>
-                }
-              >
-                <Table
-                  columns={logColumns}
-                  dataSource={allocationLogs}
-                  rowKey="id"
-                  scroll={{ x: 1300 }}
-                  pagination={{
-                    pageSize: 10,
-                    showSizeChanger: true,
-                    showQuickJumper: true,
-                    showTotal: (total, range) => 
-                      `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
-                  }}
-                />
-              </Card>
-            )
+            children: allocationHistoryTabContent
           }
         ]}
       />
@@ -1494,29 +1736,54 @@ const AllocationManagement: React.FC = () => {
           layout="vertical"
           onFinish={async (values) => {
             try {
+              console.log('销售组表单提交值:', values);
+              
               // 使用验证工具函数处理表单数据
               const groupData = validateGroupForm(values);
+              console.log('验证后的销售组数据:', groupData);
               
               let response;
               if (editingGroup) {
+                console.log('更新销售组:', editingGroup.id, groupData);
                 response = await allocationApi.groups.updateGroup(editingGroup.id, groupData);
               } else {
+                console.log('创建销售组:', groupData);
                 response = await allocationApi.groups.createGroup(groupData);
               }
+              
+              console.log('API响应:', response);
               
               if (response.success) {
                 message.success(editingGroup ? '销售组更新成功' : '销售组创建成功');
                 setIsGroupModalVisible(false);
                 groupForm.resetFields();
                 setEditingGroup(null);
-                loadUserGroups();
+                
+                // 强制刷新销售组数据
+                console.log('开始刷新销售组数据...');
+                
+                // 先清空现有数据
+                setUserGroups([]);
+                setGroupMembersCache({});
+                
+                // 重新加载数据
+                await loadUserGroups();
+                console.log('销售组数据刷新完成');
+                
+                // 延迟再次验证
+                setTimeout(async () => {
+                  console.log('延迟验证数据...');
+                  const refreshResponse = await allocationApi.groups.getGroups();
+                  console.log('最终验证结果:', refreshResponse);
+                }, 1000);
               } else {
                 const errorMsg = response.error || '保存失败';
                 const detailMsg = response.details ? ` (${response.details})` : '';
+                console.error('销售组保存失败:', response);
                 message.error(`${errorMsg}${detailMsg}`);
               }
             } catch (error) {
-              console.error('保存销售组失败:', error);
+              console.error('保存销售组异常:', error);
               message.error(`保存失败: ${(error as Error).message}`);
             }
           }}
@@ -1601,10 +1868,10 @@ const AllocationManagement: React.FC = () => {
                     // 只保留数字ID（成员ID）
                     return typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)));
                   })
-                  .map((value: any) => String(value));
+                  .map((value: any) => Number(value)); // 转换为数字而不是字符串
                 
-                setSelectedUsers(onlyLeafValues);
-                groupForm.setFieldsValue({ list: onlyLeafValues });
+                setSelectedUsers(onlyLeafValues.map(v => String(v))); // 状态保持字符串格式
+                groupForm.setFieldsValue({ list: onlyLeafValues }); // 表单值使用数字数组
               }}
               treeCheckable
               showCheckedStrategy={TreeSelect.SHOW_CHILD}

@@ -60,14 +60,22 @@ export const validateGroupForm = (values: any): Partial<UserGroup> => {
     throw new Error('请选择组成员');
   }
 
-  // 转换成员ID为数字
-  const list = values.list.map((id: string | number) => Number(id));
+  // 转换成员ID为 bigint 数组，确保类型正确
+  const list = values.list
+    .filter((id: any) => id !== null && id !== undefined && id !== '')
+    .map((id: string | number) => {
+      const numId = Number(id);
+      if (isNaN(numId)) {
+        throw new Error(`无效的用户ID: ${id}`);
+      }
+      return numId;
+    });
 
   // 返回格式化后的数据
   return {
     groupname: values.groupname,
     description: values.description,
-    list,
+    list, // 这是 bigint[] 类型
     allocation: values.allocation || 'round_robin',
     enable_quality_control: values.enable_quality_control ?? false,
     daily_lead_limit: values.daily_lead_limit,

@@ -493,9 +493,48 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
         data: selectedGroup
       };
 
-      // 如果是插入操作
+      // 找到对应的规则
+      const triggerId = editingList.id.split('_')[0];
+      const trigger = triggers.find(t => t.id === triggerId);
+      
+      if (!trigger) {
+        message.error('找不到对应的分配规则');
+        return;
+      }
+
+      // 更新规则的 user_groups 数组
+      const currentUserGroups = trigger.data.user_groups || [];
+      let updatedUserGroups = [...currentUserGroups];
+
       if (editingList.insertIndex !== undefined) {
-        const chainIndex = chains.findIndex(chain => chain.triggerId === editingList.id.split('_')[0]);
+        // 插入操作
+        updatedUserGroups.splice(editingList.insertIndex, 0, selectedGroup.id);
+      } else {
+        // 编辑操作 - 替换现有的销售组
+        const existingIndex = updatedUserGroups.indexOf(editingList.groupId);
+        if (existingIndex !== -1) {
+          updatedUserGroups[existingIndex] = selectedGroup.id;
+        } else {
+          updatedUserGroups.push(selectedGroup.id);
+        }
+      }
+
+      // 更新规则到数据库
+      const updatedRule = {
+        ...trigger.data,
+        user_groups: updatedUserGroups
+      };
+
+      console.log('更新规则:', triggerId, updatedRule);
+
+      if (onRuleUpdate) {
+        await onRuleUpdate(triggerId, updatedRule);
+        message.success('销售组已保存到分配规则');
+      }
+
+      // 更新本地状态
+      if (editingList.insertIndex !== undefined) {
+        const chainIndex = chains.findIndex(chain => chain.triggerId === triggerId);
         if (chainIndex !== -1) {
           const newChains = [...chains];
           newChains[chainIndex].lists.splice(editingList.insertIndex, 0, newList);
@@ -517,10 +556,9 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
       setEditingList(null);
       listForm.resetFields();
       
-      message.success('销售组保存成功');
     } catch (error) {
       console.error('保存销售组失败:', error);
-      message.error('保存失败');
+      message.error(`保存失败: ${(error as Error).message}`);
     }
   };
 
@@ -687,7 +725,7 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
             <span className="config-label">分配：</span>
             <Tag color="blue">
               {ALLOCATION_METHODS.find(m => m.value === list.data.allocation)?.label || '轮流分配'}
-            </Tag>
+                      </Tag>
           </div>
         </div>
       </div>
@@ -755,7 +793,7 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
   // 渲染流程
   const renderAllocationFlow = () => {
     if (triggers.length === 0) {
-      return (
+                    return (
         <div style={{ textAlign: 'center', padding: '60px 20px' }}>
           <BranchesOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
           <Title level={4} type="secondary">暂无分配规则</Title>
@@ -770,9 +808,9 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
             >
               新增触发条件
             </Button>
-          </div>
-        </div>
-      );
+                        </div>
+                      </div>
+                    );
     }
 
     // 修改插入销售组的处理函数
@@ -844,8 +882,8 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
                     marginTop: '2px' 
                   }}>
                     不可修改
-                  </div>
-                )}
+                </div>
+              )}
               </div>
 
               {/* 触发条件卡片 */}
@@ -854,7 +892,7 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
               {/* 箭头连接线 */}
               <div className="flow-arrow">
                 <ArrowRightOutlined />
-              </div>
+                </div>
 
               {/* 人员清单链路 */}
               <div className="flow-lists-chain">
@@ -1148,7 +1186,7 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
           </Form.Item>
 
           <Form.Item>
-            <Space>
+              <Space>
               <Button type="primary" htmlType="submit">
                 确认
               </Button>

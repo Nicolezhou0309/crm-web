@@ -67,6 +67,7 @@ export interface SimpleAllocationLog {
       result: any;
       timestamp: string;
     }>;
+    debug_info?: any; // 添加调试信息字段
   };
   created_at: string;
 }
