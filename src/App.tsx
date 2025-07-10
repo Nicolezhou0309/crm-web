@@ -14,11 +14,12 @@ import {
   SolutionOutlined,
   KeyOutlined,
   SettingOutlined,
+  BranchesOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import TestSupabase from './pages/TestSupabase';
 import LeadsList from './pages/LeadsList';
-import FollowupsList from './pages/oldpage/FollowupsList';
+
 import Index from './pages/Index';
 import Error404 from './pages/Error404';
 import Error403 from './pages/Error403';
@@ -32,11 +33,13 @@ import NavigationMenu from './components/NavigationMenu';
 import Profile from './pages/Profile';
 import DepartmentPage from './pages/DepartmentPage';
 import RolePermissionManagement from './pages/RolePermissionManagement';
+
+import AllocationManagement from './pages/AllocationManagement';
 import ResetPassword from './pages/ResetPassword';
 import './App.css';
 import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
-import pkg from '../package.json';
+
 
 const { Sider, Content, Header } = Layout;
 const { Title } = Typography;
@@ -50,6 +53,7 @@ const menuItems = [
     children: [
       { key: 'leads', icon: <FileTextOutlined />, label: '线索列表', path: '/leads' },
       { key: 'followups', icon: <UserOutlined />, label: '跟进记录', path: '/followups' },
+      { key: 'allocation', icon: <BranchesOutlined />, label: '线索分配', path: '/allocation' },
       { key: 'showings', icon: <EyeOutlined />, label: '带看记录', path: '/showings' },
       { key: 'deals', icon: <CheckCircleOutlined />, label: '成交记录', path: '/deals' },
     ]
@@ -216,8 +220,11 @@ const App: React.FC = () => {
                   } />
                   <Route path="/leads" element={<LeadsList />} />
                   <Route path="/followups" element={<FollowupsGroupList />} />
-                  <Route path="/followup-old" element={<FollowupsList />} />
+
                   <Route path="/deals" element={<DealsList />} />
+                  <Route path="/allocation" element={<AllocationManagement />} />
+                  <Route path="/allocation-management" element={<AllocationManagement />} />
+
                   <Route path="/test" element={<TestSupabase />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/403" element={<Error403 />} />
@@ -230,10 +237,6 @@ const App: React.FC = () => {
             </Content>
           </Layout>
         </Layout>
-        {/* 页脚版本号 */}
-        <footer style={{ textAlign: 'center', color: '#bbb', fontSize: 12, padding: 12 }}>
-          版本号：v{pkg.version}
-        </footer>
       </div>
     </ConfigProvider>
   );

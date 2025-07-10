@@ -1,5 +1,6 @@
 import React from 'react';
 import { useRolePermissions } from '../hooks/useRolePermissions';
+import { usePermissions } from '../hooks/usePermissions';
 
 interface PermissionGateProps {
   children: React.ReactNode;
@@ -35,7 +36,9 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     loading: permissionsLoading 
   } = useRolePermissions();
 
-  if (permissionsLoading) {
+  const { canManageOrganization, loading: orgPermissionsLoading } = usePermissions();
+
+  if (permissionsLoading || orgPermissionsLoading) {
     return <>{loading}</>;
   }
 
@@ -75,8 +78,9 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
 
   // 如果有organizationId，检查是否有权限管理该组织
   if (organizationId) {
-    // 这里可以添加组织权限检查逻辑
-    // 暂时先返回children，后续可以根据需要添加具体的权限检查
+    if (!canManageOrganization(organizationId)) {
+      return <>{fallback}</>;
+    }
   }
 
   return <>{children}</>;

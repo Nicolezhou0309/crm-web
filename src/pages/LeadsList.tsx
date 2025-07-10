@@ -13,13 +13,16 @@ import {
   Select,
   DatePicker,
   Tooltip,
-  Checkbox
+  Checkbox,
+  Row,
+  Col
 } from 'antd';
 import { 
   PlusOutlined, 
   ReloadOutlined} from '@ant-design/icons';
-import { supabase, fetchEnumValues } from '../supaClient';
+import { supabase, fetchEnumValues, generateLeadId } from '../supaClient';
 import dayjs from 'dayjs';
+import { formatCommunityRemark } from '../utils/validationUtils';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -33,6 +36,13 @@ interface Lead {
   wechat: string;
   source: string;
   leadstatus: string;
+  leadtype?: string;
+  area?: string;
+  location?: string;
+  budget?: string;
+  campaignname?: string;
+  unitname?: string;
+  creativename?: string;
   remark?: string;
   interviewsales?: string;
   created_at: string;
@@ -49,19 +59,36 @@ const LeadsList: React.FC = () => {
   const [sourceEnum, setSourceEnum] = useState<{ label: string; value: string }[]>([]);
   const [tableFilters, setTableFilters] = useState<any>({});
   const [continueAdd, setContinueAdd] = useState(false);
+  const [leadTypeOptions, setLeadTypeOptions] = useState<{ label: string; value: string }[]>([]);
+  const [communityOptions, setCommunityOptions] = useState<{ value: string; label: string }[]>([]);
 
 
   useEffect(() => {
     fetchLeads();
     // 获取渠道枚举
     fetchEnumValues('source').then(arr => {
-      // 这里建议你维护一份label映射，如下：
-      const labelMap: Record<string, string> = {
-        DY: '抖音', XHS: '小红书', DDP: '大众点评', SPH: '视频号', BK: '贝壳', BZ: 'B站', ZFB: '支付宝', XCX: '小程序', GW: '官网', GYYX: '公寓优选', QT: '其他'
-      };
-      setSourceEnum(arr.map(v => ({ value: v, label: labelMap[v] || v })));
+      setSourceEnum(arr.map(v => ({ value: v, label: v })));
+    });
+    // 获取社区枚举
+    supabase.rpc('get_enum_values', { enum_name: 'community' }).then(({ data, error }) => {
+      if (!error && Array.isArray(data)) {
+        setCommunityOptions(
+          data
+            .filter((v: unknown): v is string => typeof v === 'string' && !!v)
+            .map((v: string) => ({
+              value: v,
+              label: v
+            }))
+        );
+      }
     });
   }, []);
+
+  // 收集所有历史leadtype
+  useEffect(() => {
+    const types = Array.from(new Set(data.map(item => item.leadtype).filter((t): t is string => typeof t === 'string' && !!t)));
+    setLeadTypeOptions(types.map(t => ({ value: t, label: t })));
+  }, [data]);
 
   const fetchLeads = async (filters: Record<string, unknown> = {}) => {
     setLoading(true);
@@ -89,15 +116,29 @@ const LeadsList: React.FC = () => {
         message.error('请至少填写手机号或微信号');
         return;
       }
-
-      const newLead = {
-        ...values,
+      
+      // 1. 生成并发安全的leadid
+      const leadid = await generateLeadId();
+      
+      // 2. 使用工具函数格式化社区信息
+      const { community, remark, ...newLead } = values;
+      const newRemark = formatCommunityRemark(community, remark);
+      
+      const leadToInsert = {
+        ...newLead,
+        leadid,
+        remark: newRemark,
         created_at: new Date().toISOString(),
       };
+      
+      console.log('准备插入的数据:', leadToInsert);
+      console.log('生成的leadid:', leadid);
+      console.log('community值:', values.community);
+      console.log('community值类型:', typeof values.community);
 
       const { data, error } = await supabase
         .from('leads')
-        .insert([newLead])
+        .insert([leadToInsert])
         .select();
       
       if (error) {
@@ -120,7 +161,8 @@ const LeadsList: React.FC = () => {
         fetchLeads();
       }
     } catch (error) {
-      message.error('添加线索失败');
+      console.error('添加线索失败:', error);
+      message.error(`添加线索失败: ${(error as Error).message}`);
     }
   };
 
@@ -349,6 +391,30 @@ const LeadsList: React.FC = () => {
       },
     },
     {
+      title: '线索类型',
+      dataIndex: 'leadtype',
+      key: 'leadtype',
+      width: 100,
+      filters: getFilters('leadtype'),
+      render: (text: string) => text ? <Tag color="green">{text}</Tag> : '-',
+    },
+    {
+      title: '预算',
+      dataIndex: 'budget',
+      key: 'budget',
+      width: 100,
+      filters: getFilters('budget'),
+      render: (text: string) => text ? <Tag color="orange">{text}</Tag> : '-',
+    },
+    {
+      title: '区域',
+      dataIndex: 'area',
+      key: 'area',
+      width: 120,
+      filters: getFilters('area'),
+      render: (text: string) => text || '-',
+    },
+    {
       title: '状态',
       dataIndex: 'leadstatus',
       key: 'leadstatus',
@@ -564,7 +630,7 @@ const LeadsList: React.FC = () => {
             }}
             bordered={false}
             className="page-table"
-            scroll={{ x: 1200, y: 520 }}
+            scroll={{ x: 1400, y: 520 }}
             onChange={handleTableChange}
           />
         </Spin>
@@ -578,7 +644,7 @@ const LeadsList: React.FC = () => {
           form.resetFields();
         }}
         footer={null}
-        width={600}
+        width={800}
         className="page-modal"
       >
         <Form
@@ -586,61 +652,160 @@ const LeadsList: React.FC = () => {
           layout="vertical"
           onFinish={handleAdd}
         >
-          <Form.Item
-            name="phone"
-            label="手机号"
-            rules={[
-              {
-                validator: (_, value) => {
-                  const wechat = form.getFieldValue('wechat');
-                  if (!value && !wechat) {
-                    return Promise.reject(new Error('请至少填写手机号或微信号'));
+          <div style={{ 
+            marginBottom: 16, 
+            padding: 12, 
+            backgroundColor: '#f6ffed', 
+            border: '1px solid #b7eb8f', 
+            borderRadius: 6 
+          }}>
+            <div style={{ color: '#52c41a', fontWeight: 500, marginBottom: 4 }}>
+              💡 线索分配提示
+            </div>
+            <div style={{ fontSize: 12, color: '#666', lineHeight: 1.5 }}>
+              系统会根据渠道、线索类型、区域等信息自动分配销售管家。
+              填写越详细，分配越精准。
+            </div>
+          </div>
+          
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="phone"
+                label="手机号"
+                rules={[
+                  {
+                    validator: (_, value) => {
+                      const wechat = form.getFieldValue('wechat');
+                      if (!value && !wechat) {
+                        return Promise.reject(new Error('请至少填写手机号或微信号'));
+                      }
+                      return Promise.resolve();
+                    }
                   }
-                  return Promise.resolve();
-                }
-              }
-            ]}
-          >
-            <Input placeholder="请输入手机号（可选）" />
-          </Form.Item>
-          
-          <Form.Item
-            name="wechat"
-            label="微信号"
-            rules={[
-              {
-                validator: (_, value) => {
-                  const phone = form.getFieldValue('phone');
-                  if (!value && !phone) {
-                    return Promise.reject(new Error('请至少填写手机号或微信号'));
+                ]}
+              >
+                <Input placeholder="请输入手机号（可选）" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="wechat"
+                label="微信号"
+                rules={[
+                  {
+                    validator: (_, value) => {
+                      const phone = form.getFieldValue('phone');
+                      if (!value && !phone) {
+                        return Promise.reject(new Error('请至少填写手机号或微信号'));
+                      }
+                      return Promise.resolve();
+                    }
                   }
-                  return Promise.resolve();
-                }
-              }
-            ]}
-          >
-            <Input placeholder="请输入微信号（可选）" />
-          </Form.Item>
+                ]}
+              >
+                <Input placeholder="请输入微信号（可选）" />
+              </Form.Item>
+            </Col>
+          </Row>
           
-          <Form.Item
-            name="source"
-            label="渠道"
-            rules={[{ required: true, message: '请选择渠道' }]}
-          >
-            <Select placeholder="请选择渠道" options={sourceEnum} />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="source"
+                label="渠道"
+                rules={[{ required: true, message: '请选择渠道' }]}
+              >
+                <Select placeholder="请选择渠道" options={sourceEnum} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="community"
+                label="社区"
+                rules={[{ required: true, message: '请选择社区' }]}
+              >
+                <Select placeholder="请选择社区" options={communityOptions} />
+              </Form.Item>
+            </Col>
+          </Row>
           
-          <Form.Item
-            name="remark"
-            label="备注"
-          >
-            <TextArea 
-              rows={3} 
-              placeholder="请输入备注信息（可选）"
-              maxLength={500}
-              showCount
-            />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="budget"
+                label="预算"
+              >
+                <Select placeholder="请选择预算范围" allowClear>
+                  <Select.Option value="2000以下">2000以下</Select.Option>
+                  <Select.Option value="2000～2500">2000～2500</Select.Option>
+                  <Select.Option value="2500～3000">2500～3000</Select.Option>
+                  <Select.Option value="3000～4000">3000～4000</Select.Option>
+                  <Select.Option value="4000以上">4000以上</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="leadtype"
+                label="线索类型"
+              >
+                <Select
+                  mode="tags"
+                  placeholder="请选择或输入线索类型"
+                  allowClear
+                  options={leadTypeOptions.length > 0 ? leadTypeOptions : [
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          
+
+          
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="campaignname"
+                label="广告计划"
+              >
+                <Input placeholder="请输入广告计划名称（可选）" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="unitname"
+                label="广告单元"
+              >
+                <Input placeholder="请输入广告单元名称（可选）" />
+              </Form.Item>
+            </Col>
+          </Row>
+          
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="creativename"
+                label="创意名称"
+              >
+                <Input placeholder="请输入创意名称（可选）" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="remark"
+                label="备注"
+              >
+                <TextArea 
+                  rows={3} 
+                  placeholder="请输入备注信息（可选）"
+                  maxLength={500}
+                  showCount
+                  style={{ marginBottom: 16 }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
           
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>

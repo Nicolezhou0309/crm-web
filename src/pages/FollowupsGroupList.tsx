@@ -109,6 +109,7 @@ const FollowupsGroupList: React.FC = () => {
   // 在组件内部
   const [phoneSearch, setPhoneSearch] = useState('');
   const [wechatSearch, setWechatSearch] = useState('');
+  const [keywordSearch, setKeywordSearch] = useState('');
 
   // 2. 步骤条、表单字段、label
   const followupStages = [
@@ -163,7 +164,7 @@ const FollowupsGroupList: React.FC = () => {
     'p_offset', 'p_remark',
     'p_scheduledcommunity',
     'p_source', 'p_userbudget', 'p_userrating',
-    'p_wechat', 'p_worklocation', 'p_phone'
+    'p_wechat', 'p_worklocation', 'p_phone', 'p_keyword'
   ];
 
   // 查询明细数据（后端分页）
@@ -172,6 +173,12 @@ const FollowupsGroupList: React.FC = () => {
     page = pagination.current,
     pageSize = pagination.pageSize
   ) => {
+    console.log('🔍 [fetchFollowups] 开始获取跟进记录...', {
+      filters,
+      page,
+      pageSize
+    });
+    
     setLoading(true);
     try {
       // 计算分页参数
@@ -223,19 +230,40 @@ const FollowupsGroupList: React.FC = () => {
         Object.entries(params).filter(([key]) => allowedParams.includes(key) || key === 'p_groupby_field')
       );
 
-      console.log('fetchFollowups params:', rpcParams, 'typeof:', typeof rpcParams.p_interviewsales_user_id, 'value:', rpcParams.p_interviewsales_user_id);
-      console.log('p_scheduledcommunity:', rpcParams.p_scheduledcommunity, 'type:', typeof rpcParams.p_scheduledcommunity);
+      console.log('📤 [fetchFollowups] 发送参数:', rpcParams);
+      console.log('🔍 [fetchFollowups] interviewsales_user_id类型:', typeof rpcParams.p_interviewsales_user_id, '值:', rpcParams.p_interviewsales_user_id);
+      console.log('🔍 [fetchFollowups] p_scheduledcommunity:', rpcParams.p_scheduledcommunity, '类型:', typeof rpcParams.p_scheduledcommunity);
 
       const { data, error } = await supabase.rpc('filter_followups', rpcParams);
       
+      console.log('📥 [fetchFollowups] 接收结果:', {
+        dataCount: data?.length || 0,
+        error: error?.message,
+        firstRecord: data?.[0]
+      });
+      
       if (error) {
+        console.error('❌ [fetchFollowups] 获取跟进记录失败:', error);
         message.error('获取跟进记录失败: ' + error.message);
       } else {
         const total = data && data.length > 0 ? Number(data[0].total_count) : 0;
         
+        console.log('📊 [fetchFollowups] 数据统计:', {
+          total,
+          dataLength: data?.length || 0,
+          firstRecordId: data?.[0]?.id,
+          firstRecordInterviewsalesUserId: data?.[0]?.interviewsales_user_id
+        });
+        
         // 前端校验：只保留id非空且唯一的行
         const filtered = (data || []).filter((item: any): item is Followup => !!item && !!item.id);
         const unique = Array.from(new Map(filtered.map((i: Followup) => [i.id, i])).values()) as Followup[];
+        
+        console.log('🔍 [fetchFollowups] 数据过滤结果:', {
+          originalCount: data?.length || 0,
+          filteredCount: filtered.length,
+          uniqueCount: unique.length
+        });
         
         // 类型安全处理
         const safeData = unique.map((item: unknown) => {
@@ -262,11 +290,22 @@ const FollowupsGroupList: React.FC = () => {
           return newItem as Followup;
         });
 
+        console.log('✅ [fetchFollowups] 最终数据:', {
+          safeDataLength: safeData.length,
+          sampleRecord: safeData[0] ? {
+            id: safeData[0].id,
+            leadid: safeData[0].leadid,
+            interviewsales_user_id: safeData[0].interviewsales_user_id,
+            interviewsales_user_name: safeData[0].interviewsales_user_name
+          } : null
+        });
+
         setData(safeData);
         setPagination(prev => ({ ...prev, total, current: page, pageSize }));
         setInputCache({});
       }
     } catch (error) {
+      console.error('❌ [fetchFollowups] 异常:', error);
       message.error('获取跟进记录失败');
     } finally {
       setLoading(false);
@@ -275,7 +314,13 @@ const FollowupsGroupList: React.FC = () => {
 
   // 获取分组统计
   const fetchGroupCount = async (groupFieldParam = groupField) => {
+    console.log('📊 [fetchGroupCount] 开始获取分组统计...', {
+      groupFieldParam,
+      groupField
+    });
+    
     if (!groupFieldParam) {
+      console.log('⚠️ [fetchGroupCount] 分组字段为空，清空分组数据');
       setGroupRowsCache([]);
       setGroupTotal(0); // 分组字段为空时总数为0
       return;
@@ -286,6 +331,13 @@ const FollowupsGroupList: React.FC = () => {
       const filterKey = 'p_' + groupFieldParam;
       const { [filterKey]: _, ...restFilters } = tableFilters;
       const params = { p_groupby_field: groupFieldParam, ...restFilters };
+      
+      console.log('🔍 [fetchGroupCount] 分组参数:', {
+        groupFieldParam,
+        filterKey,
+        restFilters,
+        params
+      });
       
       // 确保数组参数正确传递（与fetchFollowups保持一致）
       const arrayParams = [
@@ -313,26 +365,65 @@ const FollowupsGroupList: React.FC = () => {
         Object.entries(params).filter(([key]) => allowedParams.includes(key) || key === 'p_groupby_field')
       );
       
-      console.log('fetchGroupCount params:', rpcParams);
+      console.log('📤 [fetchGroupCount] 发送参数:', rpcParams);
       
       const { data, error } = await supabase.rpc('group_count_filter_followups', rpcParams);
+      
+      console.log('📥 [fetchGroupCount] 接收结果:', {
+        dataCount: data?.length || 0,
+        error: error?.message,
+        sampleGroup: data?.[0]
+      });
+      
       if (error) {
+        console.error('❌ [fetchGroupCount] 获取分组统计失败:', error);
         message.error('获取分组统计失败: ' + error.message);
         setGroupRowsCache([]);
         setGroupTotal(0);
         return;
       }
-      setGroupRowsCache(
-        data.map((g: any) => ({
-          key: g.group_id ?? g.group_value, // key用ID
-          groupValue: g.group_id ?? g.group_value, // groupValue用ID
-          groupText: g.group_value, // groupText用昵称
-          count: g.count,
-        }))
-      );
+      
+      // 对分组结果进行排序，未分配/空值置顶
+      const sortedData = data.sort((a: any, b: any) => {
+        const aIsNull = a.group_id === null || a.group_value === null || 
+                        a.group_id === undefined || a.group_value === undefined ||
+                        String(a.group_id).toLowerCase() === 'null' || 
+                        String(a.group_value).toLowerCase() === 'null' ||
+                        a.group_value === '' || a.group_value === '未分组';
+        const bIsNull = b.group_id === null || b.group_value === null || 
+                        b.group_id === undefined || b.group_value === undefined ||
+                        String(b.group_id).toLowerCase() === 'null' || 
+                        String(b.group_value).toLowerCase() === 'null' ||
+                        b.group_value === '' || b.group_value === '未分组';
+        
+        if (aIsNull && !bIsNull) return -1; // a是null，b不是null，a排在前面
+        if (!aIsNull && bIsNull) return 1;  // a不是null，b是null，b排在前面
+        return 0; // 都是null或都不是null，保持原有顺序
+      });
+      
+      const groupRows = sortedData.map((g: any) => ({
+        key: g.group_id ?? g.group_value, // key用ID
+        groupValue: g.group_id ?? g.group_value, // groupValue用ID
+        groupText: g.group_value, // groupText用昵称
+        count: g.count,
+      }));
+      
+      console.log('📊 [fetchGroupCount] 分组结果:', {
+        originalCount: data?.length || 0,
+        sortedCount: sortedData.length,
+        groupRowsCount: groupRows.length,
+        sampleGroup: groupRows[0]
+      });
+      
+      setGroupRowsCache(groupRows);
       // 统计总数
       const total = data.reduce((sum: number, g: any) => sum + Number(g.count), 0);
       setGroupTotal(total);
+      
+      console.log('✅ [fetchGroupCount] 分组统计完成:', {
+        total,
+        groupRowsCount: groupRows.length
+      });
     } finally {
       setLoading(false);
     }
@@ -392,6 +483,7 @@ const FollowupsGroupList: React.FC = () => {
     
     setTableFilters(newFilters);
     setPagination(p => ({ ...p, current: 1 }));
+    // 只刷新明细数据，不刷新分组统计
     fetchFollowups(newFilters, 1, pagination.pageSize);
   };
 
@@ -403,23 +495,30 @@ const FollowupsGroupList: React.FC = () => {
       const filterKey = 'p_' + groupField;
       if (tableFilters[filterKey] && Array.isArray(tableFilters[filterKey]) && tableFilters[filterKey][0]) {
         setSelectedGroup(tableFilters[filterKey][0]);
+      } else if (groupField === 'created_at' && (tableFilters.p_created_at_start || tableFilters.p_created_at_end)) {
+        // 创建日期分组特殊处理：检查日期区间
+        const startDate = tableFilters.p_created_at_start;
+        if (startDate) {
+          setSelectedGroup(dayjs(startDate).format('YYYY-MM-DD'));
+        } else {
+          setSelectedGroup('');
+        }
       } else {
-    setSelectedGroup('');
+        setSelectedGroup('');
       }
     } else {
       setSelectedGroup('');
       setGroupRowsCache([]);
     }
     setPagination(p => ({ ...p, current: 1 }));
-    // 不再刷新明细区
-    // fetchFollowups(tableFilters);
   }, [groupField]);
 
-  // tableFilters 变化时，明细和分组统计都要刷新，但不再清空 selectedGroup
+  // 优化：分离明细数据刷新和分组统计刷新
+  // 当tableFilters变化时，只刷新明细数据
   useEffect(() => {
-    fetchFollowups(tableFilters);
-    if (groupField) {
-      fetchGroupCount(groupField);
+    // 避免初始化时的重复调用
+    if (Object.keys(tableFilters).length > 0) {
+      fetchFollowups(tableFilters);
     }
   }, [JSON.stringify(tableFilters)]);
 
@@ -428,16 +527,49 @@ const FollowupsGroupList: React.FC = () => {
     setGroupPanelOpen(!!groupField);
   }, [groupField]);
 
-  // 首次加载、筛选/分组字段变化时，先请求分组统计，再请求明细
-  useEffect(() => {
-    if (groupField) {
-      fetchGroupCount(groupField);
-    }
-    fetchFollowups(tableFilters);
-  }, [groupField, JSON.stringify(tableFilters)]);
+  // 移除重复的useEffect，避免多次调用
+  // useEffect(() => {
+  //   if (groupField) {
+  //     fetchGroupCount(groupField);
+  //   }
+  //   fetchFollowups(tableFilters);
+  // }, [groupField, JSON.stringify(tableFilters)]);
 
   // 首次加载数据
   useEffect(() => {
+    console.log('🚀 [FollowupsGroupList] 组件初始化，开始加载数据');
+    console.log('🔍 [FollowupsGroupList] 当前用户信息检查...');
+    
+    // 检查当前用户信息
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      console.log('👤 [FollowupsGroupList] 当前用户:', {
+        id: user?.id,
+        email: user?.email,
+        error: error?.message
+      });
+    });
+    
+    // 检查用户权限
+    supabase.rpc('has_permission', { resource: 'lead', action: 'manage' }).then(({ data, error }) => {
+      console.log('🔑 [FollowupsGroupList] lead管理权限检查:', {
+        hasPermission: data,
+        error: error?.message
+      });
+    });
+    
+    // 检查用户角色
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        supabase.rpc('get_user_roles', { p_user_id: user.id }).then(({ data: roles, error }) => {
+          console.log('🎭 [FollowupsGroupList] 用户角色:', {
+            roles,
+            error: error?.message
+          });
+        });
+      }
+    });
+    
+    // 初始化时加载数据
     fetchFollowups();
   }, []);
 
@@ -1043,11 +1175,15 @@ const FollowupsGroupList: React.FC = () => {
 
   // Table onChange事件处理（支持分页+受控筛选）
   const handleTableChange = (_pagination: any, filters: any) => {
-    console.log('handleTableChange columns:', columns);
-    console.log('handleTableChange tableColumnFilters:', tableColumnFilters);
-    console.log('handleTableChange filters:', filters);
+    console.log('🔄 [handleTableChange] 表格筛选变化:', {
+      pagination: _pagination,
+      filters,
+      currentPagination: pagination,
+      currentTableFilters: tableFilters
+    });
     
     if (_pagination.current !== pagination.current || _pagination.pageSize !== pagination.pageSize) {
+      console.log('📄 [handleTableChange] 分页变化，直接更新分页');
       setPagination(prev => ({ ...prev, current: _pagination.current, pageSize: _pagination.pageSize }));
       fetchFollowups(tableFilters, _pagination.current, _pagination.pageSize);
       return;
@@ -1056,6 +1192,11 @@ const FollowupsGroupList: React.FC = () => {
     const params: any = { ...tableFilters };
     
     Object.keys(filters).forEach(key => {
+      console.log(`🔍 [handleTableChange] 处理筛选字段: ${key}`, {
+        filterValue: filters[key],
+        currentParams: params[key]
+      });
+      
       if (key === 'interviewsales_user_id') {
         if (filters[key] && filters[key].length > 0) {
           const values = filters[key].map((v: any) => {
@@ -1066,19 +1207,19 @@ const FollowupsGroupList: React.FC = () => {
           // 如果只包含null，传递[null]表示IS NULL条件
           if (values.length === 1 && values[0] === null) {
             params[`p_${key}`] = [null];
-            console.log(`Setting ${key} to [null] for IS NULL condition`);
+            console.log(`✅ [handleTableChange] 设置 ${key} 为 [null] (IS NULL条件)`);
           } else if (values.includes(null)) {
             // 如果包含null和其他值，传递所有值（后端会处理IS NULL和= ANY）
             params[`p_${key}`] = values;
-            console.log(`Setting ${key} to mixed values:`, values);
+            console.log(`✅ [handleTableChange] 设置 ${key} 为混合值:`, values);
           } else {
             // 只有非null值
             params[`p_${key}`] = values;
-            console.log(`Setting ${key} to non-null values:`, values);
+            console.log(`✅ [handleTableChange] 设置 ${key} 为非null值:`, values);
           }
         } else {
           delete params[`p_${key}`];
-          console.log(`Removing ${key} parameter`);
+          console.log(`🗑️ [handleTableChange] 移除 ${key} 参数`);
         }
         return;
       }
@@ -1089,19 +1230,19 @@ const FollowupsGroupList: React.FC = () => {
           // 如果只包含null，传递[null]表示IS NULL条件
           if (filters[key].length === 1 && filters[key][0] === null) {
             params[`p_${key}`] = [null];
-            console.log(`Setting ${key} to [null] for IS NULL condition`);
+            console.log(`✅ [handleTableChange] 设置枚举字段 ${key} 为 [null] (IS NULL条件)`);
           } else if (filters[key].includes(null)) {
             // 如果包含null和其他值，传递所有值
             params[`p_${key}`] = filters[key].map((v: any) => v === null ? null : String(v));
-            console.log(`Setting ${key} to mixed values:`, params[`p_${key}`]);
+            console.log(`✅ [handleTableChange] 设置枚举字段 ${key} 为混合值:`, params[`p_${key}`]);
           } else {
             // 只有非null值
             params[`p_${key}`] = filters[key].map((v: any) => String(v));
-            console.log(`Setting ${key} to non-null values:`, params[`p_${key}`]);
+            console.log(`✅ [handleTableChange] 设置枚举字段 ${key} 为非null值:`, params[`p_${key}`]);
           }
         } else {
           delete params[`p_${key}`];
-          console.log(`Removing ${key} parameter`);
+          console.log(`🗑️ [handleTableChange] 移除枚举字段 ${key} 参数`);
         }
         return;
       }
@@ -1112,21 +1253,21 @@ const FollowupsGroupList: React.FC = () => {
           // 如果只包含null，传递[null]表示IS NULL条件
           if (filters[key].length === 1 && filters[key][0] === null) {
             params[`p_${key}`] = [null];
-            console.log(`Setting ${key} to [null] for IS NULL condition`);
+            console.log(`✅ [handleTableChange] 设置 ${key} 为 [null] (IS NULL条件)`);
           } else if (filters[key].includes(null)) {
             // 如果包含null和其他值，传递所有值
             params[`p_${key}`] = filters[key].map((v: string | null) => 
               v === null ? null : String(v).trim()
             ).filter(v => v !== undefined);
-            console.log(`Setting ${key} to mixed values:`, params[`p_${key}`]);
+            console.log(`✅ [handleTableChange] 设置 ${key} 为混合值:`, params[`p_${key}`]);
           } else {
             // 只有非null值
             params[`p_${key}`] = filters[key].map((v: string | null) => String(v).trim());
-            console.log(`Setting ${key} to non-null values:`, params[`p_${key}`]);
+            console.log(`✅ [handleTableChange] 设置 ${key} 为非null值:`, params[`p_${key}`]);
           }
         } else {
           delete params[`p_${key}`];
-          console.log(`Removing ${key} parameter`);
+          console.log(`🗑️ [handleTableChange] 移除 ${key} 参数`);
         }
         return;
       }
@@ -1138,12 +1279,15 @@ const FollowupsGroupList: React.FC = () => {
           params[`p_${key}_start`] = dayjs(val[0]).startOf('day').format('YYYY-MM-DD HH:mm:ss');
           params[`p_${key}_end`] = dayjs(val[1]).endOf('day').format('YYYY-MM-DD HH:mm:ss');
           params[key] = val;
-          console.log(`Setting ${key} date range:`, params[`p_${key}_start`], 'to', params[`p_${key}_end`]);
+          console.log(`✅ [handleTableChange] 设置时间字段 ${key} 范围:`, {
+            start: params[`p_${key}_start`],
+            end: params[`p_${key}_end`]
+          });
         } else {
           delete params[`p_${key}_start`];
           delete params[`p_${key}_end`];
           delete params[key];
-          console.log(`Removing ${key} date parameters`);
+          console.log(`🗑️ [handleTableChange] 移除时间字段 ${key} 参数`);
         }
         return;
       }
@@ -1157,19 +1301,19 @@ const FollowupsGroupList: React.FC = () => {
           // 如果只包含null，传递[null]表示IS NULL条件
           if (filters[key].length === 1 && filters[key][0] === null) {
             params[paramKey] = [null];
-            console.log(`Setting ${paramKey} to [null] for IS NULL condition`);
+            console.log(`✅ [handleTableChange] 设置多选字段 ${paramKey} 为 [null] (IS NULL条件)`);
           } else if (filters[key].includes(null)) {
             // 如果包含null和其他值，传递所有值
             params[paramKey] = filters[key];
-            console.log(`Setting ${paramKey} to mixed values:`, params[paramKey]);
+            console.log(`✅ [handleTableChange] 设置多选字段 ${paramKey} 为混合值:`, params[paramKey]);
           } else {
             // 只有非null值
             params[paramKey] = filters[key];
-            console.log(`Setting ${paramKey} to non-null values:`, params[paramKey]);
+            console.log(`✅ [handleTableChange] 设置多选字段 ${paramKey} 为非null值:`, params[paramKey]);
           }
         } else {
           delete params[paramKey];
-          console.log(`Removing ${paramKey} parameter`);
+          console.log(`🗑️ [handleTableChange] 移除多选字段 ${paramKey} 参数`);
         }
         return;
       }
@@ -1182,19 +1326,19 @@ const FollowupsGroupList: React.FC = () => {
         // 如果只包含null，传递[null]表示IS NULL条件
         if (filters[key].length === 1 && filters[key][0] === null) {
           params[paramKey] = [null];
-          console.log(`Setting ${paramKey} to [null] for IS NULL condition`);
+          console.log(`✅ [handleTableChange] 设置普通字段 ${paramKey} 为 [null] (IS NULL条件)`);
         } else if (filters[key].includes(null)) {
           // 如果包含null和其他值，传递所有值
           params[paramKey] = key === 'remark' ? filters[key] : filters[key];
-          console.log(`Setting ${paramKey} to mixed values:`, params[paramKey]);
+          console.log(`✅ [handleTableChange] 设置普通字段 ${paramKey} 为混合值:`, params[paramKey]);
         } else {
           // 只有非null值
           params[paramKey] = key === 'remark' ? filters[key][0] : filters[key];
-          console.log(`Setting ${paramKey} to non-null values:`, params[paramKey]);
+          console.log(`✅ [handleTableChange] 设置普通字段 ${paramKey} 为非null值:`, params[paramKey]);
         }
       } else {
         delete params[paramKey];
-        console.log(`Removing ${paramKey} parameter`);
+        console.log(`🗑️ [handleTableChange] 移除普通字段 ${paramKey} 参数`);
       }
     });
 
@@ -1203,14 +1347,14 @@ const FollowupsGroupList: React.FC = () => {
       const filterKey = 'p_' + groupField;
       if (selectedGroup === 'null') {
         params[filterKey] = [null];
-        console.log(`Setting group filter ${filterKey} to [null]`);
+        console.log(`✅ [handleTableChange] 设置分组筛选 ${filterKey} 为 [null]`);
       } else {
         params[filterKey] = [selectedGroup];
-        console.log(`Setting group filter ${filterKey} to [${selectedGroup}]`);
+        console.log(`✅ [handleTableChange] 设置分组筛选 ${filterKey} 为 [${selectedGroup}]`);
       }
     }
 
-    console.log('handleTableChange final params:', params);
+    console.log('📤 [handleTableChange] 最终参数:', params);
     setTableFilters(params);
     setTableColumnFilters(filters);
     setPagination(p => ({ ...p, current: 1 }));
@@ -1234,10 +1378,18 @@ const FollowupsGroupList: React.FC = () => {
 
   // 模糊搜索
   const handleGlobalSearch = (value: string) => {
-    const params = { ...tableFilters, p_keyword: value || null };
+    setKeywordSearch(value);
+    const params = { ...tableFilters };
+    
+    if (value && value.trim()) {
+      params.p_keyword = value.trim();
+    } else {
+      delete params.p_keyword;
+    }
+    
     setTableFilters(params);
     setPagination(p => ({ ...p, current: 1 }));
-    // 重新查询明细
+    // 只刷新明细数据，不刷新分组统计
     fetchFollowups(params);
   };
 
@@ -1266,11 +1418,12 @@ const FollowupsGroupList: React.FC = () => {
     } else {
       delete newFilters.p_created_at_start;
       delete newFilters.p_created_at_end;
-      }
+    }
     setTableFilters(newFilters);
     setPagination(p => ({ ...p, current: 1 }));
+    // 只刷新明细数据，不刷新分组统计
     fetchFollowups(newFilters, 1, pagination.pageSize);
-    }
+  }
 
   // 监听tableFilters变化，自动高亮快捷日期按钮
   useEffect(() => {
@@ -1307,6 +1460,51 @@ const FollowupsGroupList: React.FC = () => {
     }
   }, [groupField, tableFilters.p_created_at_start, tableFilters.p_created_at_end]);
 
+  // 专门处理分组统计刷新：只在分组字段变化时刷新，不在分组点击时刷新
+  useEffect(() => {
+    if (groupField) {
+      fetchGroupCount(groupField);
+    }
+  }, [groupField]);
+
+  // 首次加载数据
+  useEffect(() => {
+    console.log('🚀 [FollowupsGroupList] 组件初始化，开始加载数据');
+    console.log('🔍 [FollowupsGroupList] 当前用户信息检查...');
+    
+    // 检查当前用户信息
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      console.log('👤 [FollowupsGroupList] 当前用户:', {
+        id: user?.id,
+        email: user?.email,
+        error: error?.message
+      });
+    });
+    
+    // 检查用户权限
+    supabase.rpc('has_permission', { resource: 'lead', action: 'manage' }).then(({ data, error }) => {
+      console.log('🔑 [FollowupsGroupList] lead管理权限检查:', {
+        hasPermission: data,
+        error: error?.message
+      });
+    });
+    
+    // 检查用户角色
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        supabase.rpc('get_user_roles', { p_user_id: user.id }).then(({ data: roles, error }) => {
+          console.log('🎭 [FollowupsGroupList] 用户角色:', {
+            roles,
+            error: error?.message
+          });
+        });
+      }
+    });
+    
+    // 初始化时加载数据
+    fetchFollowups();
+  }, []);
+
   return (
     <div className="page-card">
       {/* 顶部操作区 */}
@@ -1316,8 +1514,10 @@ const FollowupsGroupList: React.FC = () => {
         </Title>
         <Space>
           <Search
-            placeholder="线索编号、手机号、微信号"
+            placeholder="线索编号、手机号、微信号、管家昵称等"
             allowClear
+            value={keywordSearch}
+            onChange={(e) => setKeywordSearch(e.target.value)}
             onSearch={handleGlobalSearch}
             className="page-search"
             style={{ width: 260 }}
@@ -1345,6 +1545,24 @@ const FollowupsGroupList: React.FC = () => {
       </div>
       {/* 筛选条件标签区 */}
       <div style={{ margin: '8px 0 0 0', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+        {/* 关键字搜索Tag */}
+        {tableFilters.p_keyword && (
+          <Tag
+            closable
+            className="filter-tag"
+            onClose={() => {
+              const newFilters = { ...tableFilters };
+              delete newFilters.p_keyword;
+              setTableFilters(newFilters);
+              setKeywordSearch('');
+              setPagination(p => ({ ...p, current: 1 }));
+              fetchFollowups(newFilters, 1, pagination.pageSize);
+            }}
+            style={{ marginRight: 8, marginBottom: 8 }}
+          >
+            关键字: {tableFilters.p_keyword}
+          </Tag>
+        )}
         {/* 合并创建日期区间Tag */}
         {tableFilters.p_created_at_start && tableFilters.p_created_at_end && (
           <Tag
@@ -1526,15 +1744,25 @@ const FollowupsGroupList: React.FC = () => {
           {/* 分组按钮列表：每个分组一个按钮，支持高亮和取消分组 */}
           <div style={{ maxHeight: 600, overflowY: 'auto' }}>
             {groupRowsCache.map(group => {
-              const isSelected = selectedGroup === group.key;
               // 约访管家和带看管家分组时展示昵称
               let groupLabel = group.groupText || group.key;
-              
               // 处理预约社区字段的NULL值显示
               if (groupField === 'scheduledcommunity' && (group.key === null || group.key === 'null' || group.key === '' || group.groupText === '未分组')) {
                 groupLabel = '未分配';
               }
-              
+
+              // 统一未分配分组的选中判断逻辑
+              const isNullOrEmpty = (val: any) =>
+                val === null ||
+                val === undefined ||
+                String(val).toLowerCase() === 'null' ||
+                String(val) === '' ||
+                val === '未分组';
+
+              const isSelected =
+                (isNullOrEmpty(group.key) && (selectedGroup === 'null' || isNullOrEmpty(selectedGroup))) ||
+                String(selectedGroup) === String(group.key);
+
               return (
                 <div
                   key={`group_${groupField || 'unknown'}_${group.key}`}

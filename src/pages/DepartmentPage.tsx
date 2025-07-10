@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Tree, Table, Button, Modal, Form, Input, message, Badge, Dropdown, Space, Select, Tag } from 'antd';
+import { useState, useEffect, useMemo } from 'react';
+import { Tree, Table, Button, Modal, Form, Input, message, Badge, Dropdown, Space, Select, Tag, List, Card, Avatar, Typography } from 'antd';
 import { supabase } from '../supaClient';
-import { EllipsisOutlined, ExclamationCircleOutlined, CrownOutlined, MailOutlined } from '@ant-design/icons';
+import { EllipsisOutlined, ExclamationCircleOutlined, CrownOutlined, MailOutlined, SearchOutlined, UserOutlined, TeamOutlined } from '@ant-design/icons';
 import { PermissionGate } from '../components/PermissionGate';
 import type { Key } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
+
+const { Search } = Input;
+const { Text } = Typography;
 
 const statusColorMap: Record<string, string> = {
   active: 'green',
@@ -32,10 +35,20 @@ const DepartmentPage = () => {
   const [setAdminForm] = Form.useForm();
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
-  const { canManageOrganization } = usePermissions();
+  const { canManageOrganization, canManageUser } = usePermissions();
   const [showResetEmail, setShowResetEmail] = useState(false);
   const [resetEmailForm] = Form.useForm();
   const [currentResetUser, setCurrentResetUser] = useState<any>(null);
+  
+  // 新增：人员清单相关状态
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [filteredMembers, setFilteredMembers] = useState<any[]>([]);
+  const [showMemberList, setShowMemberList] = useState(true); // 控制人员清单显示
+  
+  // 新增：树节点搜索关键词
+  const [treeSearch, setTreeSearch] = useState('');
+  // 新增：自动展开的keys
+  const [autoExpandKeys, setAutoExpandKeys] = useState<Key[]>([]);
   
   // 检查用户认证状态
   const checkAuthStatus = async () => {
@@ -74,6 +87,19 @@ const DepartmentPage = () => {
     fetchAllUsers();
   }, []);
 
+  useEffect(() => {
+    if (selectedDept) {
+      fetchMembers(selectedDept.id);
+    } else {
+      fetchMembers(null);
+    }
+  }, [selectedDept]);
+
+  // 新增：过滤人员列表
+  useEffect(() => {
+    filterMembers();
+  }, [searchKeyword, members]);
+
   const fetchDepartments = async () => {
     // 1. 查所有部门
     const { data: orgs } = await supabase.from('organizations').select('*');
@@ -101,14 +127,6 @@ const DepartmentPage = () => {
     setAllUsers(data || []);
   };
 
-  useEffect(() => {
-    if (selectedDept) {
-      fetchMembers(selectedDept.id);
-    } else {
-      fetchMembers(null);
-    }
-  }, [selectedDept]);
-
   const fetchMembers = async (deptId: string | null) => {
     setLoading(true);
     setMembers([]); // 切换部门时先清空成员
@@ -129,101 +147,109 @@ const DepartmentPage = () => {
     setLoading(false);
   };
 
-  const handleInviteMember = async () => {
-    try {
-      const values = await form.validateFields();
-      console.log('邀请成员:', values);
-      
-      // 使用新的邀请功能 - 统一传递name字段
-      await handleInviteUser(values.email, values.name);
-      
-      setShowInviteMember(false);
-      form.resetFields();
-    } catch (error: any) {
-      console.error('邀请成员失败:', error);
-      message.error('邀请成员失败: ' + error.message);
+  // 新增：过滤人员列表
+  const filterMembers = () => {
+    if (!searchKeyword.trim()) {
+      setFilteredMembers(members);
+      return;
     }
+
+    const keyword = searchKeyword.toLowerCase();
+    const filtered = members.filter(member => 
+      member.nickname?.toLowerCase().includes(keyword) ||
+      member.email?.toLowerCase().includes(keyword) ||
+      member.organizations?.name?.toLowerCase().includes(keyword)
+    );
+    setFilteredMembers(filtered);
   };
 
-  const handleSetAdmin = async () => {
-    try {
-      const values = await setAdminForm.validateFields();
-      
-      // 直接使用Supabase客户端更新部门管理员
-      const { error } = await supabase
-        .from('organizations')
-        .update({ admin: values.admin_id })
-        .eq('id', selectedDept.id)
-        .select()
-        .single();
-      
-      if (error) throw new Error(error.message);
-      
-      message.success('管理员设置成功');
-      setShowSetAdmin(false);
-      setAdminForm.resetFields();
-      fetchDepartments();
-    } catch (error: any) {
-      message.error('设置失败: ' + error.message);
-    }
+  // 新增：高亮搜索关键词
+  const highlightText = (text: string, keyword: string) => {
+    if (!keyword.trim() || !text) return text;
+    
+    const regex = new RegExp(`(${keyword})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <span key={index} style={{ backgroundColor: '#ffd54f', fontWeight: 'bold' }}>
+          {part}
+        </span>
+      ) : part
+    );
   };
 
-  const handleRemoveAdmin = async () => {
-    try {
-      // 直接使用Supabase客户端移除部门管理员
-      const { error } = await supabase
-        .from('organizations')
-        .update({ admin: null })
-        .eq('id', selectedDept.id)
-        .select()
-        .single();
-      
-      if (error) throw new Error(error.message);
-      
-      message.success('管理员移除成功');
-      fetchDepartments();
-    } catch (error: any) {
-      message.error('移除失败: ' + error.message);
-    }
+  // 高亮函数：支持人员/部门不同class
+  const highlightTreeText = (text: string, keyword: string, isPerson = false) => {
+    if (!keyword.trim() || !text) return text;
+    const safeKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${safeKeyword})`, 'gi');
+    return text.split(regex).map((part, idx) =>
+      regex.test(part)
+        ? <span key={idx} className={isPerson ? 'tree-highlight-person' : 'tree-highlight-dept'}>{part}</span>
+        : part
+    );
   };
 
-  const handleResetEmail = async () => {
-    try {
-      const values = await resetEmailForm.validateFields();
-      const newEmail = values.newEmail;
-      
-      console.log('✅ 邮箱格式验证通过，准备重置邮箱');
-      console.log('📝 用户输入的新邮箱:', newEmail);
-      
-      if (currentResetUser.user_id) {
-        // 已注册用户：使用内置的邮箱变更功能
-        console.log('📤 重置已注册用户邮箱');
-        await handleChangeEmail(currentResetUser.user_id, newEmail);
-      } else {
-        console.error('❌ 未注册用户暂不支持重置邮箱，请先邀请用户注册');
-        message.error('未注册用户暂不支持重置邮箱，请先邀请用户注册');
-        return;
+  // 递归查找所有包含搜索结果的部门key（含父节点）
+  const getMatchedDeptKeys = (list: any[], parentId: string | null = null, parentPath: string[] = []) => {
+    let keys: string[] = [];
+    list.filter(item => item.parent_id === parentId).forEach(item => {
+      const deptNameMatch = treeSearch && item.name && item.name.toLowerCase().includes(treeSearch.toLowerCase());
+      // 找到该部门的直属人员
+      const deptMembers = members.filter(m => m.organization_id === item.id);
+      const memberMatch = deptMembers.some(user => treeSearch && user.nickname && user.nickname.toLowerCase().includes(treeSearch.toLowerCase()));
+      // 如果本部门或直属人员有匹配，收集本部门和所有父节点
+      if (deptNameMatch || memberMatch) {
+        keys = keys.concat(parentPath, [item.id]);
       }
-      
-      setShowResetEmail(false);
-      resetEmailForm.resetFields();
-      setCurrentResetUser(null);
-    } catch (error: any) {
-      console.error('❌ 重置邮箱失败:', error);
-      message.error('重置邮箱失败: ' + error.message);
-    }
+      // 递归子部门
+      keys = keys.concat(getMatchedDeptKeys(list, item.id, parentPath.concat(item.id)));
+    });
+    return Array.from(new Set(keys));
   };
 
-  // 构建treeData，节点只含name和children
+  // 监听treeSearch变化，自动展开包含结果的部门
+  useEffect(() => {
+    if (treeSearch.trim()) {
+      setAutoExpandKeys(getMatchedDeptKeys(departments));
+    } else {
+      setAutoExpandKeys([]);
+    }
+  }, [treeSearch, departments, members]);
+
+  // 构建treeData，人员节点样式和高亮修正
   const buildTree = (list: any[], parentId: string | null = null): any[] =>
     list
       .filter(item => item.parent_id === parentId)
-      .map(item => ({
-        title: item.name,
-        name: item.name,
-        key: item.id,
-        children: buildTree(list, item.id)
-      }));
+      .map(item => {
+        const deptMembers = members.filter(m => m.organization_id === item.id);
+        const memberNodes = deptMembers.map((user: any) => ({
+          key: `user_${user.user_id || user.email}`,
+          title: (
+            <span className="tree-member-node">
+              <UserOutlined className="tree-member-icon" />
+              <span className="tree-member-name">
+                {highlightTreeText(user.nickname || '未命名', treeSearch, true)}
+              </span>
+            </span>
+          ),
+          isLeaf: true,
+          selectable: false,
+        }));
+        return {
+          title: (
+            <span className="tree-dept-node">
+              {highlightTreeText(item.name, treeSearch, false)}
+            </span>
+          ),
+          key: item.id,
+          children: [
+            ...memberNodes,
+            ...buildTree(list, item.id)
+          ]
+        };
+      });
 
   // 递归获取所有子部门id（含自身）
   function getAllDeptIds(departments: any[], deptId: string): string[] {
@@ -408,18 +434,111 @@ const DepartmentPage = () => {
     }
   };
 
+  // 检查当前用户是否有权限管理指定组织
+  const hasManagePermission = (orgId: string | null) => {
+    if (!orgId) return false;
+    return canManageOrganization(orgId);
+  };
+
+  // 检查当前用户是否有权限管理指定用户
+  const hasUserManagePermission = (userOrgId: string | null) => {
+    if (!userOrgId) return false;
+    return canManageUser(userOrgId);
+  };
+
+  // 邀请成员弹窗回调
+  const handleInviteMember = async () => {
+    try {
+      const values = await form.validateFields();
+      await handleInviteUser(values.email, values.name);
+      setShowInviteMember(false);
+      form.resetFields();
+    } catch (error: any) {
+      message.error('邀请成员失败: ' + error.message);
+    }
+  };
+
+  // 设置管理员弹窗回调
+  const handleSetAdmin = async () => {
+    try {
+      const values = await setAdminForm.validateFields();
+      const { error } = await supabase
+        .from('organizations')
+        .update({ admin: values.admin_id })
+        .eq('id', selectedDept.id)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      message.success('管理员设置成功');
+      setShowSetAdmin(false);
+      setAdminForm.resetFields();
+      fetchDepartments();
+    } catch (error: any) {
+      message.error('设置失败: ' + error.message);
+    }
+  };
+
+  // 移除管理员回调
+  const handleRemoveAdmin = async () => {
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({ admin: null })
+        .eq('id', selectedDept.id)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      message.success('管理员移除成功');
+      fetchDepartments();
+    } catch (error: any) {
+      message.error('移除失败: ' + error.message);
+    }
+  };
+
+  // 重置邮箱弹窗回调
+  const handleResetEmail = async () => {
+    try {
+      const values = await resetEmailForm.validateFields();
+      const newEmail = values.newEmail;
+      if (currentResetUser.user_id) {
+        await handleChangeEmail(currentResetUser.user_id, newEmail);
+      } else {
+        message.error('未注册用户暂不支持重置邮箱，请先邀请用户注册');
+        return;
+      }
+      setShowResetEmail(false);
+      resetEmailForm.resetFields();
+      setCurrentResetUser(null);
+    } catch (error: any) {
+      message.error('重置邮箱失败: ' + error.message);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', padding: 24 }}>
       <div className="page-card dept-tree" style={{ width: 280 }}>
+        {/* 树节点搜索框 */}
+        <div style={{ marginBottom: 16, padding: '0 8px' }}>
+          <Input
+            size="small"
+            allowClear
+            placeholder="搜索部门或人员名称"
+            value={treeSearch}
+            onChange={e => setTreeSearch(e.target.value)}
+            prefix={<SearchOutlined />}
+          />
+        </div>
         <Tree
+          className="compact-dept-tree"
           treeData={buildTree(departments)}
           draggable
           showLine={false}
-          expandedKeys={expandedKeys}
+          expandedKeys={treeSearch.trim() ? autoExpandKeys : expandedKeys}
           onExpand={keys => setExpandedKeys(keys)}
           selectedKeys={selectedDept ? [selectedDept.id] : []}
           onSelect={(_, { node }) => {
-            if (!node || node.key === undefined || node.key === null) {
+            // 只允许选中部门节点，人员节点不可选
+            if (!node || node.key === undefined || node.key === null || String(node.key).startsWith('user_')) {
               setSelectedDept(null);
             } else {
               setSelectedDept({ id: String(node.key), name: node.title });
@@ -428,6 +547,8 @@ const DepartmentPage = () => {
           onDrop={async (info) => {
             const dragKey = String(info.dragNode.key);
             const dropKey = String(info.node.key);
+            // 只允许拖拽部门节点
+            if (String(dragKey).startsWith('user_') || String(dropKey).startsWith('user_')) return;
             // 权限校验：只能拖到自己可管理的部门下
             if (!canManageOrganization(dropKey)) {
               message.warning('无权限调整到该部门下');
@@ -458,7 +579,7 @@ const DepartmentPage = () => {
           }}
           style={{ marginBottom: 16 }}
         />
-        <PermissionGate organizationId={selectedDept?.id}>
+        {hasManagePermission(selectedDept?.id) && (
           <Button
             type="primary"
             className="page-btn"
@@ -467,7 +588,7 @@ const DepartmentPage = () => {
           >
             新增部门
           </Button>
-        </PermissionGate>
+        )}
       </div>
       <div className="page-card" style={{ flex: 1 }}>
         <div className="page-header" style={{ marginBottom: 16 }}>
@@ -482,7 +603,7 @@ const DepartmentPage = () => {
             })()}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <PermissionGate organizationId={selectedDept?.id}>
+            {hasManagePermission(selectedDept?.id) && (
               <Button
                 type="primary"
                 className="page-btn"
@@ -491,14 +612,7 @@ const DepartmentPage = () => {
               >
                 邀请成员
               </Button>
-            </PermissionGate>
-            <Button
-              type="default"
-              onClick={checkAuthStatus}
-              size="small"
-            >
-              检查认证
-            </Button>
+            )}
             {selectedDept && (
               <Dropdown
                 menu={{
@@ -506,65 +620,55 @@ const DepartmentPage = () => {
                     ...((() => {
                       // 权限判断：设置/移除管理员
                       const arr = [];
-                      arr.push({
-                        key: 'set-admin',
-                        icon: <CrownOutlined />,
-                        label: (
-                          <PermissionGate organizationId={selectedDept?.id}>
-                            设置管理员
-                          </PermissionGate>
-                        ),
-                        onClick: () => setShowSetAdmin(true),
-                      });
-                      if (selectedDept?.admin) {
+                      if (hasManagePermission(selectedDept?.id)) {
                         arr.push({
-                          key: 'remove-admin',
-                          icon: <ExclamationCircleOutlined style={{ color: 'orange' }} />,
-                          label: (
-                            <PermissionGate organizationId={selectedDept?.id}>
-                              移除管理员
-                            </PermissionGate>
-                          ),
+                          key: 'set-admin',
+                          icon: <CrownOutlined />,
+                          label: '设置管理员',
+                          onClick: () => setShowSetAdmin(true),
+                        });
+                        if (selectedDept?.admin) {
+                          arr.push({
+                            key: 'remove-admin',
+                            icon: <ExclamationCircleOutlined style={{ color: 'orange' }} />,
+                            label: '移除管理员',
+                            danger: true,
+                            onClick: () => {
+                              Modal.confirm({
+                                title: '确认移除该部门管理员？',
+                                content: '移除后该部门将没有管理员，只有上级管理员可以管理。',
+                                okText: '移除',
+                                okType: 'danger',
+                                cancelText: '取消',
+                                onOk: handleRemoveAdmin
+                              });
+                            }
+                          });
+                        }
+                        arr.push({
+                          key: 'delete',
+                          icon: <ExclamationCircleOutlined style={{ color: 'red' }} />,
+                          label: '删除部门',
                           danger: true,
                           onClick: () => {
                             Modal.confirm({
-                              title: '确认移除该部门管理员？',
-                              content: '移除后该部门将没有管理员，只有上级管理员可以管理。',
-                              okText: '移除',
+                              title: '确认删除该部门？',
+                              content: '删除后该部门及其所有子部门将被移除，且该部门下成员将变为未分配状态。',
+                              okText: '删除',
                               okType: 'danger',
                               cancelText: '取消',
-                              onOk: handleRemoveAdmin
+                              onOk: async () => {
+                                await supabase.from('organizations').delete().eq('id', selectedDept.id);
+                                setSelectedDept(null);
+                                fetchDepartments();
+                                fetchMembers(null);
+                              }
                             });
                           }
                         });
                       }
                       return arr;
                     })()),
-                    {
-                      key: 'delete',
-                      icon: <ExclamationCircleOutlined style={{ color: 'red' }} />,
-                      label: (
-                        <PermissionGate organizationId={selectedDept?.id}>
-                          删除部门
-                        </PermissionGate>
-                      ),
-                      danger: true,
-                      onClick: () => {
-                        Modal.confirm({
-                          title: '确认删除该部门？',
-                          content: '删除后该部门及其所有子部门将被移除，且该部门下成员将变为未分配状态。',
-                          okText: '删除',
-                          okType: 'danger',
-                          cancelText: '取消',
-                          onOk: async () => {
-                            await supabase.from('organizations').delete().eq('id', selectedDept.id);
-                            setSelectedDept(null);
-                            fetchDepartments();
-                            fetchMembers(null);
-                          }
-                        });
-                      }
-                    }
                   ]
                 }}
                 trigger={['click']}
@@ -601,8 +705,15 @@ const DepartmentPage = () => {
               {
                 title: '操作',
                 dataIndex: 'actions',
-                render: (_: any, record: any) => (
-                  <PermissionGate organizationId={record.organization_id}>
+                render: (_: any, record: any) => {
+                  // 检查是否有权限管理该用户
+                  const canManage = hasUserManagePermission(record.organization_id);
+                  
+                  if (!canManage) {
+                    return null; // 无权限时不显示任何操作按钮
+                  }
+                  
+                  return (
                     <Space>
                       <Button
                         size="small"
@@ -718,8 +829,8 @@ const DepartmentPage = () => {
                         离职
                       </Button>
                     </Space>
-                  </PermissionGate>
-                )
+                  );
+                }
               }
             ]}
             style={{ marginTop: 0 }}
@@ -743,7 +854,7 @@ const DepartmentPage = () => {
       </Modal>
 
       {/* 新增部门弹窗 */}
-      <PermissionGate organizationId={selectedDept?.id}>
+      {hasManagePermission(selectedDept?.id) && (
         <Modal
           title="新增部门"
           open={showAddDept}
@@ -774,7 +885,7 @@ const DepartmentPage = () => {
             </Form.Item>
           </Form>
         </Modal>
-      </PermissionGate>
+      )}
 
       {/* 设置管理员弹窗 */}
       <Modal

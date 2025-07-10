@@ -12,38 +12,68 @@ export const usePermissions = () => {
   }, []);
 
   const fetchManageableOrganizations = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setManageableOrganizations([]);
+        setLoading(false);
+        return;
+      }
+
+      // 检查是否为超级管理员 - 修复atob解码错误
+      const { data: { session } } = await supabase.auth.getSession();
+      let isSuper = false;
+      if (session?.access_token) {
+        try {
+          const tokenParts = session.access_token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            isSuper = payload.role === 'service_role';
+          }
+        } catch (error) {
+          console.error('Token解析失败:', error);
+          isSuper = false;
+        }
+      }
+      setIsSuperAdmin(isSuper);
+
+      // 如果是超级管理员，可以管理所有组织
+      if (isSuper) {
+        const { data: allOrgs } = await supabase
+          .from('organizations')
+          .select('id')
+          .order('name');
+        
+        setManageableOrganizations(allOrgs?.map(o => o.id) || []);
+        setIsDepartmentAdmin(true);
+        setLoading(false);
+        return;
+      }
+
+      // 使用数据库函数获取可管理的组织（递归）
+      const { data: managedOrgIds, error } = await supabase.rpc('get_managed_org_ids', { 
+        admin_id: user.id 
+      });
+
+      if (error) {
+        console.error('获取可管理组织失败:', error);
+        setManageableOrganizations([]);
+        setIsDepartmentAdmin(false);
+      } else if (managedOrgIds && managedOrgIds.length > 0) {
+        const orgIds = managedOrgIds.map((org: any) => org.org_id);
+        setManageableOrganizations(orgIds);
+        setIsDepartmentAdmin(orgIds.length > 0);
+      } else {
+        setManageableOrganizations([]);
+        setIsDepartmentAdmin(false);
+      }
+    } catch (error) {
+      console.error('获取权限信息失败:', error);
       setManageableOrganizations([]);
+      setIsDepartmentAdmin(false);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // 检查是否为超级管理员
-    const { data: { session } } = await supabase.auth.getSession();
-    const isSuper = session?.access_token ? 
-      JSON.parse(atob(session.access_token.split('.')[1])).role === 'service_role' : false;
-    setIsSuperAdmin(isSuper);
-
-    // 1. 查出我直接管理的部门
-    const { data: myOrgs } = await supabase.from('organizations').select('id').eq('admin', user.id);
-    let allOrgIds = myOrgs?.map(o => o.id) || [];
-
-    // 2. 递归查所有下属部门
-    const getChildren = async (parentIds: string[]): Promise<string[]> => {
-      if (!parentIds.length) return [];
-      const { data: children } = await supabase.from('organizations').select('id, parent_id').in('parent_id', parentIds);
-      if (!children || !children.length) return [];
-      const childIds = children.map(c => c.id);
-      const subChildIds = await getChildren(childIds);
-      return [...childIds, ...subChildIds];
-    };
-    const childOrgIds = await getChildren(allOrgIds);
-    allOrgIds = [...allOrgIds, ...childOrgIds];
-
-    setIsDepartmentAdmin(allOrgIds.length > 0);
-    setManageableOrganizations(allOrgIds);
-    setLoading(false);
   };
 
   // 判断是否能管理某部门

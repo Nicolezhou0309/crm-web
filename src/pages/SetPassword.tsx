@@ -3,7 +3,7 @@ import { Form, Input, Button, message, Card, Typography, Spin, Alert } from 'ant
 import { LockOutlined, MailOutlined, UserOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { supabase } from '../supaClient';
 import { useNavigate } from 'react-router-dom';
-import './SetPassword.css';
+
 
 const { Title, Text } = Typography;
 

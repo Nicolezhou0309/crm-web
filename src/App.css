@@ -74,3 +74,65 @@ body {
 .read-the-docs {
   color: #888;
 }
+
+.ant-card,
+.allocation-trigger-card,
+.allocation-list-card {
+  border-radius: 12px !important;
+}
+
+.ant-radio-wrapper {
+  margin-bottom: 8px;
+}
+
+.allocation-board-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px 0 rgba(22,119,255,0.06);
+  padding: 32px 32px 24px 32px;
+  margin: 0 auto;
+  max-width: 1400px;
+}
+
+.allocation-row {
+  transition: box-shadow 0.2s, background 0.2s;
+}
+.allocation-row.dragging,
+.allocation-row:active {
+  background: #e6f4ff;
+  box-shadow: 0 4px 16px 0 rgba(22,119,255,0.10);
+}
+
+/* 移除SVG相关样式 */
+/* .allocation-row-svg path { ... } */
+/* .allocation-row-svg path.active, .allocation-row-svg path:hover { ... } */
+.allocation-link-arrow {
+  stroke: #bfbfbf;
+  stroke-width: 1.5;
+  fill: none;
+  /* 移除动画 */
+  /* transition: stroke 0.2s, stroke-width 0.2s; */
+}
+.allocation-link-arrowhead {
+  fill: #bfbfbf;
+}
+.allocation-insert-btn-svg {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50%;
+  border: 1px solid #1677ff;
+  background: #fff;
+  color: #1677ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  box-sizing: border-box;
+  padding: 0;
+}
+.allocation-insert-btn-svg:hover {
+  background: #1677ff;
+  color: #fff;
+  border-color: #1677ff;
+}
