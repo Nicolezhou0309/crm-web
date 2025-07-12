@@ -15,6 +15,9 @@ import {
   KeyOutlined,
   SettingOutlined,
   BranchesOutlined,
+  GiftOutlined,
+  HistoryOutlined,
+  TrophyOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import TestSupabase from './pages/TestSupabase';
@@ -36,6 +39,9 @@ import RolePermissionManagement from './pages/RolePermissionManagement';
 
 import AllocationManagement from './pages/AllocationManagement';
 import ResetPassword from './pages/ResetPassword';
+import PointsDashboard from './pages/PointsDashboard';
+import PointsExchange from './pages/PointsExchange';
+import PointsRules from './pages/PointsRules';
 import './App.css';
 import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
@@ -59,6 +65,16 @@ const menuItems = [
     ]
   },
   { key: 'dashboard', icon: <DashboardOutlined />, label: '仪表盘', path: '/dashboard' },
+  {
+    key: 'points',
+    icon: <TrophyOutlined />,
+    label: '积分管理',
+    children: [
+      { key: 'points-dashboard', icon: <DashboardOutlined />, label: '积分看板', path: '/points' },
+      { key: 'points-exchange', icon: <GiftOutlined />, label: '积分兑换', path: '/points/exchange' },
+      { key: 'points-rules', icon: <KeyOutlined />, label: '积分规则', path: '/points/rules' },
+    ]
+  },
   { key: 'departments', icon: <AppstoreOutlined />, label: '部门管理', path: '/departments' },
   {
     key: 'system',
@@ -224,6 +240,11 @@ const App: React.FC = () => {
                   <Route path="/deals" element={<DealsList />} />
                   <Route path="/allocation" element={<AllocationManagement />} />
                   <Route path="/allocation-management" element={<AllocationManagement />} />
+
+                  {/* 积分系统路由 */}
+                  <Route path="/points" element={<PointsDashboard />} />
+                  <Route path="/points/exchange" element={<PointsExchange />} />
+                  <Route path="/points/rules" element={<PointsRules />} />
 
                   <Route path="/test" element={<TestSupabase />} />
                   <Route path="/profile" element={<Profile />} />

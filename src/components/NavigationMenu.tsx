@@ -13,6 +13,9 @@ import {
   KeyOutlined,
   SettingOutlined,
   BranchesOutlined,
+  GiftOutlined,
+  HistoryOutlined,
+  TrophyOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 
@@ -77,6 +80,31 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       icon: <DashboardOutlined />, 
       label: '仪表盘', 
       path: '/dashboard'
+    },
+    {
+      key: 'points',
+      icon: <TrophyOutlined />,
+      label: '积分管理',
+      children: [
+        { 
+          key: 'points-dashboard', 
+          icon: <DashboardOutlined />, 
+          label: '积分看板', 
+          path: '/points'
+        },
+        { 
+          key: 'points-exchange', 
+          icon: <GiftOutlined />, 
+          label: '积分兑换', 
+          path: '/points/exchange'
+        },
+        { 
+          key: 'points-rules', 
+          icon: <KeyOutlined />, 
+          label: '积分规则', 
+          path: '/points/rules'
+        },
+      ]
     },
     { 
       key: 'departments', 

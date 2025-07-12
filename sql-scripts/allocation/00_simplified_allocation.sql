@@ -120,7 +120,7 @@ BEGIN
 END $$;
 
 -- 1.2 简化的分配规则表
-CREATE OR REPLACE TABLE public.simple_allocation_rules (
+CREATE TABLE IF NOT EXISTS public.simple_allocation_rules (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name text NOT NULL,
     description text,
@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS public.community_keywords (
 -- 2. 核心分配函数（统一所有逻辑）
 -- =====================================
 
--- 修改 allocate_lead_simple 函数
+-- 修改 allocate_lead_simple 函数（修复重复日志问题）
 CREATE OR REPLACE FUNCTION public.allocate_lead_simple(
     p_leadid text,
     p_source source DEFAULT NULL,
@@ -175,6 +175,7 @@ CREATE OR REPLACE FUNCTION public.allocate_lead_simple(
     p_community community DEFAULT NULL,
     p_manual_user_id bigint DEFAULT NULL
 ) RETURNS jsonb
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
@@ -233,10 +234,10 @@ BEGIN
             final_users := apply_allocation_filters(
                 candidate_users,
                 user_group_id,
-                rule_record.enable_permission_check,
+                p_community,
                 true, -- 质量控制
                 true, -- 社区匹配
-                p_community
+                rule_record.enable_permission_check
             );
             
             -- 如果有可用用户，尝试分配
@@ -252,13 +253,16 @@ BEGIN
                     IF target_user_id IS NOT NULL THEN
                         rule_success := true;
                         
-                        -- 只在成功分配时记录一次日志
-                        INSERT INTO simple_allocation_logs (
-                            leadid, rule_id, assigned_user_id, allocation_method,
-                            selected_group_index, processing_details
-                        ) VALUES (
-                            p_leadid, rule_record.id, target_user_id, rule_record.allocation_method,
-                            group_index, jsonb_build_object(
+                        -- 移除日志记录，由触发器统一处理
+                        RETURN jsonb_build_object(
+                            'success', true,
+                            'assigned_user_id', target_user_id,
+                            'allocation_method', rule_record.allocation_method,
+                            'rule_name', rule_record.name,
+                            'rule_priority', rule_record.priority,
+                            'selected_group_index', group_index,
+                            'rules_attempted', rules_attempted,
+                            'processing_details', jsonb_build_object(
                                 'rule_name', rule_record.name,
                                 'rule_priority', rule_record.priority,
                                 'group_id', user_group_id,
@@ -270,18 +274,7 @@ BEGIN
                                     'permission_check', rule_record.enable_permission_check
                                 ),
                                 'debug_info', debug_info
-                            )
-                        );
-                        
-                        RETURN jsonb_build_object(
-                            'success', true,
-                            'assigned_user_id', target_user_id,
-                            'allocation_method', rule_record.allocation_method,
-                            'rule_name', rule_record.name,
-                            'rule_priority', rule_record.priority,
-                            'selected_group_index', group_index,
-                            'rules_attempted', rules_attempted,
-                            'processing_details', allocation_details,
+                            ),
                             'debug_info', debug_info
                         );
                     END IF;
@@ -294,21 +287,7 @@ BEGIN
         EXIT WHEN rule_success;
     END LOOP;
     
-    -- 如果没有成功分配，记录一次失败日志
-    IF NOT rule_success THEN
-        INSERT INTO simple_allocation_logs (
-            leadid, processing_details
-        ) VALUES (
-            p_leadid,
-            jsonb_build_object(
-                'allocation_failed', true,
-                'rules_attempted', rules_attempted,
-                'debug_info', debug_info
-            )
-        );
-    END IF;
-    
-    -- 返回分配失败结果
+    -- 如果没有成功分配，返回失败结果（不记录日志）
     RETURN jsonb_build_object(
         'success', false,
         'error', '无法找到合适的分配目标',
@@ -361,71 +340,6 @@ BEGIN
     END IF;
     
     RETURN true;
-END;
-$$;
-
--- 修改 apply_allocation_filters 函数
-CREATE OR REPLACE FUNCTION public.apply_allocation_filters(
-    filtered_users bigint[],
-    group_id bigint,
-    enable_permission_check boolean DEFAULT false,
-    enable_quality_control boolean DEFAULT true,
-    enable_community_matching boolean DEFAULT true,
-    p_community community DEFAULT NULL
-) RETURNS bigint[]
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    group_enable_quality boolean;
-    group_enable_comm_match boolean;
-    community_json jsonb;
-    community_matched_users bigint[];
-    dbg jsonb := '{}';
-BEGIN
-    -- 空数组直接返回
-    IF filtered_users IS NULL OR array_length(filtered_users,1) IS NULL THEN
-        RETURN NULL;
-    END IF;
-
-    -- 读取用户组配置
-    SELECT 
-        COALESCE(ul.enable_quality_control, false),
-        COALESCE(ul.enable_community_matching, false)
-    INTO
-        group_enable_quality,
-        group_enable_comm_match
-    FROM users_list ul
-    WHERE ul.id = group_id;
-    
-    -- 质量控制过滤
-    IF group_enable_quality AND enable_quality_control THEN
-        filtered_users := filter_users_by_quality_control(filtered_users, group_id);
-        IF filtered_users IS NULL OR array_length(filtered_users,1) IS NULL THEN
-            RETURN NULL;
-        END IF;
-    END IF;
-    
-    -- 权限检查过滤
-    IF enable_permission_check THEN
-        filtered_users := filter_users_by_permission(filtered_users);
-        IF filtered_users IS NULL OR array_length(filtered_users,1) IS NULL THEN
-            RETURN NULL;
-        END IF;
-    END IF;
-    
-    -- 社区优先推荐
-    IF group_enable_comm_match AND enable_community_matching
-       AND p_community IS NOT NULL THEN
-        community_json := match_community_to_organization(p_community, filtered_users);
-        community_matched_users := jsonb_to_bigint_array(community_json -> 'matched_users');
-        
-        IF community_matched_users IS NOT NULL
-           AND array_length(community_matched_users,1) > 0 THEN
-            filtered_users := community_matched_users;
-        END IF;
-    END IF;
-
-    RETURN filtered_users;
 END;
 $$;
 
@@ -524,25 +438,26 @@ BEGIN
     END IF;
     
     ------------------------------------------------------------------
-    -- 4. 社区优先推荐
+    -- 4. 社区优先推荐 (修复：确保社区匹配被正确应用)
     ------------------------------------------------------------------
     IF group_enable_comm_match AND enable_community_matching
        AND p_community IS NOT NULL THEN
         BEGIN
-            community_json := match_community_to_organization(p_community,
-                                                              filtered_users);
-            community_matched_users :=
-                jsonb_to_bigint_array(community_json -> 'matched_users');
+            -- 调用社区匹配函数
+            community_json := match_community_to_organization(p_community, filtered_users);
+            community_matched_users := jsonb_to_bigint_array(community_json -> 'matched_users');
 
             dbg := dbg || jsonb_build_object(
                 'community_json',      community_json,
                 'community_matched',   community_matched_users
             );
         
+            -- 修复：如果社区匹配成功，优先使用社区匹配的用户
             IF community_matched_users IS NOT NULL
                AND array_length(community_matched_users,1) > 0 THEN
-            filtered_users := community_matched_users;
-        END IF;
+                filtered_users := community_matched_users;
+                dbg := dbg || jsonb_build_object('community_priority_applied', true);
+            END IF;
         EXCEPTION WHEN OTHERS THEN
             dbg := dbg || jsonb_build_object('community_match_error', SQLERRM);
         END;
@@ -661,18 +576,22 @@ BEGIN
 END;
 $$;
 
--- 3.6 时间条件检查
+-- 3.6 时间条件检查（修复时区问题）
 CREATE OR REPLACE FUNCTION public.check_time_condition(time_config jsonb)
 RETURNS boolean
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    current_time time := CURRENT_TIME;
-    current_weekday integer := EXTRACT(DOW FROM CURRENT_DATE);
+    current_time_val time;
+    current_weekday integer;
     start_time time;
     end_time time;
     weekdays integer[];
 BEGIN
+    -- 获取东八区当前时间
+    current_time_val := (NOW() AT TIME ZONE 'Asia/Shanghai')::time;
+    current_weekday := EXTRACT(DOW FROM (NOW() AT TIME ZONE 'Asia/Shanghai')::date);
+    
     -- 检查工作日
     IF time_config ? 'weekdays' THEN
         weekdays := ARRAY(SELECT jsonb_array_elements_text(time_config->'weekdays'))::integer[];
@@ -685,7 +604,7 @@ BEGIN
     IF time_config ? 'start' AND time_config ? 'end' THEN
         start_time := (time_config->>'start')::time;
         end_time := (time_config->>'end')::time;
-        RETURN current_time BETWEEN start_time AND end_time;
+        RETURN current_time_val BETWEEN start_time AND end_time;
     END IF;
     
     RETURN true;
@@ -784,6 +703,32 @@ BEGIN
         -- 获取分配结果
         IF allocation_result IS NOT NULL AND (allocation_result->>'success')::boolean THEN
             target_user_id := (allocation_result->>'assigned_user_id')::bigint;
+            
+            -- 记录成功分配日志
+            INSERT INTO simple_allocation_logs (
+                leadid, 
+                rule_id, 
+                assigned_user_id, 
+                allocation_method,
+                selected_group_index, 
+                processing_details
+            ) VALUES (
+                NEW.leadid,
+                (allocation_result->>'rule_id')::uuid,
+                target_user_id,
+                allocation_result->>'allocation_method',
+                (allocation_result->>'selected_group_index')::integer,
+                jsonb_build_object(
+                    'debug_info', jsonb_build_object(
+                        'target_user_id', target_user_id,
+                        'followup_created', true,
+                        'allocation_result', allocation_result,
+                        'community_from_remark', debug_info->>'community_from_remark'
+                    ),
+                    'followup_created', true,
+                    'allocation_success', true
+                )
+            );
             
             -- 创建followups记录
             IF target_user_id IS NOT NULL THEN
@@ -1012,6 +957,9 @@ BEGIN
 END;
 $$;
 
+-- 删除已存在的触发器（如果存在）
+DROP TRIGGER IF EXISTS check_users_profile_ids_trigger ON public.users_list;
+
 -- 创建用户ID验证触发器
 CREATE TRIGGER check_users_profile_ids_trigger 
 BEFORE INSERT OR UPDATE ON public.users_list 
@@ -1055,7 +1003,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.match_community_to_organization(p_community community, user_ids bigint[])
  RETURNS jsonb
  LANGUAGE plpgsql
-AS $function$
+AS $$
 DECLARE
     matched_users bigint[];
 BEGIN
@@ -1097,7 +1045,24 @@ BEGIN
         'matched_count', COALESCE(array_length(matched_users,1),0)
     );
 END;
-$function$
+$$;
+
+-- 8.3 JSON数组转换函数（修复社区匹配的关键函数）
+CREATE OR REPLACE FUNCTION jsonb_to_bigint_array(jsonb) RETURNS bigint[]
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result bigint[];
+    item jsonb;
+BEGIN
+    result := ARRAY[]::bigint[];
+    FOR item IN SELECT jsonb_array_elements($1)
+    LOOP
+        result := array_append(result, (item#>>'{}')::bigint);
+    END LOOP;
+    RETURN result;
+END;
+$$;
 
 -- =====================================
 -- 9. 数据完整性检查
@@ -1331,7 +1296,7 @@ BEGIN
         test_leadid,
         '抖音'::source,
         '意向客户',
-        '万科城市花园'::community,
+        '浦江公园社区'::community,
         NULL
     ) INTO test_result;
     

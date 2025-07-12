@@ -569,6 +569,7 @@ const AllocationManagement: React.FC = () => {
     {
       title: '处理详情',
       key: 'processing_details',
+      width:100,
       render: (text: string, record: SimpleAllocationLog) => {
         const details = record.processing_details;
         if (!details) return <Text type="secondary">无处理详情</Text>;
@@ -1370,7 +1371,7 @@ const AllocationManagement: React.FC = () => {
           {
             key: '1',
             label: (
-              <span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <BranchesOutlined />
                 分配流程
               </span>
@@ -1455,7 +1456,7 @@ const AllocationManagement: React.FC = () => {
           {
             key: '3',
             label: (
-              <span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <TeamOutlined />
                 销售组
               </span>
@@ -1465,7 +1466,7 @@ const AllocationManagement: React.FC = () => {
           {
             key: '4',
             label: (
-              <span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <PlayCircleOutlined />
                 分配测试
               </span>
@@ -1534,7 +1535,7 @@ const AllocationManagement: React.FC = () => {
           {
             key: '5',
             label: (
-              <span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <ClockCircleOutlined />
                 分配历史
               </span>

@@ -1,93 +1,49 @@
--- 用户档案表结构及触发器备份
-CREATE TABLE IF NOT EXISTS public.users_profile (
-  id bigserial PRIMARY KEY,
-  user_id uuid NULL,
-  organization_id uuid NULL,
-  nickname text NULL,
-  email text NULL,
-  status text NULL,
-  updated_at timestamp with time zone NULL DEFAULT (now() AT TIME ZONE 'UTC'::text),
-  CONSTRAINT users_profile_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON UPDATE CASCADE ON DELETE SET NULL,
-  CONSTRAINT users_profile_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON UPDATE CASCADE ON DELETE CASCADE
-) TABLESPACE pg_default;
 
--- 触发器定义
-CREATE TRIGGER ensure_profile_consistency
-BEFORE INSERT OR UPDATE ON users_profile
-FOR EACH ROW EXECUTE FUNCTION check_profile_consistency();
-
-CREATE TRIGGER freeze_user_on_status_left_trigger
-AFTER UPDATE OF status ON users_profile
-FOR EACH ROW WHEN (new.status = 'left'::text)
-EXECUTE FUNCTION freeze_user_on_status_left();
-
--- 用户角色关联表结构备份
-CREATE TABLE IF NOT EXISTS public.user_roles (
-  user_id uuid NOT NULL,
-  role_id uuid NOT NULL,
-  created_at timestamp with time zone NULL DEFAULT now(),
-  CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id),
-  CONSTRAINT user_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE,
-  CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON DELETE CASCADE
-) TABLESPACE pg_default;
-
--- 带看记录表结构备份
-CREATE TABLE IF NOT EXISTS public.showings (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  leadid text NOT NULL,
-  scheduletime timestamp with time zone NULL,
-  community public.community NULL,
-  arrivaltime timestamp with time zone NULL,
-  showingsales bigint NULL,
-  trueshowingsales bigint NULL,
-  viewresult text NOT NULL,
-  budget integer NOT NULL,
-  moveintime timestamp with time zone NOT NULL,
-  remark text NOT NULL,
-  renttime integer NOT NULL,
-  created_at timestamp with time zone NULL DEFAULT (now() AT TIME ZONE 'UTC'::text),
-  updated_at timestamp with time zone NULL DEFAULT (now() AT TIME ZONE 'UTC'::text),
-  CONSTRAINT showings_pkey PRIMARY KEY (id),
-  CONSTRAINT showings_leadid_key UNIQUE (leadid),
-  CONSTRAINT showings_leadid_fkey FOREIGN KEY (leadid) REFERENCES followups (leadid) ON UPDATE CASCADE,
-  CONSTRAINT showings_showingsales_fkey FOREIGN KEY (showingsales) REFERENCES users_profile (id),
-  CONSTRAINT showings_trueshowingsales_fkey FOREIGN KEY (trueshowingsales) REFERENCES users_profile (id)
-) TABLESPACE pg_default;
-
--- 角色表结构备份
-CREATE TABLE IF NOT EXISTS public.roles (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  description text NULL,
-  created_at timestamp with time zone NULL DEFAULT now(),
-  updated_at timestamp with time zone NULL DEFAULT now(),
-  CONSTRAINT roles_pkey PRIMARY KEY (id),
-  CONSTRAINT roles_name_key UNIQUE (name)
-) TABLESPACE pg_default;
-
--- 角色权限关联表结构备份
-CREATE TABLE IF NOT EXISTS public.role_permissions (
-  role_id uuid NOT NULL,
-  permission_id uuid NOT NULL,
-  created_at timestamp with time zone NULL DEFAULT now(),
-  CONSTRAINT role_permissions_pkey PRIMARY KEY (role_id, permission_id),
-  CONSTRAINT role_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES permissions (id) ON DELETE CASCADE,
-  CONSTRAINT role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE
-) TABLESPACE pg_default;
-
--- 权限表结构备份
-CREATE TABLE IF NOT EXISTS public.permissions (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  description text NULL,
-  resource text NOT NULL,
-  action text NOT NULL,
-  created_at timestamp with time zone NULL DEFAULT now(),
-  updated_at timestamp with time zone NULL DEFAULT now(),
-  CONSTRAINT permissions_pkey PRIMARY KEY (id),
-  CONSTRAINT permissions_name_key UNIQUE (name),
-  CONSTRAINT permissions_resource_action_key UNIQUE (resource, action)
-) TABLESPACE pg_default;
+-- 用户档案一致性检查触发器函数备份
+CREATE OR REPLACE FUNCTION public.check_profile_consistency()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+DECLARE
+    auth_user auth.users%ROWTYPE;
+    user_name TEXT;
+    user_status TEXT;
+BEGIN
+    -- 获取auth.users表中对应用户的数据
+    SELECT * INTO auth_user FROM auth.users WHERE id = NEW.user_id;
+    -- 如果找不到对应的auth用户，允许操作继续（可能是测试数据）
+    IF auth_user IS NULL THEN
+        RETURN NEW;
+    END IF;
+    -- 从用户元数据中提取名称
+    user_name := COALESCE(auth_user.raw_user_meta_data->>'name', auth_user.raw_user_meta_data->>'full_name');
+    -- 确定用户状态
+    IF auth_user.banned_until IS NOT NULL AND auth_user.banned_until > NOW() THEN
+        user_status := 'banned';
+    ELSIF auth_user.deleted_at IS NOT NULL THEN
+        user_status := 'deleted';
+    ELSIF auth_user.email_confirmed_at IS NOT NULL OR auth_user.phone_confirmed_at IS NOT NULL THEN
+        user_status := 'active';
+    ELSE
+        user_status := 'pending';
+    END IF;
+    -- 确保email一致
+    IF NEW.email IS DISTINCT FROM auth_user.email THEN
+        NEW.email := auth_user.email;
+    END IF;
+    -- 如果没有提供nickname，使用auth用户的名称
+    IF NEW.nickname IS NULL AND user_name IS NOT NULL THEN
+        NEW.nickname := user_name;
+    END IF;
+    -- 如果没有提供status，使用计算的状态
+    IF NEW.status IS NULL THEN
+        NEW.status := user_status;
+    END IF;
+    RETURN NEW;
+END;
+$$;
 
 -- 组织（部门）表结构及索引备份
 CREATE TABLE IF NOT EXISTS public.organizations (
@@ -102,6 +58,95 @@ CREATE TABLE IF NOT EXISTS public.organizations (
 ) TABLESPACE pg_default;
 
 CREATE INDEX IF NOT EXISTS idx_organizations_admin ON public.organizations USING btree (admin) TABLESPACE pg_default;
+
+-- 用户档案表结构及触发器备份
+CREATE TABLE IF NOT EXISTS public.users_profile (
+  id bigserial PRIMARY KEY,
+  user_id uuid NULL,
+  organization_id uuid NULL,
+  nickname text NULL,
+  email text NULL,
+  status text NULL,
+  updated_at timestamp with time zone NULL DEFAULT (now() AT TIME ZONE 'UTC'::text),
+  CONSTRAINT users_profile_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT users_profile_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON UPDATE CASCADE ON DELETE CASCADE
+) TABLESPACE pg_default;
+
+-- 用户状态变更时冻结用户触发器函数备份
+CREATE OR REPLACE FUNCTION public.freeze_user_on_status_left()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+BEGIN
+  -- 当 status 字段更新为 'left' 时
+  IF NEW.status = 'left' THEN
+    -- 更新 auth.users 表中的 banned_until 字段为 'infinity'
+    UPDATE auth.users
+    SET banned_until = 'infinity'::timestamptz
+    WHERE id = NEW.user_id;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+
+-- 角色表结构备份
+CREATE TABLE IF NOT EXISTS public.roles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text NULL,
+  created_at timestamp with time zone NULL DEFAULT now(),
+  updated_at timestamp with time zone NULL DEFAULT now(),
+  CONSTRAINT roles_pkey PRIMARY KEY (id),
+  CONSTRAINT roles_name_key UNIQUE (name)
+) TABLESPACE pg_default;
+
+
+-- 用户角色关联表结构备份
+CREATE TABLE IF NOT EXISTS public.user_roles (
+  user_id uuid NOT NULL,
+  role_id uuid NOT NULL,
+  created_at timestamp with time zone NULL DEFAULT now(),
+  CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id),
+  CONSTRAINT user_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE,
+  CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON DELETE CASCADE
+) TABLESPACE pg_default;
+
+-- 线索插入前检查和生成leadid的触发器函数备份
+CREATE OR REPLACE FUNCTION public.before_insert_lead()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    duplicate_count INT;
+BEGIN
+    -- 生成新的 leadid
+    NEW.leadid := gen_leadid();
+    -- 检查在过去 7 天内是否有重复的 phone 或 wechat
+    SELECT COUNT(*) INTO duplicate_count
+    FROM public.leads
+    WHERE (phone = NEW.phone OR wechat = NEW.wechat)
+      AND created_at >= NOW() - INTERVAL '7 days';
+    -- 如果发现重复，更新 leadstatus
+    IF duplicate_count > 0 THEN
+        NEW.leadstatus := '重复';
+    ELSE
+        NEW.leadstatus := '新建';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+-- 触发器定义
+CREATE TRIGGER ensure_profile_consistency
+BEFORE INSERT OR UPDATE ON users_profile
+FOR EACH ROW EXECUTE FUNCTION check_profile_consistency();
+
+CREATE TRIGGER freeze_user_on_status_left_trigger
+AFTER UPDATE OF status ON users_profile
+FOR EACH ROW WHEN (new.status = 'left'::text)
+EXECUTE FUNCTION freeze_user_on_status_left();
 
 -- 线索表结构及触发器备份
 CREATE TABLE IF NOT EXISTS public.leads (
@@ -137,16 +182,6 @@ CREATE TABLE IF NOT EXISTS public.leads (
   CONSTRAINT leads_id_key UNIQUE (id),
   CONSTRAINT leads_leadid_key UNIQUE (leadid)
 ) TABLESPACE pg_default;
-
--- 触发器定义
-CREATE TRIGGER trg_after_insert_followup
-AFTER INSERT ON leads FOR EACH ROW
-EXECUTE FUNCTION after_insert_followup();
-
-CREATE TRIGGER trg_before_insert_lead
-BEFORE INSERT ON leads FOR EACH ROW
-EXECUTE FUNCTION before_insert_lead();
-
 -- 跟进记录表结构备份
 CREATE TABLE IF NOT EXISTS public.followups (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -172,20 +207,53 @@ CREATE TABLE IF NOT EXISTS public.followups (
   CONSTRAINT followups_leadid_fkey FOREIGN KEY (leadid) REFERENCES leads (leadid) ON UPDATE CASCADE
 ) TABLESPACE pg_default;
 
--- 成交记录表结构备份
-CREATE TABLE IF NOT EXISTS public.deals (
+-- 带看记录表结构备份
+CREATE TABLE IF NOT EXISTS public.showings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   leadid text NOT NULL,
-  contractdate date NULL,
+  scheduletime timestamp with time zone NULL,
   community public.community NULL,
-  contractnumber text NULL,
-  roomnumber text NULL,
+  arrivaltime timestamp with time zone NULL,
+  showingsales bigint NULL,
+  trueshowingsales bigint NULL,
+  viewresult text NOT NULL,
+  budget integer NOT NULL,
+  moveintime timestamp with time zone NOT NULL,
+  remark text NOT NULL,
+  renttime integer NOT NULL,
   created_at timestamp with time zone NULL DEFAULT (now() AT TIME ZONE 'UTC'::text),
   updated_at timestamp with time zone NULL DEFAULT (now() AT TIME ZONE 'UTC'::text),
-  CONSTRAINT deals_pkey PRIMARY KEY (id),
-  CONSTRAINT deals_leadid_key UNIQUE (leadid),
-  CONSTRAINT deals_leadid_fkey FOREIGN KEY (leadid) REFERENCES followups (leadid) ON UPDATE CASCADE,
-  CONSTRAINT deals_leadid_fkey1 FOREIGN KEY (leadid) REFERENCES leads (leadid)
+  CONSTRAINT showings_pkey PRIMARY KEY (id),
+  CONSTRAINT showings_leadid_key UNIQUE (leadid),
+  CONSTRAINT showings_leadid_fkey FOREIGN KEY (leadid) REFERENCES followups (leadid) ON UPDATE CASCADE,
+  CONSTRAINT showings_showingsales_fkey FOREIGN KEY (showingsales) REFERENCES users_profile (id),
+  CONSTRAINT showings_trueshowingsales_fkey FOREIGN KEY (trueshowingsales) REFERENCES users_profile (id)
+) TABLESPACE pg_default;
+
+-- 权限表结构备份
+CREATE TABLE IF NOT EXISTS public.permissions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text NULL,
+  resource text NOT NULL,
+  action text NOT NULL,
+  created_at timestamp with time zone NULL DEFAULT now(),
+  updated_at timestamp with time zone NULL DEFAULT now(),
+  CONSTRAINT permissions_pkey PRIMARY KEY (id),
+  CONSTRAINT permissions_name_key UNIQUE (name),
+  CONSTRAINT permissions_resource_action_key UNIQUE (resource, action)
+) TABLESPACE pg_default;
+
+
+
+-- 角色权限关联表结构备份
+CREATE TABLE IF NOT EXISTS public.role_permissions (
+  role_id uuid NOT NULL,
+  permission_id uuid NOT NULL,
+  created_at timestamp with time zone NULL DEFAULT now(),
+  CONSTRAINT role_permissions_pkey PRIMARY KEY (role_id, permission_id),
+  CONSTRAINT role_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES permissions (id) ON DELETE CASCADE,
+  CONSTRAINT role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE
 ) TABLESPACE pg_default;
 
 -- 线索插入后自动生成跟进记录的触发器函数备份
@@ -225,6 +293,34 @@ BEGIN
     RETURN NULL;
 END;
 $$;
+
+-- 触发器定义
+CREATE TRIGGER trg_after_insert_followup
+AFTER INSERT ON leads FOR EACH ROW
+EXECUTE FUNCTION after_insert_followup();
+
+CREATE TRIGGER trg_before_insert_lead
+BEFORE INSERT ON leads FOR EACH ROW
+EXECUTE FUNCTION before_insert_lead();
+
+
+
+-- 成交记录表结构备份
+CREATE TABLE IF NOT EXISTS public.deals (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  leadid text NOT NULL,
+  contractdate date NULL,
+  community public.community NULL,
+  contractnumber text NULL,
+  roomnumber text NULL,
+  created_at timestamp with time zone NULL DEFAULT (now() AT TIME ZONE 'UTC'::text),
+  updated_at timestamp with time zone NULL DEFAULT (now() AT TIME ZONE 'UTC'::text),
+  CONSTRAINT deals_pkey PRIMARY KEY (id),
+  CONSTRAINT deals_leadid_key UNIQUE (leadid),
+  CONSTRAINT deals_leadid_fkey FOREIGN KEY (leadid) REFERENCES followups (leadid) ON UPDATE CASCADE,
+  CONSTRAINT deals_leadid_fkey1 FOREIGN KEY (leadid) REFERENCES leads (leadid)
+) TABLESPACE pg_default;
+
 
 -- 分配权限到角色的函数备份
 CREATE OR REPLACE FUNCTION public.assign_permission_to_role(role_name text, resource_name text, action_name text)
@@ -312,76 +408,7 @@ BEGIN
 END;
 $$;
 
--- 线索插入前检查和生成leadid的触发器函数备份
-CREATE OR REPLACE FUNCTION public.before_insert_lead()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    duplicate_count INT;
-BEGIN
-    -- 生成新的 leadid
-    NEW.leadid := gen_leadid();
-    -- 检查在过去 7 天内是否有重复的 phone 或 wechat
-    SELECT COUNT(*) INTO duplicate_count
-    FROM public.leads
-    WHERE (phone = NEW.phone OR wechat = NEW.wechat)
-      AND created_at >= NOW() - INTERVAL '7 days';
-    -- 如果发现重复，更新 leadstatus
-    IF duplicate_count > 0 THEN
-        NEW.leadstatus := '重复';
-    ELSE
-        NEW.leadstatus := '新建';
-    END IF;
-    RETURN NEW;
-END;
-$$;
 
--- 用户档案一致性检查触发器函数备份
-CREATE OR REPLACE FUNCTION public.check_profile_consistency()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO ''
-AS $$
-DECLARE
-    auth_user auth.users%ROWTYPE;
-    user_name TEXT;
-    user_status TEXT;
-BEGIN
-    -- 获取auth.users表中对应用户的数据
-    SELECT * INTO auth_user FROM auth.users WHERE id = NEW.user_id;
-    -- 如果找不到对应的auth用户，允许操作继续（可能是测试数据）
-    IF auth_user IS NULL THEN
-        RETURN NEW;
-    END IF;
-    -- 从用户元数据中提取名称
-    user_name := COALESCE(auth_user.raw_user_meta_data->>'name', auth_user.raw_user_meta_data->>'full_name');
-    -- 确定用户状态
-    IF auth_user.banned_until IS NOT NULL AND auth_user.banned_until > NOW() THEN
-        user_status := 'banned';
-    ELSIF auth_user.deleted_at IS NOT NULL THEN
-        user_status := 'deleted';
-    ELSIF auth_user.email_confirmed_at IS NOT NULL OR auth_user.phone_confirmed_at IS NOT NULL THEN
-        user_status := 'active';
-    ELSE
-        user_status := 'pending';
-    END IF;
-    -- 确保email一致
-    IF NEW.email IS DISTINCT FROM auth_user.email THEN
-        NEW.email := auth_user.email;
-    END IF;
-    -- 如果没有提供nickname，使用auth用户的名称
-    IF NEW.nickname IS NULL AND user_name IS NOT NULL THEN
-        NEW.nickname := user_name;
-    END IF;
-    -- 如果没有提供status，使用计算的状态
-    IF NEW.status IS NULL THEN
-        NEW.status := user_status;
-    END IF;
-    RETURN NEW;
-END;
-$$;
 
 -- 检查用户注册状态的函数备份
 CREATE OR REPLACE FUNCTION public.check_user_registration_status(user_email text)
@@ -991,25 +1018,7 @@ BEGIN
 END;
 $$;
 
--- 用户状态变更时冻结用户触发器函数备份
-CREATE OR REPLACE FUNCTION public.freeze_user_on_status_left()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO ''
-AS $$
-BEGIN
-  -- 当 status 字段更新为 'left' 时
-  IF NEW.status = 'left' THEN
-    -- 更新 auth.users 表中的 banned_until 字段为 'infinity'
-    UPDATE auth.users
-    SET banned_until = 'infinity'::timestamptz
-    WHERE id = NEW.user_id;
-  END IF;
-  
-  RETURN NEW;
-END;
-$$;
+
 
 -- 生成线索ID函数备份
 CREATE OR REPLACE FUNCTION public.gen_leadid()
