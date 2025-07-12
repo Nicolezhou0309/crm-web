@@ -282,6 +282,7 @@ button:focus-visible {
 .app-header-user {
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 .app-header-user .ant-avatar {
   background: #1677ff;
@@ -291,6 +292,94 @@ button:focus-visible {
   font-weight: 500;
   color: #222;
   font-size: 16px;
+}
+
+/* 积分余额显示样式 - 药丸型设计 */
+.app-header-user .points-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 16px;
+  background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
+  border-radius: 50px;
+  border: none;
+  box-shadow: 
+    0 2px 8px rgba(82, 196, 26, 0.2),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  min-width: 120px;
+  border-radius: 20px;
+  padding: 1px 14px;
+  min-width: unset;
+  height: 36px; /* 可选，强制高度更扁 */
+}
+
+.app-header-user .points-display::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.15) 0%, 
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0.1) 100%);
+  z-index: 1;
+  border-radius: 50px;
+}
+
+.app-header-user .points-display:hover {
+  box-shadow: 
+    0 4px 16px rgba(82, 196, 26, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px) scale(1.02);
+  background: linear-gradient(135deg, #73d13d 0%, #95de64 100%);
+}
+
+.app-header-user .points-display:active {
+  transform: translateY(0) scale(0.98);
+  transition: all 0.1s ease;
+}
+
+.app-header-user .points-display .points-label {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  margin-right: 6px;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.app-header-user .points-display:hover .points-label {
+  color: #fff;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.app-header-user .points-display .points-value {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 50px;
+  text-align: right;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  line-height: 1;
+  position: relative;
+  z-index: 2;
+}
+
+.app-header-user .points-display:hover .points-value {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transform: scale(1.05);
 }
 
 /* ========== 菜单项/导航栏细节优化 ========== */

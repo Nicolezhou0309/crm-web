@@ -252,6 +252,95 @@ const enums = {
       console.error('获取社区类型失败:', error);
       return { success: false, error: '获取社区类型失败' };
     }
+  },
+
+  getAllocationMethods: async (): Promise<AllocationApiResponse<string[]>> => {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_enum_values', { enum_name: 'allocation_method' });
+      
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('获取分配方式失败:', error);
+      return { success: false, error: '获取分配方式失败' };
+    }
+  },
+
+  getCommunityKeywords: async (): Promise<AllocationApiResponse<any[]>> => {
+    try {
+      const { data, error } = await supabase
+        .from('community_keywords')
+        .select('*')
+        .order('priority', { ascending: false });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('获取社区关键词失败:', error);
+      return { success: false, error: '获取社区关键词失败' };
+    }
+  }
+};
+
+// 社区关键词管理
+const communityKeywords = {
+  getKeywords: async (): Promise<AllocationApiResponse<any[]>> => {
+    try {
+      const { data, error } = await supabase
+        .from('community_keywords')
+        .select('*')
+        .order('priority', { ascending: false });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('获取社区关键词失败:', error);
+      return { success: false, error: '获取社区关键词失败' };
+    }
+  },
+
+  createKeyword: async (keyword: any): Promise<AllocationApiResponse<any>> => {
+    try {
+      const { data, error } = await supabase
+        .from('community_keywords')
+        .insert([keyword])
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('创建社区关键词失败:', error);
+      return { success: false, error: '创建社区关键词失败' };
+    }
+  },
+
+  updateKeyword: async (id: number, keyword: any): Promise<AllocationApiResponse<any>> => {
+    try {
+      const { data, error } = await supabase
+        .from('community_keywords')
+        .update(keyword)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('更新社区关键词失败:', error);
+      return { success: false, error: '更新社区关键词失败' };
+    }
+  },
+
+  deleteKeyword: async (id: number): Promise<AllocationApiResponse<void>> => {
+    try {
+      const { error } = await supabase
+        .from('community_keywords')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('删除社区关键词失败:', error);
+      return { success: false, error: '删除社区关键词失败' };
+    }
   }
 };
 
@@ -261,5 +350,6 @@ export const allocationApi = {
   groups,
   logs,
   stats,
-  enums
+  enums,
+  communityKeywords
 }; 

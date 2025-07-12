@@ -112,7 +112,8 @@ export interface AllocationRuleForm {
 export const ALLOCATION_METHODS = [
   { value: 'round_robin', label: '轮流分配', description: '按顺序轮流分配给销售组成员' },
   { value: 'random', label: '随机分配', description: '随机分配给销售组成员' },
-  { value: 'workload', label: '工作量均衡', description: '根据当前工作量自动分配' }
+  { value: 'workload', label: '工作量均衡', description: '根据当前工作量自动分配' },
+  { value: 'points', label: '积分分配', description: '基于用户积分余额进行分配' }
 ];
 
 // 工作日选项

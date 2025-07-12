@@ -37,9 +37,12 @@ import {
   ExclamationCircleOutlined,
   ReloadOutlined,
   BranchesOutlined,
-  CopyOutlined
+  CopyOutlined,
+  TrophyOutlined,
+  EnvironmentOutlined
 } from '@ant-design/icons';
 import { allocationApi } from '../utils/allocationApi';
+import { pointsAllocationApi, type PointsCostRule } from '../utils/pointsAllocationApi';
 import type { 
   SimpleAllocationRule, 
   SimpleAllocationLog, 
@@ -63,6 +66,8 @@ const AllocationManagement: React.FC = () => {
   const [testForm] = Form.useForm();
   const [ruleForm] = Form.useForm();
   const [groupForm] = Form.useForm();
+  const [pointsRuleForm] = Form.useForm();
+  const [communityForm] = Form.useForm();
   
   const [activeTab, setActiveTab] = useState('1');
   const [rules, setRules] = useState<SimpleAllocationRule[]>([]);
@@ -73,6 +78,7 @@ const AllocationManagement: React.FC = () => {
   // 枚举值状态
   const [sourceOptions, setSourceOptions] = useState<string[]>([]);
   const [communityOptions, setCommunityOptions] = useState<string[]>([]);
+  const [allocationMethodOptions, setAllocationMethodOptions] = useState<string[]>([]);
   
   // 弹窗状态
   const [isRuleModalVisible, setIsRuleModalVisible] = useState(false);
@@ -82,6 +88,16 @@ const AllocationManagement: React.FC = () => {
   
   // 测试相关
   const [testResult, setTestResult] = useState<any>(null);
+  
+  // 积分分配规则相关状态
+  const [pointsCostRules, setPointsCostRules] = useState<PointsCostRule[]>([]);
+  const [isPointsRuleModalVisible, setIsPointsRuleModalVisible] = useState(false);
+  const [editingPointsRule, setEditingPointsRule] = useState<PointsCostRule | null>(null);
+
+  // 社区匹配相关状态
+  const [communityKeywords, setCommunityKeywords] = useState<any[]>([]);
+  const [isCommunityModalVisible, setIsCommunityModalVisible] = useState(false);
+  const [editingCommunity, setEditingCommunity] = useState<any | null>(null);
 
   // 加载数据
   useEffect(() => {
@@ -93,7 +109,9 @@ const AllocationManagement: React.FC = () => {
       loadRules(),
       loadUserGroups(),
       loadAllocationLogs(),
-      loadEnumOptions()
+      loadEnumOptions(),
+      loadPointsCostRules(),
+      loadCommunityKeywords()
     ]);
   };
 
@@ -194,7 +212,7 @@ const AllocationManagement: React.FC = () => {
   };
 
   // 新增：用户信息缓存
-  const [userProfileCache, setUserProfileCache] = useState<Record<number, { nickname: string; status: string }>>({});
+  const [userProfileCache, setUserProfileCache] = useState<Record<string, { nickname: string; status: string }>>({});
 
   // 修改加载用户信息的函数
   const loadUserProfiles = async (userIds: number[]) => {
@@ -215,7 +233,7 @@ const AllocationManagement: React.FC = () => {
 
       const newCache = (data || []).reduce((acc, user) => ({
         ...acc,
-        [user.id]: { nickname: user.nickname || `用户${user.id}`, status: user.status }
+        [String(user.id)]: { nickname: user.nickname || `用户${user.id}`, status: user.status }
       }), {});
 
       setUserProfileCache(prev => ({ ...prev, ...newCache }));
@@ -251,10 +269,11 @@ const AllocationManagement: React.FC = () => {
   // 加载枚举选项
   const loadEnumOptions = async () => {
     try {
-      // 并发获取来源和社区枚举
-      const [sourceResponse, communityResponse] = await Promise.all([
+      // 并发获取来源、社区和分配方式枚举
+      const [sourceResponse, communityResponse, allocationMethodResponse] = await Promise.all([
         allocationApi.enums.getSourceTypes(),
-        allocationApi.enums.getCommunityTypes()
+        allocationApi.enums.getCommunityTypes(),
+        allocationApi.enums.getAllocationMethods()
       ]);
 
       if (sourceResponse.success && sourceResponse.data) {
@@ -263,8 +282,33 @@ const AllocationManagement: React.FC = () => {
       if (communityResponse.success && communityResponse.data) {
         setCommunityOptions(communityResponse.data);
       }
+      if (allocationMethodResponse.success && allocationMethodResponse.data) {
+        setAllocationMethodOptions(allocationMethodResponse.data);
+      }
     } catch (error) {
       console.error('加载枚举选项失败:', error);
+    }
+  };
+
+  const loadPointsCostRules = async () => {
+    try {
+      const response = await pointsAllocationApi.costRules.getRules();
+      if (response.success && response.data) {
+        setPointsCostRules(response.data);
+      }
+    } catch (error) {
+      console.error('加载积分成本规则失败:', error);
+    }
+  };
+
+  const loadCommunityKeywords = async () => {
+    try {
+      const response = await allocationApi.communityKeywords.getKeywords();
+      if (response.success && response.data) {
+        setCommunityKeywords(response.data);
+      }
+    } catch (error) {
+      console.error('加载社区关键词失败:', error);
     }
   };
 
@@ -400,17 +444,158 @@ const AllocationManagement: React.FC = () => {
     }
   ];
 
+  // 积分分配规则表格列
+  const pointsRuleColumns = [
+    {
+      title: '规则名称',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text: string, record: PointsCostRule) => (
+        <Space>
+          <Text strong>{text}</Text>
+          {record.is_active ? (
+            <Tag color="green">启用</Tag>
+          ) : (
+            <Tag color="red">禁用</Tag>
+          )}
+        </Space>
+      )
+    },
+    {
+      title: '基础积分成本',
+      dataIndex: 'base_points_cost',
+      key: 'base_points_cost',
+      render: (value: number) => (
+        <Text strong style={{ color: '#1890ff' }}>
+          {value} 积分
+        </Text>
+      )
+    },
+    {
+      title: '优先级',
+      dataIndex: 'priority',
+      key: 'priority',
+      render: (value: number) => (
+        <Tag color={value >= 200 ? 'red' : value >= 150 ? 'orange' : 'blue'}>
+          {value}
+        </Tag>
+      )
+    },
+    {
+      title: '条件配置',
+      dataIndex: 'conditions',
+      key: 'conditions',
+      render: (conditions: any) => {
+        const conditionTexts = [];
+        if (conditions?.sources?.length > 0) {
+          conditionTexts.push(`来源: ${conditions.sources.join(', ')}`);
+        }
+        if (conditions?.lead_types?.length > 0) {
+          conditionTexts.push(`类型: ${conditions.lead_types.join(', ')}`);
+        }
+        if (conditions?.communities?.length > 0) {
+          conditionTexts.push(`社区: ${conditions.communities.join(', ')}`);
+        }
+        return conditionTexts.length > 0 ? (
+          <Tooltip title={conditionTexts.join('; ')}>
+            <Text type="secondary">
+              {conditionTexts.length} 个条件
+            </Text>
+          </Tooltip>
+        ) : (
+          <Text type="secondary">无特殊条件</Text>
+        );
+      }
+    },
+    {
+      title: '动态调整',
+      dataIndex: 'dynamic_cost_config',
+      key: 'dynamic_cost_config',
+      render: (config: any) => {
+        const adjustments = [];
+        if (config?.source_adjustments) {
+          adjustments.push(`来源调整: ${Object.keys(config.source_adjustments).length} 项`);
+        }
+        if (config?.keyword_adjustments) {
+          adjustments.push(`关键词调整: ${Object.keys(config.keyword_adjustments).length} 项`);
+        }
+        if (config?.time_adjustments) {
+          adjustments.push(`时间调整: ${Object.keys(config.time_adjustments).length} 项`);
+        }
+        return adjustments.length > 0 ? (
+          <Tooltip title={adjustments.join('; ')}>
+            <Text type="secondary">
+              {adjustments.length} 项调整
+            </Text>
+          </Tooltip>
+        ) : (
+          <Text type="secondary">无动态调整</Text>
+        );
+      }
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: (text: string, record: PointsCostRule) => (
+        <Space>
+          <Button 
+            type="link" 
+            icon={<EditOutlined />} 
+            onClick={() => handleEditPointsRule(record)}
+          >
+            编辑
+          </Button>
+          <Popconfirm
+            title="确定删除这个积分成本规则吗？"
+            onConfirm={() => handleDeletePointsRule(record.id)}
+          >
+            <Button type="link" danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
+      )
+    }
+  ];
+
+  // 新增：检查销售组使用状态的辅助函数
+  const getGroupUsageInfo = (groupId: number) => {
+    const usedRules = rules.filter(rule => 
+      rule.user_groups && rule.user_groups.includes(groupId)
+    );
+    
+    return {
+      isUsed: usedRules.length > 0,
+      usedRules: usedRules,
+      ruleNames: usedRules.map(rule => rule.name).join('、')
+    };
+  };
+
   // 修改：销售组表格列配置
   const groupColumns = [
     {
       title: '组名称',
       dataIndex: 'groupname',
       key: 'groupname',
-      render: (text: string, record: UserGroup) => (
-        <Space>
-          <Text strong>{text}</Text>
-        </Space>
-      )
+      render: (text: string, record: UserGroup) => {
+        const usageInfo = getGroupUsageInfo(record.id);
+        
+        return (
+          <Space direction="vertical" size={4}>
+            <Text strong>{text}</Text>
+            {usageInfo.isUsed && (
+              <Tooltip 
+                title={`该销售组正在被以下分配规则使用：${usageInfo.ruleNames}`}
+                placement="top"
+              >
+                <Tag color="orange" icon={<ExclamationCircleOutlined />}>
+                  已绑定
+                </Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      }
     },
     {
       title: '描述',
@@ -422,10 +607,12 @@ const AllocationManagement: React.FC = () => {
       dataIndex: 'allocation',
       key: 'allocation',
       render: (method: string) => {
+        // 使用动态枚举值，如果不在枚举中则显示原始值
         const methodInfo = ALLOCATION_METHODS.find(m => m.value === method);
+        const isEnumValue = allocationMethodOptions.includes(method);
         return (
-          <Tooltip title={methodInfo?.description}>
-            <Tag color="blue">{methodInfo?.label || method}</Tag>
+          <Tooltip title={methodInfo?.description || `分配方式: ${method}`}>
+            <Tag color={isEnumValue ? "blue" : "orange"}>{methodInfo?.label || method}</Tag>
           </Tooltip>
         );
       }
@@ -491,24 +678,49 @@ const AllocationManagement: React.FC = () => {
       key: 'action',
       width: 120,
       fixed: 'right' as const, // 修复类型错误
-      render: (text: string, record: UserGroup) => (
-        <Space direction="vertical" size={0}>
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEditGroup(record)}>
-            编辑
-          </Button>
-          <Button type="link" icon={<CopyOutlined />} onClick={() => handleCopyGroup(record)}>
-            复制
-          </Button>
-          <Popconfirm
-            title="确定删除这个销售组吗？"
-            onConfirm={() => handleDeleteGroup(record.id)}
-          >
-            <Button type="link" danger icon={<DeleteOutlined />}>
-              删除
+      render: (text: string, record: UserGroup) => {
+        const usageInfo = getGroupUsageInfo(record.id);
+        
+        return (
+          <Space direction="vertical" size={0}>
+            <Button type="link" icon={<EditOutlined />} onClick={() => handleEditGroup(record)}>
+              编辑
             </Button>
-          </Popconfirm>
-        </Space>
-      )
+            <Button type="link" icon={<CopyOutlined />} onClick={() => handleCopyGroup(record)}>
+              复制
+            </Button>
+            {usageInfo.isUsed ? (
+              <Tooltip 
+                title={`该销售组正在被以下分配规则使用：${usageInfo.ruleNames}。请先从分配规则中移除该销售组，然后再删除。`}
+                placement="left"
+              >
+                <Button 
+                  type="link" 
+                  danger 
+                  icon={<DeleteOutlined />}
+                  disabled
+                  style={{ 
+                    color: '#d9d9d9',
+                    cursor: 'not-allowed',
+                    opacity: 0.6
+                  }}
+                >
+                  删除
+                </Button>
+              </Tooltip>
+            ) : (
+              <Popconfirm
+                title="确定删除这个销售组吗？"
+                onConfirm={() => handleDeleteGroup(record.id)}
+              >
+                <Button type="link" danger icon={<DeleteOutlined />}>
+                  删除
+                </Button>
+              </Popconfirm>
+            )}
+          </Space>
+        );
+      }
     }
   ];
 
@@ -529,7 +741,7 @@ const AllocationManagement: React.FC = () => {
       key: 'assigned_user_id',
       width: 150,
       render: (userId: number) => {
-        const userInfo = userProfileCache[userId] || {};
+        const userInfo = userProfileCache[String(userId)] || {};
   return (
           <Space>
             <UserOutlined />
@@ -548,8 +760,9 @@ const AllocationManagement: React.FC = () => {
       width: 120,
       render: (method: string) => {
         const methodInfo = ALLOCATION_METHODS.find(m => m.value === method);
+        const isEnumValue = allocationMethodOptions.includes(method);
         return (
-          <Tag color="purple">{methodInfo?.label || method}</Tag>
+          <Tag color={isEnumValue ? "purple" : "orange"}>{methodInfo?.label || method}</Tag>
         );
       }
     },
@@ -574,8 +787,7 @@ const AllocationManagement: React.FC = () => {
         const details = record.processing_details;
         if (!details) return <Text type="secondary">无处理详情</Text>;
 
-        // 添加调试信息
-        console.log('处理详情数据:', details);
+
 
         return (
           <Space direction="vertical" size={4} style={{ width: '100%' }}>
@@ -751,7 +963,13 @@ const AllocationManagement: React.FC = () => {
 
   const handleEditGroup = (group: UserGroup) => {
     setEditingGroup(group);
-    groupForm.setFieldsValue(group);
+    // 确保所有字段都正确设置
+    groupForm.setFieldsValue({
+      ...group,
+      enable_quality_control: group.enable_quality_control || false,
+      enable_community_matching: group.enable_community_matching || false,
+      list: group.list || []
+    });
     setIsGroupModalVisible(true);
   };
 
@@ -777,6 +995,16 @@ const AllocationManagement: React.FC = () => {
 
   const handleDeleteGroup = async (id: number) => {
     try {
+      // 检查销售组是否被分配规则使用
+      const usageInfo = getGroupUsageInfo(id);
+      
+      if (usageInfo.isUsed) {
+        message.error(
+          `无法删除销售组，该销售组已被以下分配规则使用：${usageInfo.ruleNames}。请先从分配规则中移除该销售组，然后再删除。`
+        );
+        return;
+      }
+      
       const response = await allocationApi.groups.deleteGroup(id);
       if (response.success) {
         message.success('销售组已删除');
@@ -791,10 +1019,77 @@ const AllocationManagement: React.FC = () => {
   };
 
   const handleCopyGroup = (group: UserGroup) => {
-    const newGroup = { ...group, groupname: group.groupname + '（复制）' };
+    const newGroup = { 
+      ...group, 
+      groupname: group.groupname + '（复制）',
+      enable_quality_control: group.enable_quality_control || false,
+      enable_community_matching: group.enable_community_matching || false,
+      list: group.list || []
+    };
     setEditingGroup(null);
     groupForm.setFieldsValue(newGroup);
     setIsGroupModalVisible(true);
+  };
+
+  // 积分分配规则处理函数
+  const handleEditPointsRule = (rule: PointsCostRule) => {
+    setEditingPointsRule(rule);
+    pointsRuleForm.setFieldsValue({
+      name: rule.name,
+      description: rule.description,
+      base_points_cost: rule.base_points_cost,
+      priority: rule.priority,
+      is_active: rule.is_active,
+      conditions: JSON.stringify(rule.conditions, null, 2),
+      dynamic_cost_config: JSON.stringify(rule.dynamic_cost_config, null, 2)
+    });
+    setIsPointsRuleModalVisible(true);
+  };
+
+  const handleDeletePointsRule = async (id: string) => {
+    try {
+      const response = await pointsAllocationApi.costRules.deleteRule(id);
+      if (response.success) {
+        message.success('积分成本规则已删除');
+        loadPointsCostRules();
+      } else {
+        message.error(response.error || '删除失败');
+      }
+    } catch (error) {
+      console.error('删除积分成本规则失败:', error);
+      message.error('删除失败');
+    }
+  };
+
+  const handleSavePointsRule = async (values: any) => {
+    try {
+      // 解析JSON字段
+      const processedValues = {
+        ...values,
+        conditions: values.conditions ? JSON.parse(values.conditions) : {},
+        dynamic_cost_config: values.dynamic_cost_config ? JSON.parse(values.dynamic_cost_config) : {}
+      };
+
+      let response;
+      if (editingPointsRule) {
+        response = await pointsAllocationApi.costRules.updateRule(editingPointsRule.id, processedValues);
+      } else {
+        response = await pointsAllocationApi.costRules.createRule(processedValues);
+      }
+
+      if (response.success) {
+        message.success(editingPointsRule ? '积分成本规则更新成功' : '积分成本规则创建成功');
+        setIsPointsRuleModalVisible(false);
+        pointsRuleForm.resetFields();
+        setEditingPointsRule(null);
+        loadPointsCostRules();
+      } else {
+        message.error(response.error || '保存失败');
+      }
+    } catch (error) {
+      console.error('保存积分成本规则失败:', error);
+      message.error('保存失败，请检查JSON格式是否正确');
+    }
   };
 
   // 保存规则
@@ -913,37 +1208,50 @@ const AllocationManagement: React.FC = () => {
 
   // 加载部门树和成员
   const loadDeptTreeData = async () => {
-    const { data: orgs } = await supabase.from('organizations').select('id, name, parent_id');
-    const { data: users } = await supabase
-      .from('users_profile')
-      .select('id, nickname, organization_id')
-      .eq('status', 'active');
+    try {
+      const { data: orgs } = await supabase.from('organizations').select('id, name, parent_id');
+      const { data: users } = await supabase
+        .from('users_profile')
+        .select('id, nickname, organization_id')
+        .eq('status', 'active');
 
-    // 递归组装部门树
-    const buildTree = (parentId: string | null): any[] => {
-      return (orgs || [])
-        .filter(dep => dep.parent_id === parentId)
-        .map(dep => ({
-          title: dep.name,
-          value: `dept_${dep.id}`,
-          key: `dept_${dep.id}`,
-          children: [
-            // 部门下成员
-            ...(users || [])
-              .filter(u => u.organization_id === dep.id)
-              .map(u => ({
-                title: u.nickname,
-                value: String(u.id),
-                key: String(u.id),
-                isLeaf: true
-              })),
-            // 递归子部门
-            ...buildTree(dep.id)
-          ]
-        }));
-    };
+      // 同时加载用户信息到缓存
+      if (users && users.length > 0) {
+        const newCache = users.reduce((acc, user) => ({
+          ...acc,
+          [String(user.id)]: { nickname: user.nickname || `用户${user.id}`, status: 'active' }
+        }), {});
+        setUserProfileCache(prev => ({ ...prev, ...newCache }));
+      }
 
-    // 未分配部门成员
+      // 递归组装部门树
+      const buildTree = (parentId: string | null): any[] => {
+        return (orgs || [])
+          .filter(dep => dep.parent_id === parentId)
+          .map(dep => {
+            const deptUsers = (users || []).filter(u => u.organization_id === dep.id);
+            const subDepts = buildTree(dep.id);
+            
+            return {
+              title: `${dep.name} (${deptUsers.length}人)`,
+              value: `dept_${dep.id}`,
+              key: `dept_${dep.id}`,
+              children: [
+                // 部门下成员
+                ...deptUsers.map(u => ({
+                  title: u.nickname,
+                  value: String(u.id),
+                  key: String(u.id),
+                  isLeaf: true
+                })),
+                // 递归子部门
+                ...subDepts
+              ]
+            };
+          });
+      };
+
+          // 未分配部门成员
     const ungrouped = (users || [])
       .filter(u => !u.organization_id)
       .map(u => ({
@@ -956,14 +1264,17 @@ const AllocationManagement: React.FC = () => {
     const tree = buildTree(null);
     if (ungrouped.length > 0) {
       tree.push({
-        title: '未分配部门',
+        title: `未分配部门 (${ungrouped.length}人)`,
         value: 'dept_none',
         key: 'dept_none',
         children: ungrouped
       });
     }
-    
-    setTreeData(tree);
+      
+      setTreeData(tree);
+    } catch (error) {
+      console.error('加载部门树数据失败:', error);
+    }
   };
 
   useEffect(() => { loadDeptTreeData(); }, []);
@@ -971,11 +1282,25 @@ const AllocationManagement: React.FC = () => {
   // 编辑时同步选中成员
   useEffect(() => {
     if (editingGroup && editingGroup.list) {
-      setSelectedUsers((editingGroup.list || []).map(id => String(id)));
+      const userIds = (editingGroup.list || []).map(id => String(id));
+      setSelectedUsers(userIds);
+      
+      // 确保所有选中用户的nickname信息都已加载
+      const missingUserIds = userIds.filter(id => !userProfileCache[id]);
+      if (missingUserIds.length > 0) {
+        loadUserProfiles(missingUserIds.map(id => Number(id)));
+      }
+      
+      // 确保表单数据也同步设置
+      groupForm.setFieldsValue({ 
+        list: userIds,
+        enable_quality_control: editingGroup.enable_quality_control,
+        enable_community_matching: editingGroup.enable_community_matching
+      });
     } else {
       setSelectedUsers([]);
     }
-  }, [editingGroup, isGroupModalVisible]);
+  }, [editingGroup, isGroupModalVisible, userProfileCache]);
 
   // 部门全选/取消全选
   const handleDeptSelect = (deptId: string, members: { id: string }[]) => {
@@ -998,6 +1323,46 @@ const AllocationManagement: React.FC = () => {
       (option.deptname && option.deptname.toLowerCase().includes(input.toLowerCase()))
     );
   };
+
+  // 积分分配规则标签页内容
+  const pointsAllocationTabContent = (
+    <Card
+      title={<Title level={4} style={{ margin: 0, textAlign: 'left' }}>积分分配规则</Title>}
+      styles={{
+        header: {
+          padding: '0 24px',
+          borderBottom: '1px solid #f0f0f0'
+        }
+      }}
+      extra={
+        <Button 
+          type="primary" 
+          icon={<PlusOutlined />}
+          onClick={() => {
+            setEditingPointsRule(null);
+            pointsRuleForm.resetFields();
+            setIsPointsRuleModalVisible(true);
+          }}
+        >
+          新增积分规则
+        </Button>
+      }
+    >
+      <Table
+        columns={pointsRuleColumns}
+        dataSource={pointsCostRules}
+        rowKey="id"
+        scroll={{ x: 1200 }}
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total, range) => 
+            `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
+        }}
+      />
+    </Card>
+  );
 
   // 新增：销售组管理标签页内容
   const salesGroupTabContent = (
@@ -1022,7 +1387,14 @@ const AllocationManagement: React.FC = () => {
             icon={<PlusOutlined />}
             onClick={() => {
               setEditingGroup(null);
+              setSelectedUsers([]);
               groupForm.resetFields();
+              // 设置默认值
+              groupForm.setFieldsValue({
+                enable_quality_control: false,
+                enable_community_matching: false,
+                list: []
+              });
               setIsGroupModalVisible(true);
             }}
           >
@@ -1031,6 +1403,26 @@ const AllocationManagement: React.FC = () => {
         </Space>
       }
     >
+      {/* 新增：使用统计信息 */}
+      <div style={{ marginBottom: 16 }}>
+        <Alert
+          message={
+            <Space>
+              <Text>销售组使用统计：</Text>
+              <Text strong>{userGroups.length}</Text>
+              <Text>个销售组，其中</Text>
+              <Text strong style={{ color: '#1890ff' }}>
+                {userGroups.filter(group => getGroupUsageInfo(group.id).isUsed).length}
+              </Text>
+              <Text>个正在被分配规则使用</Text>
+            </Space>
+          }
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      </div>
+      
       <Table
         columns={groupColumns}
         dataSource={filteredUserGroups}
@@ -1063,7 +1455,7 @@ const AllocationManagement: React.FC = () => {
                     <Text type="secondary">分配给销售：</Text>
                     <Tag icon={<UserOutlined />} color="blue">
                       {testResult.assigned_user_id ? 
-                        (userProfileCache[testResult.assigned_user_id]?.nickname || `用户${testResult.assigned_user_id}`)
+                        (userProfileCache[String(testResult.assigned_user_id)]?.nickname || `用户${testResult.assigned_user_id}`)
                         : '未分配'
                       }
                     </Tag>
@@ -1072,7 +1464,7 @@ const AllocationManagement: React.FC = () => {
                 <Col span={24}>
                   <Space>
                     <Text type="secondary">分配方式：</Text>
-                    <Tag color="purple">
+                    <Tag color={allocationMethodOptions.includes(testResult.allocation_method) ? "purple" : "orange"}>
                       {ALLOCATION_METHODS.find(m => m.value === testResult.allocation_method)?.label || testResult.allocation_method}
                     </Tag>
                   </Space>
@@ -1361,6 +1753,153 @@ const AllocationManagement: React.FC = () => {
       </Card>
   );
 
+  // 社区关键词表格列
+  const communityColumns = [
+    {
+      title: '关键词',
+      dataIndex: 'keyword',
+      key: 'keyword',
+      render: (keywords: string[]) => (
+        <Space size={[0, 4]} wrap>
+          {keywords.map((keyword, index) => (
+            <Tag key={index} color="blue">{keyword}</Tag>
+          ))}
+        </Space>
+      )
+    },
+    {
+      title: '对应社区',
+      dataIndex: 'community',
+      key: 'community',
+      render: (community: string) => (
+        <Tag color="green">{community}</Tag>
+      )
+    },
+    {
+      title: '优先级',
+      dataIndex: 'priority',
+      key: 'priority',
+      render: (priority: number) => (
+        <Tag color={priority >= 100 ? 'red' : priority >= 50 ? 'orange' : 'blue'}>
+          {priority}
+        </Tag>
+      )
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: (text: string, record: any) => (
+        <Space>
+          <Button 
+            type="link" 
+            icon={<EditOutlined />} 
+            onClick={() => handleEditCommunity(record)}
+          >
+            编辑
+          </Button>
+          <Popconfirm
+            title="确定删除这个社区关键词映射吗？"
+            onConfirm={() => handleDeleteCommunity(record.id)}
+          >
+            <Button type="link" danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
+      )
+    }
+  ];
+
+  // 社区关键词处理函数
+  const handleEditCommunity = (community: any) => {
+    setEditingCommunity(community);
+    communityForm.setFieldsValue({
+      keyword: community.keyword,
+      community: community.community,
+      priority: community.priority
+    });
+    setIsCommunityModalVisible(true);
+  };
+
+  const handleDeleteCommunity = async (id: number) => {
+    try {
+      const response = await allocationApi.communityKeywords.deleteKeyword(id);
+      if (response.success) {
+        message.success('社区关键词映射已删除');
+        loadCommunityKeywords();
+      } else {
+        message.error(response.error || '删除失败');
+      }
+    } catch (error) {
+      console.error('删除社区关键词失败:', error);
+      message.error('删除失败');
+    }
+  };
+
+  const handleSaveCommunity = async (values: any) => {
+    try {
+      let response;
+      if (editingCommunity) {
+        response = await allocationApi.communityKeywords.updateKeyword(editingCommunity.id, values);
+      } else {
+        response = await allocationApi.communityKeywords.createKeyword(values);
+      }
+
+      if (response.success) {
+        message.success(editingCommunity ? '社区关键词映射更新成功' : '社区关键词映射创建成功');
+        setIsCommunityModalVisible(false);
+        communityForm.resetFields();
+        setEditingCommunity(null);
+        loadCommunityKeywords();
+      } else {
+        message.error(response.error || '保存失败');
+      }
+    } catch (error) {
+      console.error('保存社区关键词失败:', error);
+      message.error('保存失败');
+    }
+  };
+
+  // 社区匹配标签页内容
+  const communityMatchingTabContent = (
+    <Card
+      title={<Title level={4} style={{ margin: 0, textAlign: 'left' }}>社区关键词匹配</Title>}
+      styles={{
+        header: {
+          padding: '0 24px',
+          borderBottom: '1px solid #f0f0f0'
+        }
+      }}
+      extra={
+        <Button 
+          type="primary" 
+          icon={<PlusOutlined />}
+          onClick={() => {
+            setEditingCommunity(null);
+            communityForm.resetFields();
+            setIsCommunityModalVisible(true);
+          }}
+        >
+          新增社区映射
+        </Button>
+      }
+    >
+      <Table
+        columns={communityColumns}
+        dataSource={communityKeywords}
+        rowKey="id"
+        scroll={{ x: 800 }}
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total, range) => 
+            `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
+        }}
+      />
+    </Card>
+  );
+
   // 在组件内部修改 Card 的使用
   return (
     <div className="allocation-management">
@@ -1464,6 +2003,16 @@ const AllocationManagement: React.FC = () => {
             children: salesGroupTabContent
           },
           {
+            key: '6',
+            label: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <TrophyOutlined />
+                积分规则
+              </span>
+            ),
+            children: pointsAllocationTabContent
+          },
+          {
             key: '4',
             label: (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -1541,6 +2090,16 @@ const AllocationManagement: React.FC = () => {
               </span>
             ),
             children: allocationHistoryTabContent
+          },
+          {
+            key: '7',
+            label: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <EnvironmentOutlined />
+                社区匹配
+              </span>
+            ),
+            children: communityMatchingTabContent
           }
         ]}
       />
@@ -1671,9 +2230,30 @@ const AllocationManagement: React.FC = () => {
               onDeselect={(value) => {
               }}
             >
-              {userGroups.map(group => (
-                <Option key={group.id} value={group.id}>{group.groupname}</Option>
-              ))}
+              {userGroups.map(group => {
+                const usageInfo = getGroupUsageInfo(group.id);
+                const isCurrentRule = editingRule && editingRule.user_groups && editingRule.user_groups.includes(group.id);
+                
+                return (
+                  <Option key={group.id} value={group.id}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span>{group.groupname}</span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {usageInfo.isUsed && !isCurrentRule && (
+                          <Tag color="orange" style={{ fontSize: '10px', lineHeight: '12px' }}>
+                            已被使用
+                          </Tag>
+                        )}
+                        {isCurrentRule && (
+                          <Tag color="blue" style={{ fontSize: '10px', lineHeight: '12px' }}>
+                            当前规则
+                          </Tag>
+                        )}
+                      </div>
+                    </div>
+                  </Option>
+                );
+              })}
             </Select>
           </Form.Item>
 
@@ -1681,11 +2261,24 @@ const AllocationManagement: React.FC = () => {
             <Col span={12}>
               <Form.Item name="allocation_method" label="分配方式">
                 <Select placeholder="选择分配方式">
-                  {ALLOCATION_METHODS.map(method => (
-                    <Option key={method.value} value={method.value}>
-                      {method.label}
-                    </Option>
-                  ))}
+                  {allocationMethodOptions.length > 0 ? (
+                    // 使用动态枚举值
+                    allocationMethodOptions.map(method => {
+                      const methodInfo = ALLOCATION_METHODS.find(m => m.value === method);
+                      return (
+                        <Option key={method} value={method}>
+                          {methodInfo?.label || method}
+                        </Option>
+                      );
+                    })
+                  ) : (
+                    // 如果枚举加载失败，使用静态常量
+                    ALLOCATION_METHODS.map(method => (
+                      <Option key={method.value} value={method.value}>
+                        {method.label}
+                      </Option>
+                    ))
+                  )}
                 </Select>
               </Form.Item>
             </Col>
@@ -1727,6 +2320,7 @@ const AllocationManagement: React.FC = () => {
         onCancel={() => {
           setIsGroupModalVisible(false);
           setEditingGroup(null);
+          setSelectedUsers([]);
           groupForm.resetFields();
         }}
         footer={null}
@@ -1735,24 +2329,34 @@ const AllocationManagement: React.FC = () => {
         <Form
           form={groupForm}
           layout="vertical"
+          onValuesChange={(changedValues, allValues) => {
+            // 当质量控制开关变化时，确保相关字段的禁用状态正确更新
+            if (changedValues.hasOwnProperty('enable_quality_control')) {
+              // 强制重新渲染质量控制相关字段
+              groupForm.setFieldsValue({
+                daily_lead_limit: allValues.daily_lead_limit,
+                conversion_rate_requirement: allValues.conversion_rate_requirement,
+                max_pending_leads: allValues.max_pending_leads
+              });
+            }
+          }}
           onFinish={async (values) => {
             try {
-              console.log('销售组表单提交值:', values);
+              // 将字符串ID转换为数字ID提交给后端
+              const processedValues = {
+                ...values,
+                list: (values.list || []).map((id: any) => Number(id))
+              };
               
               // 使用验证工具函数处理表单数据
-              const groupData = validateGroupForm(values);
-              console.log('验证后的销售组数据:', groupData);
+              const groupData = validateGroupForm(processedValues);
               
               let response;
               if (editingGroup) {
-                console.log('更新销售组:', editingGroup.id, groupData);
                 response = await allocationApi.groups.updateGroup(editingGroup.id, groupData);
               } else {
-                console.log('创建销售组:', groupData);
                 response = await allocationApi.groups.createGroup(groupData);
               }
-              
-              console.log('API响应:', response);
               
               if (response.success) {
                 message.success(editingGroup ? '销售组更新成功' : '销售组创建成功');
@@ -1761,7 +2365,6 @@ const AllocationManagement: React.FC = () => {
                 setEditingGroup(null);
                 
                 // 强制刷新销售组数据
-                console.log('开始刷新销售组数据...');
                 
                 // 先清空现有数据
                 setUserGroups([]);
@@ -1769,14 +2372,6 @@ const AllocationManagement: React.FC = () => {
                 
                 // 重新加载数据
                 await loadUserGroups();
-                console.log('销售组数据刷新完成');
-                
-                // 延迟再次验证
-                setTimeout(async () => {
-                  console.log('延迟验证数据...');
-                  const refreshResponse = await allocationApi.groups.getGroups();
-                  console.log('最终验证结果:', refreshResponse);
-                }, 1000);
               } else {
                 const errorMsg = response.error || '保存失败';
                 const detailMsg = response.details ? ` (${response.details})` : '';
@@ -1802,11 +2397,24 @@ const AllocationManagement: React.FC = () => {
             <Col span={12}>
               <Form.Item name="allocation" label="分配方式">
                 <Select placeholder="选择分配方式">
-                  {ALLOCATION_METHODS.map(method => (
-                    <Option key={method.value} value={method.value}>
+                  {allocationMethodOptions.length > 0 ? (
+                    // 使用动态枚举值
+                    allocationMethodOptions.map(method => {
+                      const methodInfo = ALLOCATION_METHODS.find(m => m.value === method);
+                      return (
+                        <Option key={method} value={method}>
+                          {methodInfo?.label || method}
+                        </Option>
+                      );
+                    })
+                  ) : (
+                    // 如果枚举加载失败，使用静态常量
+                    ALLOCATION_METHODS.map(method => (
+                      <Option key={method.value} value={method.value}>
                         {method.label}
-                    </Option>
-                  ))}
+                      </Option>
+                    ))
+                  )}
                 </Select>
               </Form.Item>
             </Col>
@@ -1818,7 +2426,11 @@ const AllocationManagement: React.FC = () => {
 
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="daily_lead_limit" label="日限制">
+              <Form.Item 
+                name="daily_lead_limit" 
+                label="日限制"
+                dependencies={['enable_quality_control']}
+              >
                 <InputNumber
                   min={1}
                   placeholder="最大分配"
@@ -1828,7 +2440,11 @@ const AllocationManagement: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="conversion_rate_requirement" label="转化率(%)">
+              <Form.Item 
+                name="conversion_rate_requirement" 
+                label="转化率(%)"
+                dependencies={['enable_quality_control']}
+              >
                 <InputNumber
                   min={0}
                   max={100}
@@ -1840,7 +2456,11 @@ const AllocationManagement: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="max_pending_leads" label="最大待处理">
+              <Form.Item 
+                name="max_pending_leads" 
+                label="最大待处理"
+                dependencies={['enable_quality_control']}
+              >
                 <InputNumber
                   min={1}
                   placeholder="最大待处理数量"
@@ -1859,23 +2479,225 @@ const AllocationManagement: React.FC = () => {
             <TreeSelect
               treeData={treeData}
               value={selectedUsers}
-              onChange={(val, labelList, extra) => {
-                const onlyLeafValues = (val as any[])
-                  .filter((value: any) => {
-                    // 排除部门ID（以dept_开头）
-                    if (typeof value === 'string' && value.startsWith('dept_')) {
-                      return false;
-                    }
-                    // 只保留数字ID（成员ID）
-                    return typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)));
-                  })
-                  .map((value: any) => Number(value)); // 转换为数字而不是字符串
-                
-                setSelectedUsers(onlyLeafValues.map(v => String(v))); // 状态保持字符串格式
-                groupForm.setFieldsValue({ list: onlyLeafValues }); // 表单值使用数字数组
-              }}
               treeCheckable
               showCheckedStrategy={TreeSelect.SHOW_CHILD}
+              treeCheckStrictly={false}
+              onSelect={(value, node) => {
+                // 如果是部门节点，处理全选/全不选
+                if (String(value).startsWith('dept_')) {
+                  // 递归获取部门下所有成员（包括子部门）
+                  const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
+                    const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
+                    const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
+                      for (const n of nodes) {
+                        if (n.key === deptKey) return n;
+                        if (n.children) {
+                          const found = find(n.children);
+                          if (found) return found;
+                        }
+                      }
+                      return undefined;
+                    })(treeData);
+                    
+                    if (!dept) return [];
+                    
+                    // 递归获取所有子部门的用户
+                    const getAllUsersFromNode = (node: any): string[] => {
+                      let users: string[] = [];
+                      if (node.children) {
+                        node.children.forEach((child: any) => {
+                          if (child.isLeaf) {
+                            users.push(child.key);
+                          } else {
+                            users.push(...getAllUsersFromNode(child));
+                          }
+                        });
+                      }
+                      return users;
+                    };
+                    
+                    return getAllUsersFromNode(dept);
+                  };
+                  
+                  const deptUsers = getAllUsersInDeptRecursive(String(value));
+                  
+                  // 检查该部门是否已经全部选中
+                  const allSelected = deptUsers.length > 0 && deptUsers.every((id: string) => selectedUsers.includes(id));
+                  
+                  let newSelectedUsers = [...selectedUsers];
+                  
+                  if (allSelected) {
+                    // 如果部门已全部选中，则全不选
+                    newSelectedUsers = newSelectedUsers.filter(id => !deptUsers.includes(id));
+                  } else {
+                    // 如果部门未全部选中，则全选
+                    deptUsers.forEach((id: string) => {
+                      if (!newSelectedUsers.includes(id)) {
+                        newSelectedUsers.push(id);
+                      }
+                    });
+                  }
+                  
+                  setSelectedUsers(newSelectedUsers);
+                  groupForm.setFieldsValue({ list: newSelectedUsers });
+                  return; // 阻止默认的onChange处理
+                }
+              }}
+              onDeselect={(value, node) => {
+                // 如果是部门节点，处理全不选
+                if (String(value).startsWith('dept_')) {
+                  // 递归获取部门下所有成员（包括子部门）
+                  const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
+                    const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
+                    const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
+                      for (const n of nodes) {
+                        if (n.key === deptKey) return n;
+                        if (n.children) {
+                          const found = find(n.children);
+                          if (found) return found;
+                        }
+                      }
+                      return undefined;
+                    })(treeData);
+                    
+                    if (!dept) return [];
+                    
+                    // 递归获取所有子部门的用户
+                    const getAllUsersFromNode = (node: any): string[] => {
+                      let users: string[] = [];
+                      if (node.children) {
+                        node.children.forEach((child: any) => {
+                          if (child.isLeaf) {
+                            users.push(child.key);
+                          } else {
+                            users.push(...getAllUsersFromNode(child));
+                          }
+                        });
+                      }
+                      return users;
+                    };
+                    
+                    return getAllUsersFromNode(dept);
+                  };
+                  
+                  const deptUsers = getAllUsersInDeptRecursive(String(value));
+                  
+                  let newSelectedUsers = selectedUsers.filter(id => !deptUsers.includes(id));
+                  
+                  setSelectedUsers(newSelectedUsers);
+                  groupForm.setFieldsValue({ list: newSelectedUsers });
+                  return; // 阻止默认的onChange处理
+                }
+              }}
+              onChange={(val, labelList, extra) => {
+                const values = Array.isArray(val) ? val : [];
+                console.log('【TreeSelect onChange】原始val:', val);
+                console.log('【TreeSelect onChange】values:', values);
+                
+                // 递归获取部门下所有成员id（字符串）
+                const getAllUsersInDept = (deptKey: string): string[] => {
+                  const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
+                  const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
+                    for (const n of nodes) {
+                      if (n.key === deptKey) return n;
+                      if (n.children) {
+                        const found = find(n.children);
+                        if (found) return found;
+                      }
+                    }
+                    return undefined;
+                  })(treeData);
+                  if (!dept) return [];
+                  let allUsers: string[] = [];
+                  const directUsers = dept.children?.filter((child: any) => child.isLeaf).map((child: any) => child.key) || [];
+                  allUsers.push(...directUsers);
+                  const subDepts = dept.children?.filter((child: any) => !child.isLeaf) || [];
+                  subDepts.forEach((subDept: any) => {
+                    const subUsers = getAllUsersInDept(subDept.key);
+                    allUsers.push(...subUsers);
+                  });
+                  return allUsers;
+                };
+                
+                // 使用新增逻辑 + 递归全选/全不选
+                
+                // 递归获取部门下所有成员（包括子部门）
+                const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
+                  const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
+                  const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
+                    for (const n of nodes) {
+                      if (n.key === deptKey) return n;
+                      if (n.children) {
+                        const found = find(n.children);
+                        if (found) return found;
+                      }
+                    }
+                    return undefined;
+                  })(treeData);
+                  
+                  if (!dept) return [];
+                  
+                  let allUsers: string[] = [];
+                  
+                  // 递归获取所有子部门的用户
+                  const getAllUsersFromNode = (node: any): string[] => {
+                    let users: string[] = [];
+                    if (node.children) {
+                      node.children.forEach((child: any) => {
+                        if (child.isLeaf) {
+                          users.push(child.key);
+                        } else {
+                          users.push(...getAllUsersFromNode(child));
+                        }
+                      });
+                    }
+                    return users;
+                  };
+                  
+                  return getAllUsersFromNode(dept);
+                };
+                
+                // 分离处理：部门选择和人员选择
+                let finalSelectedUsers: string[] = [];
+                
+                // 分离部门选择和人员选择
+                const deptSelections = values.filter((value: any) => String(value).startsWith('dept_'));
+                const userSelections = values.filter((value: any) => !String(value).startsWith('dept_'));
+                
+                // 1. 处理部门选择：只有全选/全不选
+                deptSelections.forEach(deptId => {
+                  const deptUsers = getAllUsersInDeptRecursive(deptId);
+                  
+                  // 全选该部门的所有成员
+                  deptUsers.forEach(id => {
+                    if (!finalSelectedUsers.includes(id)) {
+                      finalSelectedUsers.push(id);
+                    }
+                  });
+                });
+                
+                // 2. 处理人员选择：单独处理
+                userSelections.forEach(userId => {
+                  const userIdStr = String(userId);
+                  if (!finalSelectedUsers.includes(userIdStr)) {
+                    finalSelectedUsers.push(userIdStr);
+                  }
+                });
+                
+                // 只保留叶子节点成员id
+                finalSelectedUsers = finalSelectedUsers.filter(id => treeData.some(dept => {
+                  const findLeaf = (nodes: any[]): boolean => nodes.some(n => (n.isLeaf && n.key === id) || (n.children && findLeaf(n.children)));
+                  return findLeaf([dept]);
+                }));
+                
+                setSelectedUsers(finalSelectedUsers);
+                groupForm.setFieldsValue({ list: finalSelectedUsers });
+              }}
+              tagRender={({ value, closable, onClose }) => {
+                const userInfo = userProfileCache?.[String(value)];
+                const nickname = userInfo?.nickname || `用户${value}`;
+                return <Tag closable={closable} onClose={onClose}>{nickname}</Tag>;
+              }}
               placeholder="请选择成员"
               showSearch
               filterTreeNode={(input, node) =>
@@ -1884,6 +2706,16 @@ const AllocationManagement: React.FC = () => {
               style={{ width: '100%' }}
               allowClear
               treeDefaultExpandAll
+              maxTagCount="responsive"
+              styles={{
+                popup: {
+                  root: {
+                    maxHeight: 400,
+                    overflow: 'auto'
+                  }
+                }
+              }}
+              popupMatchSelectWidth={false}
             />
           </Form.Item>
 
@@ -1916,7 +2748,182 @@ const AllocationManagement: React.FC = () => {
               <Button onClick={() => {
                 setIsGroupModalVisible(false);
                 setEditingGroup(null);
+                setSelectedUsers([]);
                 groupForm.resetFields();
+              }}>
+                取消
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 积分分配规则编辑弹窗 */}
+      <Modal
+        title={editingPointsRule ? '编辑积分成本规则' : '新增积分成本规则'}
+        open={isPointsRuleModalVisible}
+        onCancel={() => {
+          setIsPointsRuleModalVisible(false);
+          setEditingPointsRule(null);
+          pointsRuleForm.resetFields();
+        }}
+        footer={null}
+        width={800}
+      >
+        <Form
+          form={pointsRuleForm}
+          layout="vertical"
+          onFinish={handleSavePointsRule}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="name"
+                label="规则名称"
+                rules={[{ required: true, message: '请输入规则名称' }]}
+              >
+                <Input placeholder="请输入规则名称" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="base_points_cost"
+                label="基础积分成本"
+                rules={[{ required: true, message: '请输入基础积分成本' }]}
+              >
+                <InputNumber
+                  min={1}
+                  max={1000}
+                  placeholder="请输入积分成本"
+                  style={{ width: '100%' }}
+                  addonAfter="积分"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="description" label="规则描述">
+            <Input.TextArea placeholder="请输入规则描述" />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="priority" label="优先级" initialValue={100}>
+                <InputNumber
+                  min={0}
+                  max={999}
+                  placeholder="数字越大优先级越高"
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="is_active" label="是否启用" valuePropName="checked" initialValue={true}>
+                <Switch />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="conditions" label="触发条件">
+            <Input.TextArea 
+              placeholder="请输入JSON格式的触发条件，例如：{'sources': ['抖音'], 'lead_types': ['普通']}"
+              rows={4}
+            />
+          </Form.Item>
+
+          <Form.Item name="dynamic_cost_config" label="动态调整配置">
+            <Input.TextArea 
+              placeholder="请输入JSON格式的动态调整配置，例如：{'source_adjustments': {'抖音': 15}}"
+              rows={4}
+            />
+          </Form.Item>
+          
+          <Form.Item>
+            <Space>
+              <Button 
+                type="primary" 
+                htmlType="submit"
+              >
+                {editingPointsRule ? '更新规则' : '创建规则'}
+              </Button>
+              <Button onClick={() => {
+                setIsPointsRuleModalVisible(false);
+                setEditingPointsRule(null);
+                pointsRuleForm.resetFields();
+              }}>
+                取消
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 社区关键词编辑弹窗 */}
+      <Modal
+        title={editingCommunity ? '编辑社区关键词映射' : '新增社区关键词映射'}
+        open={isCommunityModalVisible}
+        onCancel={() => {
+          setIsCommunityModalVisible(false);
+          setEditingCommunity(null);
+          communityForm.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
+        <Form
+          form={communityForm}
+          layout="vertical"
+          onFinish={handleSaveCommunity}
+        >
+          <Form.Item
+            name="keyword"
+            label="关键词"
+            rules={[{ required: true, message: '请输入关键词' }]}
+          >
+            <Select
+              mode="tags"
+              placeholder="请输入关键词，可添加多个"
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="community"
+            label="对应社区"
+            rules={[{ required: true, message: '请选择对应社区' }]}
+          >
+            <Select placeholder="请选择社区">
+              {communityOptions.map(community => (
+                <Option key={community} value={community}>{community}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="priority"
+            label="优先级"
+            initialValue={0}
+          >
+            <InputNumber
+              min={0}
+              max={999}
+              placeholder="数字越大优先级越高"
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+          
+          <Form.Item>
+            <Space>
+              <Button 
+                type="primary" 
+                htmlType="submit"
+              >
+                {editingCommunity ? '更新映射' : '创建映射'}
+              </Button>
+              <Button onClick={() => {
+                setIsCommunityModalVisible(false);
+                setEditingCommunity(null);
+                communityForm.resetFields();
               }}>
                 取消
               </Button>

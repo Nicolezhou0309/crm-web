@@ -628,8 +628,22 @@ DECLARE
     duplicate_count integer;
     lead_community community;
     debug_info jsonb := '{}';
+    original_leadid text;
+    duplicate_details jsonb;
+    lock_key text;
+    is_concurrent_duplicate boolean := false;
 BEGIN
-    -- 检查过去7天内是否有重复的phone或wechat
+    -- 构建锁键（基于手机号或微信）
+    lock_key := COALESCE(NEW.phone, NEW.wechat, NEW.leadid);
+    
+    -- 使用advisory lock防止并发插入相同手机号/微信的线索
+    IF NOT pg_try_advisory_xact_lock(hashtext(lock_key)) THEN
+        -- 如果无法获取锁，说明有并发插入，等待一下再检查
+        PERFORM pg_sleep(0.1);
+        is_concurrent_duplicate := true;
+    END IF;
+    
+    -- 统一的重复检测逻辑
     SELECT COUNT(*) INTO duplicate_count
     FROM public.leads l
     WHERE (
@@ -639,19 +653,49 @@ BEGIN
     AND l.created_at >= NOW() - INTERVAL '7 days'
     AND l.leadid != NEW.leadid;  -- 排除当前记录
     
-    -- 如果发现重复，记录日志并返回
+    -- 如果发现重复，更新线索状态并记录日志
     IF duplicate_count > 0 THEN
+        -- 获取原始线索ID（用于记录）
+        SELECT leadid INTO original_leadid
+        FROM public.leads l
+        WHERE (
+                (NEW.phone IS NOT NULL AND NEW.phone != '' AND l.phone = NEW.phone) OR
+                (NEW.wechat IS NOT NULL AND NEW.wechat != '' AND l.wechat = NEW.wechat)
+        )
+        AND l.created_at >= NOW() - INTERVAL '7 days'
+        AND l.leadid != NEW.leadid
+        ORDER BY l.created_at ASC
+        LIMIT 1;
+        
+        -- 构建重复详情
+        duplicate_details := jsonb_build_object(
+            'duplicate_found', true,
+            'duplicate_count', duplicate_count,
+            'original_leadid', original_leadid,
+            'duplicate_reason', CASE 
+                WHEN is_concurrent_duplicate THEN '并发插入检测到重复'
+                WHEN NEW.phone IS NOT NULL AND NEW.phone != '' THEN 'phone重复'
+                WHEN NEW.wechat IS NOT NULL AND NEW.wechat != '' THEN 'wechat重复'
+                ELSE '未知重复原因'
+            END,
+            'is_concurrent', is_concurrent_duplicate,
+            'check_time', NOW()
+        );
+        
+        -- 更新当前线索状态为"重复"
+        UPDATE public.leads 
+        SET leadtype = '重复'
+        WHERE leadid = NEW.leadid;
+        
+        -- 记录重复日志
         INSERT INTO simple_allocation_logs (
             leadid,
             processing_details
         ) VALUES (
             NEW.leadid,
-            jsonb_build_object(
-                'duplicate_found', true,
-                'duplicate_count', duplicate_count,
-                'check_time', NOW()
-            )
+            duplicate_details
         );
+        
         RETURN NEW;
     END IF;
     
@@ -1331,3 +1375,243 @@ $$;
 
 -- 执行系统验证
 SELECT public.validate_allocation_system() AS system_validation;
+
+-- ========== 用户可分配状态及详细原因函数 ========== 
+create or replace function public.get_user_allocation_status(
+  p_user_id bigint,
+  p_source text default null,
+  p_leadtype text default null,
+  p_community text default null
+)
+returns jsonb
+language plpgsql
+as $$
+declare
+  user_group record;
+  can_allocate boolean := false;
+  reasons text[] := array[]::text[];
+  filtered_users bigint[];
+  group_config record;
+  daily_assigned integer;
+  pending_count integer;
+  conversion_rate numeric;
+  total_leads integer;
+  converted_leads integer;
+begin
+  -- 查找用户所属销售组
+  select * into user_group
+  from users_list
+  where list @> array[p_user_id];
+
+  if user_group is null then
+    return jsonb_build_object(
+      'groupname', null,
+      'can_allocate', false,
+      'reason', array['未找到所属销售组']
+    );
+  end if;
+
+  -- 获取组质量控制配置
+  select
+    enable_quality_control,
+    daily_lead_limit,
+    conversion_rate_requirement,
+    max_pending_leads
+  into group_config
+  from users_list
+  where id = user_group.id;
+
+  -- 检查日线索量限制
+  if group_config.daily_lead_limit is not null then
+    select count(*) into daily_assigned
+    from simple_allocation_logs
+    where assigned_user_id = p_user_id
+      and created_at >= current_date;
+    if daily_assigned >= group_config.daily_lead_limit then
+      reasons := reasons || format('今日已分配线索达到上限（%s/%s）', daily_assigned, group_config.daily_lead_limit);
+    end if;
+  end if;
+
+  -- 检查未接受线索数量
+  if group_config.max_pending_leads is not null then
+    select count(*) into pending_count
+    from followups
+    where interviewsales_user_id = p_user_id
+      and followupstage = '待接收';
+    if pending_count > group_config.max_pending_leads then
+      reasons := reasons || format('待接收线索数超限（%s/%s）', pending_count, group_config.max_pending_leads);
+    end if;
+  end if;
+
+  -- 检查转化率
+  if group_config.conversion_rate_requirement is not null then
+    select
+      count(*) as total_leads,
+      count(*) filter (where followupstage in ('赢单')) as converted_leads
+    into total_leads, converted_leads
+    from followups
+    where interviewsales_user_id = p_user_id
+      and created_at >= current_date - interval '30 days';
+
+    if total_leads >= 50 then
+      conversion_rate := round((converted_leads::numeric / total_leads::numeric) * 100, 2);
+    else
+      conversion_rate := group_config.conversion_rate_requirement; -- 样本不足时视为通过
+    end if;
+
+    if conversion_rate < group_config.conversion_rate_requirement then
+      reasons := reasons || format('转化率低于要求（当前%.2f%%，要求%.2f%%）', coalesce(conversion_rate,0), group_config.conversion_rate_requirement);
+    end if;
+  end if;
+
+  -- 最终判断
+  filtered_users := apply_allocation_filters(
+    user_group.list,
+    user_group.id,
+    p_community::community,
+    true,  -- 启用质量控制
+    false, -- 禁用社区匹配
+    false  -- 权限检查
+  );
+
+  if filtered_users is not null and array_position(filtered_users, p_user_id) is not null then
+    can_allocate := true;
+  else
+    can_allocate := false;
+    if array_length(reasons,1) is null then
+      reasons := array['不满足销售组分配要求'];
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'groupname', user_group.groupname,
+    'can_allocate', can_allocate,
+    'reason', reasons
+  );
+end;
+$$;
+
+-- ========== 单组分配状态详细检查函数 ========== 
+create or replace function public.check_user_group_status(
+  p_user_id bigint,
+  p_group_id bigint,
+  p_source text default null,
+  p_leadtype text default null,
+  p_community text default null
+)
+returns jsonb
+language plpgsql
+as $$
+declare
+  group_rec record;
+  can_allocate boolean := false;
+  reasons text[] := array[]::text[];
+  filtered_users bigint[];
+  daily_assigned integer;
+  pending_count integer;
+  conversion_rate numeric;
+  total_leads integer;
+  converted_leads integer;
+begin
+  select * into group_rec from users_list where id = p_group_id;
+
+  -- 日线索量限制
+  if group_rec.daily_lead_limit is not null then
+    select count(*) into daily_assigned
+    from simple_allocation_logs
+    where assigned_user_id = p_user_id
+      and created_at >= current_date;
+    if daily_assigned >= group_rec.daily_lead_limit then
+      reasons := reasons || format('今日已分配线索达到上限（%s/%s）', daily_assigned, group_rec.daily_lead_limit);
+    end if;
+  end if;
+
+  -- 未接受线索数量
+  if group_rec.max_pending_leads is not null then
+    select count(*) into pending_count
+    from followups
+    where interviewsales_user_id = p_user_id
+      and followupstage = '待接收';
+    if pending_count > group_rec.max_pending_leads then
+      reasons := reasons || format('待接收线索数超限（%s/%s）', pending_count, group_rec.max_pending_leads);
+    end if;
+  end if;
+
+  -- 转化率
+  if group_rec.conversion_rate_requirement is not null then
+    select
+      count(*) as total_leads,
+      count(*) filter (where followupstage in ('赢单')) as converted_leads
+    into total_leads, converted_leads
+    from followups
+    where interviewsales_user_id = p_user_id
+      and created_at >= current_date - interval '30 days';
+
+    if total_leads >= 50 then
+      conversion_rate := round((converted_leads::numeric / total_leads::numeric) * 100, 2);
+    else
+      conversion_rate := group_rec.conversion_rate_requirement;
+    end if;
+
+    if conversion_rate < group_rec.conversion_rate_requirement then
+      reasons := reasons || format('转化率低于要求（当前%.2f%%，要求%.2f%%）', coalesce(conversion_rate,0), group_rec.conversion_rate_requirement);
+    end if;
+  end if;
+
+  -- apply_allocation_filters
+  filtered_users := apply_allocation_filters(
+    group_rec.list,
+    group_rec.id,
+    p_community::community,
+    true,
+    false,
+    false
+  );
+
+  if filtered_users is not null and array_position(filtered_users, p_user_id) is not null then
+    can_allocate := true;
+  else
+    can_allocate := false;
+
+    -- 进一步细分过滤原因
+    -- 社区匹配
+    -- 权限检查（如有权限相关逻辑，可补充）
+
+    -- 兜底
+    if array_length(reasons,1) is null then
+      reasons := array['不满足销售组分配要求'];
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'groupname', group_rec.groupname,
+    'can_allocate', can_allocate,
+    'reason', reasons
+  );
+end;
+$$;
+
+-- ========== 多组分配状态主函数 ========== 
+create or replace function public.get_user_allocation_status_multi(
+  p_user_id bigint,
+  p_source text default null,
+  p_leadtype text default null,
+  p_community text default null
+)
+returns jsonb
+language plpgsql
+as $$
+declare
+  group_row record;
+  result jsonb := '[]'::jsonb;
+begin
+  for group_row in
+    select id from users_list where list @> array[p_user_id]
+  loop
+    result := result || check_user_group_status(
+      p_user_id, group_row.id, p_source, p_leadtype, p_community
+    );
+  end loop;
+  return result;
+end;
+$$;

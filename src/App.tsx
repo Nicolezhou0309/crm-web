@@ -19,6 +19,7 @@ import {
   HistoryOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
+import HouseLogo from './components/HouseLogo';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import TestSupabase from './pages/TestSupabase';
 import LeadsList from './pages/LeadsList';
@@ -174,7 +175,13 @@ const App: React.FC = () => {
         {/* 顶部导航条 */}
         <Header className="app-header">
           <div className="app-title">
-            <AppstoreOutlined />
+            <HouseLogo 
+              width={40} 
+              height={40} 
+              style={{ 
+                marginRight: '16px'
+              }} 
+            />
             <span>长租公寓CRM系统</span>
           </div>
           <div className="app-header-user">
@@ -223,9 +230,26 @@ const App: React.FC = () => {
                       padding: 32,
                       minHeight: 500,
                     }}>
-                      <Title level={4} style={{ marginBottom: 24, fontWeight: 700, color: '#222' }}>
-                        欢迎使用长租公寓CRM系统
-                      </Title>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        marginBottom: 24 
+                      }}>
+                        <HouseLogo 
+                          width={56} 
+                          height={56} 
+                          style={{ 
+                            marginRight: '20px'
+                          }} 
+                        />
+                        <Title level={4} style={{ 
+                          fontWeight: 700, 
+                          color: '#222',
+                          margin: 0
+                        }}>
+                          欢迎使用长租公寓CRM系统
+                        </Title>
+                      </div>
                       <p style={{ fontSize: 16, color: '#666' }}>
                         这是一个现代化的客户关系管理系统，帮助您更好地管理销售线索和客户关系。
                       </p>
@@ -242,9 +266,9 @@ const App: React.FC = () => {
                   <Route path="/allocation-management" element={<AllocationManagement />} />
 
                   {/* 积分系统路由 */}
-                  <Route path="/points" element={<PointsDashboard />} />
-                  <Route path="/points/exchange" element={<PointsExchange />} />
-                  <Route path="/points/rules" element={<PointsRules />} />
+                          <Route path="/points" element={<PointsDashboard />} />
+        <Route path="/points/exchange" element={<PointsExchange />} />
+        <Route path="/points/rules" element={<PointsRules />} />
 
                   <Route path="/test" element={<TestSupabase />} />
                   <Route path="/profile" element={<Profile />} />

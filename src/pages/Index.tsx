@@ -1,9 +1,11 @@
 import React from 'react';
+import AllocationStatusCard from '../components/AllocationStatusCard';
 
 const Index: React.FC = () => {
   return (
-    <div style={{ padding: 48, textAlign: 'center', fontSize: 24 }}>
-      首页（内容待补充）
+    <div>
+      <AllocationStatusCard />
+      {/* 其他首页内容... */}
     </div>
   );
 };
