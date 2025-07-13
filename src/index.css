@@ -192,13 +192,23 @@ button:focus-visible {
 /* 步骤表单区flex布局 */
 .page-step-fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 16px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0px;
+  margin-bottom: 8px;
+}
+
+/* 单栏布局样式 - 用于签约表格等需要全宽显示的内容 */
+.page-step-fields-single {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  margin-bottom: 8px;
 }
 .page-step-field-item {
   background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  border: none;
   border-radius: 6px;
   padding: 12px;
   transition: all 0.2s;
@@ -695,17 +705,31 @@ button:focus-visible {
 }
 
 .page-drawer-info {
-  flex: 1;
+  flex: 0 0 20%;
 }
 
 .page-drawer-form {
-  flex: 1;
+  flex: 0 0 70%;
+  border-right: 36px;
 }
 
 .ant-form-item {
-  margin-bottom: 16px;
+  margin-bottom: 8px !important; /* 行间距更紧凑 */
 }
 
+.ant-form-item-label > label {
+  margin-bottom: 2px !important;
+  font-size: 14px;
+}
+
+.ant-form-item-control-input {
+  min-height: 24px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.page-step-field-item {
+  padding: 4px 6px !important;
+}
 /* 左侧部门树卡片专属样式 */
 .page-card.dept-tree {
   background: #fff;
@@ -1315,4 +1339,16 @@ button:focus-visible {
 .connector-line:hover,
 .flow-connector:hover .connector-line {
   display: none !important;
+}
+
+/* 步骤条下方间距压缩 */
+.ant-steps {
+  margin-bottom: 8px !important;  /* 原本可能是24px或32px，压缩为8px */
+}
+
+.page-step-fields,
+.page-drawer-form,
+.ant-form {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
 }

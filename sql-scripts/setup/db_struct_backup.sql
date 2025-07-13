@@ -1,4 +1,3 @@
-
 -- 用户档案一致性检查触发器函数备份
 CREATE OR REPLACE FUNCTION public.check_profile_consistency()
 RETURNS trigger
@@ -945,7 +944,8 @@ RETURNS TABLE(
   traffictype text,
   interactiontype text,
   douyinleadid text,
-  leadstatus text
+  leadstatus text,
+  interviewsales text
 )
 LANGUAGE plpgsql
 AS $$
@@ -979,8 +979,11 @@ BEGIN
         l.traffictype,
         l.interactiontype,
         l.douyinleadid,
-        l.leadstatus
+        l.leadstatus,
+        up.nickname as interviewsales
     FROM public.leads l
+    LEFT JOIN public.followups f ON l.leadid = f.leadid
+    LEFT JOIN public.users_profile up ON f.interviewsales_user_id = up.id
     WHERE (p_leadid IS NULL OR l.leadid = p_leadid)
       AND (p_created_at_start IS NULL OR l.created_at >= p_created_at_start)
       AND (p_created_at_end IS NULL OR l.created_at <= p_created_at_end)

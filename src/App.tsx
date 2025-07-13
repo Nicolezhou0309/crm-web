@@ -23,6 +23,7 @@ import HouseLogo from './components/HouseLogo';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import TestSupabase from './pages/TestSupabase';
 import LeadsList from './pages/LeadsList';
+import ShowingsList from './pages/ShowingsList';
 
 import Index from './pages/Index';
 import Error404 from './pages/Error404';
@@ -260,6 +261,7 @@ const App: React.FC = () => {
                   } />
                   <Route path="/leads" element={<LeadsList />} />
                   <Route path="/followups" element={<FollowupsGroupList />} />
+                  <Route path="/showings" element={<ShowingsList />} />
 
                   <Route path="/deals" element={<DealsList />} />
                   <Route path="/allocation" element={<AllocationManagement />} />

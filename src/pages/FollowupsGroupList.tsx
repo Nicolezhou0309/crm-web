@@ -76,6 +76,215 @@ const maskWechat = (wechat: string): string => {
   return wechat.substring(0, 2) + '****' + wechat.substring(wechat.length - 2);
 };
 
+// 签约记录表格组件
+const ContractDealsTable = ({
+  dealsList,
+  dealsLoading,
+  onAdd,
+  onEdit,
+  onDelete,
+  isReadOnly = false,
+  currentRecord,
+  communityEnum,
+  setDealsList,
+}: {
+  dealsList: any[];
+  dealsLoading: boolean;
+  onAdd: () => void;
+  onEdit: (record: any) => void;
+  onDelete: (record: any) => void;
+  isReadOnly?: boolean;
+  currentRecord: any;
+  communityEnum: any[];
+  setDealsList: (list: any[]) => void;
+}) => (
+  <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', flex: 1 }}>
+    <div
+      style={{
+        background: '#fafbfc',
+        borderRadius: 6,
+        padding: '0 0 0 16px',
+        minHeight: 48,
+        marginBottom: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottom: '1px solid #f0f0f0',
+      }}
+    >
+      <div style={{ fontWeight: 600, fontSize: 16, color: '#222', display: 'flex', alignItems: 'center' }}>
+        <span style={{ marginRight: 8 }}>📊 签约记录</span>
+        <span style={{ fontSize: 12, color: '#888', fontWeight: 400 }}>(共 {dealsList.length} 条记录)</span>
+      </div>
+      {!isReadOnly && (
+        <Button
+          type="primary"
+          size="small"
+          style={{ height: 32, borderRadius: 4, fontWeight: 500, marginRight: 16 }}
+          onClick={onAdd}
+        >
+          新增
+        </Button>
+      )}
+    </div>
+    <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
+      <Table
+        dataSource={dealsList}
+        loading={dealsLoading}
+        size="small"
+        pagination={false}
+        scroll={{ y: 'calc(100vh - 400px)', x: 'max-content' }}
+        columns={[
+          {
+            title: '签约日期',
+            dataIndex: 'contractdate',
+            key: 'contractdate',
+            width: 120,
+            render: (text, record) => {
+              if (!isReadOnly && record.isEditing) {
+                return (
+                  <DatePicker
+                    size="small"
+                    value={text ? dayjs(text) : undefined}
+                    format="YYYY-MM-DD"
+                    onChange={(date) => {
+                      const newDate = date ? date.format('YYYY-MM-DD') : '';
+                      setDealsList(prev => prev.map(item =>
+                        item.id === record.id
+                          ? { ...item, contractdate: newDate }
+                          : item
+                      ));
+                    }}
+                    style={{ width: '100%' }}
+                  />
+                );
+              }
+              return text ? dayjs(text).format('YYYY-MM-DD') : '-';
+            }
+          },
+          {
+            title: '签约社区',
+            dataIndex: 'community',
+            key: 'community',
+            width: 140,
+            render: (text, record) => {
+              if (!isReadOnly && record.isEditing) {
+                return (
+                  <Select
+                    size="small"
+                    value={text}
+                    options={communityEnum}
+                    placeholder="选择社区"
+                    style={{ width: '100%' }}
+                    onChange={(value) => {
+                      setDealsList(prev => prev.map(item =>
+                        item.id === record.id
+                          ? { ...item, community: value }
+                          : item
+                      ));
+                    }}
+                  />
+                );
+              }
+              return text ? <Tag color="blue">{text}</Tag> : '-';
+            }
+          },
+          {
+            title: '签约操作编号',
+            dataIndex: 'contractnumber',
+            key: 'contractnumber',
+            width: 160,
+            render: (text, record) => {
+              if (!isReadOnly && record.isEditing) {
+                return (
+                  <Input
+                    size="small"
+                    value={text}
+                    placeholder="输入操作编号"
+                    onChange={(e) => {
+                      setDealsList(prev => prev.map(item =>
+                        item.id === record.id
+                          ? { ...item, contractnumber: e.target.value }
+                          : item
+                      ));
+                    }}
+                  />
+                );
+              }
+              return text ? <span style={{ fontWeight: 600, color: '#1890ff' }}>{text}</span> : '-';
+            }
+          },
+          {
+            title: '签约房间号',
+            dataIndex: 'roomnumber',
+            key: 'roomnumber',
+            width: 140,
+            render: (text, record) => {
+              if (!isReadOnly && record.isEditing) {
+                return (
+                  <Input
+                    size="small"
+                    value={text}
+                    placeholder="输入房间号"
+                    onChange={(e) => {
+                      setDealsList(prev => prev.map(item =>
+                        item.id === record.id
+                          ? { ...item, roomnumber: e.target.value }
+                          : item
+                      ));
+                    }}
+                  />
+                );
+              }
+              return text || '-';
+            }
+          },
+          {
+            title: '操作',
+            key: 'action',
+            width: 120,
+            render: (_, record) => {
+              if (isReadOnly) return null;
+              if (record.isEditing) {
+                return (
+                  <Space size="small">
+                    <Button
+                      type="primary"
+                      size="small"
+                      onClick={async () => onEdit(record)}
+                    >
+                      确认提交
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => onDelete(record)}
+                    >
+                      取消
+                    </Button>
+                  </Space>
+                );
+              }
+              return (
+                <Button
+                  size="small"
+                  onClick={() => onEdit(record)}
+                >
+                  编辑
+                </Button>
+              );
+            }
+          }
+        ]}
+        rowKey="id"
+        style={{ backgroundColor: '#fafafa', width: '100%', minWidth: 0 }}
+        locale={{
+          emptyText: dealsLoading ? '加载中...' : '暂无签约记录，点击"新增"按钮添加'
+        }}
+      />
+    </div>
+  </div>
+);
+
 const FollowupsGroupList: React.FC = () => {
   // 跟进数据
   const [data, setData] = useState<Followup[]>([]);
@@ -110,6 +319,16 @@ const FollowupsGroupList: React.FC = () => {
   const [phoneSearch, setPhoneSearch] = useState('');
   const [wechatSearch, setWechatSearch] = useState('');
   const [keywordSearch, setKeywordSearch] = useState('');
+  // 签约信息状态
+  const [contractForm] = Form.useForm();
+  const [contractInfo, setContractInfo] = useState({
+    contractcommunity: '',
+    contractnumber: '',
+    roomnumber: ''
+  });
+  // 签约记录列表状态
+  const [dealsList, setDealsList] = useState<any[]>([]);
+  const [dealsLoading, setDealsLoading] = useState(false);
 
   // 2. 步骤条、表单字段、label
   const followupStages = [
@@ -128,7 +347,7 @@ const FollowupsGroupList: React.FC = () => {
       'followupresult'
     ],
     '邀约到店': ['scheduletime', 'scheduledcommunity'],
-    '已到店': ['showingsales_user'],
+    '已到店': [],
     '赢单': []
   };
   const fieldLabelMap: Record<string, string> = {
@@ -147,11 +366,31 @@ const FollowupsGroupList: React.FC = () => {
 
   // 获取枚举
   useEffect(() => {
-    fetchEnumValues('community').then(arr => setCommunityEnum(arr.map(v => ({ value: v, label: v }))));
-    fetchEnumValues('followupstage').then(arr => setFollowupstageEnum(arr.map(v => ({ value: v, label: v }))));
-    fetchEnumValues('customerprofile').then(arr => setCustomerprofileEnum(arr.map(v => ({ value: v, label: v }))));
-    fetchEnumValues('source').then(arr => setSourceEnum(arr.map(v => ({ value: v, label: v }))));
-    fetchEnumValues('userrating').then(arr => setUserratingEnum(arr.map(v => ({ value: v, label: v }))));
+    
+    fetchEnumValues('community').then(arr => {
+      setCommunityEnum(arr.map(v => ({ value: v, label: v })));
+    }).catch(() => {
+    });
+    
+    fetchEnumValues('followupstage').then(arr => {
+      setFollowupstageEnum(arr.map(v => ({ value: v, label: v })));
+    }).catch(() => {
+    });
+    
+    fetchEnumValues('customerprofile').then(arr => {
+      setCustomerprofileEnum(arr.map(v => ({ value: v, label: v })));
+    }).catch(() => {
+    });
+    
+    fetchEnumValues('source').then(arr => {
+      setSourceEnum(arr.map(v => ({ value: v, label: v })));
+    }).catch(() => {
+    });
+    
+    fetchEnumValues('userrating').then(arr => {
+      setUserratingEnum(arr.map(v => ({ value: v, label: v })));
+    }).catch(() => {
+    });
   }, []);
 
   // 允许的参数（与SQL函数声明一致）
@@ -173,12 +412,6 @@ const FollowupsGroupList: React.FC = () => {
     page = pagination.current,
     pageSize = pagination.pageSize
   ) => {
-    console.log('🔍 [fetchFollowups] 开始获取跟进记录...', {
-      filters,
-      page,
-      pageSize
-    });
-    
     setLoading(true);
     try {
       // 计算分页参数
@@ -230,40 +463,16 @@ const FollowupsGroupList: React.FC = () => {
         Object.entries(params).filter(([key]) => allowedParams.includes(key) || key === 'p_groupby_field')
       );
 
-      console.log('📤 [fetchFollowups] 发送参数:', rpcParams);
-      console.log('🔍 [fetchFollowups] interviewsales_user_id类型:', typeof rpcParams.p_interviewsales_user_id, '值:', rpcParams.p_interviewsales_user_id);
-      console.log('🔍 [fetchFollowups] p_scheduledcommunity:', rpcParams.p_scheduledcommunity, '类型:', typeof rpcParams.p_scheduledcommunity);
-
       const { data, error } = await supabase.rpc('filter_followups', rpcParams);
       
-      console.log('📥 [fetchFollowups] 接收结果:', {
-        dataCount: data?.length || 0,
-        error: error?.message,
-        firstRecord: data?.[0]
-      });
-      
       if (error) {
-        console.error('❌ [fetchFollowups] 获取跟进记录失败:', error);
         message.error('获取跟进记录失败: ' + error.message);
       } else {
         const total = data && data.length > 0 ? Number(data[0].total_count) : 0;
         
-        console.log('📊 [fetchFollowups] 数据统计:', {
-          total,
-          dataLength: data?.length || 0,
-          firstRecordId: data?.[0]?.id,
-          firstRecordInterviewsalesUserId: data?.[0]?.interviewsales_user_id
-        });
-        
         // 前端校验：只保留id非空且唯一的行
         const filtered = (data || []).filter((item: any): item is Followup => !!item && !!item.id);
         const unique = Array.from(new Map(filtered.map((i: Followup) => [i.id, i])).values()) as Followup[];
-        
-        console.log('🔍 [fetchFollowups] 数据过滤结果:', {
-          originalCount: data?.length || 0,
-          filteredCount: filtered.length,
-          uniqueCount: unique.length
-        });
         
         // 类型安全处理
         const safeData = unique.map((item: unknown) => {
@@ -290,22 +499,12 @@ const FollowupsGroupList: React.FC = () => {
           return newItem as Followup;
         });
 
-        console.log('✅ [fetchFollowups] 最终数据:', {
-          safeDataLength: safeData.length,
-          sampleRecord: safeData[0] ? {
-            id: safeData[0].id,
-            leadid: safeData[0].leadid,
-            interviewsales_user_id: safeData[0].interviewsales_user_id,
-            interviewsales_user_name: safeData[0].interviewsales_user_name
-          } : null
-        });
-
+      
         setData(safeData);
         setPagination(prev => ({ ...prev, total, current: page, pageSize }));
         setInputCache({});
       }
     } catch (error) {
-      console.error('❌ [fetchFollowups] 异常:', error);
       message.error('获取跟进记录失败');
     } finally {
       setLoading(false);
@@ -314,13 +513,8 @@ const FollowupsGroupList: React.FC = () => {
 
   // 获取分组统计
   const fetchGroupCount = async (groupFieldParam = groupField) => {
-    console.log('📊 [fetchGroupCount] 开始获取分组统计...', {
-      groupFieldParam,
-      groupField
-    });
     
     if (!groupFieldParam) {
-      console.log('⚠️ [fetchGroupCount] 分组字段为空，清空分组数据');
       setGroupRowsCache([]);
       setGroupTotal(0); // 分组字段为空时总数为0
       return;
@@ -331,13 +525,6 @@ const FollowupsGroupList: React.FC = () => {
       const filterKey = 'p_' + groupFieldParam;
       const { [filterKey]: _, ...restFilters } = tableFilters;
       const params = { p_groupby_field: groupFieldParam, ...restFilters };
-      
-      console.log('🔍 [fetchGroupCount] 分组参数:', {
-        groupFieldParam,
-        filterKey,
-        restFilters,
-        params
-      });
       
       // 确保数组参数正确传递（与fetchFollowups保持一致）
       const arrayParams = [
@@ -365,18 +552,11 @@ const FollowupsGroupList: React.FC = () => {
         Object.entries(params).filter(([key]) => allowedParams.includes(key) || key === 'p_groupby_field')
       );
       
-      console.log('📤 [fetchGroupCount] 发送参数:', rpcParams);
       
       const { data, error } = await supabase.rpc('group_count_filter_followups', rpcParams);
-      
-      console.log('📥 [fetchGroupCount] 接收结果:', {
-        dataCount: data?.length || 0,
-        error: error?.message,
-        sampleGroup: data?.[0]
-      });
+
       
       if (error) {
-        console.error('❌ [fetchGroupCount] 获取分组统计失败:', error);
         message.error('获取分组统计失败: ' + error.message);
         setGroupRowsCache([]);
         setGroupTotal(0);
@@ -408,22 +588,12 @@ const FollowupsGroupList: React.FC = () => {
         count: g.count,
       }));
       
-      console.log('📊 [fetchGroupCount] 分组结果:', {
-        originalCount: data?.length || 0,
-        sortedCount: sortedData.length,
-        groupRowsCount: groupRows.length,
-        sampleGroup: groupRows[0]
-      });
       
       setGroupRowsCache(groupRows);
       // 统计总数
       const total = data.reduce((sum: number, g: any) => sum + Number(g.count), 0);
       setGroupTotal(total);
-      
-      console.log('✅ [fetchGroupCount] 分组统计完成:', {
-        total,
-        groupRowsCount: groupRows.length
-      });
+
     } finally {
       setLoading(false);
     }
@@ -537,34 +707,19 @@ const FollowupsGroupList: React.FC = () => {
 
   // 首次加载数据
   useEffect(() => {
-    console.log('🚀 [FollowupsGroupList] 组件初始化，开始加载数据');
-    console.log('🔍 [FollowupsGroupList] 当前用户信息检查...');
-    
+
     // 检查当前用户信息
-    supabase.auth.getUser().then(({ data: { user }, error }) => {
-      console.log('👤 [FollowupsGroupList] 当前用户:', {
-        id: user?.id,
-        email: user?.email,
-        error: error?.message
-      });
+    supabase.auth.getUser().then(() => {
     });
     
     // 检查用户权限
-    supabase.rpc('has_permission', { resource: 'lead', action: 'manage' }).then(({ data, error }) => {
-      console.log('🔑 [FollowupsGroupList] lead管理权限检查:', {
-        hasPermission: data,
-        error: error?.message
-      });
+    supabase.rpc('has_permission', { resource: 'lead', action: 'manage' }).then(() => {
     });
     
     // 检查用户角色
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        supabase.rpc('get_user_roles', { p_user_id: user.id }).then(({ data: roles, error }) => {
-          console.log('🎭 [FollowupsGroupList] 用户角色:', {
-            roles,
-            error: error?.message
-          });
+        supabase.rpc('get_user_roles', { p_user_id: user.id }).then(() => {
         });
       }
     });
@@ -713,14 +868,38 @@ const FollowupsGroupList: React.FC = () => {
               zIndex: 2
             }}
             onClick={async () => {
-              const isPending = (item?.label || text) === '待接收';
+              const isPending = (typeof item === 'object' ? item.label : item) === '待接收' || (typeof text === 'string' && text === '待接收');
               if (isPending) {
-                const nextStage = followupstageEnum.find(i => i.label === '确认需求')?.value || '';
-                if (!nextStage) return;
-                const { error } = await supabase.from('followups').update({ followupstage: nextStage }).eq('id', record.id);
-                if (!error) {
-                  setData(prev => prev.map(item => item.id === record.id ? { ...item, followupstage: nextStage } : item));
-                  message.success('已接收，阶段已推进到"确认需求"');
+
+                followupstageEnum.forEach((enumItem) => {
+                  if (typeof enumItem === 'object') {
+                  } else {
+                  }
+                });
+                // 兼容字符串和对象两种情况
+                const confirmStageItem = followupstageEnum.find(i =>
+                  (typeof i === 'string' && String(i).replace(/\s/g, '') === '确认需求') ||
+                  (typeof i === 'object' && ((i.label && String(i.label).replace(/\s/g, '') === '确认需求') || (i.value && String(i.value).replace(/\s/g, '') === '确认需求')))
+                );
+                const nextStage = typeof confirmStageItem === 'string' ? confirmStageItem : confirmStageItem?.value;
+                if (!nextStage) {
+                  message.error('系统错误：未找到确认需求阶段配置');
+                  return;
+                }
+                try {
+                  const { error } = await supabase
+                    .from('followups')
+                    .update({ followupstage: nextStage })
+                    .eq('id', record.id)
+                    .select();
+                  if (error) {
+                    message.error('更新失败: ' + error.message);
+                  } else {
+                    setData(prev => prev.map(item => item.id === record.id ? { ...item, followupstage: nextStage } : item));
+                    message.success('已接收，阶段已推进到"确认需求"');
+                  }
+                } catch (error) {
+                  message.error('操作失败: ' + (error as Error).message);
                 }
               } else {
                 setCurrentRecord(record);
@@ -728,6 +907,12 @@ const FollowupsGroupList: React.FC = () => {
                 setCurrentStage(record.followupstage);
                 setCurrentStep(followupStages.indexOf(record.followupstage));
                 stageForm.setFieldsValue(convertDateFields(record));
+                
+                // 如果是"已到店"或"赢单"阶段，检查是否有deals记录
+                if (record.followupstage === '已到店' || record.followupstage === '赢单') {
+                  checkDealsRecord(record.leadid);
+                  fetchDealsList(record.leadid);
+                }
               }
             }}
           >{item?.label || text}</Button>
@@ -1175,15 +1360,8 @@ const FollowupsGroupList: React.FC = () => {
 
   // Table onChange事件处理（支持分页+受控筛选）
   const handleTableChange = (_pagination: any, filters: any) => {
-    console.log('🔄 [handleTableChange] 表格筛选变化:', {
-      pagination: _pagination,
-      filters,
-      currentPagination: pagination,
-      currentTableFilters: tableFilters
-    });
     
     if (_pagination.current !== pagination.current || _pagination.pageSize !== pagination.pageSize) {
-      console.log('📄 [handleTableChange] 分页变化，直接更新分页');
       setPagination(prev => ({ ...prev, current: _pagination.current, pageSize: _pagination.pageSize }));
       fetchFollowups(tableFilters, _pagination.current, _pagination.pageSize);
       return;
@@ -1192,10 +1370,6 @@ const FollowupsGroupList: React.FC = () => {
     const params: any = { ...tableFilters };
     
     Object.keys(filters).forEach(key => {
-      console.log(`🔍 [handleTableChange] 处理筛选字段: ${key}`, {
-        filterValue: filters[key],
-        currentParams: params[key]
-      });
       
       if (key === 'interviewsales_user_id') {
         if (filters[key] && filters[key].length > 0) {
@@ -1207,19 +1381,15 @@ const FollowupsGroupList: React.FC = () => {
           // 如果只包含null，传递[null]表示IS NULL条件
           if (values.length === 1 && values[0] === null) {
             params[`p_${key}`] = [null];
-            console.log(`✅ [handleTableChange] 设置 ${key} 为 [null] (IS NULL条件)`);
           } else if (values.includes(null)) {
             // 如果包含null和其他值，传递所有值（后端会处理IS NULL和= ANY）
             params[`p_${key}`] = values;
-            console.log(`✅ [handleTableChange] 设置 ${key} 为混合值:`, values);
           } else {
             // 只有非null值
             params[`p_${key}`] = values;
-            console.log(`✅ [handleTableChange] 设置 ${key} 为非null值:`, values);
           }
         } else {
-          delete params[`p_${key}`];
-          console.log(`🗑️ [handleTableChange] 移除 ${key} 参数`);
+          delete params[`p_${key}`];  
         }
         return;
       }
@@ -1230,19 +1400,15 @@ const FollowupsGroupList: React.FC = () => {
           // 如果只包含null，传递[null]表示IS NULL条件
           if (filters[key].length === 1 && filters[key][0] === null) {
             params[`p_${key}`] = [null];
-            console.log(`✅ [handleTableChange] 设置枚举字段 ${key} 为 [null] (IS NULL条件)`);
           } else if (filters[key].includes(null)) {
             // 如果包含null和其他值，传递所有值
             params[`p_${key}`] = filters[key].map((v: any) => v === null ? null : String(v));
-            console.log(`✅ [handleTableChange] 设置枚举字段 ${key} 为混合值:`, params[`p_${key}`]);
           } else {
             // 只有非null值
             params[`p_${key}`] = filters[key].map((v: any) => String(v));
-            console.log(`✅ [handleTableChange] 设置枚举字段 ${key} 为非null值:`, params[`p_${key}`]);
           }
         } else {
           delete params[`p_${key}`];
-          console.log(`🗑️ [handleTableChange] 移除枚举字段 ${key} 参数`);
         }
         return;
       }
@@ -1253,21 +1419,17 @@ const FollowupsGroupList: React.FC = () => {
           // 如果只包含null，传递[null]表示IS NULL条件
           if (filters[key].length === 1 && filters[key][0] === null) {
             params[`p_${key}`] = [null];
-            console.log(`✅ [handleTableChange] 设置 ${key} 为 [null] (IS NULL条件)`);
           } else if (filters[key].includes(null)) {
             // 如果包含null和其他值，传递所有值
             params[`p_${key}`] = filters[key].map((v: string | null) => 
               v === null ? null : String(v).trim()
             ).filter(v => v !== undefined);
-            console.log(`✅ [handleTableChange] 设置 ${key} 为混合值:`, params[`p_${key}`]);
           } else {
             // 只有非null值
             params[`p_${key}`] = filters[key].map((v: string | null) => String(v).trim());
-            console.log(`✅ [handleTableChange] 设置 ${key} 为非null值:`, params[`p_${key}`]);
           }
         } else {
           delete params[`p_${key}`];
-          console.log(`🗑️ [handleTableChange] 移除 ${key} 参数`);
         }
         return;
       }
@@ -1279,15 +1441,10 @@ const FollowupsGroupList: React.FC = () => {
           params[`p_${key}_start`] = dayjs(val[0]).startOf('day').format('YYYY-MM-DD HH:mm:ss');
           params[`p_${key}_end`] = dayjs(val[1]).endOf('day').format('YYYY-MM-DD HH:mm:ss');
           params[key] = val;
-          console.log(`✅ [handleTableChange] 设置时间字段 ${key} 范围:`, {
-            start: params[`p_${key}_start`],
-            end: params[`p_${key}_end`]
-          });
         } else {
           delete params[`p_${key}_start`];
           delete params[`p_${key}_end`];
           delete params[key];
-          console.log(`🗑️ [handleTableChange] 移除时间字段 ${key} 参数`);
         }
         return;
       }
@@ -1301,19 +1458,15 @@ const FollowupsGroupList: React.FC = () => {
           // 如果只包含null，传递[null]表示IS NULL条件
           if (filters[key].length === 1 && filters[key][0] === null) {
             params[paramKey] = [null];
-            console.log(`✅ [handleTableChange] 设置多选字段 ${paramKey} 为 [null] (IS NULL条件)`);
           } else if (filters[key].includes(null)) {
             // 如果包含null和其他值，传递所有值
             params[paramKey] = filters[key];
-            console.log(`✅ [handleTableChange] 设置多选字段 ${paramKey} 为混合值:`, params[paramKey]);
           } else {
             // 只有非null值
             params[paramKey] = filters[key];
-            console.log(`✅ [handleTableChange] 设置多选字段 ${paramKey} 为非null值:`, params[paramKey]);
           }
         } else {
           delete params[paramKey];
-          console.log(`🗑️ [handleTableChange] 移除多选字段 ${paramKey} 参数`);
         }
         return;
       }
@@ -1326,19 +1479,15 @@ const FollowupsGroupList: React.FC = () => {
         // 如果只包含null，传递[null]表示IS NULL条件
         if (filters[key].length === 1 && filters[key][0] === null) {
           params[paramKey] = [null];
-          console.log(`✅ [handleTableChange] 设置普通字段 ${paramKey} 为 [null] (IS NULL条件)`);
         } else if (filters[key].includes(null)) {
           // 如果包含null和其他值，传递所有值
           params[paramKey] = key === 'remark' ? filters[key] : filters[key];
-          console.log(`✅ [handleTableChange] 设置普通字段 ${paramKey} 为混合值:`, params[paramKey]);
         } else {
           // 只有非null值
           params[paramKey] = key === 'remark' ? filters[key][0] : filters[key];
-          console.log(`✅ [handleTableChange] 设置普通字段 ${paramKey} 为非null值:`, params[paramKey]);
         }
       } else {
-        delete params[paramKey];
-        console.log(`🗑️ [handleTableChange] 移除普通字段 ${paramKey} 参数`);
+        delete params[paramKey]; 
       }
     });
 
@@ -1347,14 +1496,11 @@ const FollowupsGroupList: React.FC = () => {
       const filterKey = 'p_' + groupField;
       if (selectedGroup === 'null') {
         params[filterKey] = [null];
-        console.log(`✅ [handleTableChange] 设置分组筛选 ${filterKey} 为 [null]`);
       } else {
         params[filterKey] = [selectedGroup];
-        console.log(`✅ [handleTableChange] 设置分组筛选 ${filterKey} 为 [${selectedGroup}]`);
       }
     }
 
-    console.log('📤 [handleTableChange] 最终参数:', params);
     setTableFilters(params);
     setTableColumnFilters(filters);
     setPagination(p => ({ ...p, current: 1 }));
@@ -1374,6 +1520,58 @@ const FollowupsGroupList: React.FC = () => {
       }
     });
     return result;
+  };
+
+  // 检查并获取deals记录
+  const checkDealsRecord = async (leadid: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('deals')
+        .select('*')
+        .eq('leadid', leadid)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116是"未找到记录"错误
+        console.error('查询deals记录失败:', error);
+        return null;
+      }
+      
+      if (data) {
+        message.info('已加载现有签约信息');
+        return data;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('检查deals记录时出错:', error);
+      return null;
+    }
+  };
+
+  // 获取该线索的所有签约记录
+  const fetchDealsList = async (leadid: string) => {
+    setDealsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('deals')
+        .select('*')
+        .eq('leadid', leadid)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('获取签约记录失败:', error);
+        message.error('获取签约记录失败');
+        setDealsList([]);
+        return;
+      }
+      
+      setDealsList(data || []);
+    } catch (error) {
+      console.error('获取签约记录时出错:', error);
+      setDealsList([]);
+    } finally {
+      setDealsLoading(false);
+    }
   };
 
   // 模糊搜索
@@ -1469,34 +1667,19 @@ const FollowupsGroupList: React.FC = () => {
 
   // 首次加载数据
   useEffect(() => {
-    console.log('🚀 [FollowupsGroupList] 组件初始化，开始加载数据');
-    console.log('🔍 [FollowupsGroupList] 当前用户信息检查...');
     
     // 检查当前用户信息
-    supabase.auth.getUser().then(({ data: { user }, error }) => {
-      console.log('👤 [FollowupsGroupList] 当前用户:', {
-        id: user?.id,
-        email: user?.email,
-        error: error?.message
-      });
+    supabase.auth.getUser().then(({  }) => {
     });
     
     // 检查用户权限
-    supabase.rpc('has_permission', { resource: 'lead', action: 'manage' }).then(({ data, error }) => {
-      console.log('🔑 [FollowupsGroupList] lead管理权限检查:', {
-        hasPermission: data,
-        error: error?.message
-      });
+    supabase.rpc('has_permission', { resource: 'lead', action: 'manage' }).then(() => {
     });
     
     // 检查用户角色
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        supabase.rpc('get_user_roles', { p_user_id: user.id }).then(({ data: roles, error }) => {
-          console.log('🎭 [FollowupsGroupList] 用户角色:', {
-            roles,
-            error: error?.message
-          });
+        supabase.rpc('get_user_roles', { p_user_id: user.id }).then(() => {     
         });
       }
     });
@@ -1803,9 +1986,12 @@ const FollowupsGroupList: React.FC = () => {
       <Drawer
         title="跟进阶段进度"
         placement="bottom"
-        height={400}
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => {
+          setDrawerOpen(false);
+          // 清空签约记录列表
+          setDealsList([]);
+        }}
         destroyOnClose
         footer={null}
       >
@@ -1923,7 +2109,9 @@ const FollowupsGroupList: React.FC = () => {
                       onClick={async () => {
                         if (!currentRecord) return;
                         const values = stageForm.getFieldsValue();
-                        const updateObj = { ...values, followupstage: followupStages[0] };
+                        // 从values中移除deals表特有的字段
+                        const { contractcommunity, contractnumber, roomnumber, ...followupValues } = values;
+                        const updateObj = { ...followupValues, followupstage: followupStages[0] };
                         const { error } = await supabase
                           .from('followups')
                           .update(updateObj)
@@ -1931,7 +2119,7 @@ const FollowupsGroupList: React.FC = () => {
                         if (!error) {
                           setData(prev => prev.map(item =>
                             item.id === currentRecord.id
-                              ? { ...item, ...values, followupstage: followupStages[0] }
+                              ? { ...item, ...followupValues, followupstage: followupStages[0] }
                               : item
                           ));
                           setDrawerOpen(false);
@@ -1966,46 +2154,224 @@ const FollowupsGroupList: React.FC = () => {
                     >恢复</Button>
                   </div>
                 </>
-              ) : (
+                              ) : (
                 <>
-                  <div className="page-step-fields">
-                    {(stageFields[currentStage as keyof typeof stageFields] || []).map((field: string) => (
-                      <div key={field} className="page-step-field-item">
-                        <Form.Item
-                          name={field}
-                          label={fieldLabelMap[field] || field}
-                        >
-                          {field === 'scheduledcommunity'
-                            ? <Select options={communityEnum} placeholder="请选择社区" loading={communityEnum.length === 0} disabled={communityEnum.length === 0} />
-                            : field === 'customerprofile'
-                              ? <Select options={customerprofileEnum} placeholder="请选择用户画像" loading={customerprofileEnum.length === 0} disabled={customerprofileEnum.length === 0} />
-                              : field === 'followupstage'
-                                ? <Select options={followupstageEnum} placeholder="请选择阶段" loading={followupstageEnum.length === 0} disabled={followupstageEnum.length === 0} />
-                                : field === 'userrating'
-                                  ? <Select options={userratingEnum} placeholder="请选择来访意向" loading={userratingEnum.length === 0} disabled={userratingEnum.length === 0} />
-                                : field === 'moveintime' || field === 'scheduletime'
-                                  ? <DatePicker
-                                      showTime
-                                      locale={locale}
-                                      style={{ width: '100%' }}
-                                      placeholder="请选择时间"
-                                      value={(() => {
-                                        const v = stageForm.getFieldValue(field);
-                                        if (!v || v === '' || v === null) return undefined;
-                                        if (dayjs.isDayjs(v)) return v;
-                                        if (typeof v === 'string') return dayjs(v);
-                                        return undefined;
-                                      })()}
-                                      onChange={(v: any) => {
-                                        stageForm.setFieldValue(field, v || undefined);
-                                        setTimeout(() => stageForm.submit(), 0);
-                                      }}
-                                    />
-                                  : <Input />}
-                        </Form.Item>
-                      </div>
-                    ))}
-                  </div>
+                  {/* 其他阶段使用三分栏布局 */}
+                  {currentStage !== '已到店' && currentStage !== '赢单' && (
+                    <div className="page-step-fields">
+                      {(stageFields[currentStage as keyof typeof stageFields] || []).map((field: string) => (
+                        <div key={field} className="page-step-field-item">
+                          <Form.Item
+                            name={field}
+                            label={fieldLabelMap[field] || field}
+                          >
+                            {field === 'scheduledcommunity'
+                              ? <Select options={communityEnum} placeholder="请选择社区" loading={communityEnum.length === 0} disabled={communityEnum.length === 0} />
+                              : field === 'customerprofile'
+                                ? <Select options={customerprofileEnum} placeholder="请选择用户画像" loading={customerprofileEnum.length === 0} disabled={customerprofileEnum.length === 0} />
+                                : field === 'followupstage'
+                                  ? <Select options={followupstageEnum} placeholder="请选择阶段" loading={followupstageEnum.length === 0} disabled={followupstageEnum.length === 0} />
+                                  : field === 'userrating'
+                                    ? <Select options={userratingEnum} placeholder="请选择来访意向" loading={userratingEnum.length === 0} disabled={userratingEnum.length === 0} />
+                                    : field === 'moveintime' || field === 'scheduletime'
+                                      ? <DatePicker
+                                          showTime
+                                          locale={locale}
+                                          style={{ width: '100%' }}
+                                          placeholder="请选择时间"
+                                          value={(() => {
+                                            const v = stageForm.getFieldValue(field);
+                                            if (!v || v === '' || v === null) return undefined;
+                                            if (dayjs.isDayjs(v)) return v;
+                                            if (typeof v === 'string') return dayjs(v);
+                                            return undefined;
+                                          })()}
+                                          onChange={(v: any) => {
+                                            stageForm.setFieldValue(field, v || undefined);
+                                            setTimeout(() => stageForm.submit(), 0);
+                                          }}
+                                        />
+                                      : <Input />}
+                          </Form.Item>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                    
+                  {/* 已到店阶段显示签约信息表格 */}
+                  {currentStage === '已到店' && (
+                    <div className="page-step-fields-single">
+                      <ContractDealsTable
+                        dealsList={dealsList}
+                        dealsLoading={dealsLoading}
+                        onAdd={() => {
+                          const newRow = {
+                            id: `new_${Date.now()}`,
+                            leadid: currentRecord?.leadid,
+                            contractdate: dayjs().format('YYYY-MM-DD'),
+                            community: '',
+                            contractnumber: '',
+                            roomnumber: '',
+                            created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+                            isNew: true,
+                            isEditing: true,
+                          };
+                          setDealsList(prev => [newRow, ...prev]);
+                        }}
+                        onEdit={async (record) => {
+                          // 编辑/保存逻辑
+                          if (record.isNew) {
+                            // 新增记录
+                            const dealData = {
+                              leadid: currentRecord?.leadid,
+                              contractdate: record.contractdate || dayjs().format('YYYY-MM-DD'),
+                              community: record.community,
+                              contractnumber: record.contractnumber,
+                              roomnumber: record.roomnumber
+                            };
+                            const { data: newDeal, error } = await supabase
+                              .from('deals')
+                              .insert([dealData])
+                              .select()
+                              .single();
+                            if (error) {
+                              message.error('创建签约记录失败: ' + error.message);
+                              return;
+                            }
+                            setDealsList(prev => prev.map(item =>
+                              item.id === record.id
+                                ? { ...newDeal, isEditing: false }
+                                : item
+                            ));
+                            message.success('签约记录已保存');
+                          } else {
+                            // 更新现有记录
+                            const { error } = await supabase
+                              .from('deals')
+                              .update({
+                                contractdate: record.contractdate,
+                                community: record.community,
+                                contractnumber: record.contractnumber,
+                                roomnumber: record.roomnumber
+                              })
+                              .eq('id', record.id);
+                            if (error) {
+                              message.error('更新签约记录失败: ' + error.message);
+                              return;
+                            }
+                            setDealsList(prev => prev.map(item =>
+                              item.id === record.id
+                                ? { ...item, isEditing: false }
+                                : item
+                            ));
+                            message.success('签约记录已更新');
+                          }
+                        }}
+                        onDelete={(record) => {
+                          if (record.isNew) {
+                            setDealsList(prev => prev.filter(item => item.id !== record.id));
+                          } else {
+                            setDealsList(prev => prev.map(item =>
+                              item.id === record.id
+                                ? { ...item, isEditing: false }
+                                : item
+                            ));
+                          }
+                        }}
+                        currentRecord={currentRecord}
+                        communityEnum={communityEnum}
+                        setDealsList={setDealsList}
+                      />
+                    </div>
+                  )}
+                    
+                  {/* 赢单阶段显示成交记录信息 */}
+                  {currentStage === '赢单' && (
+                    <div className="page-step-fields-single">
+                      <ContractDealsTable
+                        dealsList={dealsList}
+                        dealsLoading={dealsLoading}
+                        onAdd={() => {
+                          const newRow = {
+                            id: `new_${Date.now()}`,
+                            leadid: currentRecord?.leadid,
+                            contractdate: dayjs().format('YYYY-MM-DD'),
+                            community: '',
+                            contractnumber: '',
+                            roomnumber: '',
+                            created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+                            isNew: true,
+                            isEditing: true,
+                          };
+                          setDealsList(prev => [newRow, ...prev]);
+                        }}
+                        onEdit={async (record) => {
+                          // 编辑/保存逻辑
+                          if (record.isNew) {
+                            // 新增记录
+                            const dealData = {
+                              leadid: currentRecord?.leadid,
+                              contractdate: record.contractdate || dayjs().format('YYYY-MM-DD'),
+                              community: record.community,
+                              contractnumber: record.contractnumber,
+                              roomnumber: record.roomnumber
+                            };
+                            const { data: newDeal, error } = await supabase
+                              .from('deals')
+                              .insert([dealData])
+                              .select()
+                              .single();
+                            if (error) {
+                              message.error('创建签约记录失败: ' + error.message);
+                              return;
+                            }
+                            setDealsList(prev => prev.map(item =>
+                              item.id === record.id
+                                ? { ...newDeal, isEditing: false }
+                                : item
+                            ));
+                            message.success('签约记录已保存');
+                          } else {
+                            // 更新现有记录
+                            const { error } = await supabase
+                              .from('deals')
+                              .update({
+                                contractdate: record.contractdate,
+                                community: record.community,
+                                contractnumber: record.contractnumber,
+                                roomnumber: record.roomnumber
+                              })
+                              .eq('id', record.id);
+                            if (error) {
+                              message.error('更新签约记录失败: ' + error.message);
+                              return;
+                            }
+                            setDealsList(prev => prev.map(item =>
+                              item.id === record.id
+                                ? { ...item, isEditing: false }
+                                : item
+                            ));
+                            message.success('签约记录已更新');
+                          }
+                        }}
+                        onDelete={(record) => {
+                          if (record.isNew) {
+                            setDealsList(prev => prev.filter(item => item.id !== record.id));
+                          } else {
+                            setDealsList(prev => prev.map(item =>
+                              item.id === record.id
+                                ? { ...item, isEditing: false }
+                                : item
+                            ));
+                          }
+                        }}
+                        currentRecord={currentRecord}
+                        communityEnum={communityEnum}
+                        setDealsList={setDealsList}
+                      />
+                    </div>
+                  )}
+                  
                   <div className="mt-16">
                     <Button
                       disabled={currentStep === 0}
@@ -2016,7 +2382,9 @@ const FollowupsGroupList: React.FC = () => {
                         try {
                           const values = await stageForm.validateFields();
                           if (!currentRecord) return;
-                          const updateObj = { ...values, followupstage: followupStages[currentStep - 1] };
+                          // 从values中移除deals表特有的字段
+                          const { contractcommunity, contractnumber, roomnumber, ...followupValues } = values;
+                          const updateObj = { ...followupValues, followupstage: followupStages[currentStep - 1] };
                           const { error } = await supabase
                             .from('followups')
                             .update(updateObj)
@@ -2024,7 +2392,7 @@ const FollowupsGroupList: React.FC = () => {
                           if (!error) {
                             setData(prev => prev.map(item =>
                               item.id === currentRecord.id
-                                ? { ...item, ...values, followupstage: followupStages[currentStep - 1] }
+                                ? { ...item, ...followupValues, followupstage: followupStages[currentStep - 1] }
                                 : item
                             ));
                             setCurrentStep(currentStep - 1);
@@ -2037,36 +2405,115 @@ const FollowupsGroupList: React.FC = () => {
                         }
                       }}
                     >上一步</Button>
-                    <Button
-                      type="primary"
-                      disabled={currentStep === followupStages.length - 1}
-                      style={{ marginLeft: 8 }}
-                      onClick={async () => {
-                        // 下一步前自动保存
-                        try {
-                          const values = await stageForm.validateFields();
+                    {/* 新增发放带看单按钮，仅在邀约到店阶段显示 */}
+                    {currentStage === '邀约到店' && (
+                      <Button
+                        type="primary"
+                        style={{ marginRight: 8 }}
+                        onClick={async () => {
                           if (!currentRecord) return;
-                          const updateObj = { ...values, followupstage: followupStages[currentStep + 1] };
-                          const { error } = await supabase
-                            .from('followups')
-                            .update(updateObj)
-                            .eq('id', currentRecord.id);
-                          if (!error) {
-                            setData(prev => prev.map(item =>
-                              item.id === currentRecord.id
-                                ? { ...item, ...values, followupstage: followupStages[currentStep + 1] }
-                                : item
-                            ));
-                            setCurrentStep(currentStep + 1);
-                            setCurrentStage(followupStages[currentStep + 1]);
-                          } else {
-                            message.error('保存失败: ' + error.message);
+                          const values = stageForm.getFieldsValue();
+                          const insertParams = {
+                            leadid: currentRecord.leadid,
+                            scheduletime: values.scheduletime ? dayjs(values.scheduletime).toISOString() : null,
+                            community: values.scheduledcommunity || null,
+                          };
+                          const { error: insertError } = await supabase.from('showings').insert(insertParams).select();
+                          if (insertError) {
+                            message.error('发放带看单失败: ' + insertError.message);
+                            return;
                           }
-                        } catch {
-                          message.error('请完整填写所有必填项');
-                        }
-                      }}
-                    >下一步</Button>
+                          // 2. 推进到"已到店"阶段
+                          const nextStage = '已到店';
+                          const { error: updateError } = await supabase
+                            .from('followups')
+                            .update({ followupstage: nextStage })
+                            .eq('id', currentRecord.id);
+                          if (updateError) {
+                            message.error('推进阶段失败: ' + updateError.message);
+                            return;
+                          }
+                          setData(prev =>
+                            prev.map(item =>
+                              item.id === currentRecord.id
+                                ? { ...item, followupstage: nextStage }
+                                : item
+                            )
+                          );
+                          setCurrentStep(currentStep + 1);
+                          setCurrentStage(nextStage);
+                          message.success('带看单已发放，已进入"已到店"阶段');
+                        }}
+                      >
+                        发放带看单
+                      </Button>
+                    )}
+                    {currentStep === followupStages.length - 1 ? (
+                      <Button
+                        type="primary"
+                        style={{ marginLeft: 8 }}
+                        onClick={() => {
+                          message.success('跟进阶段管理完成');
+                          setDrawerOpen(false);
+                        }}
+                      >
+                        完成
+                      </Button>
+                    ) : (
+                      <Button
+                        type="primary"
+                        style={{ marginLeft: 8 }}
+                        onClick={async () => {
+                          // 下一步前自动保存
+                          try {
+                            const values = await stageForm.validateFields();
+                            if (!currentRecord) return;
+                            
+                            // 从values中移除deals表特有的字段，避免更新followups表时出错
+                            const { contractcommunity, contractnumber, roomnumber, ...followupValues } = values;
+                              
+                              // 如果是"已到店"阶段推进到"赢单"阶段，需要验证是否有签约记录
+                              if (currentStage === '已到店' && currentStep + 1 === followupStages.length - 1) {
+                                // 检查是否有签约记录
+                                if (dealsList.length === 0) {
+                                  message.error('请至少添加一条签约记录后再推进到"赢单"阶段');
+                                  return;
+                                }
+                                
+                                // 检查是否有正在编辑的记录
+                                const hasEditingRecord = dealsList.some(record => record.isEditing);
+                                if (hasEditingRecord) {
+                                  message.error('请先完成当前编辑的签约记录');
+                                  return;
+                                }
+                                
+                                message.success('可以推进到"赢单"阶段');
+                              }
+                              
+                              const updateObj = { ...followupValues, followupstage: followupStages[currentStep + 1] };
+                              const { error } = await supabase
+                                .from('followups')
+                                .update(updateObj)
+                                .eq('id', currentRecord.id);
+                              if (!error) {
+                                setData(prev => prev.map(item =>
+                                  item.id === currentRecord.id
+                                    ? { ...item, ...followupValues, followupstage: followupStages[currentStep + 1] }
+                                    : item
+                                ));
+                                setCurrentStep(currentStep + 1);
+                                setCurrentStage(followupStages[currentStep + 1]);
+                              } else {
+                                message.error('保存失败: ' + error.message);
+                              }
+                            } catch {
+                              message.error('请完整填写所有必填项');
+                            }
+                          }}
+                        >
+                          下一步
+                        </Button>
+                      )}
                   </div>
                 </>
               )}
