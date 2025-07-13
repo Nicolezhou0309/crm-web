@@ -8,8 +8,6 @@ import {
   DashboardOutlined,
   DatabaseOutlined,
   AppstoreOutlined,
-  MenuUnfoldOutlined,
-  MenuFoldOutlined,
   HomeOutlined,
   SolutionOutlined,
   KeyOutlined,
@@ -44,9 +42,14 @@ import ResetPassword from './pages/ResetPassword';
 import PointsDashboard from './pages/PointsDashboard';
 import PointsExchange from './pages/PointsExchange';
 import PointsRules from './pages/PointsRules';
+import AnnouncementManagement from './pages/AnnouncementManagement';
 import './App.css';
 import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
+import { NotificationCenter } from './components/NotificationCenter';
+import { PermissionGate } from './components/PermissionGate';
+import { Badge, Drawer } from 'antd';
+import { BellOutlined } from '@ant-design/icons';
 
 
 const { Sider, Content, Header } = Layout;
@@ -84,6 +87,7 @@ const menuItems = [
     label: '系统管理',
     children: [
       { key: 'roles', icon: <KeyOutlined />, label: '角色权限', path: '/roles' },
+      { key: 'announcements', icon: <BellOutlined />, label: '公告配置', path: '/announcements' },
       { key: 'test', icon: <DatabaseOutlined />, label: '数据库测试', path: '/test' },
     ]
   },
@@ -111,12 +115,18 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
 }
 
 const App: React.FC = () => {
+  console.log('🔍 App 组件渲染');
+  
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth, setSiderWidth] = React.useState(220);
   const minSiderWidth = 56;
   const maxSiderWidth = 320;
   const navigate = useNavigate();
   const location = useLocation();
+  const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  console.log(`📊 App 通知状态: 未读数量 = ${unreadCount}`);
 
   // 修正高亮逻辑：只有严格等于'/'时高亮首页，其它优先匹配最长path
   const selectedKey = (() => {
@@ -185,10 +195,56 @@ const App: React.FC = () => {
             />
             <span>长租公寓CRM系统</span>
           </div>
-          <div className="app-header-user">
+          <div className="app-header-user" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+            {/* 通知中心入口 */}
+            <Badge
+              count={unreadCount}
+              size="default"
+              showZero={false}
+              overflowCount={99}
+              className="notification-badge-number"
+            >
+              <BellOutlined
+                style={{
+                  fontSize: 22,
+                  cursor: 'pointer',
+                  color: unreadCount > 0 ? '#fa541c' : '#888',
+                  transition: 'color 0.2s'
+                }}
+                onClick={() => {
+                  console.log('🖱️ 点击通知铃铛，打开通知中心');
+                  setNotificationDrawerVisible(true);
+                }}
+                title="通知中心"
+              />
+            </Badge>
             <UserMenu />
           </div>
         </Header>
+        {/* 始终渲染NotificationCenter以保持Hook运行 */}
+        <div style={{ display: 'none' }}>
+          <NotificationCenter onNotificationChange={(count) => {
+            console.log(`📢 通知数量回调: ${count}`);
+            setUnreadCount(count);
+          }} />
+        </div>
+        
+        <Drawer
+          title="通知中心"
+          placement="right"
+          width={480}
+          open={notificationDrawerVisible}
+          onClose={() => {
+            console.log('❌ 关闭通知中心');
+            setNotificationDrawerVisible(false);
+          }}
+          destroyOnClose
+        >
+          <NotificationCenter onNotificationChange={(count) => {
+            console.log(`📢 通知数量回调: ${count}`);
+            setUnreadCount(count);
+          }} />
+        </Drawer>
         <Layout style={{ marginTop: 56 }}>
           <Sider
             width={siderWidth}
@@ -202,6 +258,7 @@ const App: React.FC = () => {
               selectedKey={selectedKey}
               onMenuClick={(path) => navigate(path)}
               collapsed={collapsed}
+              onCollapse={setCollapsed}
             />
             {/* 拖动条 */}
             {!collapsed && (
@@ -210,13 +267,6 @@ const App: React.FC = () => {
                 onMouseDown={handleSiderResize}
               />
             )}
-            {/* 收缩/展开按钮 */}
-            <Button
-              type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
-              className="sider-toggle-btn"
-            />
           </Sider>
           <Layout style={{ marginLeft: collapsed ? minSiderWidth : siderWidth, background: 'transparent', transition: 'margin-left 0.2s', borderRadius: '12px 0 0 12px' }}>
             <Content className="content-main">
@@ -277,6 +327,11 @@ const App: React.FC = () => {
                   <Route path="/403" element={<Error403 />} />
                   <Route path="/departments" element={<DepartmentPage />} />
                   <Route path="/roles" element={<RolePermissionManagement />} />
+                  <Route path="/announcements" element={
+                    <PermissionGate permission="manage_announcements" fallback={<Error403 />}>
+                      <AnnouncementManagement />
+                    </PermissionGate>
+                  } />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="*" element={<Error404 />} />
                 </Routes>

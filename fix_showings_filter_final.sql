@@ -193,18 +193,3 @@ BEGIN
   RETURN COALESCE(v_results, ARRAY[]::TEXT[]);
 END;
 $$ LANGUAGE plpgsql;
-
--- 修正版获取带看社区枚举的函数
-CREATE OR REPLACE FUNCTION get_showings_community_options()
-RETURNS TEXT[] AS $$
-DECLARE
-  v_communities TEXT[];
-BEGIN
-  SELECT ARRAY_AGG(DISTINCT community::TEXT ORDER BY community::TEXT)
-  INTO v_communities
-  FROM showings
-  WHERE community IS NOT NULL;
-  
-  RETURN COALESCE(v_communities, ARRAY[]::TEXT[]);
-END;
-$$ LANGUAGE plpgsql; 

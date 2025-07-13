@@ -136,3 +136,35 @@ body {
   color: #fff;
   border-color: #1677ff;
 }
+
+/* 通知徽标和铃铛美化 */
+.notification-badge-mini .ant-badge-dot {
+  width: 7px;
+  height: 7px;
+  min-width: 7px;
+  min-height: 7px;
+  box-shadow: 0 0 0 1px #fff;
+}
+.notification-bell-mini {
+  vertical-align: middle;
+  margin-left: 2px;
+  margin-right: 2px;
+  transition: color 0.2s;
+}
+.notification-bell-mini:hover {
+  color: #fa8c16 !important;
+}
+
+/* 优化通知数字徽标样式 */
+.notification-badge-number .ant-badge-count {
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  font-size: 12px;
+  padding: 0 5px;
+  border-radius: 9px;
+  box-shadow: 0 0 0 1px #fff;
+  font-weight: 500;
+  top: 2px !important;
+  right: 0 !important;
+}

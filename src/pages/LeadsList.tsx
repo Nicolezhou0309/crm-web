@@ -19,10 +19,12 @@ import {
 } from 'antd';
 import { 
   PlusOutlined, 
-  ReloadOutlined} from '@ant-design/icons';
+  ReloadOutlined
+} from '@ant-design/icons';
 import { supabase, fetchEnumValues, generateLeadId } from '../supaClient';
 import dayjs from 'dayjs';
 import { formatCommunityRemark } from '../utils/validationUtils';
+import LeadDetailDrawer from '../components/LeadDetailDrawer';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -61,6 +63,10 @@ const LeadsList: React.FC = () => {
   const [continueAdd, setContinueAdd] = useState(false);
   const [leadTypeOptions, setLeadTypeOptions] = useState<{ label: string; value: string }[]>([]);
   const [communityOptions, setCommunityOptions] = useState<{ value: string; label: string }[]>([]);
+  
+  // 线索详情抽屉状态
+  const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState<string>('');
 
 
   useEffect(() => {
@@ -220,7 +226,18 @@ const LeadsList: React.FC = () => {
       filterSearch: true,
       filterMultiple: false,
       render: (text: string) => (
-        <span style={{ fontWeight: 600, color: '#1677ff' }}>{text}</span>
+        <Tooltip title="点击查看线索详情">
+          <Button 
+            type="link" 
+            size="small" 
+            onClick={() => {
+              setSelectedLeadId(text);
+              setDetailDrawerVisible(true);
+            }}
+          >
+            {text}
+          </Button>
+        </Tooltip>
       ),
     },
     {
@@ -830,6 +847,16 @@ const LeadsList: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+      
+      {/* 线索详情抽屉 */}
+      <LeadDetailDrawer
+        visible={detailDrawerVisible}
+        leadid={selectedLeadId}
+        onClose={() => {
+          setDetailDrawerVisible(false);
+          setSelectedLeadId('');
+        }}
+      />
     </div>
   );
 };

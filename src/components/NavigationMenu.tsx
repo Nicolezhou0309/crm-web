@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu } from 'antd';
+import { Menu, Button } from 'antd';
 import {
   FileTextOutlined,
   UserOutlined,
@@ -16,6 +16,9 @@ import {
   GiftOutlined,
   HistoryOutlined,
   TrophyOutlined,
+  MenuUnfoldOutlined,
+  MenuFoldOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 
@@ -24,12 +27,14 @@ interface NavigationMenuProps {
   selectedKey: string;
   onMenuClick: (key: string) => void;
   collapsed?: boolean;
+  onCollapse?: (collapsed: boolean) => void;
 }
 
 const NavigationMenu: React.FC<NavigationMenuProps> = ({
   selectedKey,
   onMenuClick,
-  collapsed = false
+  collapsed = false,
+  onCollapse
 }) => {
   const menuItems = [
     { 
@@ -124,6 +129,12 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           path: '/roles'
         },
         { 
+          key: 'announcements', 
+          icon: <BellOutlined />, 
+          label: '公告配置', 
+          path: '/announcements'
+        },
+        { 
           key: 'test', 
           icon: <DatabaseOutlined />, 
           label: '数据库测试', 
@@ -134,37 +145,84 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   ];
 
   return (
-    <>
-      <Menu
-        mode="inline"
-        selectedKeys={[selectedKey]}
-        onClick={e => {
-          // 支持分级菜单点击跳转
-          let item;
-          for (const group of menuItems) {
-            if (group.children) {
-              item = group.children.find((i: any) => i.key === e.key);
-              if (item) break;
-            } else if (group.key === e.key) {
-              item = group;
-              break;
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%',
+      width: '100%'
+    }}>
+      {/* 上方容器：菜单区域（可滚动） */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        minHeight: 0, // 确保flex子元素可以收缩
+      }}>
+        <Menu
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          onClick={e => {
+            // 支持分级菜单点击跳转
+            let item;
+            for (const group of menuItems) {
+              if (group.children) {
+                item = group.children.find((i: any) => i.key === e.key);
+                if (item) break;
+              } else if (group.key === e.key) {
+                item = group;
+                break;
+              }
             }
-          }
-          if (item && item.path) {
-            onMenuClick(item.path);
-          }
-        }}
-        inlineCollapsed={collapsed}
-        items={menuItems}
-      />
-      {/* 收缩/展开按钮和版本号 */}
-      <div style={{ width: '100%', textAlign: 'center', marginTop: 12 }}>
-        {/* 这里的按钮由父组件App.tsx渲染，这里只显示版本号 */}
-        <div style={{ color: '#bbb', fontSize: 12, marginTop: 8 }}>
+            if (item && item.path) {
+              onMenuClick(item.path);
+            }
+          }}
+          inlineCollapsed={collapsed}
+          items={menuItems}
+          style={{
+            border: 'none',
+            height: '100%'
+          }}
+        />
+      </div>
+      
+      {/* 下方容器：导航条区域 */}
+      <div style={{
+        flexShrink: 0, // 防止收缩
+        borderTop: '1px solid #f0f0f0',
+        backgroundColor: '#fafafa',
+        padding: '12px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        {/* 伸缩按钮 */}
+        {onCollapse && (
+          <Button
+            type="text"
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => onCollapse(!collapsed)}
+            style={{
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '6px'
+            }}
+          />
+        )}
+        
+        {/* 版本号 */}
+        <div style={{ 
+          color: '#bbb', 
+          fontSize: 12 
+        }}>
           v{pkg.version}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

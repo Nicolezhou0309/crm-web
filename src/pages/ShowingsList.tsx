@@ -25,8 +25,10 @@ import {
   SearchOutlined,
   FilterOutlined,
   EditOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  EyeOutlined
 } from '@ant-design/icons';
+import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import { 
   getShowings, 
   getShowingsCount, 
@@ -83,6 +85,10 @@ const ShowingsList: React.FC = () => {
   const [form] = Form.useForm();
   const [filters, setFilters] = useState<ShowingFilters>({});
   const [showFilters, setShowFilters] = useState(false);
+  
+  // 线索详情抽屉状态
+  const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState('');
 
   // 选项数据
   const [communityOptions, setCommunityOptions] = useState<{ value: string; label: string }[]>([]);
@@ -257,7 +263,14 @@ const ShowingsList: React.FC = () => {
       width: 120,
       render: (text: string) => (
         <Tooltip title="点击查看线索详情">
-          <Button type="link" size="small" onClick={() => window.open(`/leads?leadid=${text}`)}>
+          <Button 
+            type="link" 
+            size="small" 
+            onClick={() => {
+              setSelectedLeadId(text);
+              setDetailDrawerVisible(true);
+            }}
+          >
             {text}
           </Button>
         </Tooltip>
@@ -799,6 +812,16 @@ const ShowingsList: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+      
+      {/* 线索详情抽屉 */}
+      <LeadDetailDrawer
+        visible={detailDrawerVisible}
+        leadid={selectedLeadId}
+        onClose={() => {
+          setDetailDrawerVisible(false);
+          setSelectedLeadId('');
+        }}
+      />
     </div>
   );
 };
