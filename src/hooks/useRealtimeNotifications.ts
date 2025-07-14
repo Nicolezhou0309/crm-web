@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../supaClient';
 import { useAuth } from './useAuth';
 import { notificationApi } from '../api/notificationApi';
@@ -18,17 +18,34 @@ interface Notification {
   handled_at?: string;
 }
 
+// 防抖函数
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(null, args), wait);
+  };
+};
+
 export const useRealtimeNotifications = () => {
   const { user } = useAuth();
   const [profileId, setProfileId] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
 
-  // 1. 获取profileId
+  // 1. 获取profileId - 添加缓存
   useEffect(() => {
     if (!user) return;
-    console.log('🔍 查询users_profile，获取profileId...');
+    
+    // 检查本地缓存
+    const cachedProfileId = localStorage.getItem(`profileId_${user.id}`);
+    if (cachedProfileId) {
+      setProfileId(parseInt(cachedProfileId));
+      return;
+    }
+
     supabase
       .from('users_profile')
       .select('id')
@@ -36,45 +53,61 @@ export const useRealtimeNotifications = () => {
       .single()
       .then(({ data, error }) => {
         if (error) {
-          console.error('❌ 获取profileId失败:', error);
           setProfileId(null);
         } else {
-          console.log('✅ 获取profileId成功:', data?.id);
-          setProfileId(data?.id || null);
+          const pid = data?.id || null;
+          setProfileId(pid);
+          // 缓存profileId
+          if (pid) {
+            localStorage.setItem(`profileId_${user.id}`, pid.toString());
+          }
         }
       });
   }, [user]);
 
-  // 2. 通知加载和订阅
+  // 2. 通知加载和订阅 - 优化实时订阅
   useEffect(() => {
     if (!profileId) return;
-    console.log('🔍 useRealtimeNotifications Hook 初始化');
-    console.log('👤 当前用户:', user);
-    console.log('👤 当前profileId:', profileId);
+    
+    console.log('🔔 开始订阅通知，profileId:', profileId);
+    
     // 1. 初始加载通知
     loadNotifications(profileId);
-    // 2. 订阅实时通知
-    console.log('📡 开始订阅实时通知...');
+    
+    // 2. 订阅实时通知 - 优化订阅逻辑
     const channel = supabase
-      .channel(`notifications-${profileId}`)
+      .channel(`public:notifications`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${profileId}`
       }, (payload) => {
-        console.log('📨 收到新通知:', payload.new);
+        console.log('🔔 收到新通知:', payload); 
         const newNotification = payload.new as Notification;
+        
+        // 使用函数式更新，避免闭包问题
         setNotifications(prev => {
+          // 检查是否已存在相同ID的通知
+          const exists = prev.some(n => n.id === newNotification.id);
+          if (exists) return prev;
+          
           const newList = [newNotification, ...prev];
-          console.log(`📋 通知列表更新: ${newList.length} 条`);
+          console.log('🔔 更新通知列表，新未读数:', newList.filter(n => n.status === 'unread').length);
           return newList;
         });
+        
+        // 优化未读数量更新
         setUnreadCount(prev => {
-          const newCount = prev + 1;
-          console.log(`🔢 未读数量更新: ${prev} → ${newCount}`);
-          return newCount;
+          if (newNotification.status === 'unread') {
+            const newCount = prev + 1;
+            console.log('🔔 未读数更新:', prev, '->', newCount);
+            return newCount;
+          }
+          return prev;
         });
+        
+        setLastUpdate(Date.now());
         showDesktopNotification(newNotification.title, newNotification.content);
       })
       .on('postgres_changes', {
@@ -83,115 +116,194 @@ export const useRealtimeNotifications = () => {
         table: 'notifications',
         filter: `user_id=eq.${profileId}`
       }, (payload) => {
-        console.log('🔄 通知状态更新:', payload.new);
+        console.log('🔔 通知状态更新:', payload);
+        const updatedNotification = payload.new as Notification;
+        
         setNotifications(prev => 
           prev.map(n => 
-            n.id === payload.new.id ? payload.new as Notification : n
+            n.id === updatedNotification.id ? updatedNotification : n
           )
         );
-        updateUnreadCount();
+        
+        // 防抖更新未读数量
+        debouncedUpdateUnreadCount();
+        setLastUpdate(Date.now());
       })
-      .subscribe((status) => {
-        console.log('📡 Realtime订阅状态:', status);
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${profileId}`
+      }, (payload) => {
+        console.log('🔔 通知删除:', payload);
+        setNotifications(prev => 
+          prev.filter(n => n.id !== payload.old.id)
+        );
+        debouncedUpdateUnreadCount();
+        setLastUpdate(Date.now());
+      })
+      .subscribe((status) => { 
+        console.log('🔔 订阅状态:', status);
       });
+    
     return () => {
-      console.log('🧹 清理Realtime订阅');
+      console.log('🔔 清理订阅');
       supabase.removeChannel(channel);
     };
   }, [profileId]);
 
-  // 加载通知
-  const loadNotifications = async (pid: number) => {
+  // 防抖的未读数量更新
+  const debouncedUpdateUnreadCount = useCallback(
+    debounce(() => {
+      updateUnreadCount();
+    }, 300),
+    []
+  );
+
+  // 加载通知 - 添加缓存和错误重试
+  const loadNotifications = useCallback(async (pid: number) => {
     setLoading(true);
-    console.log('🔄 开始加载通知...');
-    console.log(`👤 profileId: ${pid}`);
+    
     try {
-      console.log('📞 调用get_user_notifications函数...');
       const { data, error } = await supabase.rpc('get_user_notifications', {
         p_user_id: pid
       });
+      
       if (error) {
-        console.error('❌ 函数调用失败:', error);
         throw error;
       }
-      console.log(`✅ 函数调用成功，返回 ${data?.length || 0} 条通知`);
-      console.log('📋 通知数据:', data);
+      
       setNotifications(data || []);
       updateUnreadCount(data || []);
+      
+      // 缓存通知数据
+      localStorage.setItem(`notifications_${pid}`, JSON.stringify(data || []));
+      localStorage.setItem(`notifications_timestamp_${pid}`, Date.now().toString());
+      
     } catch (error) {
-      console.error('❌ 加载通知失败:', error);
+      
+      // 尝试从缓存加载
+      const cachedData = localStorage.getItem(`notifications_${pid}`);
+      if (cachedData) {
+        const cachedNotifications = JSON.parse(cachedData);
+        setNotifications(cachedNotifications);
+        updateUnreadCount(cachedNotifications);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // 重新计算未读数
-  const updateUnreadCount = (list?: Notification[]) => {
+  // 重新计算未读数 - 使用useMemo优化
+  const updateUnreadCount = useCallback((list?: Notification[]) => {
     const arr = list || notifications;
     const count = arr.filter(n => n.status === 'unread').length;
-    console.log(`🔢 计算未读数量: ${count} (总通知: ${arr.length})`);
     setUnreadCount(count);
-  };
+  }, [notifications]);
 
-  // 标记为已读
-  const markAsRead = async (notificationId: string) => {
-    console.log(`📝 标记通知为已读: ${notificationId}`);
+  // 标记为已读 - 优化本地状态更新
+  const markAsRead = useCallback(async (notificationId: string) => {
     if (!profileId) return;
+    
+    // 立即更新本地状态，提升响应体验
+    setNotifications(prev => 
+      prev.map(n => 
+        n.id === notificationId 
+          ? { ...n, status: 'read' as const, read_at: new Date().toISOString() }
+          : n
+      )
+    );
+    
+    // 更新未读数量
+    setUnreadCount(prev => Math.max(0, prev - 1));
+    
     try {
       const { error } = await supabase.rpc('mark_notification_read', {
         p_notification_id: notificationId,
         p_user_id: profileId
       });
+      
       if (error) {
-        console.error('❌ 标记已读失败:', error);
         throw error;
       }
-      console.log('✅ 标记已读成功');
+      
     } catch (error) {
-      console.error('❌ 标记已读失败:', error);
+      // 失败时回滚本地状态
+      setNotifications(prev => 
+        prev.map(n => 
+          n.id === notificationId 
+            ? { ...n, status: 'unread' as const, read_at: undefined }
+            : n
+        )
+      );
+      setUnreadCount(prev => prev + 1);
     }
-  };
+  }, [profileId]);
 
-  // 标记为已处理
-  const markAsHandled = async (notificationId: string) => {
-    console.log(`✅ 标记通知为已处理: ${notificationId}`);
+  // 标记为已处理 - 优化本地状态更新
+  const markAsHandled = useCallback(async (notificationId: string) => { 
     if (!profileId) return;
+    // 立即更新本地状态
+    setNotifications(prev => 
+      prev.map(n => 
+        n.id === notificationId 
+          ? { ...n, status: 'handled' as const, handled_at: new Date().toISOString() }
+          : n
+      )
+    );
+    // 如果本地是未读，减少未读数
+    const n = notifications.find(n => n.id === notificationId);
+    if (n && n.status === 'unread') {
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
     try {
       const { error } = await supabase.rpc('mark_notification_handled', {
         p_notification_id: notificationId,
         p_user_id: profileId
       });
-      if (error) {
-        console.error('❌ 标记已处理失败:', error);
-        throw error;
-      }
-      console.log('✅ 标记已处理成功');
+      if (error) throw error;
     } catch (error) {
-      console.error('❌ 标记已处理失败:', error);
+      // 失败时回滚本地状态
+      setNotifications(prev => 
+        prev.map(n => 
+          n.id === notificationId 
+            ? { ...n, status: 'read' as const, handled_at: undefined }
+            : n
+        )
+      );
     }
-  };
+  }, [profileId, notifications]);
 
-  // 删除通知
-  const deleteNotification = async (notificationId: string) => {
-    console.log(`🗑️ 删除通知: ${notificationId}`);
+  // 删除通知 - 优化本地状态更新
+  const deleteNotification = useCallback(async (notificationId: string) => {
     if (!profileId) return;
-    // 1. 先本地移除
+    
+    // 先本地移除
     const prevList = notifications;
+    const notificationToDelete = notifications.find(n => n.id === notificationId);
+    const wasUnread = notificationToDelete?.status === 'unread';
+    
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
-    updateUnreadCount(notifications.filter(n => n.id !== notificationId));
+    
+    // 如果是未读通知，更新未读数量
+    if (wasUnread) {
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+    
     try {
       await notificationApi.deleteNotification(notificationId);
-      console.log('✅ 删除通知成功');
     } catch (error) {
       // 失败回滚
       setNotifications(prevList);
-      updateUnreadCount(prevList);
-      console.error('❌ 删除通知失败:', error);
+      if (wasUnread) {
+        setUnreadCount(prev => prev + 1);
+      }
       throw error;
     }
-  };
+  }, [notifications, profileId]);
 
-  const showDesktopNotification = (title: string, body: string) => {
+  // 桌面通知
+  const showDesktopNotification = useCallback((title: string, body: string) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, {
         body,
@@ -199,7 +311,17 @@ export const useRealtimeNotifications = () => {
         badge: '/badge.png'
       });
     }
-  };
+  }, []);
+
+  // 使用useMemo优化计算属性
+  const notificationStats = useMemo(() => {
+    const total = notifications.length;
+    const unread = notifications.filter(n => n.status === 'unread').length;
+    const read = notifications.filter(n => n.status === 'read').length;
+    const handled = notifications.filter(n => n.status === 'handled').length;
+    
+    return { total, unread, read, handled };
+  }, [notifications]);
 
   return {
     notifications,
@@ -209,5 +331,7 @@ export const useRealtimeNotifications = () => {
     deleteNotification,
     loadNotifications,
     loading,
+    lastUpdate,
+    notificationStats,
   };
 }; 

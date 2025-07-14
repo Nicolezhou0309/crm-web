@@ -97,6 +97,7 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
   const [triggers, setTriggers] = useState<TriggerNode[]>([]);
   const [chains, setChains] = useState<AllocationChain[]>([]);
   const [dragRowIdx, setDragRowIdx] = useState<number | null>(null);
+  const [originalDragRowIdx, setOriginalDragRowIdx] = useState<number | null>(null);
   const [dragListIdx, setDragListIdx] = useState<{row: number, from: number} | null>(null);
   
   // 弹窗状态
@@ -255,7 +256,9 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
       message.warning('默认分配规则不可移动');
       return;
     }
+    console.log('开始拖拽行:', idx, '触发器:', trigger.title);
     setDragRowIdx(idx);
+    setOriginalDragRowIdx(idx);
   };
   
   const handleRowDragOver = (e: React.DragEvent, idx: number) => {
@@ -269,6 +272,7 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
         return;
       }
 
+      console.log('拖拽到行:', idx, '从行:', dragRowIdx);
       // 重新排序触发器
       const newTriggers = arrayMoveImmutable(triggers, dragRowIdx, idx);
       const newChains = arrayMoveImmutable(chains, dragRowIdx, idx);
@@ -281,24 +285,16 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
 
   // 修改拖拽结束后的优先级更新逻辑
   const handleRowDragEnd = () => {
+    console.log('拖拽结束，originalDragRowIdx:', originalDragRowIdx, 'dragRowIdx:', dragRowIdx);
     // 保存规则优先级排序到数据库
-    if (dragRowIdx !== null && onRulesReorder) {
-      const reorderedRules = triggers
-        .filter(t => t.priority !== 0) // 排除默认规则
-        .map((t, index) => ({
-          ...t.data,
-          priority: triggers.length - index - 1 // 逆序设置优先级，越靠上优先级越高
-        }));
-      
-      // 添加回默认规则
-      const defaultRule = triggers.find(t => t.priority === 0);
-      if (defaultRule) {
-        reorderedRules.push({
-          ...defaultRule.data,
-          priority: 0
-        });
-      }
+    if (originalDragRowIdx !== null && onRulesReorder) {
+      // 使用当前triggers的顺序（已经通过拖拽重新排序）来设置优先级
+      const reorderedRules = triggers.map((t, index) => ({
+        ...t.data,
+        priority: t.priority === 0 ? 0 : triggers.length - index // 从高到低设置优先级，默认规则保持0
+      }));
 
+      console.log('重新排序的规则:', reorderedRules);
       // 异步保存到数据库
       setTimeout(async () => {
         try {
@@ -311,6 +307,7 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
     }
     
     setDragRowIdx(null);
+    setOriginalDragRowIdx(null);
   };
 
   const handleListDragStart = (row: number, lidx: number) => {
@@ -525,7 +522,6 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
         user_groups: updatedUserGroups
       };
 
-      console.log('更新规则:', triggerId, updatedRule);
 
       if (onRuleUpdate) {
         await onRuleUpdate(triggerId, updatedRule);
@@ -842,8 +838,12 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
             <div 
               key={chain.triggerId} 
               className={`allocation-flow-row ${dragRowIdx === idx ? 'dragging' : ''}`}
-              draggable
+              draggable={trigger.priority !== 0}
               onDragStart={(e) => {
+                if (trigger.priority === 0) {
+                  e.preventDefault();
+                  return;
+                }
                 e.stopPropagation();
                 handleRowDragStart(idx);
               }}
@@ -856,6 +856,10 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
                 e.stopPropagation();
                 handleRowDragEnd();
               }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onClick={(e) => {
                 // 只有在没有拖拽时才触发点击事件
                 if (!dragRowIdx) {
@@ -866,7 +870,8 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
                 opacity: dragRowIdx === idx ? 0.8 : 1,
                 transform: dragRowIdx === idx ? 'scale(1.02)' : 'scale(1)',
                 transition: dragRowIdx === idx ? 'none' : 'all 0.2s ease',
-                cursor: dragRowIdx === idx ? 'grabbing' : 'grab'
+                cursor: trigger.priority === 0 ? 'not-allowed' : (dragRowIdx === idx ? 'grabbing' : 'grab'),
+                userSelect: 'none'
               }}
             >
               {/* 优先级标识 */}
@@ -955,7 +960,13 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
       >
         <div 
           className={`flow-trigger-card ${!trigger.enabled ? 'disabled' : ''} ${isDefaultRule ? 'default-rule' : ''}`}
-          onClick={() => !isDefaultRule && handleEditTrigger(trigger)}
+          onClick={(e) => {
+            // 只有在没有拖拽时才触发点击事件
+            if (!dragRowIdx && !isDefaultRule) {
+              e.stopPropagation();
+              handleEditTrigger(trigger);
+            }
+          }}
           style={isDefaultRule ? { cursor: 'not-allowed', opacity: 0.8 } : undefined}
         >
           <div className="card-header">

@@ -60,7 +60,6 @@ serve(async (req) => {
   }
 
   try {
-    console.log('收到通知系统请求:', req.method, req.url);
     
     // 获取Authorization header
     const authHeader = req.headers.get('Authorization');
@@ -497,14 +496,9 @@ async function createNotification(supabase: any, body: any, user: any) {
 
 // 创建公告
 async function createAnnouncement(supabase: any, body: any, user: any) {
-  console.log('🔍 开始创建公告...');
-  console.log('📝 请求数据:', body);
-  console.log('👤 用户信息:', user);
-
   const { title, content, type, priority, target_roles, target_organizations, start_time, end_time } = body;
 
   if (!title || !content) {
-    console.error('❌ 缺少必要参数');
     return new Response(JSON.stringify({
       error: '缺少必要参数',
       details: 'title和content是必填字段'
@@ -519,12 +513,8 @@ async function createAnnouncement(supabase: any, body: any, user: any) {
 
   try {
     // 获取用户的profile ID（bigint类型）
-    console.log('🔍 获取用户profile ID...');
     const profileId = await getUserProfileId(supabase, user);
 
-    console.log('✅ 获取到用户profile ID:', profileId);
-
-    console.log('📞 调用create_announcement函数...');
     const { data, error } = await supabase
       .rpc('create_announcement', {
         p_title: title,
@@ -539,11 +529,9 @@ async function createAnnouncement(supabase: any, body: any, user: any) {
       });
 
     if (error) {
-      console.error('❌ 数据库函数调用失败:', error);
       throw error;
     }
 
-    console.log('✅ 公告创建成功:', data);
     return new Response(JSON.stringify({
       success: true,
       data: { announcement_id: data }
@@ -555,10 +543,6 @@ async function createAnnouncement(supabase: any, body: any, user: any) {
       }
     });
   } catch (error) {
-    console.error('❌ 创建公告失败:', error);
-    console.error('❌ 错误详情:', error.message);
-    console.error('❌ 错误堆栈:', error.stack);
-    
     return new Response(JSON.stringify({
       error: '创建公告失败',
       details: error.message,
@@ -858,12 +842,9 @@ async function deleteNotification(supabase: any, params: URLSearchParams, user: 
   }
 
   try {
-    console.log(`🗑️ 尝试删除通知: ${notification_id}, 用户: ${user.id}`);
 
     // 1. 查找当前用户的 profileId
     const profileId = await getUserProfileId(supabase, user);
-
-    console.log(`✅ 找到用户profileId: ${profileId}`);
 
     // 2. 查找通知
     const { data: notification, error: fetchError } = await supabase
@@ -873,7 +854,6 @@ async function deleteNotification(supabase: any, params: URLSearchParams, user: 
       .single();
 
     if (fetchError || !notification) {
-      console.log('❌ 通知不存在:', fetchError);
       return new Response(JSON.stringify({
         error: '通知不存在'
       }), {
@@ -885,11 +865,8 @@ async function deleteNotification(supabase: any, params: URLSearchParams, user: 
       });
     }
 
-    console.log(`✅ 找到通知, user_id: ${notification.user_id}, 当前用户: ${profileId}`);
-
     // 3. 校验权限
     if (notification.user_id !== profileId) {
-      console.log('❌ 权限不足，无法删除此通知');
       return new Response(JSON.stringify({
         error: '无权删除此通知'
       }), {
@@ -901,8 +878,6 @@ async function deleteNotification(supabase: any, params: URLSearchParams, user: 
       });
     }
 
-    console.log('✅ 权限验证通过，开始删除通知');
-
     // 4. 删除通知
     const { error: deleteError } = await supabase
       .from('notifications')
@@ -910,11 +885,9 @@ async function deleteNotification(supabase: any, params: URLSearchParams, user: 
       .eq('id', notification_id);
 
     if (deleteError) {
-      console.log('❌ 删除通知失败:', deleteError);
       throw deleteError;
     }
 
-    console.log('✅ 通知删除成功');
     return new Response(JSON.stringify({
       success: true,
       message: '通知已删除'
@@ -926,7 +899,6 @@ async function deleteNotification(supabase: any, params: URLSearchParams, user: 
       }
     });
   } catch (error) {
-    console.log('❌ 删除通知过程中发生错误:', error);
     return new Response(JSON.stringify({
       error: '删除通知失败',
       details: error.message

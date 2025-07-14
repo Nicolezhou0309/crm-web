@@ -115,8 +115,6 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
 }
 
 const App: React.FC = () => {
-  console.log('🔍 App 组件渲染');
-  
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth, setSiderWidth] = React.useState(220);
   const minSiderWidth = 56;
@@ -125,8 +123,6 @@ const App: React.FC = () => {
   const location = useLocation();
   const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
   const [unreadCount, setUnreadCount] = React.useState(0);
-
-  console.log(`📊 App 通知状态: 未读数量 = ${unreadCount}`);
 
   // 修正高亮逻辑：只有严格等于'/'时高亮首页，其它优先匹配最长path
   const selectedKey = (() => {
@@ -212,7 +208,6 @@ const App: React.FC = () => {
                   transition: 'color 0.2s'
                 }}
                 onClick={() => {
-                  console.log('🖱️ 点击通知铃铛，打开通知中心');
                   setNotificationDrawerVisible(true);
                 }}
                 title="通知中心"
@@ -221,29 +216,18 @@ const App: React.FC = () => {
             <UserMenu />
           </div>
         </Header>
-        {/* 始终渲染NotificationCenter以保持Hook运行 */}
-        <div style={{ display: 'none' }}>
-          <NotificationCenter onNotificationChange={(count) => {
-            console.log(`📢 通知数量回调: ${count}`);
-            setUnreadCount(count);
-          }} />
-        </div>
-        
+        {/* 移除隐藏区 NotificationCenter，只在 Drawer 里渲染 */}
         <Drawer
           title="通知中心"
           placement="right"
           width={480}
           open={notificationDrawerVisible}
           onClose={() => {
-            console.log('❌ 关闭通知中心');
             setNotificationDrawerVisible(false);
           }}
-          destroyOnClose
+          destroyOnClose={false}
         >
-          <NotificationCenter onNotificationChange={(count) => {
-            console.log(`📢 通知数量回调: ${count}`);
-            setUnreadCount(count);
-          }} />
+          <NotificationCenter onNotificationChange={setUnreadCount} />
         </Drawer>
         <Layout style={{ marginTop: 56 }}>
           <Sider

@@ -1,16 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   List, Button, Tag, Modal, Descriptions, Space, Typography,
   Tooltip, Empty, Tabs, notification, Avatar, Skeleton, Popconfirm, message
 } from 'antd';
 import {
-  BellOutlined, CheckOutlined, EyeOutlined, DeleteOutlined
+  BellOutlined, CheckOutlined, EyeOutlined, DeleteOutlined, CopyOutlined, CheckCircleOutlined
 } from '@ant-design/icons';
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications';
 import { notificationApi, type Notification, type Announcement } from '../api/notificationApi';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import dayjs from 'dayjs';
+import { useState as useReactState } from 'react';
+import { message as antdMessage } from 'antd';
+import { supabase } from '../supaClient';
 
 const { Text } = Typography;
 const { TabPane } = Tabs;
@@ -22,11 +25,24 @@ interface NotificationCenterProps {
 // 通知类型映射
 const typeMap: Record<string, string> = {
   all: '全部',
+  announcement: '公告', // 新增公告分组
   system: '系统',
   task_reminder: '任务',
   duplicate_customer: '客户',
   lead_assignment: '线索',
+  followup_assignment: '线索', // 新增映射
 };
+
+// 防抖函数
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(null, args), wait);
+  };
+};
+
+// 移除阶段颜色映射
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onNotificationChange
@@ -39,7 +55,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     markAsRead,
     markAsHandled,
     deleteNotification,
-    loading
+    loading,
+    lastUpdate,
+    notificationStats
   } = useRealtimeNotifications();
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -49,37 +67,88 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [showRaw, setShowRaw] = useReactState(false);
 
-  // 拉取公告
+  // 防抖的通知数量回调
+  const debouncedNotificationChange = useCallback(
+    debounce((count: number) => {
+      onNotificationChange?.(count);
+    }, 100),
+    [onNotificationChange]
+  );
+
+  // 拉取公告 - 添加缓存
   useEffect(() => {
-    notificationApi.getAnnouncements().then(setAnnouncements).catch(console.error);
+    const loadAnnouncements = async () => {
+      try {
+        // 检查缓存
+        const cachedAnnouncements = localStorage.getItem('announcements_cache');
+        const cacheTimestamp = localStorage.getItem('announcements_timestamp');
+        
+        if (cachedAnnouncements && cacheTimestamp) {
+          const cacheAge = Date.now() - parseInt(cacheTimestamp);
+          // 缓存5分钟有效
+          if (cacheAge < 5 * 60 * 1000) {
+            console.log('📋 使用缓存的公告数据');
+            setAnnouncements(JSON.parse(cachedAnnouncements));
+            return;
+          }
+        }
+        
+        console.log('🔄 加载公告数据...');
+        const data = await notificationApi.getAnnouncements();
+        setAnnouncements(data);
+        
+        // 更新缓存
+        localStorage.setItem('announcements_cache', JSON.stringify(data));
+        localStorage.setItem('announcements_timestamp', Date.now().toString());
+      } catch (error) {
+        console.error('❌ 加载公告失败:', error);
+        // 尝试使用缓存数据
+        const cachedAnnouncements = localStorage.getItem('announcements_cache');
+        if (cachedAnnouncements) {
+          setAnnouncements(JSON.parse(cachedAnnouncements));
+        }
+      }
+    };
+    
+    loadAnnouncements();
   }, []);
 
-  // 合并数据，按时间倒序
-  const allItems = [
-    ...announcements.map(a => ({ ...a, _type: 'announcement' as const })),
-    ...notifications.map(n => ({ ...n, _type: 'notification' as const })),
-  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  // 合并数据，按时间倒序 - 使用useMemo优化
+  const allItems = useMemo(() => {
+    const merged = [
+      ...announcements.map(a => ({ ...a, _type: 'announcement' as const })),
+      ...notifications.map(n => ({ ...n, _type: 'notification' as const })),
+    ];
+    return merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [announcements, notifications]);
 
-  // 统计所有类型
-  const allTypes = ['all', ...Array.from(new Set(notifications.map(n => n.type)))];
+  // 统计所有类型 - 使用useMemo优化
+  const allTypes = useMemo(() => {
+    // 只统计通知类型，不含公告
+    const notificationTypes = Array.from(new Set(notifications.map(n => n.type)));
+    // 固定顺序：全部、公告、其他类型
+    return ['all', 'announcement', ...notificationTypes];
+  }, [notifications]);
 
-  // 只统计通知未读数
+  // 只统计通知未读数 - 使用useMemo优化
   useEffect(() => {
-    onNotificationChange?.(unreadCount);
-  }, [unreadCount, onNotificationChange]);
+    console.log('📊 NotificationCenter 未读数变化:', unreadCount);
+    debouncedNotificationChange(unreadCount);
+  }, [unreadCount, debouncedNotificationChange]);
 
-  const handleNotificationClick = (notification: Notification) => {
+  // 通知点击处理 - 使用useCallback优化
+  const handleNotificationClick = useCallback((notification: Notification) => {
     setSelectedNotification(notification);
     setDetailModalVisible(true);
     if (notification.status === 'unread') {
       markAsRead(notification.id);
-      // 立即在本地更新状态，提升响应体验
-      notification.status = 'read';
     }
-  };
+  }, [markAsRead]);
 
-  const handleNotificationAction = async (notificationId: string, action: 'read' | 'handled' | 'delete') => {
+  // 通知操作处理 - 使用useCallback优化
+  const handleNotificationAction = useCallback(async (notificationId: string, action: 'read' | 'handled' | 'delete') => {
     try {
       if (action === 'read') {
         await markAsRead(notificationId);
@@ -103,9 +172,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         description: error instanceof Error ? error.message : '未知错误'
       });
     }
-  };
+  }, [markAsRead, markAsHandled, deleteNotification]);
 
-  const getNotificationIcon = (type: string) => {
+  // 获取通知图标 - 使用useMemo优化
+  const getNotificationIcon = useCallback((type: string) => {
     const iconMap: Record<string, { icon: React.ReactNode; color: string }> = {
       'lead_assignment': { icon: '🎯', color: '#1890ff' },
       'duplicate_customer': { icon: '🔄', color: '#fa8c16' },
@@ -113,27 +183,30 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       'task_reminder': { icon: '⏰', color: '#722ed1' }
     };
     return iconMap[type] || { icon: '📢', color: '#666' };
-  };
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  // 获取状态颜色 - 使用useMemo优化
+  const getStatusColor = useCallback((status: string) => {
     const statusMap: Record<string, string> = {
       'unread': 'red',
       'read': 'blue',
       'handled': 'green'
     };
     return statusMap[status] || 'default';
-  };
+  }, []);
 
-  const getStatusText = (status: string) => {
+  // 获取状态文本 - 使用useMemo优化
+  const getStatusText = useCallback((status: string) => {
     const statusMap: Record<string, string> = {
       'unread': '未读',
       'read': '已读',
-      'handled': '已处理'
+      'handled': '已接收'
     };
     return statusMap[status] || status;
-  };
+  }, []);
 
-  const renderNotificationItem = (notification: Notification) => {
+  // 渲染通知项 - 使用useCallback优化
+  const renderNotificationItem = useCallback((notification: Notification) => {
     const iconInfo = getNotificationIcon(notification.type);
     const isUnread = notification.status === 'unread';
     return (
@@ -146,7 +219,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           border: isUnread ? '1px solid #b7eb8f' : '1px solid transparent',
           borderRadius: '6px',
           marginBottom: '8px',
-          padding: '12px'
+          padding: '12px',
+          transition: 'all 0.2s ease'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = isUnread ? '#f0f9ff' : '#f5f5f5';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = isUnread ? '#f6ffed' : 'transparent';
         }}
       >
         <List.Item.Meta
@@ -185,15 +265,23 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             <Button type="text" icon={<EyeOutlined />} />
           </Tooltip>
           <Tooltip title="删除通知">
-            <Button type="text" icon={<DeleteOutlined />} danger onClick={e => { e.stopPropagation(); handleNotificationAction(notification.id, 'delete'); }} />
+            <Button 
+              type="text" 
+              icon={<DeleteOutlined />} 
+              danger 
+              onClick={e => { 
+                e.stopPropagation(); 
+                handleNotificationAction(notification.id, 'delete'); 
+              }} 
+            />
           </Tooltip>
         </div>
       </List.Item>
     );
-  };
+  }, [handleNotificationClick, handleNotificationAction, getNotificationIcon, getStatusColor, getStatusText]);
 
-  // 渲染单条
-  const renderItem = (item: any) => {
+  // 渲染单条 - 使用useCallback优化
+  const renderItem = useCallback((item: any) => {
     if (item._type === 'announcement') {
       return (
         <List.Item
@@ -205,7 +293,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             border: '1px solid #91d5ff',
             borderRadius: '6px',
             marginBottom: '8px',
-            padding: '12px'
+            padding: '12px',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#f0f9ff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#e6f7ff';
           }}
         >
           <List.Item.Meta
@@ -218,156 +313,237 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     } else {
       return renderNotificationItem(item);
     }
+  }, [renderNotificationItem]);
+
+  // 分类过滤 - 使用useMemo优化
+  const filteredNotifications = useMemo(() => {
+    return activeTab === 'all'
+      ? notifications
+      : notifications.filter(n => n.type === activeTab);
+  }, [activeTab, notifications]);
+
+  // 渲染标签页 - 使用useCallback优化
+  const renderTabPane = useCallback((type: string) => {
+    const unreadCountForType = type === 'all' 
+      ? unreadCount 
+      : notifications.filter(n => n.type === type && n.status === 'unread').length;
+    
+    return (
+      <TabPane
+        tab={
+          <span>
+            {typeMap[type] || type}
+            {unreadCountForType > 0 && (
+              <Tag color="red" style={{ marginLeft: 6 }}>
+                {unreadCountForType}
+              </Tag>
+            )}
+          </span>
+        }
+        key={type}
+      >
+        {loading ? (
+          <Skeleton active paragraph={{ rows: 4 }} />
+        ) : filteredNotifications.length === 0 ? (
+          <Empty description="暂无通知" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        ) : (
+          <List
+            dataSource={filteredNotifications}
+            renderItem={renderNotificationItem}
+            pagination={false}
+            style={{ maxHeight: '600px', overflow: 'auto' }}
+          />
+        )}
+      </TabPane>
+    );
+  }, [activeTab, notifications, unreadCount, loading, filteredNotifications, renderNotificationItem]);
+
+  // 在组件内部添加推进阶段函数
+  const handleAdvanceStage = async (leadid: string) => {
+    try {
+      // 直接使用Supabase客户端更新followups表
+      const { error } = await supabase
+        .from('followups')
+        .update({ followupstage: '确认需求' })
+        .eq('leadid', leadid);
+      
+      if (error) {
+        console.error('❌ 推进阶段失败:', error);
+        antdMessage.error('推进失败: ' + error.message);
+      } else {
+        antdMessage.success('已推进到"确认需求"阶段');
+        setDetailModalVisible(false);
+      }
+    } catch (e) {
+      console.error('❌ 推进阶段异常:', e);
+      antdMessage.error('推进失败: ' + (e instanceof Error ? e.message : '未知错误'));
+    }
   };
 
-  // 分类过滤
-  const filteredNotifications = activeTab === 'all'
-    ? notifications
-    : notifications.filter(n => n.type === activeTab);
+  // 新增：接收线索联动推进阶段
+  const handleReceiveLead = async () => {
+    if (!selectedNotification?.metadata?.leadid) return;
+    // 只有待接收阶段才推进
+    if (selectedNotification.metadata?.followupstage === '待接收') {
+      await handleAdvanceStage(selectedNotification.metadata.leadid);
+    }
+    await handleNotificationAction(selectedNotification.id, 'handled');
+  };
 
   return (
     <div className="notification-center-main">
-
       <Tabs activeKey={activeTab} onChange={setActiveTab} className="notification-center-tabs">
-        <TabPane tab={<span>全部</span>} key="all">
-          {loading ? (
-            <Skeleton active paragraph={{ rows: 4 }} />
-          ) : allItems.length === 0 ? (
-            <Empty description="暂无通知或公告" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        {allTypes.map(type =>
+          type === 'announcement' ? (
+            <TabPane
+              tab={<span>{typeMap[type]}</span>}
+              key={type}
+            >
+              {loading ? (
+                <Skeleton active paragraph={{ rows: 4 }} />
+              ) : announcements.length === 0 ? (
+                <Empty description="暂无公告" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              ) : (
+                <List
+                  dataSource={announcements.map(a => ({ ...a, _type: 'announcement' as const }))}
+                  renderItem={renderItem}
+                  pagination={false}
+                  style={{ maxHeight: '600px', overflow: 'auto' }}
+                />
+              )}
+            </TabPane>
           ) : (
-            <List
-              dataSource={allItems}
-              renderItem={renderItem}
-              pagination={false}
-            />
-          )}
-        </TabPane>
-        {/* 其他Tab可保留原有逻辑，仅展示通知 */}
-        {allTypes.filter(type => type !== 'all').map(type => (
-          <TabPane
-            tab={<span>{typeMap[type] || type}{type === 'all' ? (unreadCount > 0 && <Tag color="red" style={{ marginLeft: 6 }}>{unreadCount}</Tag>) : (notifications.filter(n => n.type === type && n.status === 'unread').length > 0 && <Tag color="red" style={{ marginLeft: 6 }}>{notifications.filter(n => n.type === type && n.status === 'unread').length}</Tag>)}</span>}
-            key={type}
-          >
-            {loading ? (
-              <Skeleton active paragraph={{ rows: 4 }} />
-            ) : filteredNotifications.length === 0 ? (
-              <Empty description="暂无通知" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-            ) : (
-              <List
-                dataSource={filteredNotifications}
-                renderItem={renderNotificationItem}
-                pagination={false}
-              />
-            )}
-          </TabPane>
-        ))}
+            renderTabPane(type)
+          )
+        )}
       </Tabs>
 
       {/* 通知详情弹窗 */}
       <Modal
-        title="通知详情"
+        title={(
+          <Space>
+            <span style={{ fontSize: 20 }}>{getNotificationIcon(selectedNotification?.type || '').icon}</span>
+            <span>{selectedNotification?.title}</span>
+            <Tag color={getStatusColor(selectedNotification?.status || '')}>
+              {getStatusText(selectedNotification?.status || '')}
+            </Tag>
+          </Space>
+        )}
         open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={
           selectedNotification ? (
             selectedNotification.status !== 'handled' ? [
-              <Button key="cancel" onClick={() => setDetailModalVisible(false)}>
-                关闭
-              </Button>,
-              selectedNotification.status === 'unread' && (
-                <Button
-                  key="read"
-                  icon={<EyeOutlined />}
-                  onClick={() => handleNotificationAction(selectedNotification.id, 'read')}
-                >
-                  标记为已读
-                </Button>
-              ),
               <Button
                 key="handled"
                 type="primary"
                 icon={<CheckOutlined />}
-                onClick={() => handleNotificationAction(selectedNotification.id, 'handled')}
+                onClick={handleReceiveLead}
               >
-                标记为已处理
-              </Button>,
-              <Button
-                key="delete"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => handleNotificationAction(selectedNotification.id, 'delete')}
-              >
-                删除
+                接收线索
               </Button>
-            ] : [
-              <Button key="close" onClick={() => setDetailModalVisible(false)}>
-                关闭
-              </Button>,
-              <Button
-                key="delete"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => handleNotificationAction(selectedNotification.id, 'delete')}
-              >
-                删除
-              </Button>
-            ]
-          ) : [
-            <Button key="close" onClick={() => setDetailModalVisible(false)}>
-              关闭
-            </Button>
-          ]
+            ] : null
+          ) : null
         }
-        width={600}
+        width={500}
       >
         {selectedNotification && (
           <div>
-            <Descriptions bordered column={2}>
-              <Descriptions.Item label="通知类型" span={2}>
+            {/* 主信息分组 */}
+            <Descriptions
+              column={1}
+              bordered
+              size="small"
+              styles={{ label: { width: 100 }, content: { fontWeight: 500 } }}
+            >
+              {/* 主信息分组 */}
+              <Descriptions.Item label="线索ID">
                 <Space>
-                  <span>{getNotificationIcon(selectedNotification.type).icon}</span>
-                  <span>{selectedNotification.type}</span>
+                  <Tag color="blue">{selectedNotification.metadata?.leadid}</Tag>
+                  {selectedNotification.metadata?.leadid && (
+                    <Button
+                      size="small"
+                      icon={<CopyOutlined />}
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedNotification.metadata.leadid);
+                        antdMessage.success('线索编号已复制');
+                      }}
+                    />
+                  )}
                 </Space>
               </Descriptions.Item>
-
-              <Descriptions.Item label="状态" span={2}>
-                <Tag color={getStatusColor(selectedNotification.status)}>
-                  {getStatusText(selectedNotification.status)}
-                </Tag>
+              <Descriptions.Item label="分配人">
+                <span>👤 {selectedNotification.metadata?.assigned_user_nickname}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="手机号">
+                {selectedNotification.metadata?.phone ? (
+                  <Space>
+                    📞 {selectedNotification.metadata.phone}
+                    <Button
+                      size="small"
+                      icon={<CopyOutlined />}
+                      style={{ marginLeft: 4 }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedNotification.metadata.phone);
+                        antdMessage.success('手机号已复制');
+                      }}
+                    />
+                  </Space>
+                ) : '--'}
+              </Descriptions.Item>
+              <Descriptions.Item label="微信号">
+                {selectedNotification.metadata?.wechat ? (
+                  <Space>
+                    💬 {selectedNotification.metadata.wechat}
+                    <Button
+                      size="small"
+                      icon={<CopyOutlined />}
+                      style={{ marginLeft: 4 }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedNotification.metadata.wechat);
+                        antdMessage.success('微信号已复制');
+                      }}
+                    />
+                  </Space>
+                ) : '--'}
               </Descriptions.Item>
 
-              <Descriptions.Item label="标题" span={2}>
-                {selectedNotification.title}
-              </Descriptions.Item>
-
-              <Descriptions.Item label="内容" span={2}>
-                {selectedNotification.content}
-              </Descriptions.Item>
-
-              {selectedNotification.metadata && (
-                <Descriptions.Item label="详细信息" span={2}>
-                  <pre style={{ fontSize: '12px', maxHeight: '200px', overflow: 'auto' }}>
-                    {JSON.stringify(selectedNotification.metadata, null, 2)}
-                  </pre>
+              {/* 次要信息分组 */}
+              {selectedNotification.metadata?.source && (
+                <Descriptions.Item label="来源">
+                  <span>{selectedNotification.metadata?.source}</span>
                 </Descriptions.Item>
               )}
-
+              {selectedNotification.metadata?.leadtype && (
+                <Descriptions.Item label="类型">
+                  <span>{selectedNotification.metadata?.leadtype}</span>
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="创建时间">
                 {dayjs(selectedNotification.created_at).format('YYYY-MM-DD HH:mm:ss')}
               </Descriptions.Item>
-
               {selectedNotification.read_at && (
                 <Descriptions.Item label="已读时间">
                   {dayjs(selectedNotification.read_at).format('YYYY-MM-DD HH:mm:ss')}
                 </Descriptions.Item>
               )}
-
               {selectedNotification.handled_at && (
-                <Descriptions.Item label="处理时间">
+                <Descriptions.Item label="接收时间">
                   {dayjs(selectedNotification.handled_at).format('YYYY-MM-DD HH:mm:ss')}
                 </Descriptions.Item>
               )}
             </Descriptions>
+            {/* 可选：展开原始JSON */}
+            <div style={{ marginTop: 12 }}>
+              <Button type="link" onClick={() => setShowRaw(!showRaw)}>
+                {showRaw ? '隐藏原始数据' : '显示原始数据'}
+              </Button>
+              {showRaw && (
+                <pre style={{ fontSize: 12, background: '#f6f6f6', padding: 8, borderRadius: 4 }}>
+                  {JSON.stringify(selectedNotification.metadata, null, 2)}
+                </pre>
+              )}
+            </div>
           </div>
         )}
       </Modal>

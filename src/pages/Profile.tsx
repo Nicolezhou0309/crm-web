@@ -1,15 +1,21 @@
-import { Form, Input, Button, message, Card, Tag, Divider, List, Typography, Space, Badge } from 'antd';
-import { useEffect, useState } from 'react';
+import { Form, Input, Button, message, Card, Tag, Divider, List, Typography, Space, Badge, Upload, Avatar, Modal, Tooltip, Spin } from 'antd';
+import { useEffect, useState, useContext } from 'react';
 import { supabase } from '../supaClient';
 import { useRolePermissions } from '../hooks/useRolePermissions';
+import { useAchievements } from '../hooks/useAchievements';
 import { 
   UserOutlined, 
   KeyOutlined, 
   SafetyCertificateOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  UploadOutlined,
+  CheckCircleTwoTone
 } from '@ant-design/icons';
+import ImgCrop from 'antd-img-crop';
+import imageCompression from 'browser-image-compression';
+import { UserContext } from '../context/UserContext';
 
 const { Title, Text } = Typography;
 
@@ -20,6 +26,11 @@ const Profile = () => {
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [department, setDepartment] = useState<string>('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarModal, setAvatarModal] = useState(false);
+  const [avatarTs, setAvatarTs] = useState<number>(Date.now()); // 新增
+  const [loadingProfile, setLoadingProfile] = useState(true); // 新增
   
   // 使用角色权限Hook
   const { 
@@ -33,15 +44,35 @@ const Profile = () => {
     getExpiringRoles
   } = useRolePermissions();
 
-  // 获取当前用户信息
+  const { avatarFrames, getEquippedAvatarFrame, equipAvatarFrame, loading: framesLoading } = useAchievements();
+  const equippedFrame = getEquippedAvatarFrame();
+
+  const { avatarUrl: contextAvatarUrl, refreshAvatar } = useContext(UserContext);
+
+  // 1. fetchAll 提到组件作用域外部，且只查 avatar_url 字段
+  const fetchAll = async () => {
+    setLoadingProfile(true);
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      setLoadingProfile(false);
+      return;
+    }
+    const { data: profile } = await supabase
+      .from('users_profile')
+      .select('avatar_url, updated_at')
+      .eq('user_id', userData.user.id)
+      .single();
+    console.log('[Profile] 拉取到的 userData:', userData);
+    console.log('[Profile] 拉取到的 profile:', profile);
+    setUser(userData.user);
+    setAvatarUrl(profile?.avatar_url || null);
+    setAvatarTs(profile?.updated_at ? new Date(profile.updated_at).getTime() : Date.now());
+    setLoadingProfile(false);
+  };
+
+  // 并行获取用户信息、部门、头像
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUser(data.user);
-        setEmail(data.user.email || '');
-        nameForm.setFieldsValue({ name: data.user.user_metadata?.name || '' });
-      }
-    });
+    fetchAll();
   }, [nameForm]);
 
   // 监听email变化，同步到邮箱表单
@@ -51,30 +82,89 @@ const Profile = () => {
     }
   }, [email, emailForm]);
 
-  // 获取当前用户部门
-  useEffect(() => {
-    const fetchDepartment = async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData?.user?.id;
-      if (!userId) return;
+  // 获取即将过期的角色
+  const expiringRoles = getExpiringRoles(7);
+
+  // 获取权限按分类分组
+  const permissionsByCategory = getPermissionsByCategory();
+
+  // 头像上传处理
+  const handleAvatarUpload = async (info: any) => {
+    if (info.file.status === 'uploading') {
+      setAvatarUploading(true);
+      return;
+    }
+    if (info.file.status === 'done') {
+      const file = info.file.originFileObj;
+      const fileExt = file.name.split('.').pop();
+      const filePath = `user_${user.id}_${Date.now()}.${fileExt}`;
+
+      // 1. 获取旧头像URL
       const { data: profile } = await supabase
         .from('users_profile')
-        .select('organization_id')
-        .eq('user_id', userId)
+        .select('avatar_url')
+        .eq('user_id', user.id)
         .single();
-      if (profile?.organization_id) {
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('name')
-          .eq('id', profile.organization_id)
-          .single();
-        setDepartment(org?.name || '');
-      } else {
-        setDepartment('未分配');
+      const oldAvatarUrl = profile?.avatar_url;
+      console.log('[头像上传] oldAvatarUrl:', oldAvatarUrl, 'profile:', profile);
+
+      // 2. 上传新头像
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+      if (uploadError) {
+        message.error('头像上传失败');
+        setAvatarUploading(false);
+        return;
       }
-    };
-    fetchDepartment();
-  }, []);
+      // 3. 获取新头像URL
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const publicUrl = data?.publicUrl;
+      // 4. 更新profile表
+      const { error: updateError } = await supabase
+        .from('users_profile')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', user.id);
+      if (updateError) {
+        message.error('头像保存失败');
+        setAvatarUploading(false);
+        return;
+      }
+      // 5. 删除旧头像（如果有且是 avatars bucket 下的文件）
+      if (oldAvatarUrl && oldAvatarUrl.includes('/avatars/')) {
+        const urlParts = oldAvatarUrl.split('/');
+        const oldFilePath = urlParts[urlParts.length - 1];
+        if (oldFilePath) {
+          console.log('准备删除旧头像，路径:', oldFilePath);
+          const { data, error } = await supabase.storage.from('avatars').remove([oldFilePath]);
+          console.log('删除返回:', data, error);
+          if (error) {
+            console.error('删除旧头像失败:', error);
+          } else {
+            console.log('旧头像删除成功');
+          }
+        } else {
+          console.warn('未能解析出旧头像文件路径:', oldAvatarUrl);
+        }
+      }
+      await fetchAll(); // 上传后刷新头像
+      setAvatarUploading(false);
+      message.success('头像上传成功');
+      localStorage.setItem('avatar_refresh_token', Date.now().toString());
+      window.dispatchEvent(new Event('avatar_refresh_token'));
+      refreshAvatar(); // 新增，刷新 context 缓存
+    }
+  };
+
+  // 切换装备头像框
+  const handleEquipFrame = async (frameId: string) => {
+    try {
+      await equipAvatarFrame(frameId);
+      message.success('头像框已装备');
+    } catch (e) {
+      message.error('头像框装备失败');
+    }
+  };
 
   // 修改名称
   const handleChangeName = async (values: any) => {
@@ -85,27 +175,6 @@ const Profile = () => {
     } else {
       message.success('名称修改成功');
       setUser((u: any) => ({ ...u, user_metadata: { ...u.user_metadata, name } }));
-    }
-  };
-
-  // 修改密码
-  const handleChangePassword = async (values: any) => {
-    const { oldPassword, password } = values;
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password: oldPassword,
-    });
-    if (loginError) {
-      message.error('旧密码错误，请重新输入');
-      return;
-    }
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      message.error(error.message);
-    } else {
-      message.success('密码修改成功，请重新登录');
-      await supabase.auth.signOut();
-      window.location.href = '/login';
     }
   };
 
@@ -135,14 +204,166 @@ const Profile = () => {
     }
   };
 
-  // 获取即将过期的角色
-  const expiringRoles = getExpiringRoles(7);
-
-  // 获取权限按分类分组
-  const permissionsByCategory = getPermissionsByCategory();
+  // 修改密码
+  const handleChangePassword = async (values: any) => {
+    const { oldPassword, password } = values;
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password: oldPassword,
+    });
+    if (loginError) {
+      message.error('旧密码错误，请重新输入');
+      return;
+    }
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      message.error(error.message);
+    } else {
+      message.success('密码修改成功，请重新登录');
+      await supabase.auth.signOut();
+      window.location.href = '/login';
+    }
+  };
 
   return (
     <div style={{ maxWidth: 800, margin: '40px auto', padding: '0 20px' }}>
+      {/* 头像+头像框预览+上传 */}
+      <Card title="我的头像" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
+          <div style={{ position: 'relative', width: 80, height: 80 }}>
+            {/* 头像框 */}
+            {equippedFrame?.icon_url && (
+              <img
+                src={equippedFrame.icon_url}
+                alt="头像框"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: 80,
+                  height: 80,
+                  zIndex: 2,
+                  pointerEvents: 'none',
+                  borderRadius: '50%',
+                }}
+              />
+            )}
+            {/* 头像 */}
+            <Avatar
+              size={80}
+              src={(!loadingProfile && avatarUrl) ? `${avatarUrl}?t=${avatarTs}` : undefined}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                zIndex: 1,
+                backgroundColor: '#1890ff',
+                border: '2px solid #fff',
+              }}
+              icon={<UserOutlined />}
+              onClick={async () => {
+                if (supabase && user) {
+                  const { data: profile } = await supabase
+                    .from('users_profile')
+                    .select('avatar_url')
+                    .eq('user_id', user.id)
+                    .single();
+                  console.log('[Profile] 头像点击时拉取到的 profile:', profile);
+                  if (profile?.avatar_url) {
+                    console.log('[Profile] 头像点击时设置 avatarUrl:', profile.avatar_url);
+                    setAvatarUrl(profile.avatar_url);
+                  }
+                }
+                setAvatarModal(true);
+              }}
+            />
+          </div>
+          <div>
+            <ImgCrop
+              cropShape="round"
+              aspect={1}
+              quality={1}
+              showGrid={false}
+              showReset
+              modalTitle="裁剪头像"
+            >
+              <Upload
+                showUploadList={false}
+                accept="image/png,image/jpeg,image/jpg"
+                disabled={avatarUploading}
+                beforeUpload={async (file) => {
+                  console.log('[头像上传] 原始文件:', file);
+                  const options = {
+                    maxSizeMB: 1,
+                    maxWidthOrHeight: 1024,
+                    useWebWorker: true,
+                  };
+                  try {
+                    console.log('[头像上传] 开始压缩...');
+                    const compressedFile = await imageCompression(file, options);
+                    console.log('[头像上传] 压缩后文件:', compressedFile);
+                    console.log('[头像上传] 调用 handleAvatarUpload 前...');
+                    await handleAvatarUpload({ file: { status: 'done', originFileObj: compressedFile } });
+                    console.log('[头像上传] handleAvatarUpload 完成');
+                    return false;
+                  } catch (e) {
+                    const errMsg = (e && typeof e === 'object' && 'message' in e) ? (e as Error).message : String(e);
+                    console.error('[头像上传] 图片压缩失败:', e, file);
+                    message.error('图片压缩失败: ' + errMsg);
+                    return false;
+                  }
+                }}
+              >
+                <Button icon={<UploadOutlined />} loading={avatarUploading}>
+                  更换头像
+                </Button>
+              </Upload>
+            </ImgCrop>
+          </div>
+        </div>
+        {/* 大图预览 */}
+        <Modal open={avatarModal} onCancel={() => setAvatarModal(false)} footer={null}>
+          <img src={avatarUrl ? `${avatarUrl}?t=${avatarTs}` : ''} alt="头像预览" style={{ width: '100%' }} />
+        </Modal>
+      </Card>
+
+      {/* 头像框系统 */}
+      <Card title="我的头像框" style={{ marginBottom: 24 }}>
+        {loadingProfile ? (
+          <Spin style={{ display: 'block', margin: '60px auto' }} />
+        ) : (
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+            {avatarFrames.length === 0 && <span>暂无已解锁头像框</span>}
+            {avatarFrames.map(frame => (
+              <Tooltip title={frame.name} key={frame.frame_id}>
+                <div
+                  style={{
+                    border: frame.is_equipped ? '2px solid #52c41a' : '2px solid #eee',
+                    borderRadius: 12,
+                    padding: 8,
+                    cursor: 'pointer',
+                    position: 'relative',
+                    background: frame.is_equipped ? '#f6ffed' : '#fff',
+                    boxShadow: frame.is_equipped ? '0 0 8px #b7eb8f' : 'none',
+                  }}
+                  onClick={() => handleEquipFrame(frame.frame_id)}
+                >
+                  <img
+                    src={frame.icon_url}
+                    alt={frame.name}
+                    style={{ width: 56, height: 56, borderRadius: '50%' }}
+                  />
+                  {frame.is_equipped && (
+                    <CheckCircleTwoTone twoToneColor="#52c41a" style={{ position: 'absolute', right: 4, top: 4, fontSize: 20 }} />
+                  )}
+                  <div style={{ textAlign: 'center', marginTop: 4, fontSize: 13 }}>{frame.name}</div>
+                </div>
+              </Tooltip>
+            ))}
+          </div>
+        )}
+      </Card>
+
       {/* 基本信息卡片 */}
       <Card title="基本信息" style={{ marginBottom: 24 }}>
         <div style={{ marginBottom: 40 }}>

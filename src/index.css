@@ -1352,3 +1352,8 @@ button:focus-visible {
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
+
+/* 通知中心抽屉内容顶部间距 */
+.ant-drawer-body {
+  padding-top: 16px !important;
+}

@@ -1955,6 +1955,8 @@ const AllocationManagement: React.FC = () => {
                 onRulesReorder={async (reorderedRules) => {
                   // 批量更新规则优先级
                   try {
+                    console.log('收到重新排序的规则:', reorderedRules);
+                    
                     // 过滤掉默认分配规则，确保其优先级始终为0
                     const nonDefaultRules = reorderedRules.filter(rule => rule.name !== '默认分配规则');
                     const defaultRule = reorderedRules.find(rule => rule.name === '默认分配规则');
@@ -1962,11 +1964,11 @@ const AllocationManagement: React.FC = () => {
                     // 先更新本地状态
                     setRules(reorderedRules);
                     
-                    // 然后异步更新服务器
-                    const updatePromises = nonDefaultRules.map((rule, index) => 
+                    // 然后异步更新服务器 - 使用传入的优先级值
+                    const updatePromises = nonDefaultRules.map((rule) => 
                       allocationApi.rules.updateRule(rule.id, { 
                         ...rule, 
-                        priority: index + 1 
+                        priority: rule.priority // 使用传入的优先级值
                       })
                     );
                     

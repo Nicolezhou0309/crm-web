@@ -1,27 +1,69 @@
-import { Dropdown, Avatar, Tooltip } from 'antd';
+import { Dropdown, Avatar, Tooltip, Spin } from 'antd';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supaClient';
 import { useRolePermissions } from '../hooks/useRolePermissions';
 import { getUserPointsInfo, getCurrentProfileId } from '../api/pointsApi';
 import { allocationApi } from '../utils/allocationApi';
+import { useAchievements } from '../hooks/useAchievements'; // 新增
+import { UserOutlined } from '@ant-design/icons'; // 新增
 
 const UserMenu = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [userPoints, setUserPoints] = useState<number>(0);
   const [profileId, setProfileId] = useState<number | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null); // 新增
   const [groupName, setGroupName] = useState<string>('加载中...');
   const [canAllocate, setCanAllocate] = useState<string>('加载中...');
   const [groupStatusList, setGroupStatusList] = useState<any[]>([]);
   const { isSuperAdmin, isSystemAdmin } = useRolePermissions();
   const navigate = useNavigate();
+  const { getEquippedAvatarFrame } = useAchievements(); // 新增
+  const equippedFrame = getEquippedAvatarFrame(); // 新增
+  // 兼容icon_url字段和frame_data.icon_url
+  const frameUrl = (equippedFrame && (equippedFrame as any).icon_url) || equippedFrame?.frame_data?.icon_url;
+
+  // 获取用户信息和头像
+  const fetchUserAndAvatar = async () => {
+    setLoading(true);
+    const { data } = await supabase.auth.getUser();
+    setUser(data.user);
+    setLoading(false);
+    if (data.user) {
+      // 查询 users_profile.avatar_url
+      const { data: profile } = await supabase
+        .from('users_profile')
+        .select('avatar_url')
+        .eq('user_id', data.user.id)
+        .single();
+      setAvatarUrl(profile?.avatar_url || data.user.user_metadata?.avatar_url || null);
+    } else {
+      setAvatarUrl(null);
+    }
+  };
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setLoading(false);
-    });
+    fetchUserAndAvatar();
+  }, []);
+
+  // 监听全局刷新口令
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'avatar_refresh_token') {
+        fetchUserAndAvatar();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  useEffect(() => {
+    const handleAvatarRefresh = () => {
+      fetchUserAndAvatar();
+    };
+    window.addEventListener('avatar_refresh_token', handleAvatarRefresh);
+    return () => window.removeEventListener('avatar_refresh_token', handleAvatarRefresh);
   }, []);
 
   useEffect(() => {
@@ -162,12 +204,41 @@ const UserMenu = () => {
       {/* 用户头像和名称Dropdown */}
       <Dropdown menu={menuProps} placement="bottomRight">
         <span style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-          <Avatar size="small" style={{ backgroundColor: isSuperAdmin ? '#f5222d' : isSystemAdmin ? '#1890ff' : '#52c41a' }}>
-            {user?.user_metadata?.name?.[0] || user?.email?.[0] || 'U'}
-          </Avatar>
-          <span style={{ color: '#222', fontSize: '14px' }}>
-            {loading ? '加载中...' : (user?.user_metadata?.name || user?.email || '未登录')}
-          </span>
+          {/* 头像+头像框组合 */}
+          <div style={{ position: 'relative', width: 40, height: 40, marginRight: 4 }}>
+            {frameUrl && (
+              <img
+                src={frameUrl}
+                alt="头像框"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: 40,
+                  height: 40,
+                  zIndex: 2,
+                  pointerEvents: 'none',
+                  borderRadius: '50%',
+                }}
+              />
+            )}
+            <Avatar
+              size={40}
+              src={(!loading && avatarUrl) ? avatarUrl : undefined}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                zIndex: 1,
+                backgroundColor: (!avatarUrl || loading)
+                  ? 'transparent'
+                  : (isSuperAdmin ? '#f5222d' : isSystemAdmin ? '#1890ff' : '#52c41a'),
+                border: '2px solid #fff',
+              }}
+              icon={loading ? <Spin size="small" /> : undefined}
+            />
+          </div>
+          {/* 名称已去除 */}
         </span>
       </Dropdown>
     </span>

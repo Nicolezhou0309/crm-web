@@ -38,7 +38,7 @@ export const DuplicateNotificationCenter: React.FC<DuplicateNotificationCenterPr
     setLoading(true);
     try {
       // TODO: 实现重复通知功能
-      console.log('获取通知功能待实现', userId);
+      ('获取通知功能待实现', userId);
       setNotifications([]);
     } catch (error) {
       console.error('加载重复客户通知失败:', error);
@@ -75,7 +75,7 @@ export const DuplicateNotificationCenter: React.FC<DuplicateNotificationCenterPr
   const handleNotification = async (notificationId: string) => {
     try {
       // TODO: 实现处理通知功能
-      console.log('处理通知功能待实现', notificationId);
+      ('处理通知功能待实现', notificationId);
       setNotifications(prev => 
         prev.map(n => 
           n.id === notificationId 
