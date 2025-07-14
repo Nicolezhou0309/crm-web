@@ -116,14 +116,16 @@ class AchievementApi {
     
     if (unequipError) throw unequipError;
     
-    // 装备指定头像框
-    const { error: equipError } = await supabase
-      .from('user_avatar_frames')
-      .update({ is_equipped: true })
-      .eq('user_id', userId)
-      .eq('frame_id', frameId);
-    
-    if (equipError) throw equipError;
+    // 如果 frameId 不为空，则装备指定头像框
+    if (frameId && frameId.trim() !== '') {
+      const { error: equipError } = await supabase
+        .from('user_avatar_frames')
+        .update({ is_equipped: true })
+        .eq('user_id', userId)
+        .eq('frame_id', frameId);
+      
+      if (equipError) throw equipError;
+    }
     
     return true;
   }

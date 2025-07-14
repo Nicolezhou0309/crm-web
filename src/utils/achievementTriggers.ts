@@ -157,6 +157,133 @@ export class AchievementTriggers {
     }
   }
 
+  // 荣誉发放触发器（自定义）
+  static async onHonorGranted(userId: number, frameId: string, frameName: string, grantedBy: number, notes?: string) {
+    try {
+      await achievementApi.updateAchievementProgress(
+        userId,
+        frameId, // 使用 frame_id 作为 achievement_id
+        1,
+        'honor_grant',
+        {
+          frame_id: frameId,
+          frame_name: frameName,
+          granted_by: grantedBy,
+          notes: notes,
+          granted_at: new Date().toISOString()
+        }
+      );
+
+      console.log('✅ 荣誉发放记录已创建');
+    } catch (error) {
+      console.error('❌ 创建荣誉发放记录失败:', error);
+    }
+  }
+
+  // 活动参与触发器（自定义）
+  static async onEventParticipation(userId: number, eventId: string, eventName: string, participationType: string) {
+    try {
+      await achievementApi.updateAchievementProgress(
+        userId,
+        'event_participation',
+        1,
+        'event_participation',
+        {
+          event_id: eventId,
+          event_name: eventName,
+          participation_type: participationType,
+          participated_at: new Date().toISOString()
+        }
+      );
+
+      console.log('✅ 活动参与记录已创建');
+    } catch (error) {
+      console.error('❌ 创建活动参与记录失败:', error);
+    }
+  }
+
+  // 首次登录触发器（自定义）
+  static async onFirstLogin(userId: number) {
+    try {
+      await achievementApi.updateAchievementProgress(
+        userId,
+        'first_login',
+        1,
+        'first_login',
+        {
+          login_time: new Date().toISOString(),
+          user_agent: navigator.userAgent
+        }
+      );
+
+      console.log('✅ 首次登录成就已记录');
+    } catch (error) {
+      console.error('❌ 记录首次登录失败:', error);
+    }
+  }
+
+  // 资料完善触发器（自定义）
+  static async onProfileComplete(userId: number, profileData: any) {
+    try {
+      await achievementApi.updateAchievementProgress(
+        userId,
+        'profile_complete',
+        1,
+        'profile_complete',
+        {
+          completed_fields: Object.keys(profileData),
+          completed_at: new Date().toISOString()
+        }
+      );
+
+      console.log('✅ 资料完善成就已记录');
+    } catch (error) {
+      console.error('❌ 记录资料完善失败:', error);
+    }
+  }
+
+  // 推荐成功触发器（自定义）
+  static async onReferralSuccess(userId: number, referredUserId: number, referralType: string) {
+    try {
+      await achievementApi.updateAchievementProgress(
+        userId,
+        'referral_success',
+        1,
+        'referral_success',
+        {
+          referred_user_id: referredUserId,
+          referral_type: referralType,
+          success_at: new Date().toISOString()
+        }
+      );
+
+      console.log('✅ 推荐成功成就已记录');
+    } catch (error) {
+      console.error('❌ 记录推荐成功失败:', error);
+    }
+  }
+
+  // 手动发放触发器（自定义）
+  static async onManualGrant(userId: number, achievementCode: string, grantedBy: number, reason: string) {
+    try {
+      await achievementApi.updateAchievementProgress(
+        userId,
+        achievementCode,
+        1,
+        'manual_grant',
+        {
+          granted_by: grantedBy,
+          reason: reason,
+          granted_at: new Date().toISOString()
+        }
+      );
+
+      console.log('✅ 手动发放记录已创建');
+    } catch (error) {
+      console.error('❌ 创建手动发放记录失败:', error);
+    }
+  }
+
   // 批量检查成就（用于初始化或定期检查）
   static async checkAllAchievements() {
     const userId = await this.getUserId();

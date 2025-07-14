@@ -14,8 +14,8 @@ import {
   SettingOutlined,
   BranchesOutlined,
   GiftOutlined,
-  HistoryOutlined,
   TrophyOutlined,
+  CrownOutlined,
 } from '@ant-design/icons';
 import HouseLogo from './components/HouseLogo';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
@@ -43,13 +43,17 @@ import PointsDashboard from './pages/PointsDashboard';
 import PointsExchange from './pages/PointsExchange';
 import PointsRules from './pages/PointsRules';
 import AnnouncementManagement from './pages/AnnouncementManagement';
+import { HonorManagement } from './pages/HonorManagement';
+import { AchievementManagement } from './pages/AchievementManagement';
 import './App.css';
 import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
 import { NotificationCenter } from './components/NotificationCenter';
 import { PermissionGate } from './components/PermissionGate';
-import { Badge, Drawer } from 'antd';
+import { Badge, Drawer, Popover } from 'antd';
 import { BellOutlined } from '@ant-design/icons';
+import { useAchievements } from './hooks/useAchievements';
+import { supabase } from './supaClient';
 
 
 const { Sider, Content, Header } = Layout;
@@ -78,6 +82,15 @@ const menuItems = [
       { key: 'points-dashboard', icon: <DashboardOutlined />, label: '积分看板', path: '/points' },
       { key: 'points-exchange', icon: <GiftOutlined />, label: '积分兑换', path: '/points/exchange' },
       { key: 'points-rules', icon: <KeyOutlined />, label: '积分规则', path: '/points/rules' },
+    ]
+  },
+  {
+    key: 'honor',
+    icon: <CrownOutlined />,
+    label: '荣誉系统',
+    children: [
+      { key: 'honor-management', icon: <TrophyOutlined />, label: '荣誉管理', path: '/honor' },
+      { key: 'achievement-management', icon: <CrownOutlined />, label: '成就管理', path: '/achievement' },
     ]
   },
   { key: 'departments', icon: <AppstoreOutlined />, label: '部门管理', path: '/departments' },
@@ -123,6 +136,49 @@ const App: React.FC = () => {
   const location = useLocation();
   const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
   const [unreadCount, setUnreadCount] = React.useState(0);
+  
+  // 头像状态管理
+  const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined);
+
+  // 获取头像URL的函数
+  const fetchAvatar = React.useCallback(async () => {
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      const { data: profile } = await supabase
+        .from('users_profile')
+        .select('avatar_url')
+        .eq('user_id', data.user.id)
+        .single();
+      setAvatarUrl(profile?.avatar_url || undefined);
+    } else {
+      setAvatarUrl(undefined);
+    }
+  }, []);
+
+  // 监听头像刷新事件
+  React.useEffect(() => {
+    fetchAvatar();
+    
+    // 监听 localStorage 事件
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'avatar_refresh_token') {
+        fetchAvatar();
+      }
+    };
+    
+    // 监听 window 自定义事件
+    const handleAvatarRefresh = () => {
+      fetchAvatar();
+    };
+    
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('avatar_refresh_token', handleAvatarRefresh);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('avatar_refresh_token', handleAvatarRefresh);
+    };
+  }, [fetchAvatar]);
 
   // 修正高亮逻辑：只有严格等于'/'时高亮首页，其它优先匹配最长path
   const selectedKey = (() => {
@@ -180,7 +236,7 @@ const App: React.FC = () => {
     <ConfigProvider locale={zhCN}>
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* 顶部导航条 */}
-        <Header className="app-header">
+        <Header className="app-header" style={{ height: 60, padding: '0 48px', display: 'flex', alignItems: 'center', position: 'relative', background: '#fff' }}>
           <div className="app-title">
             <HouseLogo 
               width={40} 
@@ -191,7 +247,7 @@ const App: React.FC = () => {
             />
             <span>长租公寓CRM系统</span>
           </div>
-          <div className="app-header-user" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <div className="app-header-user" style={{ display: 'flex', alignItems: 'center', gap: 24, paddingRight: 120 }}>
             {/* 通知中心入口 */}
             <Badge
               count={unreadCount}
@@ -215,6 +271,79 @@ const App: React.FC = () => {
             </Badge>
             <UserMenu />
           </div>
+          {/* 悬浮头像+头像框组合 */}
+          {(() => {
+            const { getEquippedAvatarFrame } = useAchievements();
+            const equippedFrame = getEquippedAvatarFrame();
+            // 兼容icon_url字段和frame_data.icon_url
+            const frameUrl = (equippedFrame && (equippedFrame as any).icon_url) || equippedFrame?.frame_data?.icon_url;
+            
+            return (
+                              <div
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 24,
+                    width: 90,
+                    height: 90,
+                    borderRadius: '50%',
+                    background: '#fff',
+                    zIndex: 10,
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    transform: 'scale(1)',
+                  }}
+                  title="点击进入个人中心"
+                  onClick={() => navigate('/profile')}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  {/* 用户头像 */}
+                  {avatarUrl && (
+                    <img
+                      src={avatarUrl}
+                      alt="头像"
+                      style={{
+                        width: 58.5,
+                        height: 58.5,
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        left: '50%',
+                        top: 'calc(50% + 2px)',
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: 1,
+                        background: '#fff',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  )}
+                  {/* 头像框 */}
+                  {frameUrl && (
+                    <img
+                      src={frameUrl}
+                      alt="头像框"
+                      style={{
+                        width: 117,
+                        height: 117,
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        left: '50%',
+                        top: 'calc(50% + 2px)',
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: 2,
+                      }}
+                    />
+                  )}
+                </div>
+            );
+          })()}
         </Header>
         {/* 移除隐藏区 NotificationCenter，只在 Drawer 里渲染 */}
         <Drawer
@@ -314,6 +443,16 @@ const App: React.FC = () => {
                   <Route path="/announcements" element={
                     <PermissionGate permission="manage_announcements" fallback={<Error403 />}>
                       <AnnouncementManagement />
+                    </PermissionGate>
+                  } />
+                  <Route path="/honor" element={
+                    <PermissionGate permission="admin" fallback={<Error403 />}>
+                      <HonorManagement />
+                    </PermissionGate>
+                  } />
+                  <Route path="/achievement" element={
+                    <PermissionGate permission="admin" fallback={<Error403 />}>
+                      <AchievementManagement />
                     </PermissionGate>
                   } />
                   <Route path="/reset-password" element={<ResetPassword />} />

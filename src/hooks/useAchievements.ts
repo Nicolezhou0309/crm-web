@@ -164,6 +164,27 @@ export const useAchievements = () => {
     }
   }, [profileId, loadAchievements]);
 
+  // 全局事件监听，自动刷新头像框等数据
+  useEffect(() => {
+    const handleAvatarRefresh = (e: StorageEvent) => {
+      if (e.key === 'avatar_refresh_token') {
+        refresh();
+      }
+    };
+    
+    const handleCustomAvatarRefresh = () => {
+      refresh();
+    };
+    
+    window.addEventListener('storage', handleAvatarRefresh);
+    window.addEventListener('avatar_refresh_token', handleCustomAvatarRefresh);
+    
+    return () => {
+      window.removeEventListener('storage', handleAvatarRefresh);
+      window.removeEventListener('avatar_refresh_token', handleCustomAvatarRefresh);
+    };
+  }, [refresh]);
+
   return {
     // 数据
     achievements,

@@ -19,6 +19,7 @@ import {
   MenuUnfoldOutlined,
   MenuFoldOutlined,
   BellOutlined,
+  CrownOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 
@@ -108,6 +109,25 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           icon: <KeyOutlined />, 
           label: '积分规则', 
           path: '/points/rules'
+        },
+      ]
+    },
+    {
+      key: 'honor',
+      icon: <CrownOutlined />,
+      label: '荣誉系统',
+      children: [
+        { 
+          key: 'honor-management', 
+          icon: <TrophyOutlined />, 
+          label: '荣誉管理', 
+          path: '/honor'
+        },
+        { 
+          key: 'achievement-management', 
+          icon: <CrownOutlined />, 
+          label: '成就管理', 
+          path: '/achievement'
         },
       ]
     },

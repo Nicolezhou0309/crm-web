@@ -1,28 +1,38 @@
-import { Dropdown, Avatar, Tooltip, Spin } from 'antd';
+import { Dropdown } from 'antd';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supaClient';
-import { useRolePermissions } from '../hooks/useRolePermissions';
 import { getUserPointsInfo, getCurrentProfileId } from '../api/pointsApi';
-import { allocationApi } from '../utils/allocationApi';
-import { useAchievements } from '../hooks/useAchievements'; // 新增
-import { UserOutlined } from '@ant-design/icons'; // 新增
+
+export function useUserMenuAvatarUrl() {
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('users_profile')
+          .select('avatar_url')
+          .eq('user_id', data.user.id)
+          .single();
+        setAvatarUrl(profile?.avatar_url || undefined);
+      } else {
+        setAvatarUrl(undefined);
+      }
+    })();
+  }, []);
+  return avatarUrl;
+}
 
 const UserMenu = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [userPoints, setUserPoints] = useState<number>(0);
   const [profileId, setProfileId] = useState<number | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null); // 新增
   const [groupName, setGroupName] = useState<string>('加载中...');
   const [canAllocate, setCanAllocate] = useState<string>('加载中...');
   const [groupStatusList, setGroupStatusList] = useState<any[]>([]);
-  const { isSuperAdmin, isSystemAdmin } = useRolePermissions();
   const navigate = useNavigate();
-  const { getEquippedAvatarFrame } = useAchievements(); // 新增
-  const equippedFrame = getEquippedAvatarFrame(); // 新增
-  // 兼容icon_url字段和frame_data.icon_url
-  const frameUrl = (equippedFrame && (equippedFrame as any).icon_url) || equippedFrame?.frame_data?.icon_url;
 
   // 获取用户信息和头像
   const fetchUserAndAvatar = async () => {
@@ -37,9 +47,11 @@ const UserMenu = () => {
         .select('avatar_url')
         .eq('user_id', data.user.id)
         .single();
-      setAvatarUrl(profile?.avatar_url || data.user.user_metadata?.avatar_url || null);
+      // setAvatarUrl(profile?.avatar_url || data.user.user_metadata?.avatar_url || null); // This line is removed as per the new_code
+      console.log('[UserMenu] fetchUserAndAvatar 执行，user:', data.user, 'avatarUrl:', profile?.avatar_url);
     } else {
-      setAvatarUrl(null);
+      // setAvatarUrl(null); // This line is removed as per the new_code
+      console.log('[UserMenu] fetchUserAndAvatar 执行，未获取到 user');
     }
   };
 
@@ -185,7 +197,8 @@ const UserMenu = () => {
   );
 
   return (
-    <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div>
+      {/* 这里只渲染菜单和业务相关内容，不渲染头像 */}
       {/* 积分余额显示，无Tooltip */}
       <div 
         className="points-display" 
@@ -193,55 +206,41 @@ const UserMenu = () => {
           e.stopPropagation();
           navigate('/points');
         }}
-        style={{ cursor: 'pointer' }}
+        style={{ 
+          cursor: 'pointer',
+          borderRadius: 20,
+          background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
+          padding: '8px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          boxShadow: '0 2px 8px rgba(82, 196, 26, 0.2)',
+          transition: 'all 0.3s ease',
+          border: 'none',
+          color: '#fff',
+        }}
         title="点击查看积分详情"
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.05)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(82, 196, 26, 0.3)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 2px 8px rgba(82, 196, 26, 0.2)';
+        }}
       >
-        <span className="points-label">积分余额</span>
-        <span className="points-value">
+        <span style={{ fontSize: 12, fontWeight: 500 }}>积分余额</span>
+        <span style={{ fontSize: 16, fontWeight: 700 }}>
           {loading ? '...' : userPoints}
         </span>
       </div>
-      {/* 用户头像和名称Dropdown */}
+      {/* 用户菜单Dropdown */}
       <Dropdown menu={menuProps} placement="bottomRight">
         <span style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-          {/* 头像+头像框组合 */}
-          <div style={{ position: 'relative', width: 40, height: 40, marginRight: 4 }}>
-            {frameUrl && (
-              <img
-                src={frameUrl}
-                alt="头像框"
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  width: 40,
-                  height: 40,
-                  zIndex: 2,
-                  pointerEvents: 'none',
-                  borderRadius: '50%',
-                }}
-              />
-            )}
-            <Avatar
-              size={40}
-              src={(!loading && avatarUrl) ? avatarUrl : undefined}
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                zIndex: 1,
-                backgroundColor: (!avatarUrl || loading)
-                  ? 'transparent'
-                  : (isSuperAdmin ? '#f5222d' : isSystemAdmin ? '#1890ff' : '#52c41a'),
-                border: '2px solid #fff',
-              }}
-              icon={loading ? <Spin size="small" /> : undefined}
-            />
-          </div>
-          {/* 名称已去除 */}
+          {/* 头像和头像框已移除，这里只保留菜单入口 */}
         </span>
       </Dropdown>
-    </span>
+    </div>
   );
 };
 

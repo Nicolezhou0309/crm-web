@@ -44,10 +44,10 @@ const Profile = () => {
     getExpiringRoles
   } = useRolePermissions();
 
-  const { avatarFrames, getEquippedAvatarFrame, equipAvatarFrame, loading: framesLoading } = useAchievements();
+  const { avatarFrames, getEquippedAvatarFrame, equipAvatarFrame } = useAchievements();
   const equippedFrame = getEquippedAvatarFrame();
 
-  const { avatarUrl: contextAvatarUrl, refreshAvatar } = useContext(UserContext);
+  const { refreshAvatar } = useContext(UserContext);
 
   // 1. fetchAll 提到组件作用域外部，且只查 avatar_url 字段
   const fetchAll = async () => {
@@ -157,10 +157,13 @@ const Profile = () => {
   };
 
   // 切换装备头像框
-  const handleEquipFrame = async (frameId: string) => {
+  const handleEquipFrame = async (frameId: string | null) => {
     try {
-      await equipAvatarFrame(frameId);
-      message.success('头像框已装备');
+      await equipAvatarFrame(frameId ?? ''); // 取消装备时传空字符串
+      message.success(frameId ? '头像框已装备' : '已恢复默认头像框');
+      await fetchAll(); // 立即刷新本地
+      localStorage.setItem('avatar_refresh_token', Date.now().toString());
+      window.dispatchEvent(new Event('avatar_refresh_token'));
     } catch (e) {
       message.error('头像框装备失败');
     }
@@ -230,35 +233,14 @@ const Profile = () => {
       {/* 头像+头像框预览+上传 */}
       <Card title="我的头像" style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-          <div style={{ position: 'relative', width: 80, height: 80 }}>
-            {/* 头像框 */}
-            {equippedFrame?.icon_url && (
-              <img
-                src={equippedFrame.icon_url}
-                alt="头像框"
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  width: 80,
-                  height: 80,
-                  zIndex: 2,
-                  pointerEvents: 'none',
-                  borderRadius: '50%',
-                }}
-              />
-            )}
-            {/* 头像 */}
+          <div style={{ width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Avatar
               size={80}
               src={(!loadingProfile && avatarUrl) ? `${avatarUrl}?t=${avatarTs}` : undefined}
               style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                zIndex: 1,
                 backgroundColor: '#1890ff',
                 border: '2px solid #fff',
+                objectFit: 'cover',
               }}
               icon={<UserOutlined />}
               onClick={async () => {
@@ -333,33 +315,153 @@ const Profile = () => {
           <Spin style={{ display: 'block', margin: '60px auto' }} />
         ) : (
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-            {avatarFrames.length === 0 && <span>暂无已解锁头像框</span>}
-            {avatarFrames.map(frame => (
-              <Tooltip title={frame.name} key={frame.frame_id}>
-                <div
-                  style={{
-                    border: frame.is_equipped ? '2px solid #52c41a' : '2px solid #eee',
-                    borderRadius: 12,
-                    padding: 8,
-                    cursor: 'pointer',
-                    position: 'relative',
-                    background: frame.is_equipped ? '#f6ffed' : '#fff',
-                    boxShadow: frame.is_equipped ? '0 0 8px #b7eb8f' : 'none',
-                  }}
-                  onClick={() => handleEquipFrame(frame.frame_id)}
-                >
-                  <img
-                    src={frame.icon_url}
-                    alt={frame.name}
-                    style={{ width: 56, height: 56, borderRadius: '50%' }}
-                  />
-                  {frame.is_equipped && (
-                    <CheckCircleTwoTone twoToneColor="#52c41a" style={{ position: 'absolute', right: 4, top: 4, fontSize: 20 }} />
-                  )}
-                  <div style={{ textAlign: 'center', marginTop: 4, fontSize: 13 }}>{frame.name}</div>
+            {/* 默认头像框卡片 */}
+            <Tooltip title="默认头像框">
+              <div
+                style={{
+                  borderRadius: 18,
+                  background: 'linear-gradient(180deg, #f5f5f5 0%, #fff 100%)',
+                  minWidth: 110,
+                  minHeight: 140,
+                  padding: '18px 8px 18px 8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  overflow: 'hidden',
+                  boxShadow: !equippedFrame
+                    ? '0 0 16px 2px #bfbfbf'
+                    : '0 2px 8px rgba(0,0,0,0.08)',
+                  margin: '8px 0',
+                  cursor: 'pointer',
+                  transition: 'transform 0.18s, box-shadow 0.18s',
+                  transform: !equippedFrame ? 'scale(1.06)' : undefined,
+                }}
+                onClick={async () => {
+                  await handleEquipFrame(null);
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
+                onMouseLeave={e => e.currentTarget.style.transform = !equippedFrame ? 'scale(1.06)' : 'scale(1)'}
+              >
+                {/* 默认大字背景 */}
+                <div style={{
+                  position: 'absolute',
+                  top: 2,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: 44,
+                  fontWeight: 900,
+                  color: '#bfbfbf',
+                  opacity: 0.10,
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                  letterSpacing: 2,
+                  zIndex: 1,
+                  whiteSpace: 'nowrap'
+                }}>默认</div>
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: '#bbb', marginBottom: 10, zIndex: 2 }}>
+                  无
                 </div>
-              </Tooltip>
-            ))}
+                <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 15, marginBottom: 2, zIndex: 2 }}>默认</div>
+              </div>
+            </Tooltip>
+            {/* 其余头像框卡片 */}
+            {avatarFrames.length === 0 && <span>暂无已解锁头像框</span>}
+            {avatarFrames.map(frame => {
+              // 稀有度色系与大字
+              let bg = '#fff';
+              let bigText = '普通';
+              let bigTextColor = '#bfbfbf';
+              let rarityIcon = null;
+              if (frame.rarity === 'legendary') {
+                bg = 'linear-gradient(180deg, #ede7f6 0%, #fff 100%)';
+                bigText = '传说';
+                bigTextColor = '#722ed1';
+                rarityIcon = <span style={{fontSize:16,marginRight:4}}>👑</span>;
+              } else if (frame.rarity === 'epic') {
+                bg = 'linear-gradient(180deg, #fff7e6 0%, #fff 100%)';
+                bigText = '史诗';
+                bigTextColor = '#fa8c16';
+                rarityIcon = <span style={{fontSize:16,marginRight:4}}>🔥</span>;
+              } else if (frame.rarity === 'rare') {
+                bg = 'linear-gradient(180deg, #e6f7ff 0%, #fff 100%)';
+                bigText = '稀有';
+                bigTextColor = '#1890ff';
+                rarityIcon = <span style={{fontSize:16,marginRight:4}}>💎</span>;
+              }
+              return (
+                <Tooltip 
+                  title={
+                    <div>
+                      <div style={{ fontWeight: 'bold', marginBottom: 4 }}>{frame.name}</div>
+                      {frame.description && (
+                        <div style={{ fontSize: 12, color: '#ccc', marginBottom: 4 }}>
+                          {frame.description}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: '#999' }}>
+                        稀有度: {bigText}
+                      </div>
+                    </div>
+                  } 
+                  key={frame.frame_id}
+                >
+                  <div
+                    style={{
+                      position: 'relative',
+                      borderRadius: 18,
+                      background: bg,
+                      minWidth: 110,
+                      minHeight: 140,
+                      padding: '18px 8px 18px 8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      overflow: 'hidden',
+                      boxShadow: frame.is_equipped
+                        ? `0 0 16px 2px ${bigTextColor}`
+                        : '0 2px 8px rgba(0,0,0,0.08)',
+                      margin: '8px 0',
+                      cursor: 'pointer',
+                      transition: 'transform 0.18s, box-shadow 0.18s',
+                      transform: frame.is_equipped ? 'scale(1.06)' : undefined,
+                    }}
+                    onClick={() => handleEquipFrame(frame.frame_id)}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = frame.is_equipped ? 'scale(1.06)' : 'scale(1)'}
+                  >
+                    {/* 稀有度大字背景（顶部居中） */}
+                    <div style={{
+                      position: 'absolute',
+                      top: 2,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      fontSize: 44,
+                      fontWeight: 900,
+                      color: bigTextColor,
+                      opacity: 0.10,
+                      pointerEvents: 'none',
+                      userSelect: 'none',
+                      letterSpacing: 2,
+                      zIndex: 1,
+                      whiteSpace: 'nowrap'
+                    }}>{bigText}</div>
+                    {/* 主内容区 */}
+                    <img
+                      src={frame.icon_url}
+                      alt={frame.name}
+                      style={{ width: 56, height: 56, borderRadius: '50%', boxShadow: '0 0 0 1px #fff', marginBottom: 10, zIndex: 2 }}
+                    />
+                    <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 15, marginBottom: 2, zIndex: 2 }}>{frame.name}</div>
+                    {/* 描述浮现 */}
+                    {frame.description && (
+                      <div style={{ textAlign: 'center', fontSize: 11, color: '#888', minHeight: 16, maxWidth: 80, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', zIndex: 2 }}>
+                        {frame.description}
+                      </div>
+                    )}
+                  </div>
+                </Tooltip>
+              );
+            })}
           </div>
         )}
       </Card>
