@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   List, Button, Tag, Modal, Descriptions, Space, Typography,
-  Tooltip, Empty, Tabs, notification, Avatar, Skeleton, Popconfirm, message
+  Tooltip, Empty, Tabs, notification, Avatar, Skeleton, message
 } from 'antd';
 import {
-  BellOutlined, CheckOutlined, EyeOutlined, DeleteOutlined, CopyOutlined, CheckCircleOutlined
-} from '@ant-design/icons';
+  CheckOutlined, EyeOutlined, DeleteOutlined, CopyOutlined, ClockCircleOutlined, CheckCircleOutlined} from '@ant-design/icons';
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications';
 import { notificationApi, type Notification, type Announcement } from '../api/notificationApi';
 import { useAuth } from '../hooks/useAuth';
@@ -14,12 +13,15 @@ import dayjs from 'dayjs';
 import { useState as useReactState } from 'react';
 import { message as antdMessage } from 'antd';
 import { supabase } from '../supaClient';
+import VirtualList from 'rc-virtual-list';
 
 const { Text } = Typography;
 const { TabPane } = Tabs;
 
 interface NotificationCenterProps {
   onNotificationChange?: (count: number) => void;
+  simple?: boolean; // 是否使用简化版显示
+  onViewAll?: () => void; // 查看全部回调
 }
 
 // 通知类型映射
@@ -45,7 +47,9 @@ const debounce = (func: Function, wait: number) => {
 // 移除阶段颜色映射
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({
-  onNotificationChange
+  onNotificationChange,
+  simple = false,
+  onViewAll
 }) => {
   const { user } = useAuth();
   const { isDepartmentAdmin } = usePermissions();
@@ -55,10 +59,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     markAsRead,
     markAsHandled,
     deleteNotification,
-    loading,
-    lastUpdate,
-    notificationStats
-  } = useRealtimeNotifications();
+    loading  } = useRealtimeNotifications();
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
@@ -68,6 +69,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [showRaw, setShowRaw] = useReactState(false);
+  const [visibleCount, setVisibleCount] = useState(3); // <-- 移到这里
+  const [forceUpdate, setForceUpdate] = useState(0); // 强制更新计数器
 
   // 防抖的通知数量回调
   const debouncedNotificationChange = useCallback(
@@ -116,13 +119,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   }, []);
 
   // 合并数据，按时间倒序 - 使用useMemo优化
-  const allItems = useMemo(() => {
-    const merged = [
-      ...announcements.map(a => ({ ...a, _type: 'announcement' as const })),
-      ...notifications.map(n => ({ ...n, _type: 'notification' as const })),
-    ];
-    return merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [announcements, notifications]);
 
   // 统计所有类型 - 使用useMemo优化
   const allTypes = useMemo(() => {
@@ -137,6 +133,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     console.log('📊 NotificationCenter 未读数变化:', unreadCount);
     debouncedNotificationChange(unreadCount);
   }, [unreadCount, debouncedNotificationChange]);
+
+  // 添加通知数据变化监听
+  useEffect(() => {
+    console.log('🔔 简化版通知中心 - 通知数据变化:', notifications.length, '条通知');
+    // 强制更新简化版通知列表
+    setForceUpdate(prev => prev + 1);
+  }, [notifications]);
 
   // 通知点击处理 - 使用useCallback优化
   const handleNotificationClick = useCallback((notification: Notification) => {
@@ -160,10 +163,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       setDetailModalVisible(false);
       if (action === 'delete') {
         message.success('已删除通知');
-      } else {
-        notification.success({
-          message: action === 'read' ? '已标记为已读' : '已标记为已处理'
-        });
       }
     } catch (error) {
       console.error('❌ 操作失败:', error);
@@ -242,9 +241,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               <Tag color={getStatusColor(notification.status)}>
                 {getStatusText(notification.status)}
               </Tag>
-              {notification.priority > 0 && (
-                <Tag color="red">优先级 {notification.priority}</Tag>
-              )}
             </Space>
           }
           description={
@@ -305,7 +301,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         >
           <List.Item.Meta
             avatar={<Avatar style={{ backgroundColor: '#1890ff' }} icon={<span style={{ fontSize: '16px' }}>📢</span>} />}
-            title={<Space><Text strong>{item.title}</Text><Tag color="blue">公告</Tag>{item.priority > 0 && <Tag color="red">优先级 {item.priority}</Tag>}</Space>}
+            title={<Space><Text strong>{item.title}</Text><Tag color="blue">公告</Tag></Space>}
             description={<div><div style={{ marginBottom: '4px' }}><Text type="secondary">{item.content}</Text></div><div><Text type="secondary" style={{ fontSize: '12px' }}>{dayjs(item.created_at).format('YYYY-MM-DD HH:mm:ss')}</Text></div></div>}
           />
         </List.Item>
@@ -358,6 +354,142 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     );
   }, [activeTab, notifications, unreadCount, loading, filteredNotifications, renderNotificationItem]);
 
+  // 渲染简化版通知项 - 用于悬浮卡片
+  const renderSimpleNotificationItem = useCallback((notification: Notification) => {
+    const iconInfo = getNotificationIcon(notification.type);
+    const isUnread = notification.status === 'unread';
+    
+    return (
+      <div
+        key={notification.id}
+        style={{
+          padding: '8px 12px',
+          backgroundColor: isUnread ? '#f6ffed' : '#f8f9fa',
+          border: isUnread ? '1px solid #b7eb8f' : '1px solid #e9ecef',
+          borderRadius: '6px',
+          marginBottom: '6px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = isUnread ? '#f0f9ff' : '#f5f5f5';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = isUnread ? '#f6ffed' : '#f8f9fa';
+        }}
+        onClick={() => handleNotificationClick(notification)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* 图标 */}
+          <div style={{
+            width: '24px',
+            height: '24px',
+            borderRadius: '50%',
+            backgroundColor: iconInfo.color,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px'
+          }}>
+            {iconInfo.icon}
+          </div>
+          
+          {/* 内容区域 */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ 
+              fontSize: '13px', 
+              fontWeight: isUnread ? 600 : 400,
+              color: isUnread ? '#000' : '#666',
+              marginBottom: '2px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {notification.title}
+            </div>
+            <div style={{ 
+              fontSize: '11px', 
+              color: '#999',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {dayjs(notification.created_at).format('MM-DD HH:mm')}
+            </div>
+          </div>
+          
+          {/* 状态标签 */}
+          <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center', minWidth: '20px', justifyContent: 'flex-end' }}>
+            {isUnread && (
+              <div style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: '#ff4d4f',
+                marginRight: '5px'
+              }} />
+            )}
+            {notification.status === 'handled' ? (
+              <CheckCircleOutlined style={{
+                fontSize: '14px',
+                color: '#52c41a'
+              }} />
+            ) : notification.status === 'read' ? (
+              <ClockCircleOutlined style={{
+                fontSize: '14px',
+                color: '#d9d9d9'
+              }} />
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }, [handleNotificationClick, getNotificationIcon]);
+
+  // 渲染简化版通知列表 - 用于悬浮卡片
+  const renderSimpleNotificationList = useCallback(() => {
+    const itemHeight = 56; // 每条通知高度，按实际UI调整
+    const maxHeight = itemHeight * 4; // 展示3.5张卡片高度
+    const total = notifications.length;
+
+    console.log('🔔 简化版通知列表渲染，通知数量:', total, '加载状态:', loading, '强制更新:', forceUpdate);
+
+    if (loading) {
+      return (
+        <div style={{ padding: '12px' }}>
+          <div style={{ height: '20px', backgroundColor: '#f0f0f0', borderRadius: '4px', marginBottom: '8px' }} />
+          <div style={{ height: '20px', backgroundColor: '#f0f0f0', borderRadius: '4px', marginBottom: '8px' }} />
+          <div style={{ height: '20px', backgroundColor: '#f0f0f0', borderRadius: '4px' }} />
+        </div>
+      );
+    }
+    if (total === 0) {
+      return (
+        <div style={{ 
+          padding: '20px', 
+          textAlign: 'center', 
+          color: '#999',
+          fontSize: '12px'
+        }}>
+          暂无通知
+        </div>
+      );
+    }
+    
+    // 使用普通List替代VirtualList，确保实时更新
+    return (
+      <div style={{ padding: '0', maxHeight, overflow: 'auto' }}>
+        <List
+          dataSource={notifications}
+          renderItem={(item: Notification) => renderSimpleNotificationItem(item)}
+          pagination={false}
+          style={{ maxHeight }}
+          key={`notification-list-${forceUpdate}`} // 强制重新渲染
+        />
+      </div>
+    );
+  }, [notifications, loading, renderSimpleNotificationItem, forceUpdate]);
+
   // 在组件内部添加推进阶段函数
   const handleAdvanceStage = async (leadid: string) => {
     try {
@@ -392,31 +524,48 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   return (
     <div className="notification-center-main">
-      <Tabs activeKey={activeTab} onChange={setActiveTab} className="notification-center-tabs">
-        {allTypes.map(type =>
-          type === 'announcement' ? (
-            <TabPane
-              tab={<span>{typeMap[type]}</span>}
-              key={type}
-            >
-              {loading ? (
-                <Skeleton active paragraph={{ rows: 4 }} />
-              ) : announcements.length === 0 ? (
-                <Empty description="暂无公告" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-              ) : (
-                <List
-                  dataSource={announcements.map(a => ({ ...a, _type: 'announcement' as const }))}
-                  renderItem={renderItem}
-                  pagination={false}
-                  style={{ maxHeight: '600px', overflow: 'auto' }}
-                />
-              )}
-            </TabPane>
-          ) : (
-            renderTabPane(type)
-          )
-        )}
-      </Tabs>
+      {simple ? (
+        // 简化版显示
+        <div>
+          <div style={{ 
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            fontWeight: 600, fontSize: 14, marginBottom: 8, color: '#333' 
+          }}>
+            <span>通知中心</span>
+            <Button type="link" size="small" style={{ padding: 0 }} onClick={onViewAll}>
+              查看全部{notifications.length > 0 ? ` (${notifications.length})` : ''}
+            </Button>
+          </div>
+          {renderSimpleNotificationList()}
+        </div>
+      ) : (
+        // 完整版显示
+        <Tabs activeKey={activeTab} onChange={setActiveTab} className="notification-center-tabs">
+          {allTypes.map(type =>
+            type === 'announcement' ? (
+              <TabPane
+                tab={<span>{typeMap[type]}</span>}
+                key={type}
+              >
+                {loading ? (
+                  <Skeleton active paragraph={{ rows: 4 }} />
+                ) : announcements.length === 0 ? (
+                  <Empty description="暂无公告" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                ) : (
+                  <List
+                    dataSource={announcements.map(a => ({ ...a, _type: 'announcement' as const }))}
+                    renderItem={renderItem}
+                    pagination={false}
+                    style={{ maxHeight: '600px', overflow: 'auto' }}
+                  />
+                )}
+              </TabPane>
+            ) : (
+              renderTabPane(type)
+            )
+          )}
+        </Tabs>
+      )}
 
       {/* 通知详情弹窗 */}
       <Modal
@@ -560,7 +709,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             <Descriptions.Item label="标题">{selectedAnnouncement.title}</Descriptions.Item>
             <Descriptions.Item label="内容">{selectedAnnouncement.content}</Descriptions.Item>
             <Descriptions.Item label="类型">{selectedAnnouncement.type}</Descriptions.Item>
-            <Descriptions.Item label="优先级">{selectedAnnouncement.priority}</Descriptions.Item>
+
             <Descriptions.Item label="生效时间">{dayjs(selectedAnnouncement.start_time).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
             <Descriptions.Item label="创建时间">{dayjs(selectedAnnouncement.created_at).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
           </Descriptions>

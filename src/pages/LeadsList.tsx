@@ -63,6 +63,7 @@ const LeadsList: React.FC = () => {
   const [continueAdd, setContinueAdd] = useState(false);
   const [leadTypeOptions, setLeadTypeOptions] = useState<{ label: string; value: string }[]>([]);
   const [communityOptions, setCommunityOptions] = useState<{ value: string; label: string }[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   
   // 线索详情抽屉状态
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
@@ -116,6 +117,17 @@ const LeadsList: React.FC = () => {
   };
 
   const handleAdd = async (values: any) => {
+    // 防重复提交
+    if (submitting) {
+      console.log('正在提交中，忽略重复请求');
+      return;
+    }
+    
+    console.log('=== 开始提交线索 ===');
+    console.log('提交时间:', new Date().toISOString());
+    console.log('表单数据:', values);
+    
+    setSubmitting(true);
     try {
       // 验证至少填写了手机号或微信号
       if (!values.phone && !values.wechat) {
@@ -124,7 +136,9 @@ const LeadsList: React.FC = () => {
       }
       
       // 1. 生成并发安全的leadid
+      console.log('开始生成leadid...');
       const leadid = await generateLeadId();
+      console.log('生成的leadid:', leadid);
       
       // 2. 使用工具函数格式化社区信息
       const { community, remark, ...newLead } = values;
@@ -138,18 +152,20 @@ const LeadsList: React.FC = () => {
       };
       
       console.log('准备插入的数据:', leadToInsert);
-      console.log('生成的leadid:', leadid);
       console.log('community值:', values.community);
       console.log('community值类型:', typeof values.community);
 
+      console.log('开始插入数据库...');
       const { data, error } = await supabase
         .from('leads')
         .insert([leadToInsert])
         .select();
       
       if (error) {
+        console.error('数据库插入失败:', error);
         message.error('添加线索失败: ' + error.message);
       } else {
+        console.log('数据库插入成功:', data);
         // 判断返回的leadstatus
         const inserted = data && data[0];
         if (inserted && inserted.leadstatus === '重复') {
@@ -169,6 +185,8 @@ const LeadsList: React.FC = () => {
     } catch (error) {
       console.error('添加线索失败:', error);
       message.error(`添加线索失败: ${(error as Error).message}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -829,7 +847,7 @@ const LeadsList: React.FC = () => {
               <Button onClick={() => {
                 setIsModalVisible(false);
                 form.resetFields();
-              }}>
+              }} disabled={submitting}>
                 取消
               </Button>
               <Button
@@ -837,10 +855,11 @@ const LeadsList: React.FC = () => {
                   setContinueAdd(true);
                   form.submit();
                 }}
+                disabled={submitting}
               >
                 继续新建
               </Button>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={submitting}>
                 确定
               </Button>
             </Space>

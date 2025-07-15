@@ -42,7 +42,7 @@ import {
   EnvironmentOutlined
 } from '@ant-design/icons';
 import { allocationApi } from '../utils/allocationApi';
-import { pointsAllocationApi, type PointsCostRule } from '../utils/pointsAllocationApi';
+import { pointsAllocationApi, type PointsCostRule } from '../api/pointsAllocationApi';
 import type { 
   SimpleAllocationRule, 
   SimpleAllocationLog, 

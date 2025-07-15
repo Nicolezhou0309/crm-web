@@ -1,20 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Card, Tabs, Button, Upload, Image, Modal, message, Space, 
+  Card, Tabs, Button, Image, Modal, message, Space, 
   Alert, Typography, Row, Col, Select, Input, Table, Tag,
-  Progress, Spin, Divider, Tooltip, Badge, Avatar, Form,
-  InputNumber, Slider, ColorPicker
-} from 'antd';
+  Spin, Tooltip, Avatar, Form,
+  Slider} from 'antd';
 import { 
   TrophyOutlined, UploadOutlined, EyeOutlined, DeleteOutlined,
-  GiftOutlined, UserOutlined, SettingOutlined, ReloadOutlined,
-  EditOutlined, PlusOutlined, SaveOutlined, CloseOutlined
-} from '@ant-design/icons';
+  GiftOutlined, ReloadOutlined,
+  EditOutlined, PlusOutlined, SaveOutlined} from '@ant-design/icons';
 import { supabase } from '../supaClient';
 import { AchievementTriggers } from '../utils/achievementTriggers';
 import imageCompression from 'browser-image-compression';
-import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
-import ReactDOM from 'react-dom';
 import Cropper from 'react-easy-crop';
 import { Modal as AntdModal } from 'antd';
 
@@ -101,8 +97,6 @@ function getCroppedImg(imageSrc: string, crop: any): Promise<Blob> {
 
 // AvatarFrameCropper 组件内：
 const CROP_BOX_SIZE = 360; // 裁剪弹窗显示区，放大一倍
-const FRAME_SIZE = 90;     // 实际导出尺寸
-const AVATAR_SIZE = 45;    // 头像占位符实际尺寸
 const FRAME_CROP_PX = 300; // 固定画框高亮区尺寸，放大一倍
 const AVATAR_PLACEHOLDER_PX = 150; // 头像占位符尺寸，2:1，放大一倍
 // 自定义头像框裁剪弹窗组件
@@ -247,7 +241,6 @@ const AvatarFrameUploadButton: React.FC<{
 }> = ({
   editingFrame,
   uploading,
-  setUploading,
   cropperVisible,
   setCropperVisible,
   cropperImage,
@@ -351,16 +344,6 @@ export const HonorManagement: React.FC = () => {
   const [frameRarityFilter, setFrameRarityFilter] = useState<string>('all');
 
   // 新增头像框选择图片后弹出裁剪弹窗
-  const handleSelectImageForAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setAddCropperImage(ev.target?.result as string);
-      setAddCropperVisible(true);
-    };
-    reader.readAsDataURL(file);
-  };
 
   // 新增头像框裁剪完成后上传图片
   const handleAddCropComplete = async (croppedBlob: Blob) => {
@@ -371,7 +354,7 @@ export const HonorManagement: React.FC = () => {
       const fileName = `avatar-frame-add-${Date.now()}.png`;
       const filePath = `avatar-frames/${fileName}`;
       console.log('[handleAddCropComplete] 裁剪完成，开始上传', { file, fileName, filePath });
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('achievement-icons')
         .upload(filePath, file);
       if (error) {
@@ -408,17 +391,6 @@ export const HonorManagement: React.FC = () => {
   const [pendingFrameId, setPendingFrameId] = useState<string | null>(null);
 
   // 选择图片后弹出裁剪弹窗
-  const handleSelectImage = (e: React.ChangeEvent<HTMLInputElement>, frameId: string) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setCropperImage(ev.target?.result as string);
-      setCropperVisible(true);
-      setPendingFrameId(frameId);
-    };
-    reader.readAsDataURL(file);
-  };
 
   // 裁剪完成后处理
   const handleCropComplete = async (croppedBlob: Blob) => {
@@ -556,7 +528,7 @@ export const HonorManagement: React.FC = () => {
       const fileName = `avatar-frame-${frameId}-${Date.now()}.${fileExt}`;
       const filePath = `avatar-frames/${fileName}`;
 
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('achievement-icons')
         .upload(filePath, compressedFile);
 

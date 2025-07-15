@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import {
   Card, Row, Col, Progress, Tag, Space, Typography, Button, 
-  Avatar, Badge as AntBadge, Tooltip, Modal, List, Tabs, Statistic, 
-  Empty, Spin, message
-} from 'antd';
+  Avatar, Modal, Tabs, Statistic, 
+  Spin} from 'antd';
 import {
-  TrophyOutlined, CrownOutlined, StarOutlined, FireOutlined,
-  CheckCircleOutlined, ClockCircleOutlined, UserOutlined
+  TrophyOutlined, StarOutlined, FireOutlined,
+  CheckCircleOutlined, UserOutlined
 } from '@ant-design/icons';
 import { useAchievements } from '../hooks/useAchievements';
 import type { Achievement, AvatarFrame, Badge } from '../api/achievementApi';
@@ -29,15 +28,9 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
     badges,
     stats,
     loading,
-    updateProgress,
     equipAvatarFrame,
     equipBadge,
     getAchievementsByCategory,
-    getCompletedAchievements,
-    getInProgressAchievements,
-    getNotStartedAchievements,
-    getEquippedAvatarFrame,
-    getEquippedBadge,
     getRarityColor,
     getRarityText,
     getCategoryText,

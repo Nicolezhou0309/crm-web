@@ -16,6 +16,7 @@ import {
   GiftOutlined,
   TrophyOutlined,
   CrownOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
 import HouseLogo from './components/HouseLogo';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
@@ -50,10 +51,12 @@ import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
 import { NotificationCenter } from './components/NotificationCenter';
 import { PermissionGate } from './components/PermissionGate';
-import { Badge, Drawer, Popover } from 'antd';
+import { Badge, Popover, Drawer } from 'antd';
 import { BellOutlined } from '@ant-design/icons';
 import { useAchievements } from './hooks/useAchievements';
 import { supabase } from './supaClient';
+import { getUserPointsInfo, getCurrentProfileId } from './api/pointsApi';
+import { useRealtimeNotifications } from './hooks/useRealtimeNotifications';
 
 
 const { Sider, Content, Header } = Layout;
@@ -134,14 +137,24 @@ const App: React.FC = () => {
   const maxSiderWidth = 320;
   const navigate = useNavigate();
   const location = useLocation();
-  const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
-  const [unreadCount, setUnreadCount] = React.useState(0);
+
   
   // 头像状态管理
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined);
+  const [avatarLoading, setAvatarLoading] = React.useState(true);
+  // 用户积分状态管理
+  const [userPoints, setUserPoints] = React.useState<number>(0);
+  const [profileId, setProfileId] = React.useState<number | null>(null);
+  
+  // 自动连接通知系统
+  const { unreadCount } = useRealtimeNotifications();
+  
+  // 详细通知抽屉状态
+  const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
 
   // 获取头像URL的函数
   const fetchAvatar = React.useCallback(async () => {
+    setAvatarLoading(true);
     const { data } = await supabase.auth.getUser();
     if (data.user) {
       const { data: profile } = await supabase
@@ -152,6 +165,17 @@ const App: React.FC = () => {
       setAvatarUrl(profile?.avatar_url || undefined);
     } else {
       setAvatarUrl(undefined);
+    }
+    setAvatarLoading(false);
+  }, []);
+
+  // 获取用户积分信息
+  const loadUserPoints = React.useCallback(async (id: number) => {
+    try {
+      const data = await getUserPointsInfo(id);
+      setUserPoints(data.wallet.total_points || 0);
+    } catch (err) {
+      console.error('获取用户积分失败:', err);
     }
   }, []);
 
@@ -179,6 +203,24 @@ const App: React.FC = () => {
       window.removeEventListener('avatar_refresh_token', handleAvatarRefresh);
     };
   }, [fetchAvatar]);
+
+  // 获取用户ID和积分
+  React.useEffect(() => {
+    const fetchUserInfo = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        const id = await getCurrentProfileId();
+        setProfileId(id);
+      }
+    };
+    fetchUserInfo();
+  }, []);
+  
+  React.useEffect(() => {
+    if (profileId) {
+      loadUserPoints(profileId);
+    }
+  }, [profileId, loadUserPoints]);
 
   // 修正高亮逻辑：只有严格等于'/'时高亮首页，其它优先匹配最长path
   const selectedKey = (() => {
@@ -232,11 +274,156 @@ const App: React.FC = () => {
     );
   }
 
+  const { getEquippedAvatarFrame } = useAchievements();
+  const equippedFrame = getEquippedAvatarFrame();
+  // 兼容icon_url字段和frame_data.icon_url
+  const frameUrl = (equippedFrame && (equippedFrame as any).icon_url) || equippedFrame?.frame_data?.icon_url;
+
+  // 悬浮卡片内容
+  const userCardContent = (
+    <div style={{ minWidth: 320, padding: '0', borderRadius: '12px', overflow: 'hidden' }}>
+      {/* 积分余额展示 - 移到顶部 */}
+      <div style={{ 
+        padding: '10px 0px 20px 20px', 
+        background: 'linear-gradient(135deg, #ff6b35 0%, #f7931a 100%)',
+        borderRadius: '12px 12px 12px 12px',
+        color: '#fff',
+        position: 'relative',
+        overflow: 'hidden',
+        marginBottom: '0px'
+      }}>
+        {/* 左侧积分信息 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0px', zIndex: 2, position: 'relative' }}>
+          <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: '0.5px' }}>
+            {userPoints.toLocaleString()}
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.5 }}>
+            剩余积分
+          </span>
+        </div>
+ 
+        {/* 右侧装饰Logo */}
+        <div style={{ 
+          position: 'absolute', 
+          right: '-30px', 
+          top: '-20px',
+          width: '120px',
+          height: '120px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: 0.15
+        }}>
+          <div style={{
+            width: '100px',
+            height: '100px',
+            background: '#fff',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '48px',
+            fontWeight: 'bold',
+            color: '#f7931a'
+          }}>
+            🏆
+          </div>
+        </div>
+      </div>
+              {/* 通知中心 */}
+        <div style={{ padding: '8px', borderBottom: '1px solid #f0f0f0', background: '#fff' }}>
+          <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+            <NotificationCenter 
+              simple={true} 
+              onViewAll={() => setNotificationDrawerVisible(true)}
+            />
+          </div>
+        </div>
+      {/* 操作按钮 - 左右并排 */}
+      <div style={{ padding: '16px', display: 'flex', gap: '8px', background: '#fff', borderRadius: '0px 0px 12px 12px' }}>
+        {/* 个人中心按钮 */}
+        <Button
+          type="text"
+          size="small"
+          icon={<UserOutlined />}
+          onClick={() => {
+            navigate('/profile');
+          }}
+          style={{
+            flex: 1,
+            height: '32px',
+            fontSize: '14px',
+            color: '#666',
+            border: 'none',
+            borderRadius: '4px',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#1890ff';
+            e.currentTarget.style.backgroundColor = '#f0f8ff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#666';
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          个人中心
+        </Button>
+        
+        {/* 退出登录按钮 */}
+        <Button
+          type="text"
+          size="small"
+          icon={<LogoutOutlined />}
+          onClick={async () => {
+            await supabase.auth.signOut();
+            window.location.href = '/login';
+          }}
+          style={{
+            flex: 1,
+            height: '32px',
+            fontSize: '14px',
+            color: '#666',
+            border: 'none',
+            borderRadius: '4px',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#ff4d4f';
+            e.currentTarget.style.backgroundColor = '#fff2f0';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#666';
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          退出登录
+        </Button>
+      </div>
+    </div>
+  );
+  
+  // 详细通知抽屉
+  const notificationDrawer = (
+    <Drawer
+      title="通知中心"
+      placement="right"
+      width={400}
+      open={notificationDrawerVisible}
+      onClose={() => setNotificationDrawerVisible(false)}
+      styles={{
+        body: { padding: 0 }
+      }}
+    >
+      <NotificationCenter simple={false} />
+    </Drawer>
+  );
+
   return (
     <ConfigProvider locale={zhCN}>
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* 顶部导航条 */}
-        <Header className="app-header" style={{ height: 60, padding: '0 48px', display: 'flex', alignItems: 'center', position: 'relative', background: '#fff' }}>
+        <Header className="app-header" style={{ height: 60, padding: '0 48px', display: 'flex', alignItems: 'center', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000, background: '#fff' }}>
           <div className="app-title">
             <HouseLogo 
               width={40} 
@@ -248,65 +435,94 @@ const App: React.FC = () => {
             <span>长租公寓CRM系统</span>
           </div>
           <div className="app-header-user" style={{ display: 'flex', alignItems: 'center', gap: 24, paddingRight: 120 }}>
-            {/* 通知中心入口 */}
-            <Badge
-              count={unreadCount}
-              size="default"
-              showZero={false}
-              overflowCount={99}
-              className="notification-badge-number"
-            >
-              <BellOutlined
-                style={{
-                  fontSize: 22,
-                  cursor: 'pointer',
-                  color: unreadCount > 0 ? '#fa541c' : '#888',
-                  transition: 'color 0.2s'
-                }}
-                onClick={() => {
-                  setNotificationDrawerVisible(true);
-                }}
-                title="通知中心"
-              />
-            </Badge>
             <UserMenu />
           </div>
-          {/* 悬浮头像+头像框组合 */}
-          {(() => {
-            const { getEquippedAvatarFrame } = useAchievements();
-            const equippedFrame = getEquippedAvatarFrame();
-            // 兼容icon_url字段和frame_data.icon_url
-            const frameUrl = (equippedFrame && (equippedFrame as any).icon_url) || equippedFrame?.frame_data?.icon_url;
-            
-            return (
-                              <div
-                  style={{
-                    position: 'absolute',
-                    top: 4,
-                    right: 24,
-                    width: 90,
-                    height: 90,
-                    borderRadius: '50%',
-                    background: '#fff',
-                    zIndex: 10,
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    transform: 'scale(1)',
-                  }}
-                  title="点击进入个人中心"
-                  onClick={() => navigate('/profile')}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  {/* 用户头像 */}
-                  {avatarUrl && (
+          {/* 头像悬浮卡片 */}
+          <Popover
+            content={userCardContent}
+            title={null}
+            placement="bottomRight"
+            trigger="hover"
+            overlayStyle={{ 
+              maxWidth: 340,
+              borderRadius: 8,
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+            }}
+          >
+            <span style={{ position: 'absolute', top: 2, right: 16, zIndex: 10 }}>
+              <div
+                style={{
+                  width: 90,
+                  height: 90,
+                  borderRadius: '50%',
+                  background: '#fff',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  transform: 'scale(0.8)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 0 0 0 #fff',
+                  position: 'relative',
+                }}
+                title="点击进入个人中心"
+                onClick={() => navigate('/profile')}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(0.84)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(0.8)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                {/* 用户头像 - 用Badge包裹 */}
+                {avatarLoading ? (
+                  <div
+                    style={{
+                      width: 58.5,
+                      height: 58.5,
+                      borderRadius: '50%',
+                      background: '#f0f0f0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 1,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 20,
+                        height: 20,
+                        border: '2px solid #e0e0e0',
+                        borderTop: '2px solid #1890ff',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                      }}
+                    />
+                  </div>
+                ) : avatarUrl ? (
+                  <Badge
+                    count={unreadCount}
+                    size="small"
+                    showZero={false}
+                    overflowCount={99}
+                    style={{
+                      '--antd-badge-dot-size': '8px',
+                      '--antd-badge-size': '16px',
+                    } as React.CSSProperties}
+                    styles={{
+                      indicator: {
+                        top: '0px',
+                        right: '0px',
+                        transform: 'scale(1.3)',
+                        zIndex: 999,
+                        transition: 'none',
+                        animation: 'none',
+                      }
+                    }}
+                  >
                     <img
                       src={avatarUrl}
                       alt="头像"
@@ -314,51 +530,52 @@ const App: React.FC = () => {
                         width: 58.5,
                         height: 58.5,
                         borderRadius: '50%',
-                        position: 'absolute',
-                        left: '50%',
-                        top: 'calc(50% + 2px)',
-                        transform: 'translate(-50%, -50%)',
-                        zIndex: 1,
-                        background: '#fff',
                         objectFit: 'cover',
+                        background: '#fff',
+                        zIndex: 1,
                       }}
+                      onLoad={() => setAvatarLoading(false)}
+                      onError={() => setAvatarLoading(false)}
                     />
-                  )}
-                  {/* 头像框 */}
-                  {frameUrl && (
-                    <img
-                      src={frameUrl}
-                      alt="头像框"
-                      style={{
-                        width: 117,
-                        height: 117,
-                        borderRadius: '50%',
-                        position: 'absolute',
-                        left: '50%',
-                        top: 'calc(50% + 2px)',
-                        transform: 'translate(-50%, -50%)',
-                        zIndex: 2,
-                      }}
-                    />
-                  )}
-                </div>
-            );
-          })()}
+                  </Badge>
+                ) : (
+                  <div
+                    style={{
+                      width: 58.5,
+                      height: 58.5,
+                      borderRadius: '50%',
+                      background: '#f0f0f0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 1,
+                    }}
+                  >
+                    <span style={{ fontSize: 24, color: '#999' }}>👤</span>
+                  </div>
+                )}
+                {/* 头像框 */}
+                {frameUrl && (
+                  <img
+                    src={frameUrl}
+                    alt="头像框"
+                    style={{
+                      width: 117,
+                      height: 117,
+                      borderRadius: '50%',
+                      position: 'absolute',
+                      left: '50%',
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      zIndex: 2,
+                    }}
+                  />
+                )}
+              </div>
+            </span>
+          </Popover>
         </Header>
-        {/* 移除隐藏区 NotificationCenter，只在 Drawer 里渲染 */}
-        <Drawer
-          title="通知中心"
-          placement="right"
-          width={480}
-          open={notificationDrawerVisible}
-          onClose={() => {
-            setNotificationDrawerVisible(false);
-          }}
-          destroyOnClose={false}
-        >
-          <NotificationCenter onNotificationChange={setUnreadCount} />
-        </Drawer>
-        <Layout style={{ marginTop: 56 }}>
+        <Layout style={{ marginTop: 60 }}>
           <Sider
             width={siderWidth}
             collapsed={collapsed}
@@ -462,6 +679,7 @@ const App: React.FC = () => {
             </Content>
           </Layout>
         </Layout>
+        {notificationDrawer}
       </div>
     </ConfigProvider>
   );
