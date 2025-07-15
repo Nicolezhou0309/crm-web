@@ -2,14 +2,15 @@
 // ... existing code from FollowupsList.tsx ... 
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Table, Typography, Button, Space, Select, message, Input, Tag, Tooltip, DatePicker, Form, Steps, Drawer, Checkbox } from 'antd';
-import { ReloadOutlined, CopyOutlined } from '@ant-design/icons';
+import { Table, Typography, Button, Space, Select, message, Input, Tag, Tooltip, DatePicker, Form, Steps, Drawer, Checkbox, Spin } from 'antd';
+import { ReloadOutlined, CopyOutlined, CheckOutlined } from '@ant-design/icons';
 import { supabase, fetchEnumValues } from '../supaClient';
 import dayjs from 'dayjs';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
 
 import locale from 'antd/es/date-picker/locale/zh_CN';
 import '../index.css'; // 假设全局样式在index.css
+import LeadDetailDrawer from '../components/LeadDetailDrawer';
 
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
@@ -96,7 +97,7 @@ const ContractDealsTable = ({
   isReadOnly?: boolean;
   currentRecord: any;
   communityEnum: any[];
-  setDealsList: (list: any[]) => void;
+  setDealsList: React.Dispatch<React.SetStateAction<any[]>>;
 }) => (
   <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', flex: 1 }}>
     <div
@@ -133,7 +134,7 @@ const ContractDealsTable = ({
         loading={dealsLoading}
         size="small"
         pagination={false}
-        scroll={{ y: 'calc(100vh - 400px)', x: 'max-content' }}
+        scroll={{ y: 'calc(100vh - 400px)', x: 900 }}
         columns={[
           {
             title: '签约日期',
@@ -149,7 +150,7 @@ const ContractDealsTable = ({
                     format="YYYY-MM-DD"
                     onChange={(date) => {
                       const newDate = date ? date.format('YYYY-MM-DD') : '';
-                      setDealsList(prev => prev.map(item =>
+                      setDealsList((prev: any[]) => prev.map((item: any) =>
                         item.id === record.id
                           ? { ...item, contractdate: newDate }
                           : item
@@ -177,7 +178,7 @@ const ContractDealsTable = ({
                     placeholder="选择社区"
                     style={{ width: '100%' }}
                     onChange={(value) => {
-                      setDealsList(prev => prev.map(item =>
+                      setDealsList((prev: any[]) => prev.map((item: any) =>
                         item.id === record.id
                           ? { ...item, community: value }
                           : item
@@ -202,7 +203,7 @@ const ContractDealsTable = ({
                     value={text}
                     placeholder="输入操作编号"
                     onChange={(e) => {
-                      setDealsList(prev => prev.map(item =>
+                      setDealsList((prev: any[]) => prev.map((item: any) =>
                         item.id === record.id
                           ? { ...item, contractnumber: e.target.value }
                           : item
@@ -227,7 +228,7 @@ const ContractDealsTable = ({
                     value={text}
                     placeholder="输入房间号"
                     onChange={(e) => {
-                      setDealsList(prev => prev.map(item =>
+                      setDealsList((prev: any[]) => prev.map((item: any) =>
                         item.id === record.id
                           ? { ...item, roomnumber: e.target.value }
                           : item
@@ -327,8 +328,23 @@ const FollowupsGroupList: React.FC = () => {
     roomnumber: ''
   });
   // 签约记录列表状态
-  const [dealsList, setDealsList] = useState<any[]>([]);
+  const [dealsList, setDealsList] = useState<Deal[]>([]);
   const [dealsLoading, setDealsLoading] = useState(false);
+  const [leadDetailDrawerOpen, setLeadDetailDrawerOpen] = useState(false);
+  const [leadDetailId, setLeadDetailId] = useState<string | null>(null);
+
+  // 定义Deal类型
+  interface Deal {
+    id: string;
+    leadid: string;
+    contractdate?: string;
+    community?: string;
+    contractnumber?: string;
+    roomnumber?: string;
+    created_at?: string;
+    isNew?: boolean;
+    isEditing?: boolean;
+  }
 
   // 2. 步骤条、表单字段、label
   const followupStages = [
@@ -366,31 +382,41 @@ const FollowupsGroupList: React.FC = () => {
 
   // 获取枚举
   useEffect(() => {
+    // 检查缓存
+    const loadEnumWithCache = async (enumName: string, setter: any) => {
+      const cacheKey = `enum_${enumName}`;
+      const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
+      
+      // 缓存5分钟有效
+      if (cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < 5 * 60 * 1000) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          setter(JSON.parse(cached));
+          return;
+        }
+      }
+      
+      try {
+        const arr = await fetchEnumValues(enumName);
+        const enumData = arr.map(v => ({ value: v, label: v }));
+        setter(enumData);
+        
+        // 更新缓存
+        localStorage.setItem(cacheKey, JSON.stringify(enumData));
+        localStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
+      } catch (error) {
+        console.error(`加载${enumName}枚举失败:`, error);
+      }
+    };
     
-    fetchEnumValues('community').then(arr => {
-      setCommunityEnum(arr.map(v => ({ value: v, label: v })));
-    }).catch(() => {
-    });
-    
-    fetchEnumValues('followupstage').then(arr => {
-      setFollowupstageEnum(arr.map(v => ({ value: v, label: v })));
-    }).catch(() => {
-    });
-    
-    fetchEnumValues('customerprofile').then(arr => {
-      setCustomerprofileEnum(arr.map(v => ({ value: v, label: v })));
-    }).catch(() => {
-    });
-    
-    fetchEnumValues('source').then(arr => {
-      setSourceEnum(arr.map(v => ({ value: v, label: v })));
-    }).catch(() => {
-    });
-    
-    fetchEnumValues('userrating').then(arr => {
-      setUserratingEnum(arr.map(v => ({ value: v, label: v })));
-    }).catch(() => {
-    });
+    // 并行加载所有枚举
+    Promise.all([
+      loadEnumWithCache('community', setCommunityEnum),
+      loadEnumWithCache('followupstage', setFollowupstageEnum),
+      loadEnumWithCache('customerprofile', setCustomerprofileEnum),
+      loadEnumWithCache('source', setSourceEnum),
+      loadEnumWithCache('userrating', setUserratingEnum)
+    ]);
   }, []);
 
   // 允许的参数（与SQL函数声明一致）
@@ -474,32 +500,38 @@ const FollowupsGroupList: React.FC = () => {
         const filtered = (data || []).filter((item: any): item is Followup => !!item && !!item.id);
         const unique = Array.from(new Map(filtered.map((i: Followup) => [i.id, i])).values()) as Followup[];
         
-        // 类型安全处理
-        const safeData = unique.map((item: unknown) => {
-          const newItem = { ...item as Followup };
+        // 优化数据处理：减少循环次数
+        const safeData = unique.map((item: Followup) => {
+          // 直接处理，避免多次循环
+          const processedItem = { ...item };
           
-          // ID类字段统一转为number或null
-          ['interviewsales_user_id', 'showingsales_user_id'].forEach(field => {
-            const val = (newItem as any)[field];
-            if (val === null || val === undefined || val === '' || (typeof val === 'number' && isNaN(val))) {
-              (newItem as any)[field] = null;
-            } else if (typeof val !== 'number') {
-              (newItem as any)[field] = Number(val);
-            }
-          });
+          // 批量处理ID字段 - 修复类型检查问题
+          if (processedItem.interviewsales_user_id === 0 || processedItem.interviewsales_user_id === null || typeof processedItem.interviewsales_user_id === 'undefined') {
+            processedItem.interviewsales_user_id = null;
+          } else if (typeof processedItem.interviewsales_user_id === 'string') {
+            processedItem.interviewsales_user_id = Number(processedItem.interviewsales_user_id);
+          }
           
-          // 确保日期字段格式正确
-          ['created_at', 'moveintime', 'scheduletime'].forEach(field => {
-            const val = (newItem as any)[field];
-            if (val) {
-              (newItem as any)[field] = dayjs(val).format('YYYY-MM-DD HH:mm:ss');
-            }
-          });
+          if (processedItem.showingsales_user_id === 0 || processedItem.showingsales_user_id === null || typeof processedItem.showingsales_user_id === 'undefined') {
+            processedItem.showingsales_user_id = null;
+          } else if (typeof processedItem.showingsales_user_id === 'string') {
+            processedItem.showingsales_user_id = Number(processedItem.showingsales_user_id);
+          }
           
-          return newItem as Followup;
+          // 批量处理日期字段
+          if (processedItem.created_at) {
+            processedItem.created_at = dayjs(processedItem.created_at).format('YYYY-MM-DD HH:mm:ss');
+          }
+          if (processedItem.moveintime) {
+            processedItem.moveintime = dayjs(processedItem.moveintime).format('YYYY-MM-DD HH:mm:ss');
+          }
+          if (processedItem.scheduletime) {
+            processedItem.scheduletime = dayjs(processedItem.scheduletime).format('YYYY-MM-DD HH:mm:ss');
+          }
+          
+          return processedItem;
         });
 
-      
         setData(safeData);
         setPagination(prev => ({ ...prev, total, current: page, pageSize }));
         setInputCache({});
@@ -707,24 +739,7 @@ const FollowupsGroupList: React.FC = () => {
 
   // 首次加载数据
   useEffect(() => {
-
-    // 检查当前用户信息
-    supabase.auth.getUser().then(() => {
-    });
-    
-    // 检查用户权限
-    supabase.rpc('has_permission', { resource: 'lead', action: 'manage' }).then(() => {
-    });
-    
-    // 检查用户角色
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        supabase.rpc('get_user_roles', { p_user_id: user.id }).then(() => {
-        });
-      }
-    });
-    
-    // 初始化时加载数据
+    // 直接加载数据，移除不必要的权限检查
     fetchFollowups();
   }, []);
 
@@ -825,11 +840,27 @@ const FollowupsGroupList: React.FC = () => {
       filterSearch: true,
       onCell: () => ({ style: { ...defaultCellStyle, minWidth: 120, maxWidth: 180 } }),
       filteredValue: tableColumnFilters.leadid ?? null,
-      render: (text: string) => text ? (
-        <Tooltip title={text}>
-          <Paragraph copyable={{ text, tooltips: ['复制', '已复制'], icon: <CopyOutlined style={{ color: '#1677ff' }} /> }} style={{ margin: 0, color: '#1677ff', fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap' }}>{text}</Paragraph>
-        </Tooltip>
-      ) : <span style={{ color: '#bbb' }}>-</span>
+      render: (text: string, record: Followup) => {
+        return text ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <Button
+              type="link"
+              size="small"
+              style={{ padding: 0, height: 'auto', fontSize: 15, color: '#1677ff', fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap' }}
+              onClick={() => {
+                setLeadDetailId(record.leadid);
+                setLeadDetailDrawerOpen(true);
+              }}
+            >
+              {text}
+            </Button>
+            <Typography.Paragraph
+              copyable={{ text, tooltips: false, icon: <CopyOutlined style={{ color: '#1677ff' }} /> }}
+              style={{ margin: 0, marginLeft: 4, display: 'inline-block', whiteSpace: 'nowrap' }}
+            />
+          </span>
+        ) : <span style={{ color: '#bbb' }}>-</span>;
+      }
     },
     // 跟进阶段，按钮渲染，颜色区分不同阶段，左侧冻结
     {
@@ -1667,24 +1698,7 @@ const FollowupsGroupList: React.FC = () => {
 
   // 首次加载数据
   useEffect(() => {
-    
-    // 检查当前用户信息
-    supabase.auth.getUser().then(({  }) => {
-    });
-    
-    // 检查用户权限
-    supabase.rpc('has_permission', { resource: 'lead', action: 'manage' }).then(() => {
-    });
-    
-    // 检查用户角色
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        supabase.rpc('get_user_roles', { p_user_id: user.id }).then(() => {     
-        });
-      }
-    });
-    
-    // 初始化时加载数据
+    // 直接加载数据，移除不必要的权限检查
     fetchFollowups();
   }, []);
 
@@ -1961,25 +1975,27 @@ const FollowupsGroupList: React.FC = () => {
         </div>
         {/* 右侧明细区 */}
         <div className={`main-content-area ${groupPanelOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-          <Table
-            columns={columns}
-            dataSource={data}
-            loading={loading}
-            pagination={{
-              current: pagination.current,
-              pageSize: pagination.pageSize,
-              total: pagination.total,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
-            }}
-            rowKey="id"
-            size="middle"
-            bordered={false}
-            className="page-table"
-            onChange={handleTableChange}
-            scroll={{ x: 'max-content' }}
-          />
+          <Spin spinning={loading}>
+            <Table
+              columns={columns}
+              dataSource={data}
+              loading={loading}
+              pagination={{
+                current: pagination.current,
+                pageSize: pagination.pageSize,
+                total: pagination.total,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+              }}
+              rowKey="id"
+              size="middle"
+              bordered={false}
+              className="page-table"
+              onChange={handleTableChange}
+              scroll={{ x: 'max-content' }}
+            />
+          </Spin>
         </div>
       </div>
       {/* Drawer 组件（放在 return 的最外层） */}
@@ -1987,9 +2003,25 @@ const FollowupsGroupList: React.FC = () => {
         title="跟进阶段进度"
         placement="bottom"
         open={drawerOpen}
-        onClose={() => {
+        onClose={async () => {
+          // 关闭时自动保存
+          const values = stageForm.getFieldsValue();
+          if (currentRecord && currentRecord.id) {
+            const { error } = await supabase
+              .from('followups')
+              .update(values)
+              .eq('id', currentRecord.id);
+            if (!error) {
+              setData(prev =>
+                prev.map(item =>
+                  item.id === currentRecord.id
+                    ? { ...item, ...values }
+                    : item
+                )
+              );
+            }
+          }
           setDrawerOpen(false);
-          // 清空签约记录列表
           setDealsList([]);
         }}
         destroyOnClose
@@ -2205,9 +2237,9 @@ const FollowupsGroupList: React.FC = () => {
                         dealsList={dealsList}
                         dealsLoading={dealsLoading}
                         onAdd={() => {
-                          const newRow = {
+                          const newRow: Deal = {
                             id: `new_${Date.now()}`,
-                            leadid: currentRecord?.leadid,
+                            leadid: currentRecord?.leadid || '',
                             contractdate: dayjs().format('YYYY-MM-DD'),
                             community: '',
                             contractnumber: '',
@@ -2216,7 +2248,7 @@ const FollowupsGroupList: React.FC = () => {
                             isNew: true,
                             isEditing: true,
                           };
-                          setDealsList(prev => [newRow, ...prev]);
+                          setDealsList((prev: Deal[]) => [newRow, ...prev]);
                         }}
                         onEdit={async (record) => {
                           // 编辑/保存逻辑
@@ -2292,9 +2324,9 @@ const FollowupsGroupList: React.FC = () => {
                         dealsList={dealsList}
                         dealsLoading={dealsLoading}
                         onAdd={() => {
-                          const newRow = {
+                          const newRow: Deal = {
                             id: `new_${Date.now()}`,
-                            leadid: currentRecord?.leadid,
+                            leadid: currentRecord?.leadid || '',
                             contractdate: dayjs().format('YYYY-MM-DD'),
                             community: '',
                             contractnumber: '',
@@ -2303,7 +2335,7 @@ const FollowupsGroupList: React.FC = () => {
                             isNew: true,
                             isEditing: true,
                           };
-                          setDealsList(prev => [newRow, ...prev]);
+                          setDealsList((prev: Deal[]) => [newRow, ...prev]);
                         }}
                         onEdit={async (record) => {
                           // 编辑/保存逻辑
@@ -2413,17 +2445,40 @@ const FollowupsGroupList: React.FC = () => {
                         onClick={async () => {
                           if (!currentRecord) return;
                           const values = stageForm.getFieldsValue();
+                          const community = values.scheduledcommunity || null;
+                          if (!community) {
+                            message.error('请先选择预约社区');
+                            return;
+                          }
+                          // 1. 调用分配函数
+                          const { data: assignedUserId, error } = await supabase.rpc('assign_showings_user', { p_community: community });
+                          if (error || !assignedUserId) {
+                            message.error('分配带看人员失败: ' + (error?.message || '无可用人员'));
+                            return;
+                          }
+                          // 2. 查询成员昵称
+                          let nickname = '';
+                          if (assignedUserId) {
+                            const { data: userData, error: userError } = await supabase
+                              .from('users_profile')
+                              .select('nickname')
+                              .eq('id', assignedUserId)
+                              .single();
+                            nickname = userData?.nickname || String(assignedUserId);
+                          }
+                          // 3. 新增showings记录
                           const insertParams = {
                             leadid: currentRecord.leadid,
                             scheduletime: values.scheduletime ? dayjs(values.scheduletime).toISOString() : null,
-                            community: values.scheduledcommunity || null,
+                            community,
+                            showingsales: assignedUserId,
                           };
                           const { error: insertError } = await supabase.from('showings').insert(insertParams).select();
                           if (insertError) {
                             message.error('发放带看单失败: ' + insertError.message);
                             return;
                           }
-                          // 2. 推进到"已到店"阶段
+                          // 4. 推进到"已到店"阶段
                           const nextStage = '已到店';
                           const { error: updateError } = await supabase
                             .from('followups')
@@ -2442,7 +2497,7 @@ const FollowupsGroupList: React.FC = () => {
                           );
                           setCurrentStep(currentStep + 1);
                           setCurrentStage(nextStage);
-                          message.success('带看单已发放，已进入"已到店"阶段');
+                          message.success(`带看单已发放，分配给 ${nickname}`);
                         }}
                       >
                         发放带看单
@@ -2521,6 +2576,11 @@ const FollowupsGroupList: React.FC = () => {
           </div>
         </div>
       </Drawer>
+      <LeadDetailDrawer
+        visible={leadDetailDrawerOpen}
+        leadid={leadDetailId || ''}
+        onClose={() => setLeadDetailDrawerOpen(false)}
+      />
     </div>
   );
 };
