@@ -10,9 +10,7 @@ import {
   ClockCircleOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
-  UploadOutlined,
-  CheckCircleTwoTone
-} from '@ant-design/icons';
+  UploadOutlined} from '@ant-design/icons';
 import ImgCrop from 'antd-img-crop';
 import imageCompression from 'browser-image-compression';
 import { UserContext } from '../context/UserContext';
@@ -21,11 +19,11 @@ const { Title, Text } = Typography;
 
 const Profile = () => {
   const [form] = Form.useForm();
-  const [nameForm] = Form.useForm();
+  // const [nameForm] = Form.useForm(); // 移除
   const [emailForm] = Form.useForm();
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
-  const [department, setDepartment] = useState<string>('');
+  const [department] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarModal, setAvatarModal] = useState(false);
@@ -62,8 +60,6 @@ const Profile = () => {
       .select('avatar_url, updated_at')
       .eq('user_id', userData.user.id)
       .single();
-    console.log('[Profile] 拉取到的 userData:', userData);
-    console.log('[Profile] 拉取到的 profile:', profile);
     setUser(userData.user);
     setAvatarUrl(profile?.avatar_url || null);
     setAvatarTs(profile?.updated_at ? new Date(profile.updated_at).getTime() : Date.now());
@@ -73,7 +69,8 @@ const Profile = () => {
   // 并行获取用户信息、部门、头像
   useEffect(() => {
     fetchAll();
-  }, [nameForm]);
+    // 移除 nameForm 依赖
+  }, []);
 
   // 监听email变化，同步到邮箱表单
   useEffect(() => {
@@ -106,7 +103,6 @@ const Profile = () => {
         .eq('user_id', user.id)
         .single();
       const oldAvatarUrl = profile?.avatar_url;
-      console.log('[头像上传] oldAvatarUrl:', oldAvatarUrl, 'profile:', profile);
 
       // 2. 上传新头像
       const { error: uploadError } = await supabase.storage
@@ -135,16 +131,10 @@ const Profile = () => {
         const urlParts = oldAvatarUrl.split('/');
         const oldFilePath = urlParts[urlParts.length - 1];
         if (oldFilePath) {
-          console.log('准备删除旧头像，路径:', oldFilePath);
           const { data, error } = await supabase.storage.from('avatars').remove([oldFilePath]);
-          console.log('删除返回:', data, error);
           if (error) {
-            console.error('删除旧头像失败:', error);
-          } else {
-            console.log('旧头像删除成功');
           }
         } else {
-          console.warn('未能解析出旧头像文件路径:', oldAvatarUrl);
         }
       }
       await fetchAll(); // 上传后刷新头像
@@ -169,17 +159,7 @@ const Profile = () => {
     }
   };
 
-  // 修改名称
-  const handleChangeName = async (values: any) => {
-    const { name } = values;
-    const { error } = await supabase.auth.updateUser({ data: { name } });
-    if (error) {
-      message.error(error.message);
-    } else {
-      message.success('名称修改成功');
-      setUser((u: any) => ({ ...u, user_metadata: { ...u.user_metadata, name } }));
-    }
-  };
+  // 移除 handleChangeName 函数
 
   // 修改邮箱，增加唯一性校验
   const handleChangeEmail = async (values: any) => {
@@ -250,9 +230,7 @@ const Profile = () => {
                     .select('avatar_url')
                     .eq('user_id', user.id)
                     .single();
-                  console.log('[Profile] 头像点击时拉取到的 profile:', profile);
                   if (profile?.avatar_url) {
-                    console.log('[Profile] 头像点击时设置 avatarUrl:', profile.avatar_url);
                     setAvatarUrl(profile.avatar_url);
                   }
                 }
@@ -274,23 +252,17 @@ const Profile = () => {
                 accept="image/png,image/jpeg,image/jpg"
                 disabled={avatarUploading}
                 beforeUpload={async (file) => {
-                  console.log('[头像上传] 原始文件:', file);
                   const options = {
                     maxSizeMB: 1,
                     maxWidthOrHeight: 1024,
                     useWebWorker: true,
                   };
                   try {
-                    console.log('[头像上传] 开始压缩...');
                     const compressedFile = await imageCompression(file, options);
-                    console.log('[头像上传] 压缩后文件:', compressedFile);
-                    console.log('[头像上传] 调用 handleAvatarUpload 前...');
                     await handleAvatarUpload({ file: { status: 'done', originFileObj: compressedFile } });
-                    console.log('[头像上传] handleAvatarUpload 完成');
                     return false;
                   } catch (e) {
-                    const errMsg = (e && typeof e === 'object' && 'message' in e) ? (e as Error).message : String(e);
-                    console.error('[头像上传] 图片压缩失败:', e, file);
+                    const errMsg = (e && typeof e === 'object' && 'message' in e) ? (e as Error).message : String(e); 
                     message.error('图片压缩失败: ' + errMsg);
                     return false;
                   }
@@ -468,20 +440,8 @@ const Profile = () => {
 
       {/* 基本信息卡片 */}
       <Card title="基本信息" style={{ marginBottom: 24 }}>
-        <div style={{ marginBottom: 40 }}>
-          <Form form={nameForm} onFinish={handleChangeName} layout="vertical">
-            <Form.Item
-              name="name"
-              label="名称"
-              rules={[{ required: true, message: '请输入名称' }]}
-            >
-              <Input />
-            </Form.Item>
-            <Button type="primary" htmlType="submit" block>
-              保存名称
-            </Button>
-          </Form>
-        </div>
+        {/* 名称表单已移除 */}
+        {/* <div style={{ marginBottom: 40, display: 'none' }} /> */}
         <div style={{ marginBottom: 40 }}>
           <Form form={emailForm} onFinish={handleChangeEmail} layout="vertical">
             <Form.Item

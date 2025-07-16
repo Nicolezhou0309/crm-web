@@ -184,3 +184,45 @@ body {
   margin-left: 16px;
   margin-right: 16px;
 }
+
+.drawer-flex-row {
+  max-width: 1000px;
+  margin: 0 auto;
+  overflow-x: auto;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.page-drawer-form {
+  min-width: 320px;
+  max-width: 900px;
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+
+.page-step-fields-single,
+.page-step-fields {
+  max-width: 900px;
+  overflow-x: auto;
+  flex-wrap: wrap;
+}
+
+.downtown-logo:hover {
+  transform: scale(1.12) rotate(-6deg);
+  filter: drop-shadow(0 0 8px #e8e230);
+  cursor: pointer;
+}
+
+.custom-followup-menu .ant-menu-item {
+  transition: color 0.2s, background 0.2s;
+}
+.custom-followup-menu .ant-menu-item-selected span {
+  color: #1677ff !important;
+  font-weight: 700;
+}
+.custom-followup-menu .ant-menu-item:hover span {
+  color: #444 !important;
+}
+.custom-followup-menu .ant-menu-item span {
+  font-size: 14px !important;
+}

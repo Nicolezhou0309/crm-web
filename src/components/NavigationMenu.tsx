@@ -14,7 +14,6 @@ import {
   SettingOutlined,
   BranchesOutlined,
   GiftOutlined,
-  HistoryOutlined,
   TrophyOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,
@@ -62,12 +61,6 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           path: '/followups'
         },
         { 
-          key: 'allocation', 
-          icon: <BranchesOutlined />, 
-          label: '线索分配', 
-          path: '/allocation'
-        },
-        { 
           key: 'showings', 
           icon: <EyeOutlined />, 
           label: '带看记录', 
@@ -78,6 +71,26 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           icon: <CheckCircleOutlined />, 
           label: '成交记录', 
           path: '/deals'
+        },
+      ]
+    },
+    // 新增分配管理一级菜单
+    {
+      key: 'allocation-manage',
+      icon: <BranchesOutlined />,
+      label: '分配管理',
+      children: [
+        {
+          key: 'allocation',
+          icon: <BranchesOutlined />,
+          label: '线索分配',
+          path: '/allocation',
+        },
+        {
+          key: 'showings-queue',
+          icon: <EyeOutlined />,
+          label: '带看分配',
+          path: '/showings-queue',
         },
       ]
     },
@@ -159,6 +172,12 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           icon: <DatabaseOutlined />, 
           label: '数据库测试', 
           path: '/test'
+        },
+        {
+          key: 'banner-management',
+          icon: <HomeOutlined />,
+          label: '首页管理',
+          path: '/banner-management',
         },
       ]
     },

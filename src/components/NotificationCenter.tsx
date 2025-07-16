@@ -13,7 +13,6 @@ import dayjs from 'dayjs';
 import { useState as useReactState } from 'react';
 import { message as antdMessage } from 'antd';
 import { supabase } from '../supaClient';
-import VirtualList from 'rc-virtual-list';
 
 const { Text } = Typography;
 const { TabPane } = Tabs;
@@ -52,7 +51,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onViewAll
 }) => {
   const { user } = useAuth();
-  const { isDepartmentAdmin } = usePermissions();
+  usePermissions();
   const {
     notifications,
     unreadCount,
@@ -69,7 +68,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [showRaw, setShowRaw] = useReactState(false);
-  const [visibleCount, setVisibleCount] = useState(3); // <-- 移到这里
+  const [] = useState(3); // <-- 移到这里
   const [forceUpdate, setForceUpdate] = useState(0); // 强制更新计数器
 
   // 防抖的通知数量回调
@@ -92,13 +91,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           const cacheAge = Date.now() - parseInt(cacheTimestamp);
           // 缓存5分钟有效
           if (cacheAge < 5 * 60 * 1000) {
-            console.log('📋 使用缓存的公告数据');
             setAnnouncements(JSON.parse(cachedAnnouncements));
             return;
           }
         }
         
-        console.log('🔄 加载公告数据...');
         const data = await notificationApi.getAnnouncements();
         setAnnouncements(data);
         
@@ -130,13 +127,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   // 只统计通知未读数 - 使用useMemo优化
   useEffect(() => {
-    console.log('📊 NotificationCenter 未读数变化:', unreadCount);
     debouncedNotificationChange(unreadCount);
   }, [unreadCount, debouncedNotificationChange]);
 
   // 添加通知数据变化监听
   useEffect(() => {
-    console.log('🔔 简化版通知中心 - 通知数据变化:', notifications.length, '条通知');
     // 强制更新简化版通知列表
     setForceUpdate(prev => prev + 1);
   }, [notifications]);
@@ -451,9 +446,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     const itemHeight = 56; // 每条通知高度，按实际UI调整
     const maxHeight = itemHeight * 4; // 展示3.5张卡片高度
     const total = notifications.length;
-
-    console.log('🔔 简化版通知列表渲染，通知数量:', total, '加载状态:', loading, '强制更新:', forceUpdate);
-
+  
     if (loading) {
       return (
         <div style={{ padding: '12px' }}>

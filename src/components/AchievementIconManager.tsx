@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supaClient';
-import { Card, Button, Input, Select, message, Space, Divider, Typography, Upload, Image, Modal } from 'antd';
-import { ReloadOutlined, SaveOutlined, EyeOutlined, UploadOutlined, PictureOutlined } from '@ant-design/icons';
-import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
+import { Card, Button, Input, Select, message, Space, Divider, Typography, Upload, Image } from 'antd';
+import { ReloadOutlined, SaveOutlined, EyeOutlined, UploadOutlined } from '@ant-design/icons';
 import ImgCrop from 'antd-img-crop';
 import imageCompression from 'browser-image-compression';
 
@@ -229,7 +228,7 @@ export const AchievementIconManager: React.FC<IconManagerProps> = ({ onIconUpdat
       const fileName = `${type}-${id}-${Date.now()}.${fileExt}`;
       const filePath = `achievement-icons/${fileName}`;
 
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('achievement-icons')
         .upload(filePath, file);
 

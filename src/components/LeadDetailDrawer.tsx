@@ -14,7 +14,8 @@ import {
   Row,
   Col,
   Tooltip,
-  Badge
+  Badge,
+  Table
 } from 'antd';
 import {
   UserOutlined,
@@ -116,6 +117,9 @@ interface LeadData {
   roomnumber?: string;
   deal_created_at?: string;
   deal_updated_at?: string;
+  // 新增：所有带看和成交记录
+  showingsList?: any[];
+  dealsList?: any[];
 }
 
 const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
@@ -155,8 +159,8 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
           .eq('leadid', leadid)
           .single();
 
-        // 获取带看信息
-        const { data: showingData } = await supabase
+        // 获取所有带看记录
+        const { data: showingsList } = await supabase
           .from('showings')
           .select(`
             *,
@@ -164,14 +168,19 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
             trueshowingsales_user:users_profile!showings_trueshowingsales_fkey(nickname)
           `)
           .eq('leadid', leadid)
-          .single();
+          .order('created_at', { ascending: false });
 
-        // 获取成交信息
-        const { data: dealData } = await supabase
+        // 获取所有成交记录
+        const { data: dealsList } = await supabase
           .from('deals')
           .select('*')
           .eq('leadid', leadid)
-          .single();
+          .order('created_at', { ascending: false });
+
+        // 获取最新带看信息
+        const showingData = showingsList && showingsList.length > 0 ? showingsList[0] : null;
+        // 获取最新成交信息
+        const dealData = dealsList && dealsList.length > 0 ? dealsList[0] : null;
 
         // 合并数据
         const combinedData: LeadData = {
@@ -194,7 +203,7 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
           followup_updated_at: followupData?.updated_at,
           interviewsales_user_id: followupData?.interviewsales_user_id,
           interviewsales_user_name: followupData?.interviewsales_user?.nickname,
-          // 带看信息
+          // 最新带看信息
           showing_id: showingData?.id,
           showing_scheduletime: showingData?.scheduletime,
           showing_community: showingData?.community,
@@ -210,7 +219,7 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
           renttime: showingData?.renttime,
           showing_created_at: showingData?.created_at,
           showing_updated_at: showingData?.updated_at,
-          // 成交信息
+          // 最新成交信息
           deal_id: dealData?.id,
           contractdate: dealData?.contractdate,
           deal_community: dealData?.community,
@@ -218,6 +227,9 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
           roomnumber: dealData?.roomnumber,
           deal_created_at: dealData?.created_at,
           deal_updated_at: dealData?.updated_at,
+          // 所有带看和成交记录
+          showingsList: showingsList || [],
+          dealsList: dealsList || [],
         };
 
         setLeadData(combinedData);
@@ -592,67 +604,57 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               } 
               key="showing"
             >
-              <Card title="带看记录" size="small">
-                <Descriptions column={2} bordered size="small">
-                  <Descriptions.Item label="预约时间">
-                    <Text>
-                      {leadData.showing_scheduletime ? dayjs(leadData.showing_scheduletime).format('YYYY-MM-DD HH:mm') : '-'}
-                    </Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="带看社区">
-                    <Tag color="blue">{leadData.showing_community || '-'}</Tag>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="到达时间">
-                    <Text>
-                      {leadData.arrivaltime ? dayjs(leadData.arrivaltime).format('YYYY-MM-DD HH:mm') : '-'}
-                    </Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="带看销售">
-                    <Text>{leadData.showingsales_name || '-'}</Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="真实带看销售">
-                    <Text>{leadData.trueshowingsales_name || '-'}</Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="看房结果">
-                    <Text>{leadData.viewresult || '-'}</Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="预算">
-                    <Tag color="orange">{leadData.showing_budget ? `¥${leadData.showing_budget}` : '-'}</Tag>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="入住时间">
-                    <Text>
-                      {leadData.showing_moveintime ? dayjs(leadData.showing_moveintime).format('YYYY-MM-DD') : '-'}
-                    </Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="租期">
-                    <Text>{leadData.renttime ? `${leadData.renttime}个月` : '-'}</Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="带看备注">
-                    <Text>{leadData.showing_remark || '-'}</Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="带看创建时间">
-                    <Text>
-                      {leadData.showing_created_at ? dayjs(leadData.showing_created_at).format('YYYY-MM-DD HH:mm:ss') : '-'}
-                    </Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="带看更新时间">
-                    <Text>
-                      {leadData.showing_updated_at ? dayjs(leadData.showing_updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}
-                    </Text>
-                  </Descriptions.Item>
-                </Descriptions>
-              </Card>
+              {/* 卡片列表展示所有带看记录 */}
+              {((leadData.showingsList || [])).length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {(leadData.showingsList || []).map((showing, idx) => (
+                    <Card key={showing.id} title={`带看记录 #${leadData.showingsList.length - idx}`} size="small">
+                      <Descriptions column={2} bordered size="small">
+                        <Descriptions.Item label="预约时间">
+                          <Text>{showing.scheduletime ? dayjs(showing.scheduletime).format('YYYY-MM-DD HH:mm') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="社区">
+                          <Tag color="blue">{showing.community || '-'}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="到达时间">
+                          <Text>{showing.arrivaltime ? dayjs(showing.arrivaltime).format('YYYY-MM-DD HH:mm') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="带看销售">
+                          <Text>{showing.showingsales_user?.nickname || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="真实带看销售">
+                          <Text>{showing.trueshowingsales_user?.nickname || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="看房结果">
+                          <Text>{showing.viewresult || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="预算">
+                          <Tag color="orange">{showing.budget ? `¥${showing.budget}` : '-'}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="入住时间">
+                          <Text>{showing.moveintime ? dayjs(showing.moveintime).format('YYYY-MM-DD') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="租期">
+                          <Text>{showing.renttime ? `${showing.renttime}个月` : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="备注">
+                          <Text>{showing.remark || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="创建时间">
+                          <Text>{showing.created_at ? dayjs(showing.created_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="更新时间">
+                          <Text>{showing.updated_at ? dayjs(showing.updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
+                        </Descriptions.Item>
+                      </Descriptions>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card style={{ textAlign: 'center', color: '#999' }} size="small" bordered={false}>
+                  暂无带看记录
+                </Card>
+              )}
             </TabPane>
 
             {/* 成交信息 */}
@@ -665,51 +667,39 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               } 
               key="deal"
             >
-              <Card title="成交记录" size="small">
-                <Descriptions column={2} bordered size="small">
-                  <Descriptions.Item label="合同日期">
-                    <Text>
-                      {leadData.contractdate ? dayjs(leadData.contractdate).format('YYYY-MM-DD') : '-'}
-                    </Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="成交社区">
-                    <Tag color="green">{leadData.deal_community || '-'}</Tag>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="合同编号">
-                    <Space>
-                      <Text code>{leadData.contractnumber || '-'}</Text>
-                      {leadData.contractnumber && (
-                        <Button 
-                          type="link" 
-                          size="small" 
-                          icon={<CopyOutlined />}
-                          onClick={() => copyToClipboard(leadData.contractnumber!, '合同编号')}
-                        >
-                          复制
-                        </Button>
-                      )}
-                    </Space>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="房间编号">
-                    <Text>{leadData.roomnumber || '-'}</Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="成交创建时间">
-                    <Text>
-                      {leadData.deal_created_at ? dayjs(leadData.deal_created_at).format('YYYY-MM-DD HH:mm:ss') : '-'}
-                    </Text>
-                  </Descriptions.Item>
-                  
-                  <Descriptions.Item label="成交更新时间">
-                    <Text>
-                      {leadData.deal_updated_at ? dayjs(leadData.deal_updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}
-                    </Text>
-                  </Descriptions.Item>
-                </Descriptions>
-              </Card>
+              {/* 卡片列表展示所有成交记录 */}
+              {((leadData.dealsList || [])).length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {(leadData.dealsList || []).map((deal, idx) => (
+                    <Card key={deal.id} title={`成交记录 #${leadData.dealsList.length - idx}`} size="small">
+                      <Descriptions column={2} bordered size="small">
+                        <Descriptions.Item label="合同日期">
+                          <Text>{deal.contractdate ? dayjs(deal.contractdate).format('YYYY-MM-DD') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="社区">
+                          <Tag color="green">{deal.community || '-'}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="合同编号">
+                          <Text code>{deal.contractnumber || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="房间编号">
+                          <Text>{deal.roomnumber || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="创建时间">
+                          <Text>{deal.created_at ? dayjs(deal.created_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="更新时间">
+                          <Text>{deal.updated_at ? dayjs(deal.updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
+                        </Descriptions.Item>
+                      </Descriptions>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card style={{ textAlign: 'center', color: '#999' }} size="small" bordered={false}>
+                  暂无成交记录
+                </Card>
+              )}
             </TabPane>
           </Tabs>
         )}

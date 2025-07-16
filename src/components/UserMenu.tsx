@@ -1,6 +1,5 @@
 import { Dropdown } from 'antd';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supaClient';
 
 export function useUserMenuAvatarUrl() {
@@ -24,7 +23,7 @@ export function useUserMenuAvatarUrl() {
 }
 
 const UserMenu = () => {
-  const [user, setUser] = useState<any>(null);
+  const [, setUser] = useState<any>(null);
 
   // 获取用户信息和头像
   const fetchUserAndAvatar = async () => {
@@ -37,11 +36,6 @@ const UserMenu = () => {
         .select('avatar_url')
         .eq('user_id', data.user.id)
         .single();
-      // setAvatarUrl(profile?.avatar_url || data.user.user_metadata?.avatar_url || null); // This line is removed as per the new_code
-      console.log('[UserMenu] fetchUserAndAvatar 执行，user:', data.user, 'avatarUrl:', profile?.avatar_url);
-    } else {
-      // setAvatarUrl(null); // This line is removed as per the new_code
-      console.log('[UserMenu] fetchUserAndAvatar 执行，未获取到 user');
     }
   };
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Tabs, Button, message } from 'antd';
+import { Card, Tabs, message } from 'antd';
 import { AchievementSystem } from '../components/AchievementSystem';
 import { AchievementIconManager } from '../components/AchievementIconManager';
 import { PermissionGate } from '../components/PermissionGate';

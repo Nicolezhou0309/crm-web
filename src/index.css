@@ -1357,3 +1357,11 @@ button:focus-visible {
 .ant-drawer-body {
   padding-top: 16px !important;
 }
+
+.leadid-link-btn,
+.leadid-link-btn:active,
+.leadid-link-btn:focus,
+.leadid-link-btn:hover {
+  background: none !important;
+  box-shadow: none !important;
+}

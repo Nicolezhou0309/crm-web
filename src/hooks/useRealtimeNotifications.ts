@@ -69,8 +69,6 @@ export const useRealtimeNotifications = () => {
   useEffect(() => {
     if (!profileId) return;
     
-    console.log('🔔 开始订阅通知，profileId:', profileId);
-    
     // 1. 初始加载通知
     loadNotifications(profileId);
     
@@ -83,7 +81,6 @@ export const useRealtimeNotifications = () => {
         table: 'notifications',
         filter: `user_id=eq.${profileId}`
       }, (payload) => {
-        console.log('🔔 收到新通知:', payload); 
         const newNotification = payload.new as Notification;
         
         // 使用函数式更新，避免闭包问题
@@ -93,7 +90,6 @@ export const useRealtimeNotifications = () => {
           if (exists) return prev;
           
           const newList = [newNotification, ...prev];
-          console.log('🔔 更新通知列表，新未读数:', newList.filter(n => n.status === 'unread').length);
           return newList;
         });
         
@@ -101,7 +97,6 @@ export const useRealtimeNotifications = () => {
         setUnreadCount(prev => {
           if (newNotification.status === 'unread') {
             const newCount = prev + 1;
-            console.log('🔔 未读数更新:', prev, '->', newCount);
             return newCount;
           }
           return prev;
@@ -116,7 +111,6 @@ export const useRealtimeNotifications = () => {
         table: 'notifications',
         filter: `user_id=eq.${profileId}`
       }, (payload) => {
-        console.log('🔔 通知状态更新:', payload);
         const updatedNotification = payload.new as Notification;
         
         setNotifications(prev => 
@@ -135,7 +129,6 @@ export const useRealtimeNotifications = () => {
         table: 'notifications',
         filter: `user_id=eq.${profileId}`
       }, (payload) => {
-        console.log('🔔 通知删除:', payload);
         setNotifications(prev => 
           prev.filter(n => n.id !== payload.old.id)
         );
@@ -143,11 +136,9 @@ export const useRealtimeNotifications = () => {
         setLastUpdate(Date.now());
       })
       .subscribe((status) => { 
-        console.log('🔔 订阅状态:', status);
       });
     
     return () => {
-      console.log('🔔 清理订阅');
       supabase.removeChannel(channel);
     };
   }, [profileId]);

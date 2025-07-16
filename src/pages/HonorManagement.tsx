@@ -312,7 +312,7 @@ export const HonorManagement: React.FC = () => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
   const [previewTitle, setPreviewTitle] = useState('');
-  const [grantModalVisible, setGrantModalVisible] = useState(false);
+  const [, setGrantModalVisible] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectedFrames, setSelectedFrames] = useState<string[]>([]);
   const [grantNotes, setGrantNotes] = useState('');

@@ -18,7 +18,7 @@ import {
   CrownOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
-import HouseLogo from './components/HouseLogo';
+import LottieLogo from './components/LottieLogo';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import TestSupabase from './pages/TestSupabase';
 import LeadsList from './pages/LeadsList';
@@ -57,55 +57,20 @@ import { useAchievements } from './hooks/useAchievements';
 import { supabase } from './supaClient';
 import { getUserPointsInfo, getCurrentProfileId } from './api/pointsApi';
 import { useRealtimeNotifications } from './hooks/useRealtimeNotifications';
+import ShowingsQueueManagement from './pages/ShowingsQueueManagement';
+import BannerManagement from './pages/BannerManagement';
+import { Menu } from 'antd';
+import type { MenuProps } from 'antd';
 
 
 const { Sider, Content, Header } = Layout;
 const { Title } = Typography;
 
-const menuItems = [
-  { key: 'index', icon: <HomeOutlined />, label: '首页', path: '/' },
+// 彻底删除旧的menuItems相关children/path等所有无用代码块，只保留如下：
+const menuItems: MenuProps['items'] = [
   {
-    key: 'clues',
-    icon: <SolutionOutlined />,
-    label: '线索管理',
-    children: [
-      { key: 'leads', icon: <FileTextOutlined />, label: '线索列表', path: '/leads' },
-      { key: 'followups', icon: <UserOutlined />, label: '跟进记录', path: '/followups' },
-      { key: 'allocation', icon: <BranchesOutlined />, label: '线索分配', path: '/allocation' },
-      { key: 'showings', icon: <EyeOutlined />, label: '带看记录', path: '/showings' },
-      { key: 'deals', icon: <CheckCircleOutlined />, label: '成交记录', path: '/deals' },
-    ]
-  },
-  { key: 'dashboard', icon: <DashboardOutlined />, label: '仪表盘', path: '/dashboard' },
-  {
-    key: 'points',
-    icon: <TrophyOutlined />,
-    label: '积分管理',
-    children: [
-      { key: 'points-dashboard', icon: <DashboardOutlined />, label: '积分看板', path: '/points' },
-      { key: 'points-exchange', icon: <GiftOutlined />, label: '积分兑换', path: '/points/exchange' },
-      { key: 'points-rules', icon: <KeyOutlined />, label: '积分规则', path: '/points/rules' },
-    ]
-  },
-  {
-    key: 'honor',
-    icon: <CrownOutlined />,
-    label: '荣誉系统',
-    children: [
-      { key: 'honor-management', icon: <TrophyOutlined />, label: '荣誉管理', path: '/honor' },
-      { key: 'achievement-management', icon: <CrownOutlined />, label: '成就管理', path: '/achievement' },
-    ]
-  },
-  { key: 'departments', icon: <AppstoreOutlined />, label: '部门管理', path: '/departments' },
-  {
-    key: 'system',
-    icon: <SettingOutlined />,
-    label: '系统管理',
-    children: [
-      { key: 'roles', icon: <KeyOutlined />, label: '角色权限', path: '/roles' },
-      { key: 'announcements', icon: <BellOutlined />, label: '公告配置', path: '/announcements' },
-      { key: 'test', icon: <DatabaseOutlined />, label: '数据库测试', path: '/test' },
-    ]
+    label: '跟进记录',
+    key: 'followups',
   },
 ];
 
@@ -151,6 +116,11 @@ const App: React.FC = () => {
   
   // 详细通知抽屉状态
   const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
+  const [menuCurrent, setMenuCurrent] = React.useState('');
+  const onMenuClick: MenuProps['onClick'] = e => {
+    setMenuCurrent(e.key);
+    if (e.key === 'followups') navigate('/followups');
+  };
 
   // 获取头像URL的函数
   const fetchAvatar = React.useCallback(async () => {
@@ -283,15 +253,49 @@ const App: React.FC = () => {
   const userCardContent = (
     <div style={{ minWidth: 320, padding: '0', borderRadius: '12px', overflow: 'hidden' }}>
       {/* 积分余额展示 - 移到顶部 */}
-      <div style={{ 
-        padding: '10px 0px 20px 20px', 
-        background: 'linear-gradient(135deg, #ff6b35 0%, #f7931a 100%)',
-        borderRadius: '12px 12px 12px 12px',
-        color: '#fff',
-        position: 'relative',
-        overflow: 'hidden',
-        marginBottom: '0px'
-      }}>
+      <div
+        style={{
+          padding: '10px 0px 20px 20px',
+          background: 'linear-gradient(135deg, #ff6b35 0%, #f7931a 100%)',
+          borderRadius: '12px 12px 12px 12px',
+          color: '#fff',
+          position: 'relative',
+          overflow: 'hidden',
+          marginBottom: '0px',
+          cursor: 'pointer',
+          transition: 'box-shadow 0.2s, filter 0.18s', // 移除 transform
+          boxShadow: '0 2px 8px rgba(255,107,53,0.10)',
+          userSelect: 'none',
+        }}
+        onClick={() => navigate('/points')}
+        onMouseEnter={e => {
+          e.currentTarget.style.boxShadow = '0 8px 32px rgba(255,107,53,0.22)';
+          e.currentTarget.style.filter = 'brightness(1.08)';
+          // 添加扫光元素
+          let shine = document.createElement('div');
+          shine.className = 'points-shine-effect';
+          shine.style.position = 'absolute';
+          shine.style.top = '0';
+          shine.style.left = '-60%';
+          shine.style.width = '60%';
+          shine.style.height = '100%';
+          shine.style.background = 'linear-gradient(120deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.0) 100%)';
+          shine.style.pointerEvents = 'none';
+          shine.style.zIndex = '10';
+          shine.style.transform = 'skewX(-20deg)';
+          shine.style.animation = 'shine-move 0.9s linear 1';
+          shine.style.borderRadius = '12px';
+          e.currentTarget.appendChild(shine);
+          shine.addEventListener('animationend', () => {
+            if (shine.parentNode) shine.parentNode.removeChild(shine);
+          });
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.boxShadow = '0 2px 8px rgba(255,107,53,0.10)';
+          e.currentTarget.style.filter = 'none';
+        }}
+        title="点击查看积分看板"
+      >
         {/* 左侧积分信息 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0px', zIndex: 2, position: 'relative' }}>
           <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: '0.5px' }}>
@@ -301,11 +305,10 @@ const App: React.FC = () => {
             剩余积分
           </span>
         </div>
- 
         {/* 右侧装饰Logo */}
-        <div style={{ 
-          position: 'absolute', 
-          right: '-30px', 
+        <div style={{
+          position: 'absolute',
+          right: '-30px',
           top: '-20px',
           width: '120px',
           height: '120px',
@@ -423,18 +426,38 @@ const App: React.FC = () => {
     <ConfigProvider locale={zhCN}>
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* 顶部导航条 */}
-        <Header className="app-header" style={{ height: 60, padding: '0 48px', display: 'flex', alignItems: 'center', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000, background: '#fff' }}>
-          <div className="app-title">
-            <HouseLogo 
-              width={40} 
-              height={40} 
-              style={{ 
-                marginRight: '16px'
-              }} 
-            />
-            <span>长租公寓CRM系统</span>
+        <Header className="app-header" style={{ height: 60, padding: '0 16px', display: 'flex', alignItems: 'center', position: 'fixed', top: 0, left: 0, right: 0, width: '100%', zIndex: 1000, background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+          {/* 顶部导航菜单，仅跟进记录 */}
+          <Menu
+            onClick={onMenuClick}
+            selectedKeys={location.pathname === '/followups' ? ['followups'] : []}
+            mode="horizontal"
+            items={menuItems}
+            style={{ minWidth: 120, borderBottom: 'none', background: 'transparent', marginRight: 24 }}
+            className="custom-followup-menu"
+          />
+          <div
+            className="app-title"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              margin: 'auto',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 2,
+              transform: 'scale(1.5)',
+              pointerEvents: 'none',
+            }}
+          >
+            <LottieLogo width={40} height={40} />
+            <img src="/VLINKER.svg" alt="VLINKER" style={{ height: 36, marginLeft: 4, verticalAlign: 'middle' }} />
           </div>
-          <div className="app-header-user" style={{ display: 'flex', alignItems: 'center', gap: 24, paddingRight: 120 }}>
+          <div className="app-header-user" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
             <UserMenu />
           </div>
           {/* 头像悬浮卡片 */}
@@ -449,14 +472,14 @@ const App: React.FC = () => {
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
             }}
           >
-            <span style={{ position: 'absolute', top: 2, right: 16, zIndex: 10 }}>
+            <span style={{ position: 'absolute', top: 2, right: 48, zIndex: 10 }}>
               <div
                 style={{
                   width: 90,
                   height: 90,
                   borderRadius: '50%',
                   background: '#fff',
-                  overflow: 'hidden',
+                  overflow: 'visible',
                   cursor: 'pointer',
                   transition: 'all 0.3s ease',
                   transform: 'scale(0.8)',
@@ -616,12 +639,9 @@ const App: React.FC = () => {
                         alignItems: 'center', 
                         marginBottom: 24 
                       }}>
-                        <HouseLogo 
+                        <LottieLogo 
                           width={56} 
                           height={56} 
-                          style={{ 
-                            marginRight: '20px'
-                          }} 
                         />
                         <Title level={4} style={{ 
                           fontWeight: 700, 
@@ -646,6 +666,7 @@ const App: React.FC = () => {
                   <Route path="/deals" element={<DealsList />} />
                   <Route path="/allocation" element={<AllocationManagement />} />
                   <Route path="/allocation-management" element={<AllocationManagement />} />
+                  <Route path="/showings-queue" element={<ShowingsQueueManagement />} />
 
                   {/* 积分系统路由 */}
                           <Route path="/points" element={<PointsDashboard />} />
@@ -673,6 +694,7 @@ const App: React.FC = () => {
                     </PermissionGate>
                   } />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/banner-management" element={<BannerManagement />} />
                   <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>
@@ -689,6 +711,15 @@ export default function AppWithBoundary() {
   return (
     <ErrorBoundary>
       <App />
+      {/* 扫光动画全局样式 */}
+      <style>{`
+        @keyframes shine-move {
+          0% { left: -60%; opacity: 0; }
+          10% { opacity: 0.2; }
+          50% { left: 100%; opacity: 0.35; }
+          100% { left: 120%; opacity: 0; }
+        }
+      `}</style>
     </ErrorBoundary>
   );
 }

@@ -102,7 +102,7 @@ export async function getShowingsCount(filters: ShowingFilters = {}) {
 
 // 获取社区枚举值
 export async function getCommunityOptions() {
-  const { data, error } = await supabase.rpc('get_showings_community_options');
+  const { data, error } = await supabase.rpc('get_enum_values', { enum_name: 'community' });
   if (error) throw error;
   return data || [];
 }

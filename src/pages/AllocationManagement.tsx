@@ -19,7 +19,6 @@ import {
   InputNumber,
   TimePicker,
   Alert,
-  Badge,
   Tooltip,
   TreeSelect
 } from 'antd';
@@ -27,13 +26,10 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  SettingOutlined,
-  EyeOutlined,
   PlayCircleOutlined,
   UserOutlined,
   TeamOutlined,
   ClockCircleOutlined,
-  CheckCircleOutlined,
   ExclamationCircleOutlined,
   ReloadOutlined,
   BranchesOutlined,
@@ -46,10 +42,7 @@ import { pointsAllocationApi, type PointsCostRule } from '../api/pointsAllocatio
 import type { 
   SimpleAllocationRule, 
   SimpleAllocationLog, 
-  UserGroup, 
-  AllocationStats,
-  AllocationRuleForm 
-} from '../types/allocation';
+  UserGroup} from '../types/allocation';
 import { ALLOCATION_METHODS, WEEKDAY_OPTIONS } from '../types/allocation';
 import AllocationFlowChart from '../components/AllocationFlowChart';
 import { supabase } from '../supaClient';
@@ -58,7 +51,7 @@ import { validateRuleForm, validateGroupForm } from '../utils/validationUtils';
 
 
 const { Title, Text } = Typography;
-const { Option, OptGroup } = Select;
+const { Option } = Select;
 const { RangePicker } = TimePicker;
 
 const AllocationManagement: React.FC = () => {
@@ -72,7 +65,7 @@ const AllocationManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState('1');
   const [rules, setRules] = useState<SimpleAllocationRule[]>([]);
   const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
-  const [allocationLogs, setAllocationLogs] = useState<SimpleAllocationLog[]>([]);
+  const [, setAllocationLogs] = useState<SimpleAllocationLog[]>([]);
   const [loading, setLoading] = useState(false);
   
   // 枚举值状态
@@ -313,136 +306,6 @@ const AllocationManagement: React.FC = () => {
   };
 
   // 分配规则表格列
-  const ruleColumns = [
-    {
-      title: '规则名称',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string, record: SimpleAllocationRule) => (
-        <Space>
-          <Text strong>{text}</Text>
-          {record.is_active ? (
-            <Tag color="green">启用</Tag>
-          ) : (
-            <Tag color="red">禁用</Tag>
-          )}
-        </Space>
-      )
-    },
-    {
-      title: '触发条件',
-      key: 'conditions',
-      render: (text: string, record: SimpleAllocationRule) => {
-        const { conditions } = record;
-        return (
-          <Space direction="vertical" size="small">
-            {conditions.sources && conditions.sources.length > 0 && (
-        <div>
-                <Text type="secondary">来源：</Text>
-                {conditions.sources.map((source: string) => (
-                  <Tag key={source} color="blue">{source}</Tag>
-                ))}
-              </div>
-          )}
-            {conditions.communities && conditions.communities.length > 0 && (
-              <div>
-                <Text type="secondary">社区：</Text>
-                {conditions.communities.map((community: string) => (
-                  <Tag key={community} color="green">{community}</Tag>
-                ))}
-              </div>
-          )}
-            {conditions.time_ranges && (
-              <div>
-                <Text type="secondary">时间：</Text>
-                <Tag color="orange">
-                  {conditions.time_ranges.start || '00:00'}-{conditions.time_ranges.end || '23:59'}
-                </Tag>
-        </div>
-            )}
-          </Space>
-        );
-      }
-    },
-    {
-      title: '销售组',
-      key: 'user_groups',
-      render: (text: string, record: SimpleAllocationRule) => {
-        const groups = userGroups.filter(group => 
-          record.user_groups?.includes(group.id) || false
-        );
-        return (
-          <Space>
-            {groups.map(group => (
-              <Tag key={group.id} color="purple">{group.groupname}</Tag>
-            ))}
-            {(!record.user_groups || record.user_groups.length === 0) && (
-              <Text type="secondary">未设置销售组</Text>
-            )}
-          </Space>
-        );
-      }
-    },
-    {
-      title: '分配方式',
-      dataIndex: 'allocation_method',
-      key: 'allocation_method',
-      render: (method: string) => {
-        const methodInfo = ALLOCATION_METHODS.find(m => m.value === method);
-        return (
-          <Tooltip title={methodInfo?.description}>
-            <Tag color="blue">{methodInfo?.label || method}</Tag>
-          </Tooltip>
-        );
-      }
-    },
-    {
-      title: '优先级',
-      dataIndex: 'priority',
-      key: 'priority',
-      render: (priority: number, record: SimpleAllocationRule) => {
-        const displayPriority = record.name === '默认分配规则' ? 0 : priority;
-        return (
-          <Badge 
-            count={displayPriority} 
-            style={{ 
-              backgroundColor: record.name === '默认分配规则' ? '#999' : '#52c41a' 
-            }} 
-          />
-        );
-      }
-    },
-    {
-      title: '操作',
-      key: 'action',
-      render: (text: string, record: SimpleAllocationRule) => (
-           <Space>
-             <Button 
-               type="link" 
-               icon={<EditOutlined />} 
-               onClick={() => handleEditRule(record)}
-          >
-            编辑
-          </Button>
-             <Button 
-               type="link" 
-            icon={<EyeOutlined />}
-            onClick={() => handleViewRule(record)}
-          >
-            查看
-          </Button>
-          <Popconfirm
-            title="确定删除这个分配规则吗？"
-            onConfirm={() => handleDeleteRule(record.id)}
-          >
-            <Button type="link" danger icon={<DeleteOutlined />}>
-              删除
-            </Button>
-          </Popconfirm>
-           </Space>
-      )
-    }
-  ];
 
   // 积分分配规则表格列
   const pointsRuleColumns = [
@@ -928,23 +791,6 @@ const AllocationManagement: React.FC = () => {
     setIsRuleModalVisible(true);
   };
 
-  const handleViewRule = (rule: SimpleAllocationRule) => {
-    Modal.info({
-      title: '分配规则详情',
-      content: (
-        <div>
-          <p><strong>规则名称：</strong>{rule.name}</p>
-          <p><strong>描述：</strong>{rule.description}</p>
-          <p><strong>优先级：</strong>{rule.priority}</p>
-          <p><strong>状态：</strong>{rule.is_active ? '启用' : '禁用'}</p>
-          <p><strong>触发条件：</strong></p>
-          <pre>{JSON.stringify(rule.conditions, null, 2)}</pre>
-          <p><strong>销售组：</strong>{rule.user_groups.join(', ')}</p>
-        </div>
-      ),
-      width: 600
-    });
-  };
 
   const handleDeleteRule = async (id: string) => {
     try {
@@ -973,25 +819,6 @@ const AllocationManagement: React.FC = () => {
     setIsGroupModalVisible(true);
   };
 
-  const handleViewGroup = (group: UserGroup) => {
-    Modal.info({
-      title: '销售组详情',
-      content: (
-        <div>
-          <p><strong>组名称：</strong>{group.groupname}</p>
-          <p><strong>描述：</strong>{group.description}</p>
-          <p><strong>成员数量：</strong>{group.list.length}</p>
-          <p><strong>分配方式：</strong>{group.allocation}</p>
-          <p><strong>质量控制：</strong>{group.enable_quality_control ? '启用' : '禁用'}</p>
-          {group.daily_lead_limit && (
-            <p><strong>日限制：</strong>{group.daily_lead_limit}</p>
-          )}
-          <p><strong>成员列表：</strong>{group.list.join(', ')}</p>
-        </div>
-      ),
-      width: 600
-    });
-  };
 
   const handleDeleteGroup = async (id: number) => {
     try {
@@ -1175,7 +1002,7 @@ const AllocationManagement: React.FC = () => {
   };
 
   // 新增：全员信息状态
-  const [allUsers, setAllUsers] = useState<{ id: string; nickname: string }[]>([]);
+  const [, setAllUsers] = useState<{ id: string; nickname: string }[]>([]);
 
   // 新增：加载所有在职销售
   const loadAllUsers = async () => {
@@ -1197,8 +1024,8 @@ const AllocationManagement: React.FC = () => {
   }, []);
 
   // 部门和成员分组状态
-  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
-  const [groupedUsers, setGroupedUsers] = useState<
+  const [] = useState<{ id: string; name: string }[]>([]);
+  const [] = useState<
     { deptId: string; deptName: string; members: { id: string; nickname: string }[] }[]
   >([]);
   // TreeSelect数据状态
@@ -1303,26 +1130,8 @@ const AllocationManagement: React.FC = () => {
   }, [editingGroup, isGroupModalVisible, userProfileCache]);
 
   // 部门全选/取消全选
-  const handleDeptSelect = (deptId: string, members: { id: string }[]) => {
-    const memberIds = members.map(m => m.id);
-    const allSelected = memberIds.every(id => selectedUsers.some(u => u === id));
-    let newSelected;
-    if (allSelected) {
-      newSelected = selectedUsers.filter(u => !memberIds.includes(u));
-    } else {
-      newSelected = Array.from(new Set([...selectedUsers, ...members.map(m => String(m.id))]));
-    }
-    setSelectedUsers(newSelected);
-    groupForm.setFieldsValue({ list: newSelected });
-  };
 
   // 搜索过滤
-  const filterOption = (input: string, option: any) => {
-    return (
-      (option.label && option.label.toLowerCase().includes(input.toLowerCase())) ||
-      (option.deptname && option.deptname.toLowerCase().includes(input.toLowerCase()))
-    );
-  };
 
   // 积分分配规则标签页内容
   const pointsAllocationTabContent = (
@@ -1519,12 +1328,6 @@ const AllocationManagement: React.FC = () => {
   };
 
   // 在组件顶部声明Form实例（移除重复声明）
-  const cardStyles = {
-    header: {
-      borderBottom: '1px solid #f0f0f0',
-      padding: '16px 24px'
-    }
-  };
 
   // 分配历史筛选相关 state
   const [logFilters, setLogFilters] = useState({
@@ -2122,7 +1925,7 @@ const AllocationManagement: React.FC = () => {
           form={ruleForm}
           layout="vertical"
           onFinish={handleSaveRule}
-          onValuesChange={(changedValues, allValues) => {
+          onValuesChange={(changedValues) => {
             if (changedValues.user_groups) {
             }
           }}
@@ -2227,9 +2030,9 @@ const AllocationManagement: React.FC = () => {
               filterOption={(input, option) =>
                 String(option?.children || '').toLowerCase().includes(input.toLowerCase())
               }
-              onSelect={(value) => {
+              onSelect={() => {
               }}
-              onDeselect={(value) => {
+              onDeselect={() => {
               }}
             >
               {userGroups.map(group => {
@@ -2484,7 +2287,7 @@ const AllocationManagement: React.FC = () => {
               treeCheckable
               showCheckedStrategy={TreeSelect.SHOW_CHILD}
               treeCheckStrictly={false}
-              onSelect={(value, node) => {
+              onSelect={(value) => {
                 // 如果是部门节点，处理全选/全不选
                 if (String(value).startsWith('dept_')) {
                   // 递归获取部门下所有成员（包括子部门）
@@ -2545,7 +2348,7 @@ const AllocationManagement: React.FC = () => {
                   return; // 阻止默认的onChange处理
                 }
               }}
-              onDeselect={(value, node) => {
+              onDeselect={(value) => {
                 // 如果是部门节点，处理全不选
                 if (String(value).startsWith('dept_')) {
                   // 递归获取部门下所有成员（包括子部门）
@@ -2591,7 +2394,7 @@ const AllocationManagement: React.FC = () => {
                   return; // 阻止默认的onChange处理
                 }
               }}
-              onChange={(val, labelList, extra) => {
+              onChange={(val) => {
                 const values = Array.isArray(val) ? val : [];
                 console.log('【TreeSelect onChange】原始val:', val);
                 console.log('【TreeSelect onChange】values:', values);
@@ -2639,7 +2442,6 @@ const AllocationManagement: React.FC = () => {
                   
                   if (!dept) return [];
                   
-                  let allUsers: string[] = [];
                   
                   // 递归获取所有子部门的用户
                   const getAllUsersFromNode = (node: any): string[] => {

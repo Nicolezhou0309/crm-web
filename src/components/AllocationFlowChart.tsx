@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Card,
   Button,
   Space,
   Tag,
@@ -13,32 +12,21 @@ import {
   Col,
   Typography,
   Tooltip,
-  Badge,
   Switch,
-  InputNumber,
   TimePicker
 } from 'antd';
-import type { SelectProps } from 'antd';
 import {
   PlusOutlined,
-  EditOutlined,
   DeleteOutlined,
   ArrowRightOutlined,
-  SettingOutlined,
   TeamOutlined,
   BranchesOutlined,
-  PlayCircleOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  LockOutlined,
-  UnlockOutlined
-} from '@ant-design/icons';
+  PlayCircleOutlined} from '@ant-design/icons';
 import { arrayMoveImmutable } from 'array-move';
 import type { SimpleAllocationRule, UserGroup } from '../types/allocation';
 import { ALLOCATION_METHODS, WEEKDAY_OPTIONS } from '../types/allocation';
 import dayjs from 'dayjs';
 import { supabase } from '../supaClient';
-import * as allocationApi from '../utils/allocationApi';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -87,7 +75,6 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
   userGroups,
   sourceOptions = [],
   communityOptions = [],
-  onRuleEdit,
   onRuleDelete,
   onRuleTest,
   onRuleCreate,
@@ -162,7 +149,7 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
       return b.priority - a.priority; // 优先级高的在前
     });
 
-    const newTriggers: TriggerNode[] = sortedRules.map((rule, index) => ({
+    const newTriggers: TriggerNode[] = sortedRules.map((rule) => ({
       id: rule.id,
       title: rule.name,
       priority: rule.priority,
@@ -224,7 +211,6 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
 
   // 优化简短条件显示函数
   const formatConditionShort = (rule: SimpleAllocationRule) => {
-    const conditions = [];
     let totalConditions = 0;
     
     // 计算已设置的条件数量
@@ -256,7 +242,6 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
       message.warning('默认分配规则不可移动');
       return;
     }
-    console.log('开始拖拽行:', idx, '触发器:', trigger.title);
     setDragRowIdx(idx);
     setOriginalDragRowIdx(idx);
   };
@@ -272,7 +257,6 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
         return;
       }
 
-      console.log('拖拽到行:', idx, '从行:', dragRowIdx);
       // 重新排序触发器
       const newTriggers = arrayMoveImmutable(triggers, dragRowIdx, idx);
       const newChains = arrayMoveImmutable(chains, dragRowIdx, idx);
@@ -285,7 +269,6 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
 
   // 修改拖拽结束后的优先级更新逻辑
   const handleRowDragEnd = () => {
-    console.log('拖拽结束，originalDragRowIdx:', originalDragRowIdx, 'dragRowIdx:', dragRowIdx);
     // 保存规则优先级排序到数据库
     if (originalDragRowIdx !== null && onRulesReorder) {
       // 使用当前triggers的顺序（已经通过拖拽重新排序）来设置优先级
@@ -294,7 +277,6 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
         priority: t.priority === 0 ? 0 : triggers.length - index // 从高到低设置优先级，默认规则保持0
       }));
 
-      console.log('重新排序的规则:', reorderedRules);
       // 异步保存到数据库
       setTimeout(async () => {
         try {
@@ -452,11 +434,6 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
     message.success('触发条件已删除');
   };
 
-  const handleToggleLock = (triggerId: string) => {
-    setTriggers(prev => prev.map(t => 
-      t.id === triggerId ? { ...t, locked: !t.locked } : t
-    ));
-  };
 
   // 人员清单操作
   const handleEditList = (list: ListNode) => {
@@ -729,62 +706,6 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
   );
 
   // 渲染箭头和插入按钮
-  const renderArrow = (chain: AllocationChain, idx: number, lidx: number) => (
-    <Tooltip title="插入销售组">
-      <div 
-        className="list-arrow"
-        style={{ position: 'relative' }}
-        onMouseEnter={(e) => {
-          const target = e.currentTarget;
-          const insertBtn = target.querySelector('.insert-btn');
-          if (insertBtn) {
-            (insertBtn as HTMLElement).style.display = 'block';
-          }
-        }}
-        onMouseLeave={(e) => {
-          const target = e.currentTarget;
-          const insertBtn = target.querySelector('.insert-btn');
-          if (insertBtn) {
-            (insertBtn as HTMLElement).style.display = 'none';
-          }
-        }}
-      >
-        <ArrowRightOutlined />
-        <Button
-          type="text"
-          size="small"
-          icon={<PlusOutlined />}
-          className="insert-btn"
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            display: 'none',
-            background: '#fff',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            zIndex: 1
-          }}
-          onClick={() => {
-            const timestamp = Date.now();
-            const randomId = Math.random().toString(36).substring(2, 15);
-            const newList = {
-              id: `${chain.triggerId}_${timestamp}_${randomId}`,
-              title: '新建人员清单',
-              groupId: 0,
-              groupName: '未配置',
-              data: {} as UserGroup
-            };
-            
-            // 直接打开编辑窗口，不更新状态
-            setEditingList({...newList, insertIndex: lidx + 1});
-            listForm.setFieldsValue({ title: newList.title, groupId: undefined });
-            setIsListModal(true);
-          }}
-        />
-      </div>
-    </Tooltip>
-  );
 
   // 渲染流程
   const renderAllocationFlow = () => {
