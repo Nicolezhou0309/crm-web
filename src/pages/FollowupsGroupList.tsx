@@ -51,7 +51,7 @@ const groupFieldOptions = [
   { label: '约访管家', value: 'interviewsales_user_id' },
   { label: '创建日期', value: 'created_at' },
   { label: '社区', value: 'scheduledcommunity' },
-  { label: '来源', value: 'source' },
+  { label: '渠道', value: 'source' },
   // 可继续扩展
 ];
 
@@ -846,7 +846,7 @@ const FollowupsGroupList: React.FC = () => {
             <Button
               type="link"
               size="small"
-              style={{ padding: 0, height: 'auto', fontSize: 15, color: '#1677ff', fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap' }}
+              style={{ padding: 0, height: 'auto', fontSize: 15, color: '#1677ff', fontWeight: 'normal', display: 'inline-block', whiteSpace: 'nowrap' }}
               onClick={() => {
                 setLeadDetailId(record.leadid);
                 setLeadDetailDrawerOpen(true);
@@ -1150,6 +1150,7 @@ const FollowupsGroupList: React.FC = () => {
       title: '渠道',
       dataIndex: 'source',
       key: 'source',
+      width: 50,
       ellipsis: true,
       filters: getFilters('source', 'source'),
       filterMultiple: true,
@@ -1711,7 +1712,7 @@ const FollowupsGroupList: React.FC = () => {
         </Title>
         <Space>
           <Search
-            placeholder="线索编号、手机号、微信号、管家昵称等"
+            placeholder="编号、联系方式、管家..."
             allowClear
             value={keywordSearch}
             onChange={(e) => setKeywordSearch(e.target.value)}
@@ -1726,6 +1727,7 @@ const FollowupsGroupList: React.FC = () => {
               setGroupField(val || undefined);
               if (!val) setSelectedGroup(''); // 选"全部"时自动恢复明细
             }}
+            className="page-btn"
             style={{ width: 120 }}
             placeholder="选择分组"
             allowClear
@@ -1903,7 +1905,7 @@ const FollowupsGroupList: React.FC = () => {
         {/* 左侧分组区（分组按钮+总数卡片） */}
         <div className={`group-panel-sidebar ${groupPanelOpen ? 'open' : 'closed'}`}>
           {/* 总记录数卡片 */}
-          <div className="group-card">
+          <div style={{ paddingTop: 16, paddingBottom: 8,borderRadius: 16 }}>
             <span className="group-card-title">总记录数</span>
             <span className="group-card-count">{groupTotal}</span>
           </div>
@@ -1989,11 +1991,14 @@ const FollowupsGroupList: React.FC = () => {
                 showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
               }}
               rowKey="id"
-              size="middle"
+              size="small"
               bordered={false}
-              className="page-table"
+              className="page-table compact-table"
               onChange={handleTableChange}
-              scroll={{ x: 'max-content' }}
+              scroll={{ x: 'max-content', y: 'calc(100vh - 280px)' }}
+              rowClassName={() => 'compact-table-row'}
+              sticky
+              tableLayout="fixed"
             />
           </Spin>
         </div>

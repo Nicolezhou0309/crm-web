@@ -74,7 +74,6 @@ body {
 .read-the-docs {
   color: #888;
 }
-
 .ant-card,
 .allocation-trigger-card,
 .allocation-list-card {
@@ -226,3 +225,4 @@ body {
 .custom-followup-menu .ant-menu-item span {
   font-size: 14px !important;
 }
+

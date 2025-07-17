@@ -133,13 +133,20 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   // 获取线索详情数据
   const fetchLeadDetail = async () => {
     if (!leadid) return;
-    
     setLoading(true);
     try {
-      // 使用filter_leads函数获取基础数据
-      const { data: leadsData, error: leadsError } = await supabase.rpc('filter_leads', {
-        p_leadid: leadid
-      });
+      // 并发获取所有数据
+      const [
+        { data: leadsData, error: leadsError },
+        { data: followupData },
+        { data: showingsList },
+        { data: dealsList }
+      ] = await Promise.all([
+        supabase.rpc('filter_leads', { p_leadid: leadid }),
+        supabase.from('followups').select(`*, interviewsales_user:users_profile!followups_interviewsales_user_id_fkey(nickname)`).eq('leadid', leadid).single(),
+        supabase.from('showings').select(`*, showingsales_user:users_profile!showings_showingsales_fkey(nickname), trueshowingsales_user:users_profile!showings_trueshowingsales_fkey(nickname)`).eq('leadid', leadid).order('created_at', { ascending: false }),
+        supabase.from('deals').select('*').eq('leadid', leadid).order('created_at', { ascending: false })
+      ]);
 
       if (leadsError) {
         message.error('获取线索详情失败: ' + leadsError.message);
@@ -148,35 +155,6 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
 
       if (leadsData && leadsData.length > 0) {
         const leadInfo = leadsData[0];
-        
-        // 获取跟进信息
-        const { data: followupData } = await supabase
-          .from('followups')
-          .select(`
-            *,
-            interviewsales_user:users_profile!followups_interviewsales_user_id_fkey(nickname)
-          `)
-          .eq('leadid', leadid)
-          .single();
-
-        // 获取所有带看记录
-        const { data: showingsList } = await supabase
-          .from('showings')
-          .select(`
-            *,
-            showingsales_user:users_profile!showings_showingsales_fkey(nickname),
-            trueshowingsales_user:users_profile!showings_trueshowingsales_fkey(nickname)
-          `)
-          .eq('leadid', leadid)
-          .order('created_at', { ascending: false });
-
-        // 获取所有成交记录
-        const { data: dealsList } = await supabase
-          .from('deals')
-          .select('*')
-          .eq('leadid', leadid)
-          .order('created_at', { ascending: false });
-
         // 获取最新带看信息
         const showingData = showingsList && showingsList.length > 0 ? showingsList[0] : null;
         // 获取最新成交信息
@@ -231,7 +209,6 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
           showingsList: showingsList || [],
           dealsList: dealsList || [],
         };
-
         setLeadData(combinedData);
       } else {
         message.warning('未找到该线索信息');
@@ -605,9 +582,9 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               key="showing"
             >
               {/* 卡片列表展示所有带看记录 */}
-              {((leadData.showingsList || [])).length > 0 ? (
+              {leadData && Array.isArray(leadData.showingsList) && leadData.showingsList.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {(leadData.showingsList || []).map((showing, idx) => (
+                  {(leadData.showingsList as any[]).map((showing, idx) => (
                     <Card key={showing.id} title={`带看记录 #${leadData.showingsList.length - idx}`} size="small">
                       <Descriptions column={2} bordered size="small">
                         <Descriptions.Item label="预约时间">
@@ -646,6 +623,16 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
                         <Descriptions.Item label="更新时间">
                           <Text>{showing.updated_at ? dayjs(showing.updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
                         </Descriptions.Item>
+                        {showing.phone && (
+                          <Descriptions.Item label="手机号">
+                            <Text>{maskPhone(showing.phone)}</Text>
+                          </Descriptions.Item>
+                        )}
+                        {showing.wechat && (
+                          <Descriptions.Item label="微信号">
+                            <Text>{maskWechat(showing.wechat)}</Text>
+                          </Descriptions.Item>
+                        )}
                       </Descriptions>
                     </Card>
                   ))}
@@ -668,9 +655,9 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               key="deal"
             >
               {/* 卡片列表展示所有成交记录 */}
-              {((leadData.dealsList || [])).length > 0 ? (
+              {leadData && Array.isArray(leadData.dealsList) && leadData.dealsList.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {(leadData.dealsList || []).map((deal, idx) => (
+                  {(leadData.dealsList as any[]).map((deal, idx) => (
                     <Card key={deal.id} title={`成交记录 #${leadData.dealsList.length - idx}`} size="small">
                       <Descriptions column={2} bordered size="small">
                         <Descriptions.Item label="合同日期">
@@ -691,6 +678,16 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
                         <Descriptions.Item label="更新时间">
                           <Text>{deal.updated_at ? dayjs(deal.updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
                         </Descriptions.Item>
+                        {deal.phone && (
+                          <Descriptions.Item label="手机号">
+                            <Text>{maskPhone(deal.phone)}</Text>
+                          </Descriptions.Item>
+                        )}
+                        {deal.wechat && (
+                          <Descriptions.Item label="微信号">
+                            <Text>{maskWechat(deal.wechat)}</Text>
+                          </Descriptions.Item>
+                        )}
                       </Descriptions>
                     </Card>
                   ))}

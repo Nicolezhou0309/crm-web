@@ -1,0 +1,22 @@
+/* 紧凑表格行距样式 */
+.compact-table .ant-table-tbody > tr.compact-table-row > td {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  font-size: 14px;
+}
+.compact-table .ant-table-thead > tr > th {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  font-size: 14px;
+  color: #444 !important;
+  font-weight: 600 !important;
+  background: #f5f5f5 !important;
+}
+.compact-table .ant-table-tbody > tr.compact-table-row {
+  height: 30px !important;
+  min-height: 26px !important;
+} 

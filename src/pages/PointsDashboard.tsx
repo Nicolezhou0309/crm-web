@@ -9,6 +9,7 @@ import {
   BranchesOutlined, BarChartOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DollarOutlined
 } from '@ant-design/icons';
 import type { ColumnsType, TableProps } from 'antd/es/table';
+import './compact-table.css';
 
 interface PointsInfo {
   wallet: {
@@ -390,6 +391,8 @@ export default function PointsDashboard() {
               showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
             }}
             size="small"
+            className="compact-table"
+            rowClassName={() => 'compact-table-row'}
             rowKey="id"
           />
         ) : (

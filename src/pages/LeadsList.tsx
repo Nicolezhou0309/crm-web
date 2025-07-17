@@ -25,6 +25,7 @@ import { supabase, fetchEnumValues, generateLeadId } from '../supaClient';
 import dayjs from 'dayjs';
 import { formatCommunityRemark } from '../utils/validationUtils';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
+import './compact-table.css';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -664,7 +665,8 @@ const LeadsList: React.FC = () => {
                 `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
             }}
             bordered={false}
-            className="page-table"
+            className="page-table compact-table"
+            rowClassName={() => 'compact-table-row'}
             scroll={{ x: 1400, y: 520 }}
             onChange={handleTableChange}
           />

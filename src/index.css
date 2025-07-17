@@ -144,7 +144,7 @@ button:focus-visible {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 0px;
   position: sticky;
   top: 0;
   z-index: 2;
@@ -467,56 +467,18 @@ button:focus-visible {
   }
 }
 
-/* ========== 跟进抽屉左侧线索信息区块 ========== */
-.page-drawer-info .mb-12 {
-  margin-bottom: 12px;
-}
-
-/* ========== 跟进抽屉内容区块整体内边距 ========== */
-.ant-drawer-body {
-  padding: 16px;
-  background: #f8f9fa;
-}
-
 /* 分组卡片样式 */
-.group-card {
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  margin-bottom: 16px;
-  transition: all 0.2s;
-  cursor: pointer;
-  position: relative;
-  border: 2px solid transparent;
-}
 .group-card-title {
   font-weight: 600;
   color: #262626;
+  font-size: 18px; 
 }
 .group-card-count {
+  padding-left: 8px;
   color: #1677ff;
   font-weight: 600;
   font-size: 18px;
 }
-.group-card-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #ff4d4f;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.group-card-close:hover {
-  background: #ff7875;
-}
-
 /* 分组按钮列表样式优化 */
 .group-btn {
   display: flex;
@@ -570,21 +532,6 @@ button:focus-visible {
   background: #fff;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-.group-panel.closed {
-  width: 0;
-  min-width: 0;
-  margin-right: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-.group-panel.open {
-  width: 300px;
-  min-width: 300px;
-  margin-right: 16px;
-  opacity: 1;
-  pointer-events: auto;
 }
 
 /* 自动修正主内容区和侧边栏间距重复问题 */
@@ -608,7 +555,7 @@ button:focus-visible {
 .group-panel-sidebar.closed {
   width: 0;
   min-width: 0;
-  margin-right: 0;
+  margin-right: -40px;
   opacity: 0;
   pointer-events: none;
 }
@@ -619,13 +566,13 @@ button:focus-visible {
   margin-right: 16px;
   opacity: 1;
   pointer-events: auto;
+  border: 1px solid #f3f4f6;
 }
 
 .main-content-area {
   flex: 1;
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1364,4 +1311,113 @@ button:focus-visible {
 .leadid-link-btn:hover {
   background: none !important;
   box-shadow: none !important;
+}
+
+/* ========== 现代极简分组卡片样式 ========== */
+/* ========== 分组卡片动画与样式升级 ========== */
+.group-panel-sidebar {
+  border-radius: 24px;
+  padding: 0 24px 24px 24px;
+  background: #fff;
+  max-height: none;
+  height: 520px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 卡片列表区滚动自适应 */
+.group-btn-list {
+  flex: 1 1 0;
+  overflow-y: auto;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.group-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+  cursor: pointer;
+  outline: none;
+  min-height: 38px;
+  position: relative;
+}
+.group-btn:last-child { margin-bottom: 0; }
+.group-btn:hover, .group-btn:focus {
+  border-color: #1677ff;
+  box-shadow: 0 4px 16px rgba(22,119,255,0.08);
+  background: #f6faff;
+}
+.group-btn-selected {
+  border-color: #1677ff;
+  background: #e6f4ff;
+  box-shadow: 0 4px 16px rgba(22,119,255,0.10);
+}
+.group-btn-title {
+  color: #222;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.group-btn-count {
+  background: none;
+  color: #1677ff;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 14px;
+  min-width: 36px;
+  text-align: right;
+  letter-spacing: 0.5px;
+  margin-left: 10px;
+  box-shadow: none;
+  transition: background 0.2s, color 0.2s;
+  display: inline-block;
+}
+
+/* 时间选择器区一排，去阴影、紧凑 */
+.quick-date-bar {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-left: 0;
+  box-shadow: none;
+  background: none;
+}
+.quick-date-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 13px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  font-weight: 500;
+  box-shadow: none;
+}
+.quick-date-btn.active,
+.quick-date-btn:focus,
+.quick-date-btn:hover {
+  background: #e6f4ff;
+  color: #1677ff;
+  font-weight: 600;
+  outline: none;
+  box-shadow: none;
 }

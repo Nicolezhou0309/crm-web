@@ -70,7 +70,7 @@ const RankingBoard: React.FC = () => {
       boxShadow: '0 4px 16px rgba(255,107,53,0.08)',
       padding: '20px',
       width: '100%',
-      height: 520,
+      height: '100%',
       position: 'relative',
       fontSize: 13, // 全局缩小字号
       display: 'flex',
@@ -79,9 +79,9 @@ const RankingBoard: React.FC = () => {
     }}>
       {/* 标题和装饰 */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, fontSize: 16 }}>
-        <span style={{ fontSize: 16, fontWeight: 700, color: '#d97b2b', marginRight: 8 }}>创作者排行榜</span>
+        <span style={{ fontSize: 16, fontWeight: 700, color: '#d97b2b', marginRight: 8, whiteSpace: 'nowrap' }}>管家排行榜</span>
         <span style={{ fontSize: 20, marginLeft: 2 }}>👑</span>
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#999' }}>更新日期：2024-06-24</span>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#999', whiteSpace: 'nowrap' }}>更新日期：2024-06-24</span>
       </div>
       {/* Tabs */}
       <Tabs
@@ -123,8 +123,8 @@ const RankingBoard: React.FC = () => {
                   zIndex: 2,
                 }}>TOP.2</span>
               </div>
-              <span style={{ fontWeight: 600, fontSize: 13, marginBottom: 1 }}>{data[1].name}</span>
-              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500 }}>新作{data[1].value}件</span>
+              <span style={{ fontWeight: 600, fontSize: 13, marginBottom: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data[1].name}</span>
+              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500, whiteSpace: 'nowrap' }}>新作{data[1].value}件</span>
             </div>
           )}
           {/* TOP1 中间 */}
@@ -156,8 +156,8 @@ const RankingBoard: React.FC = () => {
                   zIndex: 2,
                 }}>TOP.1</span>
               </div>
-              <span style={{ fontWeight: 600, fontSize: 13, marginBottom: 1 }}>{data[0].name}</span>
-              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500 }}>新作{data[0].value}件</span>
+              <span style={{ fontWeight: 600, fontSize: 13, marginBottom: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data[0].name}</span>
+              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500, whiteSpace: 'nowrap' }}>新作{data[0].value}件</span>
             </div>
           )}
           {/* TOP3 右边 */}
@@ -188,8 +188,8 @@ const RankingBoard: React.FC = () => {
                   zIndex: 2,
                 }}>TOP.3</span>
               </div>
-              <span style={{ fontWeight: 600, fontSize: 13, marginBottom: 1 }}>{data[2].name}</span>
-              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500 }}>新作{data[2].value}件</span>
+              <span style={{ fontWeight: 600, fontSize: 13, marginBottom: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data[2].name}</span>
+              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500, whiteSpace: 'nowrap' }}>新作{data[2].value}件</span>
             </div>
           )}
         </div>
@@ -201,8 +201,8 @@ const RankingBoard: React.FC = () => {
             }}>
               <span style={{ width: 20, textAlign: 'center', fontWeight: 700, color: '#d97b2b', fontSize: 13 }}>{idx + 4}</span>
               <Avatar src={item.avatar} size={28} style={{ margin: '0 8px' }} />
-              <span style={{ flex: 1, fontWeight: 500 }}>{item.name}</span>
-              <span style={{ color: '#d97b2b', fontSize: 11, marginRight: 6 }}>新作{item.value}件</span>
+              <span style={{ flex: 1, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</span>
+              <span style={{ color: '#d97b2b', fontSize: 11, marginRight: 6, whiteSpace: 'nowrap' }}>新作{item.value}件</span>
               <Button
                 size="small"
                 type={followed[item.id] ? 'default' : 'primary'}
@@ -226,7 +226,7 @@ const RankingBoard: React.FC = () => {
         fontSize: 13,
       }}>
         <Avatar src={myInfo.avatar} size={22} style={{ marginRight: 8 }} />
-        <span style={{ fontWeight: 500, fontSize: 13 }}>{myInfo.name}</span>
+        <span style={{ fontWeight: 500, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{myInfo.name}</span>
         {myInfo.rank ? (
           <>
             <span style={{ marginLeft: 10, color: '#d97b2b', fontWeight: 600 }}>第{myInfo.rank}名</span>

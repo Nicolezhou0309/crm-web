@@ -16,13 +16,34 @@ const LottieLogo: React.FC<{ width?: number; height?: number }> = ({ width = 40,
     }
   }, []);
 
+  const handleMouseEnter = () => {
+    if (lottieRef.current) {
+      // 从头开始播放一遍动画
+      lottieRef.current.goToAndPlay(0, true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (lottieRef.current) {
+      // 停止动画并回到最后一帧
+      lottieRef.current.stop();
+      const totalFrames = lottieRef.current.getDuration(true);
+      if (typeof totalFrames === 'number' && !isNaN(totalFrames)) {
+        lottieRef.current.goToAndStop(totalFrames - 1, true);
+      }
+    }
+  };
+
   return (
     <div
-      style={{ width, height }}
-      onMouseEnter={() => {
-        lottieRef.current?.stop();
-        lottieRef.current?.play();
+      style={{ 
+        width, 
+        height,
+        cursor: 'pointer',
+        transition: 'all 0.3s ease',
       }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <Lottie
         lottieRef={lottieRef}

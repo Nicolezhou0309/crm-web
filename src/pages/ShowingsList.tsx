@@ -45,6 +45,7 @@ import dayjs from 'dayjs';
 import { supabase } from '../supaClient';
 import type { Key } from 'react';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
+import './compact-table.css';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -87,6 +88,17 @@ interface QueueCardDetail {
   consumed: boolean;
   consumed_at: string | null;
 }
+
+// 在顶部添加脱敏函数
+const maskPhone = (phone: string) => {
+  if (!phone) return '-';
+  return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+};
+const maskWechat = (wechat: string) => {
+  if (!wechat) return '-';
+  if (wechat.length < 4) return wechat;
+  return wechat.substring(0, 2) + '****' + wechat.substring(wechat.length - 2);
+};
 
 const ShowingsList: React.FC = () => {
   const [data, setData] = useState<ShowingWithRelations[]>([]);
@@ -403,7 +415,7 @@ const ShowingsList: React.FC = () => {
         </div>
       ),
       onFilter: (value: boolean | Key, record: ShowingWithRelations) => !!record.lead_phone?.toString().includes(String(value)),
-      render: (text: string) => text || '-',
+      render: (text: string) => maskPhone(text),
     },
     {
       title: '客户微信',
@@ -434,7 +446,7 @@ const ShowingsList: React.FC = () => {
         </div>
       ),
       onFilter: (value: boolean | Key, record: ShowingWithRelations) => !!record.lead_wechat?.toString().includes(String(value)),
-      render: (text: string) => text || '-',
+      render: (text: string) => maskWechat(text),
     },
     {
       title: '社区',
@@ -731,37 +743,37 @@ const ShowingsList: React.FC = () => {
   const statsCards = (
     <Row gutter={16} style={{ marginBottom: 16 }}>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'center' }}>
+        <Card bordered={false} style={{ textAlign: 'left' }}>
           <div style={{ fontSize: 14, color: '#888' }}>本月带看量</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.monthShowings}</div>
         </Card>
       </Col>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'center' }}>
+        <Card bordered={false} style={{ textAlign: 'left' }}>
           <div style={{ fontSize: 14, color: '#888' }}>本月成交量</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.monthDeals}</div>
         </Card>
       </Col>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'center' }}>
+        <Card bordered={false} style={{ textAlign: 'left' }}>
           <div style={{ fontSize: 14, color: '#888' }}>带看转化率</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.conversionRate}%</div>
         </Card>
       </Col>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => handleCardClick('direct')}>
+        <Card bordered={false} style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => handleCardClick('direct')}>
           <div style={{ fontSize: 14, color: '#888' }}>直通卡数量</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.directCount}</div>
         </Card>
       </Col>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => handleCardClick('skip')}>
+        <Card bordered={false} style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => handleCardClick('skip')}>
           <div style={{ fontSize: 14, color: '#888' }}>轮空卡数量</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.skipCount}</div>
         </Card>
       </Col>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'center' }}>
+        <Card bordered={false} style={{ textAlign: 'left' }}>
           <div style={{ fontSize: 14, color: '#888' }}>工单未填写数量</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: '#ff4d4f' }}>0</div>
         </Card>
@@ -772,34 +784,15 @@ const ShowingsList: React.FC = () => {
   return (
     <div style={{ padding: '24px' }}>
       {statsCards}
+      {/* 移除按钮区，原本在这里：
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Title level={3}>带看记录管理</Title>
         <Space>
-          <Button 
-            icon={<FilterOutlined />} 
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            筛选
-          </Button>
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={() => {
-              setEditingRecord(null);
-              form.resetFields();
-              setIsModalVisible(true);
-            }}
-          >
-            新增带看记录
-          </Button>
-          <Button 
-            icon={<ReloadOutlined />} 
-            onClick={fetchData}
-          >
-            刷新
-          </Button>
+          <Button ...>筛选</Button>
+          <Button ...>新增带看记录</Button>
+          <Button ...>刷新</Button>
         </Space>
       </div>
+      */}
 
       <Table
         columns={columns}
@@ -819,6 +812,9 @@ const ShowingsList: React.FC = () => {
           },
         }}
         scroll={{ x: 1500 }}
+        size="small"
+        className="compact-table"
+        rowClassName={() => 'compact-table-row'}
       />
 
       <Modal
