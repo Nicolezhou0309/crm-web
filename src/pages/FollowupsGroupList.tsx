@@ -221,14 +221,12 @@ const FollowupsGroupList: React.FC = () => {
     page = pagination.current,
     pageSize = pagination.pageSize
   ) => {
-    console.log('[fetchFollowups] 调用参数:', { page, pageSize, filters: Object.keys(filters) });
     setLoading(true);
     try {
       // 计算分页参数
       const p_limit = pageSize;
       const p_offset = (page - 1) * pageSize;
 
-      console.log('[fetchFollowups] 分页参数:', { p_limit, p_offset });
 
       // 构造参数对象
       const params: Record<string, any> = {
@@ -326,13 +324,6 @@ const FollowupsGroupList: React.FC = () => {
         
         // 更新分页信息，保持当前页或使用传入的页数
         setPagination(prev => ({ ...prev, total, current: page, pageSize }));
-        
-        console.log('[fetchFollowups] 结果:', { 
-          total, 
-          current: page, 
-          pageSize, 
-          dataCount: safeData.length 
-        });
       }
     } catch (error) {
       message.error('获取跟进记录失败');
@@ -786,7 +777,6 @@ const FollowupsGroupList: React.FC = () => {
   // 初始化动态筛选选项
   useEffect(() => {
     const initializeDynamicFilters = async () => {
-      console.log('[动态筛选] 开始初始化动态筛选选项');
       
       const [
         remarkOptions,
@@ -803,15 +793,6 @@ const FollowupsGroupList: React.FC = () => {
         getDynamicFilters('majorcategory'),
         getDynamicFilters('leadtype')
       ]);
-
-      console.log('[动态筛选] 获取到的选项:', {
-        remark: remarkOptions.length,
-        worklocation: worklocationOptions.length,
-        userbudget: userbudgetOptions.length,
-        followupresult: followupresultOptions.length,
-        majorcategory: majorcategoryOptions.length,
-        leadtype: leadtypeOptions.length
-      });
 
       setDynamicFilters({
         leadid: [],
@@ -835,11 +816,9 @@ const FollowupsGroupList: React.FC = () => {
   const worklocationFilters = useMemo(() => dynamicFilters.worklocation, [dynamicFilters.worklocation]);
   const userbudgetFilters = useMemo(() => dynamicFilters.userbudget, [dynamicFilters.userbudget]);
   const followupresultFilters = useMemo(() => {
-    console.log('[跟进备注筛选] 当前筛选选项:', dynamicFilters.followupresult);
     return dynamicFilters.followupresult;
   }, [dynamicFilters.followupresult]);
   const majorcategoryFilters = useMemo(() => {
-    console.log('[跟进结果筛选] 当前筛选选项:', dynamicFilters.majorcategory);
     return dynamicFilters.majorcategory;
   }, [dynamicFilters.majorcategory]);
   const leadtypeFilters = useMemo(() => dynamicFilters.leadtype, [dynamicFilters.leadtype]);
@@ -1254,14 +1233,12 @@ const FollowupsGroupList: React.FC = () => {
           )
           .sort((a, b) => a.name.localeCompare(b.name));
 
-        console.log('[约访管家筛选] 可用管家列表:', userList);
-
+        
         const [searchText, setSearchText] = useState('');
         const filteredUsers = useMemo(() => {
           const filtered = userList.filter(user => 
             user.name.toLowerCase().includes(searchText.toLowerCase())
           );
-          console.log('[约访管家筛选] 搜索关键词:', searchText, '筛选结果:', filtered);
           return filtered;
         }, [userList, searchText]);
 
@@ -1293,11 +1270,6 @@ const FollowupsGroupList: React.FC = () => {
                     const newKeys = selectedKeys.includes(user.id)
                       ? selectedKeys.filter((key: any) => key !== user.id)
                       : [...selectedKeys, user.id];
-                    console.log('[约访管家筛选] 用户选择变化:', {
-                      user: { id: user.id, name: user.name },
-                      action: selectedKeys.includes(user.id) ? '取消选择' : '选择',
-                      newKeys
-                    });
                     setSelectedKeys(newKeys);
                   }}
                 >
@@ -2138,62 +2110,42 @@ const FollowupsGroupList: React.FC = () => {
         
         // 跟进备注字段特殊处理
         if (key === 'followupresult') {
-          console.log('[跟进备注筛选] 处理筛选参数:', {
-            key,
-            filters: filters[key],
-            paramKey
-          });
           
           if (filters[key] && filters[key].length > 0) {
-            console.log('[跟进备注筛选] 筛选值:', filters[key]);
             
             // 如果只包含null，传递[null]表示IS NULL条件
             if (filters[key].length === 1 && filters[key][0] === null) {
-              params[paramKey] = [null];
-              console.log('[跟进备注筛选] 传递NULL条件');
+              params[paramKey] = [null];  
             } else if (filters[key].includes(null)) {
               // 如果包含null和其他值，传递所有值
               params[paramKey] = filters[key];
-              console.log('[跟进备注筛选] 传递混合条件:', filters[key]);
             } else {
               // 只有非null值
               params[paramKey] = filters[key];
-              console.log('[跟进备注筛选] 传递筛选值:', filters[key]);
             }
           } else {
             delete params[paramKey];
-            console.log('[跟进备注筛选] 清除筛选条件');
           }
           return;
         }
         
         // 跟进结果字段特殊处理
         if (key === 'majorcategory') {
-          console.log('[跟进结果筛选] 处理筛选参数:', {
-            key,
-            filters: filters[key],
-            paramKey
-          });
           
           if (filters[key] && filters[key].length > 0) {
-            console.log('[跟进结果筛选] 筛选值:', filters[key]);
             
             // 如果只包含null，传递[null]表示IS NULL条件
             if (filters[key].length === 1 && filters[key][0] === null) {
               params[paramKey] = [null];
-              console.log('[跟进结果筛选] 传递NULL条件');
             } else if (filters[key].includes(null)) {
               // 如果包含null和其他值，传递所有值
               params[paramKey] = filters[key];
-              console.log('[跟进结果筛选] 传递混合条件:', filters[key]);
             } else {
               // 只有非null值
               params[paramKey] = filters[key];
-              console.log('[跟进结果筛选] 传递筛选值:', filters[key]);
             }
           } else {
-            delete params[paramKey];
-            console.log('[跟进结果筛选] 清除筛选条件');
+            delete params[paramKey];  
           }
           return;
         }
@@ -2854,28 +2806,13 @@ const FollowupsGroupList: React.FC = () => {
     }
   }, [frequencyController]);
 
-  // 调试：监听分页状态变化
-  useEffect(() => {
-    console.log('[FollowupsGroupList] 分页状态变化:', {
-      current: pagination.current,
-      pageSize: pagination.pageSize,
-      total: pagination.total,
-      shouldResetPagination
-    });
-  }, [pagination.current, pagination.pageSize, pagination.total, shouldResetPagination]);
-
-  // 调试：监听 cooldown 状态变化
-  useEffect(() => {
-  }, [cooldown]);
 
   // 获取动态字段的筛选选项（从后端获取）
   const fetchDynamicFilterOptions = async (fieldName: string) => {
     try {
-      console.log(`[动态筛选] 开始获取${fieldName}选项`);
       
       // 跟进备注和跟进结果字段使用后端函数获取所有选项
       if (fieldName === 'followupresult' || fieldName === 'majorcategory') {
-        console.log(`[${fieldName === 'followupresult' ? '跟进备注' : '跟进结果'}筛选] 使用后端函数获取选项`);
         
         const { data, error } = await supabase.rpc('get_filter_options', {
           p_field_name: fieldName,
@@ -2883,24 +2820,18 @@ const FollowupsGroupList: React.FC = () => {
         });
         
         if (error) {
-          console.error(`[${fieldName === 'followupresult' ? '跟进备注' : '跟进结果'}筛选] 获取筛选选项失败:`, error);
           // 回退到本地数据
           const fallbackData = getFilters(fieldName, fieldName);
-          console.log(`[${fieldName === 'followupresult' ? '跟进备注' : '跟进结果'}筛选] 使用本地数据作为回退:`, fallbackData);
           return fallbackData;
         }
         
-        console.log(`[${fieldName === 'followupresult' ? '跟进备注' : '跟进结果'}筛选] 获取选项成功:`, data);
         return data || [];
       }
       
       // 其他字段暂时使用本地数据
-      console.log(`[动态筛选] ${fieldName}使用本地数据`);
       const filters = getFilters(fieldName, fieldName);
-      console.log(`[动态筛选] ${fieldName}本地数据:`, filters);
       return filters;
     } catch (error) {
-      console.error(`[动态筛选] 获取${fieldName}筛选选项出错:`, error);
       return [];
     }
   };
@@ -2917,7 +2848,6 @@ const FollowupsGroupList: React.FC = () => {
       });
       
       if (error) {
-        console.error('[约访管家筛选] 获取管家列表失败:', error);
         // 如果后端函数不可用，回退到本地数据
         const fallbackList = localData
           .filter(item => item.interviewsales_user_id && item.interviewsales_user_name)
@@ -2946,7 +2876,6 @@ const FollowupsGroupList: React.FC = () => {
       setInterviewsalesUserList(userList);
       
     } catch (error) {
-      console.error('[约访管家筛选] 获取管家列表出错:', error);
       // 出错时也使用本地数据作为回退
       const fallbackList = localData
         .filter(item => item.interviewsales_user_id && item.interviewsales_user_name)

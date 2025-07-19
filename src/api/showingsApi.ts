@@ -40,6 +40,7 @@ export interface ShowingFilters {
   ascending?: boolean;
   limit?: number;
   offset?: number;
+  incomplete?: boolean; // 新增：筛选未填写工单
 }
 
 // 获取带看记录列表（支持多字段筛选）
@@ -66,7 +67,8 @@ export async function getShowings(filters: ShowingFilters = {}) {
     p_order_by: filters.orderBy || 'created_at',
     p_ascending: filters.ascending || false,
     p_limit: filters.limit || 10,
-    p_offset: filters.offset || 0
+    p_offset: filters.offset || 0,
+    p_incomplete: filters.incomplete || false
   });
   
   if (error) throw error;
@@ -93,7 +95,8 @@ export async function getShowingsCount(filters: ShowingFilters = {}) {
     p_moveintime_start: filters.moveintime_start,
     p_moveintime_end: filters.moveintime_end,
     p_created_at_start: filters.created_at_start,
-    p_created_at_end: filters.created_at_end
+    p_created_at_end: filters.created_at_end,
+    p_incomplete: filters.incomplete || false
   });
   
   if (error) throw error;

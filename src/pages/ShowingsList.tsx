@@ -26,9 +26,14 @@ import {
   FilterOutlined,
   EditOutlined,
   DeleteOutlined,
-  EyeOutlined
+  EyeOutlined,
+  BarChartOutlined,
+  FileTextOutlined,
+  ExpandAltOutlined,
+  ZoomInOutlined
 } from '@ant-design/icons';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
+import ShowingConversionRate from '../components/ShowingConversionRate';
 import { 
   getShowings, 
   getShowingsCount, 
@@ -46,6 +51,33 @@ import { supabase } from '../supaClient';
 import type { Key } from 'react';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
 import './compact-table.css';
+
+// 添加悬浮动画样式
+const floatAnimation = `
+  @keyframes float {
+    0% {
+      transform: translate(0, 0) scale(1);
+    }
+    25% {
+      transform: translate(-4px, -4px) scale(1.1);
+    }
+    50% {
+      transform: translate(4px, -2px) scale(1.2);
+    }
+    75% {
+      transform: translate(-2px, 3px) scale(1.1);
+    }
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+  }
+  
+  .card-hover:hover .zoom-icon {
+    animation: float 2s ease-in-out infinite;
+    opacity: 1 !important;
+    color: #1677ff !important;
+  }
+`;
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -71,6 +103,7 @@ interface ShowingWithRelations {
   showingsales_nickname?: string;
   trueshowingsales_nickname?: string;
   interviewsales_nickname?: string;
+  interviewsales_user_id?: number | null; // 约访销售ID
   lead_phone?: string;
   lead_wechat?: string;
   lead_source?: string;
@@ -118,7 +151,7 @@ const ShowingsList: React.FC = () => {
 
   // 选项数据
   const [communityOptions, setCommunityOptions] = useState<{ value: string; label: string }[]>([]);
-  const [viewResultOptions, setViewResultOptions] = useState<string[]>([]);
+  const [viewResultOptions, setViewResultOptions] = useState<any[]>([]);
   const [salesOptions, setSalesOptions] = useState<{ value: number; label: string }[]>([]);
 
   // 统计卡片相关状态
@@ -128,31 +161,42 @@ const ShowingsList: React.FC = () => {
     conversionRate: 0,
     directCount: 0,
     skipCount: 0,
+    incompleteCount: 0, // 未填写表单数量
   });
+
+  // 筛选状态管理
+  const [activeFilter, setActiveFilter] = useState<'direct' | 'skip' | 'incomplete' | null>(null);
 
   // 明细弹窗相关状态
   const [cardDetailModal, setCardDetailModal] = useState<{ visible: boolean; type: 'direct' | 'skip' | null }>({ visible: false, type: null });
   const [cardDetails, setCardDetails] = useState<QueueCardDetail[]>([]);
   const [cardDetailLoading, setCardDetailLoading] = useState(false);
 
+  // 带看转化率弹窗状态
+  const [conversionRateModal, setConversionRateModal] = useState(false);
+
   // 获取统计数据
   const fetchStats = async () => {
     const now = dayjs();
     const monthStart = now.startOf('month').toISOString();
     const monthEnd = now.endOf('month').toISOString();
-    // 本月带看量
-    const { count: showingsCount } = await supabase
-      .from('showings')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', monthStart)
-      .lte('created_at', monthEnd);
-    // 本月成交量（看房结果=成交）
-    const { count: dealsCount } = await supabase
-      .from('showings')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', monthStart)
-      .lte('created_at', monthEnd)
-      .eq('viewresult', '成交');
+    
+    // 使用与明细查询相同的存储过程来获取统计数据
+    const { data: showingsData } = await supabase.rpc('filter_showings', {
+      p_created_at_start: monthStart,
+      p_created_at_end: monthEnd,
+      p_limit: 1000, // 获取足够多的数据来统计
+      p_offset: 0
+    });
+    
+    // 统计带看量
+    const showingsCount = showingsData?.length || 0;
+    
+    // 统计直签量
+    const directDealsCount = showingsData?.filter((item: any) => item.viewresult === '直签').length || 0;
+    
+    // 统计预定量
+    const reservedCount = showingsData?.filter((item: any) => item.viewresult === '预定').length || 0;
     // 直通卡数量
     const { count: directCount } = await supabase
       .from('showings_queue_record')
@@ -165,16 +209,68 @@ const ShowingsList: React.FC = () => {
       .select('id', { count: 'exact', head: true })
       .eq('queue_type', 'skip')
       .eq('consumed', false);
-    // 转化率
-    const conversionRate = showingsCount && dealsCount ? (dealsCount / showingsCount) * 100 : 0;
+    // 未填写表单数量（看房结果为空或未填写）
+    const { count: incompleteCount } = await supabase
+      .from('showings')
+      .select('id', { count: 'exact', head: true })
+      .or('viewresult.is.null,viewresult.eq.');
+    
+    // 转化率 = (直签量 + 预定量) / 带看量
+    const totalDeals = (directDealsCount || 0) + (reservedCount || 0);
+    const conversionRate = showingsCount && totalDeals ? (totalDeals / showingsCount) * 100 : 0;
+    
+    // 调试信息
+    console.log('卡片统计调试信息:');
+    console.log('本月带看量:', showingsCount);
+    console.log('本月直签量:', directDealsCount);
+    console.log('本月预定量:', reservedCount);
+    console.log('本月总成交量:', totalDeals);
+    console.log('转化率:', conversionRate);
+    console.log('原始数据条数:', showingsData?.length);
+    
     setStats({
       monthShowings: showingsCount || 0,
-      monthDeals: dealsCount || 0,
+      monthDeals: totalDeals,
       conversionRate: Number(conversionRate.toFixed(2)),
       directCount: directCount || 0,
       skipCount: skipCount || 0,
+      incompleteCount: incompleteCount || 0,
     });
   };
+
+  // 获取看房结果选项（使用Selection.id=2）
+  const fetchViewResultOptions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('Selection')
+        .select('selection')
+        .eq('id', 2)
+        .single();
+      
+      if (!error && data && data.selection) {
+        setViewResultOptions(data.selection);
+      } else {
+        // 如果获取失败，使用默认选项
+        setViewResultOptions([
+          { value: '满意', label: '满意' },
+          { value: '不满意', label: '不满意' },
+          { value: '待定', label: '待定' },
+          { value: '成交', label: '成交' }
+        ]);
+      }
+    } catch (error) {
+      console.error('获取看房结果选项失败:', error);
+      // 使用默认选项
+      setViewResultOptions([
+        { value: '满意', label: '满意' },
+        { value: '不满意', label: '不满意' },
+        { value: '待定', label: '待定' },
+        { value: '成交', label: '成交' }
+      ]);
+    }
+  };
+
+
 
   useEffect(() => {
     fetchStats();
@@ -192,9 +288,8 @@ const ShowingsList: React.FC = () => {
       const communities = await getCommunityOptions();
       setCommunityOptions((communities as string[]).map((c: string) => ({ value: c, label: c })));
 
-      // 获取带看结果选项
-      const viewResults = await getViewResultOptions();
-      setViewResultOptions(viewResults as string[]);
+      // 获取看房结果选项（使用Selection.id=2）
+      await fetchViewResultOptions();
 
       // 获取销售员选项
       const sales = await getSalesOptions();
@@ -220,6 +315,12 @@ const ShowingsList: React.FC = () => {
       ]);
       setData(showings || []);
       setTotal(count);
+      
+      // 调试信息
+      console.log('明细查询调试信息:');
+      console.log('当前页数据条数:', showings?.length);
+      console.log('总数据条数:', count);
+      console.log('当前筛选条件:', filters);
     } catch (error) {
       message.error('获取带看记录失败: ' + (error as Error).message);
     } finally {
@@ -235,6 +336,9 @@ const ShowingsList: React.FC = () => {
         arrivaltime: values.arrivaltime?.toISOString(),
         moveintime: values.moveintime?.toISOString(),
       };
+
+      // 移除约访销售字段，因为它不属于showings表
+      delete showingData.interviewsales_user_id;
 
       if (editingRecord) {
         await updateShowing(editingRecord.id, showingData);
@@ -260,6 +364,9 @@ const ShowingsList: React.FC = () => {
       scheduletime: record.scheduletime ? dayjs(record.scheduletime) : null,
       arrivaltime: record.arrivaltime ? dayjs(record.arrivaltime) : null,
       moveintime: record.moveintime ? dayjs(record.moveintime) : null,
+      // 确保约访销售和带看销售字段正确设置
+      interviewsales_user_id: (record as any).interviewsales_user_id,
+      showingsales: record.showingsales,
     });
     setIsModalVisible(true);
   };
@@ -343,7 +450,7 @@ const ShowingsList: React.FC = () => {
   // 2. 表格字段适配
   const columns = useMemo(() => [
     {
-      title: '线索ID',
+      title: '线索编号',
       dataIndex: 'leadid',
       key: 'leadid',
       width: 120,
@@ -387,7 +494,7 @@ const ShowingsList: React.FC = () => {
       ),
     },
     {
-      title: '客户手机号',
+      title: '手机号',
       dataIndex: 'lead_phone',
       key: 'lead_phone',
       width: 130,
@@ -418,7 +525,7 @@ const ShowingsList: React.FC = () => {
       render: (text: string) => maskPhone(text),
     },
     {
-      title: '客户微信',
+      title: '微信号',
       dataIndex: 'lead_wechat',
       key: 'lead_wechat',
       width: 130,
@@ -449,7 +556,7 @@ const ShowingsList: React.FC = () => {
       render: (text: string) => maskWechat(text),
     },
     {
-      title: '社区',
+      title: '带看社区',
       dataIndex: 'community',
       key: 'community',
       filters: communityOptions.map(opt => ({ text: opt.label, value: opt.value })),
@@ -522,14 +629,14 @@ const ShowingsList: React.FC = () => {
       render: (text: string) => text ? dayjs(text).format('YYYY-MM-DD HH:mm') : '-',
     },
     {
-      title: '约访销售',
+      title: '约访管家',
       dataIndex: 'interviewsales_nickname',
       key: 'interviewsales',
       width: 120,
       render: (text: string) => text || '-',
     },
     {
-      title: '带看销售',
+      title: '分配管家',
       dataIndex: 'showingsales_nickname',
       key: 'showingsales',
       filters: salesOptions.map(opt => ({ text: opt.label, value: opt.label })),
@@ -538,7 +645,7 @@ const ShowingsList: React.FC = () => {
       render: (text: string) => text || '-',
     },
     {
-      title: '实际销售',
+      title: '实际带看管家',
       dataIndex: 'trueshowingsales_nickname',
       key: 'trueshowingsales',
       width: 120,
@@ -548,7 +655,7 @@ const ShowingsList: React.FC = () => {
       title: '看房结果',
       dataIndex: 'viewresult',
       key: 'viewresult',
-      filters: viewResultOptions.map(opt => ({ text: opt, value: opt })),
+      filters: viewResultOptions.map(opt => ({ text: opt.label, value: opt.value })),
       onFilter: (value: boolean | Key, record: ShowingWithRelations) => record.viewresult === value,
       width: 100,
       render: (text: string) => (
@@ -690,33 +797,66 @@ const ShowingsList: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 120,
+      width: 140,
+      fixed: 'right' as const,
       render: (_: any, record: ShowingWithRelations) => (
-        <Space size="small">
-          <Button 
-            type="link" 
-            size="small" 
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </Button>
-          <Popconfirm
-            title="确定要删除这条带看记录吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button 
+        <div style={{ 
+          padding: '8px 12px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '6px',
+          minHeight: '60px'
+        }}>
+                      <Button 
               type="link" 
               size="small" 
-              danger 
-              icon={<DeleteOutlined />}
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+              style={{ 
+                padding: '4px 8px', 
+                fontSize: '14px',
+                borderRadius: '4px',
+                border: 'none',
+                background: 'transparent',
+                color: '#1677ff',
+                width: '100%',
+                textAlign: 'center',
+                height: '28px',
+                lineHeight: '1'
+              }}
             >
-              删除
+              编辑
             </Button>
-          </Popconfirm>
-        </Space>
+            <Popconfirm
+              title="确定要删除这条带看记录吗？"
+              onConfirm={() => handleDelete(record.id)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Button 
+                type="link" 
+                size="small" 
+                danger 
+                icon={<DeleteOutlined />}
+                style={{ 
+                  padding: '4px 8px', 
+                  fontSize: '14px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#ff4d4f',
+                  width: '100%',
+                  textAlign: 'center',
+                  height: '28px',
+                  lineHeight: '1'
+                }}
+              >
+                删除
+              </Button>
+            </Popconfirm>
+        </div>
       ),
     },
   ], [communityOptions, salesOptions, viewResultOptions]);
@@ -739,43 +879,242 @@ const ShowingsList: React.FC = () => {
     fetchCardDetails(type);
   };
 
+  // 带看转化率卡片点击事件
+  const handleConversionRateClick = () => {
+    setConversionRateModal(true);
+  };
+
+  // 未填写数量卡片点击事件
+  const handleIncompleteClick = () => {
+    // 使用新的后端筛选功能：筛选未填写工单
+    const newFilters: ShowingFilters = {
+      incomplete: true // 使用新的后端筛选参数
+    };
+    setFilters(newFilters);
+    setCurrentPage(1); // 重置到第一页
+    setActiveFilter('incomplete'); // 设置激活状态
+  };
+
+  // 取消筛选事件
+  const handleClearFilter = () => {
+    setFilters({});
+    setCurrentPage(1);
+    setActiveFilter(null);
+  };
+
   // 统计卡片区
   const statsCards = (
     <Row gutter={16} style={{ marginBottom: 16 }}>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'left' }}>
+        <Card 
+          variant="borderless" 
+          style={{ 
+            textAlign: 'center',
+            backgroundColor: '#ffffff',
+            border: '1px solid #f0f0f0',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            height: '120px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            position: 'relative'
+          }}
+        >
           <div style={{ fontSize: 14, color: '#888' }}>本月带看量</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.monthShowings}</div>
         </Card>
       </Col>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'left' }}>
+        <Card 
+          variant="borderless" 
+          style={{ 
+            textAlign: 'center',
+            backgroundColor: '#ffffff',
+            border: '1px solid #f0f0f0',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            height: '120px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            position: 'relative'
+          }}
+        >
           <div style={{ fontSize: 14, color: '#888' }}>本月成交量</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.monthDeals}</div>
         </Card>
       </Col>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'left' }}>
+        <Card 
+          variant="borderless" 
+          className="card-hover"
+          style={{ 
+            textAlign: 'center',
+            backgroundColor: '#ffffff',
+            border: '1px solid #f0f0f0',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            height: '120px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            position: 'relative'
+          }}
+          onClick={handleConversionRateClick}
+        >
           <div style={{ fontSize: 14, color: '#888' }}>带看转化率</div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.conversionRate}%</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#000000' }}>{stats.conversionRate}%</div>
+          <div 
+            className="zoom-icon"
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              right: '8px',
+              color: '#8c8c8c',
+              opacity: 0.7,
+              transition: 'all 0.3s ease'
+            }}
+          >
+            <ZoomInOutlined style={{ fontSize: '16px' }} />
+          </div>
         </Card>
       </Col>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => handleCardClick('direct')}>
+        <Card 
+          variant="borderless" 
+          className="card-hover"
+          style={{ 
+            textAlign: 'center', 
+            cursor: 'pointer',
+            backgroundColor: activeFilter === 'direct' ? '#f6ffed' : '#ffffff',
+            border: activeFilter === 'direct' ? '2px solid #1677ff' : '1px solid #f0f0f0',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            transition: 'all 0.3s ease',
+            height: '120px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            position: 'relative'
+          }} 
+          onClick={() => handleCardClick('direct')}
+        >
           <div style={{ fontSize: 14, color: '#888' }}>直通卡数量</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.directCount}</div>
+          <div 
+            className="zoom-icon"
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              right: '8px',
+              color: '#8c8c8c',
+              opacity: 0.7,
+              transition: 'all 0.3s ease'
+            }}
+          >
+            <ZoomInOutlined style={{ fontSize: '16px' }} />
+          </div>
         </Card>
       </Col>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => handleCardClick('skip')}>
+        <Card 
+          variant="borderless" 
+          className="card-hover"
+          style={{ 
+            textAlign: 'center', 
+            cursor: 'pointer',
+            backgroundColor: activeFilter === 'skip' ? '#f6ffed' : '#ffffff',
+            border: activeFilter === 'skip' ? '2px solid #1677ff' : '1px solid #f0f0f0',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            transition: 'all 0.3s ease',
+            height: '120px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            position: 'relative'
+          }} 
+          onClick={() => handleCardClick('skip')}
+        >
           <div style={{ fontSize: 14, color: '#888' }}>轮空卡数量</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{stats.skipCount}</div>
+          <div 
+            className="zoom-icon"
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              right: '8px',
+              color: '#8c8c8c',
+              opacity: 0.7,
+              transition: 'all 0.3s ease'
+            }}
+          >
+            <ZoomInOutlined style={{ fontSize: '16px' }} />
+          </div>
         </Card>
       </Col>
       <Col span={4}>
-        <Card bordered={false} style={{ textAlign: 'left' }}>
+        <Card 
+          variant="borderless" 
+          className="card-hover"
+          style={{ 
+            textAlign: 'center', 
+            cursor: 'pointer',
+            backgroundColor: activeFilter === 'incomplete' ? '#fff2f0' : '#ffffff',
+            border: activeFilter === 'incomplete' ? '2px solid #ff4d4f' : '1px solid #f0f0f0',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            transition: 'all 0.3s ease',
+            position: 'relative',
+            height: '120px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center'
+          }} 
+          onClick={() => handleIncompleteClick()}
+        >
+          {activeFilter === 'incomplete' && (
+            <Button
+              type="text"
+              size="small"
+              style={{
+                position: 'absolute',
+                top: '4px',
+                right: '4px',
+                padding: '2px 4px',
+                minWidth: 'auto',
+                height: '20px',
+                fontSize: '12px',
+                color: '#ff4d4f',
+                border: 'none',
+                background: 'transparent'
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClearFilter();
+              }}
+            >
+              ✕
+            </Button>
+          )}
           <div style={{ fontSize: 14, color: '#888' }}>工单未填写数量</div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#ff4d4f' }}>0</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#ff4d4f' }}>{stats.incompleteCount}</div>
+          <div 
+            className="zoom-icon"
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              right: '8px',
+              color: '#8c8c8c',
+              opacity: 0.7,
+              transition: 'all 0.3s ease'
+            }}
+          >
+            <ZoomInOutlined style={{ fontSize: '16px' }} />
+          </div>
         </Card>
       </Col>
     </Row>
@@ -783,16 +1122,36 @@ const ShowingsList: React.FC = () => {
 
   return (
     <div style={{ padding: '24px' }}>
+      <style>{floatAnimation}</style>
       {statsCards}
-      {/* 移除按钮区，原本在这里：
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Space>
-          <Button ...>筛选</Button>
-          <Button ...>新增带看记录</Button>
-          <Button ...>刷新</Button>
-        </Space>
-      </div>
-      */}
+      
+      {/* 筛选状态提示 */}
+      {activeFilter && (
+        <div style={{ 
+          marginBottom: 16, 
+          padding: '8px 16px', 
+          backgroundColor: '#f6ffed', 
+          border: '1px solid #b7eb8f', 
+          borderRadius: '6px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ color: '#52c41a', fontSize: 14 }}>
+            {activeFilter === 'incomplete' && '当前显示：未填写工单'}
+            {activeFilter === 'direct' && '当前显示：直通卡明细'}
+            {activeFilter === 'skip' && '当前显示：轮空卡明细'}
+          </span>
+          <Button 
+            type="link" 
+            size="small" 
+            onClick={handleClearFilter}
+            style={{ color: '#52c41a', padding: 0 }}
+          >
+            清除筛选
+          </Button>
+        </div>
+      )}
 
       <Table
         columns={columns}
@@ -815,6 +1174,7 @@ const ShowingsList: React.FC = () => {
         size="small"
         className="compact-table"
         rowClassName={() => 'compact-table-row'}
+        style={{ marginTop: '16px', borderRadius: '16px', overflow: 'hidden' }}
       />
 
       <Modal
@@ -833,48 +1193,235 @@ const ShowingsList: React.FC = () => {
           layout="vertical"
           onFinish={handleAdd}
         >
+          {/* 只读字段 - 纯文本显示 */}
+          <>
+            {editingRecord ? (
+            <div style={{ 
+              background: '#f8f9fa', 
+              padding: '16px', 
+              borderRadius: '8px', 
+              marginBottom: '16px',
+              border: '1px solid #e9ecef'
+            }}>
+              <div style={{ 
+                fontSize: '14px', 
+                fontWeight: 600, 
+                color: '#495057', 
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center'
+              }}>
+                <span style={{ marginRight: '8px' }}>📋</span>
+                线索信息
+              </div>
+              <Row gutter={[24, 16]}>
+                <Col span={8}>
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    height: '100%'
+                  }}>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      color: '#6c757d', 
+                      marginBottom: '6px',
+                      fontWeight: 500
+                    }}>
+                      线索ID
+                    </div>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#495057', 
+                      fontWeight: 500,
+                      lineHeight: '1.4'
+                    }}>
+                      {editingRecord.leadid}
+                    </div>
+                  </div>
+                </Col>
+                <Col span={8}>
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    height: '100%'
+                  }}>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      color: '#6c757d', 
+                      marginBottom: '6px',
+                      fontWeight: 500
+                    }}>
+                      社区
+                    </div>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#495057', 
+                      fontWeight: 500,
+                      lineHeight: '1.4'
+                    }}>
+                      {editingRecord.community || '-'}
+                    </div>
+                  </div>
+                </Col>
+                <Col span={8}>
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    height: '100%'
+                  }}>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      color: '#6c757d', 
+                      marginBottom: '6px',
+                      fontWeight: 500
+                    }}>
+                      预约时间
+                    </div>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#495057', 
+                      fontWeight: 500,
+                      lineHeight: '1.4'
+                    }}>
+                      {editingRecord.scheduletime ? dayjs(editingRecord.scheduletime).format('YYYY-MM-DD HH:mm') : '-'}
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+              <Row gutter={[24, 16]} style={{ marginTop: '8px' }}>
+                <Col span={8}>
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    height: '100%'
+                  }}>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      color: '#6c757d', 
+                      marginBottom: '6px',
+                      fontWeight: 500
+                    }}>
+                      约访销售
+                    </div>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#495057', 
+                      fontWeight: 500,
+                      lineHeight: '1.4'
+                    }}>
+                      {(editingRecord as any).interviewsales_nickname || '-'}
+                    </div>
+                  </div>
+                </Col>
+                <Col span={8}>
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    height: '100%'
+                  }}>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      color: '#6c757d', 
+                      marginBottom: '6px',
+                      fontWeight: 500
+                    }}>
+                      带看销售
+                    </div>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#495057', 
+                      fontWeight: 500,
+                      lineHeight: '1.4'
+                    }}>
+                      {(editingRecord as any).showingsales_nickname || '-'}
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+                      ) : (
+              /* 新增模式下的可编辑字段 */
+              <>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item
+                      label="线索ID"
+                      name="leadid"
+                      rules={[{ required: true, message: '请输入线索ID' }]}
+                    >
+                      <Input placeholder="请输入线索ID" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item
+                      label="社区"
+                      name="community"
+                    >
+                      <Select placeholder="请选择社区" allowClear>
+                        {communityOptions.map(option => (
+                          <Select.Option key={option.value} value={option.value}>
+                            {option.label}
+                          </Select.Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                </Row>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item
+                      label="预约时间"
+                      name="scheduletime"
+                    >
+                      <DatePicker 
+                        showTime 
+                        placeholder="请选择预约时间"
+                        style={{ width: '100%' }}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item
+                      label="约访销售"
+                      name="interviewsales_user_id"
+                    >
+                      <Select placeholder="请选择约访销售" allowClear>
+                        {salesOptions.map(option => (
+                          <Select.Option key={option.value} value={option.value}>
+                            {option.label}
+                          </Select.Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                </Row>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item
+                      label="带看销售"
+                      name="showingsales"
+                    >
+                      <Select placeholder="请选择带看销售" allowClear>
+                        {salesOptions.map(option => (
+                          <Select.Option key={option.value} value={option.value}>
+                            {option.label}
+                          </Select.Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </>
+            )}
+          </>
+
+          {/* 可编辑字段 */}
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="线索ID"
-                name="leadid"
-                rules={[{ required: true, message: '请输入线索ID' }]}
-              >
-                <Input placeholder="请输入线索ID" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                label="社区"
-                name="community"
-              >
-                <Select placeholder="请选择社区" allowClear>
-                  {communityOptions.map(option => (
-                    <Select.Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="预约时间"
-                name="scheduletime"
-              >
-                <DatePicker 
-                  showTime 
-                  placeholder="请选择预约时间"
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
-            </Col>
             <Col span={12}>
               <Form.Item
                 label="到达时间"
                 name="arrivaltime"
+                rules={[{ required: true, message: '请选择到达时间' }]}
               >
                 <DatePicker 
                   showTime 
@@ -883,44 +1430,13 @@ const ShowingsList: React.FC = () => {
                 />
               </Form.Item>
             </Col>
-          </Row>
-          <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                label="约访销售"
-                name="interviewsales"
-              >
-                <Select placeholder="请选择约访销售" allowClear>
-                  {salesOptions.map(option => (
-                    <Select.Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                label="带看销售"
-                name="showingsales"
-              >
-                <Select placeholder="请选择带看销售" allowClear>
-                  {salesOptions.map(option => (
-                    <Select.Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="实际销售"
+                label="实际带看管家"
                 name="trueshowingsales"
+                rules={[{ required: true, message: '请选择管家' }]}
               >
-                <Select placeholder="请选择实际销售" allowClear>
+                <Select placeholder="请选择管家" allowClear>
                   {salesOptions.map(option => (
                     <Select.Option key={option.value} value={option.value}>
                       {option.label}
@@ -929,23 +1445,23 @@ const ShowingsList: React.FC = () => {
                 </Select>
               </Form.Item>
             </Col>
+          </Row>
+          <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 label="看房结果"
                 name="viewresult"
                 rules={[{ required: true, message: '请选择看房结果' }]}
               >
-                <Select placeholder="请选择看房结果">
+                <Select placeholder="请选择看房结果" allowClear>
                   {viewResultOptions.map(option => (
-                    <Select.Option key={option} value={option}>
-                      {option}
+                    <Select.Option key={option.value} value={option.value}>
+                      {option.label}
                     </Select.Option>
                   ))}
                 </Select>
               </Form.Item>
             </Col>
-          </Row>
-          <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 label="预算"
@@ -960,6 +1476,8 @@ const ShowingsList: React.FC = () => {
                 />
               </Form.Item>
             </Col>
+          </Row>
+          <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 label="入住时间"
@@ -972,8 +1490,6 @@ const ShowingsList: React.FC = () => {
                 />
               </Form.Item>
             </Col>
-          </Row>
-          <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 label="租期(月)"
@@ -987,17 +1503,18 @@ const ShowingsList: React.FC = () => {
                 />
               </Form.Item>
             </Col>
-            <Col span={12}>
-              <Form.Item
-                label="备注"
-                name="remark"
-                rules={[{ required: true, message: '请输入备注' }]}
-              >
-                <TextArea rows={4} placeholder="请输入备注" />
-              </Form.Item>
-            </Col>
           </Row>
-          <Form.Item>
+
+          {/* 备注字段 - 占两栏 */}
+          <Form.Item
+            label="备注"
+            name="remark"
+            rules={[{ required: true, message: '请输入备注' }]}
+          >
+            <TextArea rows={3} placeholder="请输入备注" />
+          </Form.Item>
+
+          <Form.Item style={{ marginTop: '16px' }}>
             <Space>
               <Button type="primary" htmlType="submit">
                 {editingRecord ? '更新' : '创建'}
@@ -1046,6 +1563,40 @@ const ShowingsList: React.FC = () => {
           ]}
           pagination={{ pageSize: 10 }}
         />
+      </Modal>
+
+      {/* 带看转化率弹窗 */}
+      <Modal
+        title={
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            fontSize: '16px',
+            fontWeight: 600,
+            color: '#262626'
+          }}>
+            <span style={{ fontSize: '18px' }}>📊</span>
+            <span>带看转化率统计</span>
+          </div>
+        }
+        open={conversionRateModal}
+        onCancel={() => setConversionRateModal(false)}
+        footer={null}
+        width={1200}
+        centered
+        bodyStyle={{ 
+          padding: '24px'
+        }}
+        style={{
+          borderRadius: '8px',
+          overflow: 'hidden'
+        }}
+        maskStyle={{
+          backgroundColor: 'rgba(0, 0, 0, 0.45)'
+        }}
+      >
+        <ShowingConversionRate />
       </Modal>
     </div>
   );
