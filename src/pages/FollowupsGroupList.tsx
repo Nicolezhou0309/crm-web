@@ -773,20 +773,12 @@ const FollowupsGroupList: React.FC = () => {
   useEffect(() => {
     const initializeDynamicFilters = async () => {
       const [
-        leadidOptions,
-        phoneOptions,
-        wechatOptions,
-        interviewsalesUserOptions,
         remarkOptions,
         worklocationOptions,
         userbudgetOptions,
         followupresultOptions,
         leadtypeOptions
       ] = await Promise.all([
-        getDynamicFilters('leadid'),
-        getDynamicFilters('phone'),
-        getDynamicFilters('wechat'),
-        getDynamicFilters('interviewsales_user_id'),
         getDynamicFilters('remark'),
         getDynamicFilters('worklocation'),
         getDynamicFilters('userbudget'),
@@ -795,10 +787,10 @@ const FollowupsGroupList: React.FC = () => {
       ]);
 
       setDynamicFilters({
-        leadid: leadidOptions,
-        phone: phoneOptions,
-        wechat: wechatOptions,
-        interviewsalesUser: interviewsalesUserOptions,
+        leadid: [],
+        phone: [],
+        wechat: [],
+        interviewsalesUser: [],
         remark: remarkOptions,
         worklocation: worklocationOptions,
         userbudget: userbudgetOptions,
@@ -811,10 +803,6 @@ const FollowupsGroupList: React.FC = () => {
   }, [getDynamicFilters]);
 
   // 动态字段使用后端数据
-  const leadidFilters = useMemo(() => dynamicFilters.leadid, [dynamicFilters.leadid]);
-  const phoneFilters = useMemo(() => dynamicFilters.phone, [dynamicFilters.phone]);
-  const wechatFilters = useMemo(() => dynamicFilters.wechat, [dynamicFilters.wechat]);
-  const interviewsalesUserFilters = useMemo(() => dynamicFilters.interviewsalesUser, [dynamicFilters.interviewsalesUser]);
   const remarkFilters = useMemo(() => dynamicFilters.remark, [dynamicFilters.remark]);
   const worklocationFilters = useMemo(() => dynamicFilters.worklocation, [dynamicFilters.worklocation]);
   const userbudgetFilters = useMemo(() => dynamicFilters.userbudget, [dynamicFilters.userbudget]);
@@ -828,8 +816,28 @@ const FollowupsGroupList: React.FC = () => {
       key: 'leadid',
       fixed: 'left' as const,
       ellipsis: true,
-      filters: leadidFilters,
-      filterSearch: true,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Input.Search
+            placeholder="输入线索编号关键词"
+            value={selectedKeys[0] || ''}
+            onChange={e => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onSearch={value => {
+              setSelectedKeys(value ? [value] : []);
+              confirm();
+            }}
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle, minWidth: 120, maxWidth: 180 } }),
       filteredValue: tableColumnFilters.leadid ?? null,
       render: (text: string, record: any) => {
@@ -952,61 +960,28 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'phone',
       key: 'phone',
       ellipsis: true,
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => {
-        const filteredPhoneFilters = useMemo(() =>
-          phoneFilters.filter(filter => {
-            if (!phoneSearch) return true;
-            const val = String(filter.value || '').toLowerCase();
-            const text = String(filter.text || '').toLowerCase();
-            return val.includes(phoneSearch.toLowerCase()) || text.includes(phoneSearch.toLowerCase());
-          }), [phoneFilters, phoneSearch]);
-        return (
-          <div style={{ padding: 8 }}>
-            <Input.Search
-              placeholder="在筛选项中搜索"
-              value={phoneSearch}
-              onChange={e => setPhoneSearch(e.target.value)}
-              style={{ marginBottom: 8 }}
-            />
-            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-              {filteredPhoneFilters.map((filter, index) => (
-                <div
-                  key={index}
-                  style={{
-                    padding: '4px 8px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    backgroundColor: selectedKeys.includes(filter.value) ? '#e6f7ff' : undefined
-                  }}
-                  onClick={() => {
-                    const newKeys = selectedKeys.includes(filter.value)
-                      ? selectedKeys.filter((key: any) => key !== filter.value)
-                      : [...selectedKeys, filter.value];
-                    setSelectedKeys(newKeys);
-                  }}
-                >
-                  <Checkbox
-                    checked={selectedKeys.includes(filter.value)}
-                    style={{ marginRight: 8 }}
-                    tabIndex={-1}
-                    onChange={() => {}}
-                  />
-                  <span>{filter.text}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
-                筛选
-              </Button>
-              <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
-                重置
-              </Button>
-            </div>
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Input.Search
+            placeholder="输入手机号关键词"
+            value={selectedKeys[0] || ''}
+            onChange={e => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onSearch={value => {
+              setSelectedKeys(value ? [value] : []);
+              confirm();
+            }}
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+              重置
+            </Button>
           </div>
-        );
-      },
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.phone ?? null,
       render: (text: string) => {
@@ -1026,61 +1001,28 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'wechat',
       key: 'wechat',
       ellipsis: true,
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => {
-        const filteredWechatFilters = useMemo(() =>
-          wechatFilters.filter(filter => {
-            if (!wechatSearch) return true;
-            const val = String(filter.value || '').toLowerCase();
-            const text = String(filter.text || '').toLowerCase();
-            return val.includes(wechatSearch.toLowerCase()) || text.includes(wechatSearch.toLowerCase());
-          }), [wechatFilters, wechatSearch]);
-        return (
-          <div style={{ padding: 8 }}>
-            <Input.Search
-              placeholder="在筛选项中搜索"
-              value={wechatSearch}
-              onChange={e => setWechatSearch(e.target.value)}
-              style={{ marginBottom: 8 }}
-            />
-            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-              {filteredWechatFilters.map((filter, index) => (
-                <div
-                  key={index}
-                  style={{
-                    padding: '4px 8px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    backgroundColor: selectedKeys.includes(filter.value) ? '#e6f7ff' : undefined
-                  }}
-                  onClick={() => {
-                    const newKeys = selectedKeys.includes(filter.value)
-                      ? selectedKeys.filter((key: any) => key !== filter.value)
-                      : [...selectedKeys, filter.value];
-                    setSelectedKeys(newKeys);
-                  }}
-                >
-                  <Checkbox
-                    checked={selectedKeys.includes(filter.value)}
-                    style={{ marginRight: 8 }}
-                    tabIndex={-1}
-                    onChange={() => {}}
-                  />
-                  <span>{filter.text}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
-                筛选
-              </Button>
-              <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
-                重置
-              </Button>
-            </div>
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Input.Search
+            placeholder="输入微信号关键词"
+            value={selectedKeys[0] || ''}
+            onChange={e => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onSearch={value => {
+              setSelectedKeys(value ? [value] : []);
+              confirm();
+            }}
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+              重置
+            </Button>
           </div>
-        );
-      },
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.wechat ?? null,
       render: (text: string) => {
@@ -1166,8 +1108,28 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'interviewsales_user_id',
       key: 'interviewsales_user_id',
       ellipsis: true,
-      filters: interviewsalesUserFilters,
-      filterSearch: true,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Input.Search
+            placeholder="输入管家姓名关键词"
+            value={selectedKeys[0] || ''}
+            onChange={e => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onSearch={value => {
+              setSelectedKeys(value ? [value] : []);
+              confirm();
+            }}
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       filteredValue: tableColumnFilters.interviewsales_user_id ?? null,
       onCell: () => ({ style: { ...defaultCellStyle } }),
       render: (_: any, record: any) => (
@@ -1376,7 +1338,7 @@ const FollowupsGroupList: React.FC = () => {
         </Tooltip>
       )
     },
-  ], [leadidFilters, followupstageFilters, phoneFilters, wechatFilters, sourceFilters, leadtypeFilters, interviewsalesUserFilters, remarkFilters, customerprofileFilters, worklocationFilters, userbudgetFilters, userratingFilters, followupresultFilters, scheduledcommunityFilters, communityEnum, followupstageEnum, customerprofileEnum, sourceEnum, userratingEnum, majorCategoryOptions, metroStationOptions, tableColumnFilters, forceUpdate]);
+  ], [followupstageFilters, sourceFilters, leadtypeFilters, remarkFilters, customerprofileFilters, worklocationFilters, userbudgetFilters, userratingFilters, followupresultFilters, scheduledcommunityFilters, communityEnum, followupstageEnum, customerprofileEnum, sourceEnum, userratingEnum, majorCategoryOptions, metroStationOptions, tableColumnFilters, forceUpdate]);
 
   const filterKeyMap: Record<string, string> = {
     leadid: 'p_leadid',
