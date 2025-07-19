@@ -614,21 +614,7 @@ const FollowupsGroupList: React.FC = () => {
     return filters;
   };
 
-  // 在FollowupsGroupList组件内部，columns useMemo之前，提前计算所有filters
-  const leadidFilters = useMemo(() => getFilters('leadid', 'leadid'), [data]);
-  const followupstageFilters = useMemo(() => getFilters('followupstage', 'followupstage'), [data]);
-  const phoneFilters = useMemo(() => getFilters('phone', 'phone'), [data]);
-  const wechatFilters = useMemo(() => getFilters('wechat', 'wechat'), [data]);
-  const sourceFilters = useMemo(() => getFilters('source', 'source'), [data]);
-  const leadtypeFilters = useMemo(() => getFilters('leadtype', 'leadtype'), [data]);
-  const interviewsalesUserFilters = useMemo(() => getFilters('interviewsales_user_id', 'interviewsales_user_name'), [data]);
-  const remarkFilters = useMemo(() => getFilters('remark', 'remark'), [data]);
-  const customerprofileFilters = useMemo(() => getFilters('customerprofile', 'customerprofile'), [data]);
-  const worklocationFilters = useMemo(() => getFilters('worklocation', 'worklocation'), [data]);
-  const userbudgetFilters = useMemo(() => getFilters('userbudget', 'userbudget'), [data]);
-  const userratingFilters = useMemo(() => getFilters('userrating', 'userrating'), [data]);
-  const followupresultFilters = useMemo(() => getFilters('followupresult', 'followupresult'), [data]);
-  const scheduledcommunityFilters = useMemo(() => getFilters('scheduledcommunity', 'scheduledcommunity'), [data]);
+
 
   // 在FollowupsGroupList组件内部，columns useMemo之前，定义render函数
   const renderUserbudget = (_text: string, record: any) => {
@@ -700,6 +686,140 @@ const FollowupsGroupList: React.FC = () => {
       />
     </Tooltip>
   );
+
+  // 使用混合方案的筛选选项
+  // 枚举字段使用预定义选项
+  const followupstageFilters = useMemo(() => 
+    followupstageEnum.map(item => ({
+      text: item.label,
+      value: item.value
+    })), [followupstageEnum]
+  );
+
+  const customerprofileFilters = useMemo(() => 
+    customerprofileEnum.map(item => ({
+      text: item.label,
+      value: item.value
+    })), [customerprofileEnum]
+  );
+
+  const sourceFilters = useMemo(() => 
+    sourceEnum.map(item => ({
+      text: item.label,
+      value: item.value
+    })), [sourceEnum]
+  );
+
+  const userratingFilters = useMemo(() => 
+    userratingEnum.map(item => ({
+      text: item.label,
+      value: item.value
+    })), [userratingEnum]
+  );
+
+  const scheduledcommunityFilters = useMemo(() => 
+    communityEnum.map(item => ({
+      text: item.label,
+      value: item.value
+    })), [communityEnum]
+  );
+
+  // 动态字段状态管理
+  const [dynamicFilters, setDynamicFilters] = useState<{
+    leadid: any[];
+    phone: any[];
+    wechat: any[];
+    interviewsalesUser: any[];
+    remark: any[];
+    worklocation: any[];
+    userbudget: any[];
+    followupresult: any[];
+    leadtype: any[];
+  }>({
+    leadid: [],
+    phone: [],
+    wechat: [],
+    interviewsalesUser: [],
+    remark: [],
+    worklocation: [],
+    userbudget: [],
+    followupresult: [],
+    leadtype: []
+  });
+
+  // 动态字段的筛选选项获取（带缓存）
+  const getDynamicFilters = useCallback(async (fieldName: string) => {
+    const cacheKey = `dynamic_filters_${fieldName}`;
+    const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
+    
+    // 缓存5分钟有效
+    if (cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < 5 * 60 * 1000) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    }
+
+    const options = await fetchDynamicFilterOptions(fieldName);
+    
+    // 更新缓存
+    localStorage.setItem(cacheKey, JSON.stringify(options));
+    localStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
+    
+    return options;
+  }, [tableFilters]);
+
+  // 初始化动态筛选选项
+  useEffect(() => {
+    const initializeDynamicFilters = async () => {
+      const [
+        leadidOptions,
+        phoneOptions,
+        wechatOptions,
+        interviewsalesUserOptions,
+        remarkOptions,
+        worklocationOptions,
+        userbudgetOptions,
+        followupresultOptions,
+        leadtypeOptions
+      ] = await Promise.all([
+        getDynamicFilters('leadid'),
+        getDynamicFilters('phone'),
+        getDynamicFilters('wechat'),
+        getDynamicFilters('interviewsales_user_id'),
+        getDynamicFilters('remark'),
+        getDynamicFilters('worklocation'),
+        getDynamicFilters('userbudget'),
+        getDynamicFilters('followupresult'),
+        getDynamicFilters('leadtype')
+      ]);
+
+      setDynamicFilters({
+        leadid: leadidOptions,
+        phone: phoneOptions,
+        wechat: wechatOptions,
+        interviewsalesUser: interviewsalesUserOptions,
+        remark: remarkOptions,
+        worklocation: worklocationOptions,
+        userbudget: userbudgetOptions,
+        followupresult: followupresultOptions,
+        leadtype: leadtypeOptions
+      });
+    };
+
+    initializeDynamicFilters();
+  }, [getDynamicFilters]);
+
+  // 动态字段使用后端数据
+  const leadidFilters = useMemo(() => dynamicFilters.leadid, [dynamicFilters.leadid]);
+  const phoneFilters = useMemo(() => dynamicFilters.phone, [dynamicFilters.phone]);
+  const wechatFilters = useMemo(() => dynamicFilters.wechat, [dynamicFilters.wechat]);
+  const interviewsalesUserFilters = useMemo(() => dynamicFilters.interviewsalesUser, [dynamicFilters.interviewsalesUser]);
+  const remarkFilters = useMemo(() => dynamicFilters.remark, [dynamicFilters.remark]);
+  const worklocationFilters = useMemo(() => dynamicFilters.worklocation, [dynamicFilters.worklocation]);
+  const userbudgetFilters = useMemo(() => dynamicFilters.userbudget, [dynamicFilters.userbudget]);
+  const followupresultFilters = useMemo(() => dynamicFilters.followupresult, [dynamicFilters.followupresult]);
+  const leadtypeFilters = useMemo(() => dynamicFilters.leadtype, [dynamicFilters.leadtype]);
 
   const columns = useMemo(() => [
     {
@@ -2003,6 +2123,30 @@ const FollowupsGroupList: React.FC = () => {
   // 调试：监听 cooldown 状态变化
   useEffect(() => {
   }, [cooldown]);
+
+  // 获取动态字段的筛选选项（从后端获取）
+  const fetchDynamicFilterOptions = async (fieldName: string) => {
+    try {
+      const { data, error } = await supabase.rpc('get_filter_options', {
+        p_field_name: fieldName,
+        p_filters: tableFilters // 传递当前筛选条件
+      });
+      
+      if (error) {
+        console.error(`获取${fieldName}筛选选项失败:`, error);
+        return [];
+      }
+      
+      return data || [];
+    } catch (error) {
+      console.error(`获取${fieldName}筛选选项出错:`, error);
+      return [];
+    }
+  };
+
+
+
+
 
   return (
     <>
