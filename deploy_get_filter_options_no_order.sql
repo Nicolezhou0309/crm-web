@@ -1,3 +1,6 @@
+-- 部署无ORDER BY版本的 get_filter_options 函数
+-- 完全避免 ORDER BY 子句
+
 -- 创建获取筛选选项的后端函数
 CREATE OR REPLACE FUNCTION public.get_filter_options(
   p_field_name TEXT,
@@ -70,12 +73,8 @@ BEGIN
       FROM followups f
       LEFT JOIN leads l ON f.leadid = l.leadid
       WHERE 1=1
-      ORDER BY 
-        CASE WHEN l.%I IS NULL OR l.%I = '''' THEN 1 ELSE 0 END,
-        COALESCE(l.%I::TEXT, '''')
     ', 
       field_name, field_name, field_name, field_name, field_name, field_name,
-      field_name, field_name, field_name,
       field_name, field_name, field_name,
       field_name, field_name, field_name
     );
@@ -103,43 +102,32 @@ BEGIN
       FROM followups f
       LEFT JOIN leads l ON f.leadid = l.leadid
       WHERE 1=1
-      ORDER BY 
-        CASE WHEN l.%I IS NULL OR l.%I = '''' THEN 1 ELSE 0 END,
-        COALESCE(l.%I::TEXT, '''')
     ', 
       field_name, field_name, field_name, field_name, field_name, field_name,
-      field_name, field_name, field_name,
       field_name, field_name, field_name,
       field_name, field_name, field_name
     );
   ELSIF field_type = 'user' THEN
     -- 用户字段：显示用户名，值为用户ID，需要关联users_profile表
-    sql_query := format('
+    -- 完全避免ORDER BY子句
+    sql_query := '
       SELECT DISTINCT
         CASE 
-          WHEN f.%I IS NULL OR f.%I = 0 THEN ''未分配''
-          ELSE COALESCE(up.%I, f.%I::TEXT)
+          WHEN f.interviewsales_user_id IS NULL OR f.interviewsales_user_id = 0 THEN ''未分配''
+          ELSE COALESCE(up.nickname, f.interviewsales_user_id::TEXT)
         END as text,
         CASE 
-          WHEN f.%I IS NULL OR f.%I = 0 THEN NULL
-          ELSE f.%I::TEXT
+          WHEN f.interviewsales_user_id IS NULL OR f.interviewsales_user_id = 0 THEN NULL
+          ELSE f.interviewsales_user_id::TEXT
         END as value,
         CASE 
-          WHEN f.%I IS NULL OR f.%I = 0 THEN NULL
-          ELSE COALESCE(up.%I, f.%I::TEXT)
+          WHEN f.interviewsales_user_id IS NULL OR f.interviewsales_user_id = 0 THEN NULL
+          ELSE COALESCE(up.nickname, f.interviewsales_user_id::TEXT)
         END as search_text
       FROM followups f
-      LEFT JOIN users_profile up ON f.%I = up.id
+      LEFT JOIN users_profile up ON f.interviewsales_user_id = up.id
       WHERE 1=1
-      ORDER BY 
-        CASE WHEN f.%I IS NULL OR f.%I = 0 THEN 1 ELSE 0 END,
-        text
-    ', 
-      field_name, field_name, display_name, field_name,
-      field_name, field_name, field_name,
-      field_name, field_name, display_name, field_name,
-      field_name, field_name, field_name
-    );
+    ';
   ELSE
     -- 普通字符串字段
     sql_query := format('
@@ -158,12 +146,8 @@ BEGIN
         END as search_text
       FROM followups f
       WHERE 1=1
-      ORDER BY 
-        CASE WHEN f.%I IS NULL OR f.%I = '''' THEN 1 ELSE 0 END,
-        COALESCE(f.%I::TEXT, '''')
     ', 
       field_name, field_name, field_name, field_name,
-      field_name, field_name, field_name,
       field_name, field_name, field_name,
       field_name, field_name, field_name
     );

@@ -1,3 +1,6 @@
+-- 部署最终修复的 get_filter_options 函数
+-- 修复 ORDER BY 子句问题
+
 -- 创建获取筛选选项的后端函数
 CREATE OR REPLACE FUNCTION public.get_filter_options(
   p_field_name TEXT,

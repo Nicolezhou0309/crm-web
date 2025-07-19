@@ -1,3 +1,6 @@
+-- 部署修复版本的 get_filter_options 函数
+-- 修复 format() 函数参数数量不匹配的问题
+
 -- 创建获取筛选选项的后端函数
 CREATE OR REPLACE FUNCTION public.get_filter_options(
   p_field_name TEXT,
@@ -114,6 +117,7 @@ BEGIN
     );
   ELSIF field_type = 'user' THEN
     -- 用户字段：显示用户名，值为用户ID，需要关联users_profile表
+    -- 修复参数数量不匹配问题
     sql_query := format('
       SELECT DISTINCT
         CASE 
@@ -133,7 +137,7 @@ BEGIN
       WHERE 1=1
       ORDER BY 
         CASE WHEN f.%I IS NULL OR f.%I = 0 THEN 1 ELSE 0 END,
-        text
+        f.%I
     ', 
       field_name, field_name, display_name, field_name,
       field_name, field_name, field_name,

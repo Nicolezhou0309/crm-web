@@ -277,6 +277,14 @@ const FollowupsGroupList: React.FC = () => {
 
       const { data, error } = await supabase.rpc('filter_followups', rpcParams);
       
+      // 记录约访管家筛选相关的日志
+      if (rpcParams.p_interviewsales_user_id) {
+        console.log('[约访管家筛选] 后端调用参数:', {
+          p_interviewsales_user_id: rpcParams.p_interviewsales_user_id,
+          totalParams: Object.keys(rpcParams).length
+        });
+      }
+      
       if (error) {
         message.error('获取跟进记录失败: ' + error.message);
       } else {
@@ -557,7 +565,17 @@ const FollowupsGroupList: React.FC = () => {
   useEffect(() => {
     // 直接加载数据，移除不必要的权限检查
     fetchFollowups();
+    // 获取管家列表
+    fetchInterviewsalesUserList();
   }, []);
+
+  // 监听筛选条件变化，重新获取管家列表
+  useEffect(() => {
+    // 避免在初始化时重复调用
+    if (Object.keys(tableFilters).length > 0 && interviewsalesUserList.length === 0) {
+      fetchInterviewsalesUserList();
+    }
+  }, [tableFilters]);
 
   // handleCellSave
 
@@ -808,6 +826,10 @@ const FollowupsGroupList: React.FC = () => {
   const userbudgetFilters = useMemo(() => dynamicFilters.userbudget, [dynamicFilters.userbudget]);
   const followupresultFilters = useMemo(() => dynamicFilters.followupresult, [dynamicFilters.followupresult]);
   const leadtypeFilters = useMemo(() => dynamicFilters.leadtype, [dynamicFilters.leadtype]);
+
+  // 管家列表状态
+  const [interviewsalesUserList, setInterviewsalesUserList] = useState<Array<{id: number, name: string}>>([]);
+  const [interviewsalesUserLoading, setInterviewsalesUserLoading] = useState(false);
 
   const columns = useMemo(() => [
     {
@@ -1108,28 +1130,99 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'interviewsales_user_id',
       key: 'interviewsales_user_id',
       ellipsis: true,
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
-        <div style={{ padding: 8 }}>
-          <Input.Search
-            placeholder="输入管家姓名关键词"
-            value={selectedKeys[0] || ''}
-            onChange={e => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-            onSearch={value => {
-              setSelectedKeys(value ? [value] : []);
-              confirm();
-            }}
-            style={{ width: 200, marginBottom: 8 }}
-          />
-          <div style={{ textAlign: 'right' }}>
-            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
-              筛选
-            </Button>
-            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
-              重置
-            </Button>
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => {
+        // 使用从后端获取的管家列表
+        const userList = interviewsalesUserList.length > 0 ? interviewsalesUserList : localData
+          .filter(item => item.interviewsales_user_id && item.interviewsales_user_name)
+          .map(item => ({
+            id: item.interviewsales_user_id,
+            name: item.interviewsales_user_name || item.interviewsales_user
+          }))
+          .filter((item, index, arr) => 
+            arr.findIndex(i => i.id === item.id) === index
+          )
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        console.log('[约访管家筛选] 可用管家列表:', userList);
+
+        const [searchText, setSearchText] = useState('');
+        const filteredUsers = useMemo(() => {
+          const filtered = userList.filter(user => 
+            user.name.toLowerCase().includes(searchText.toLowerCase())
+          );
+          console.log('[约访管家筛选] 搜索关键词:', searchText, '筛选结果:', filtered);
+          return filtered;
+        }, [userList, searchText]);
+
+        return (
+          <div style={{ padding: 8 }}>
+            {interviewsalesUserLoading && (
+              <div style={{ textAlign: 'center', padding: '8px 0', color: '#999' }}>
+                <Spin size="small" /> 加载中...
+              </div>
+            )}
+            <Input.Search
+              placeholder="搜索管家姓名"
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              style={{ width: 200, marginBottom: 8 }}
+            />
+            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+              {filteredUsers.map((user) => (
+                <div
+                  key={user.id}
+                  style={{
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    backgroundColor: selectedKeys.includes(user.id) ? '#e6f7ff' : undefined
+                  }}
+                  onClick={() => {
+                    const newKeys = selectedKeys.includes(user.id)
+                      ? selectedKeys.filter((key: any) => key !== user.id)
+                      : [...selectedKeys, user.id];
+                    console.log('[约访管家筛选] 用户选择变化:', {
+                      user: { id: user.id, name: user.name },
+                      action: selectedKeys.includes(user.id) ? '取消选择' : '选择',
+                      newKeys
+                    });
+                    setSelectedKeys(newKeys);
+                  }}
+                >
+                  <Checkbox
+                    checked={selectedKeys.includes(user.id)}
+                    style={{ marginRight: 8 }}
+                    tabIndex={-1}
+                    onChange={() => {}}
+                  />
+                  <span>{user.name}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <Button type="primary" size="small" onClick={() => {
+                console.log('[约访管家筛选] 确认筛选:', {
+                  selectedKeys,
+                  selectedNames: selectedKeys.map(id => 
+                    userList.find(u => u.id === id)?.name
+                  ).filter(Boolean)
+                });
+                confirm();
+              }} style={{ marginRight: 8 }}>
+                筛选
+              </Button>
+              <Button size="small" onClick={() => { 
+                console.log('[约访管家筛选] 重置筛选');
+                clearFilters && clearFilters(); 
+                confirm && confirm(); 
+              }}>
+                重置
+              </Button>
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
       filteredValue: tableColumnFilters.interviewsales_user_id ?? null,
       onCell: () => ({ style: { ...defaultCellStyle } }),
       render: (_: any, record: any) => (
@@ -1379,24 +1472,53 @@ const FollowupsGroupList: React.FC = () => {
     Object.keys(filters).forEach(key => {
       
       if (key === 'interviewsales_user_id') {
+        console.log('[约访管家筛选] 处理筛选参数:', {
+          key,
+          filters: filters[key],
+          currentData: localData.slice(0, 3).map(item => ({
+            id: item.interviewsales_user_id,
+            name: item.interviewsales_user_name || item.interviewsales_user
+          }))
+        });
+        
         if (filters[key] && filters[key].length > 0) {
           const values = filters[key].map((v: any) => {
             if (v === null || v === 'null' || v === undefined || v === '') return null;
             const num = Number(v);
             return isNaN(num) ? null : num;
           });
+          
+          // 获取对应的管家姓名用于日志
+          const selectedNames = values
+            .filter((v: any) => v !== null)
+            .map((id: any) => {
+              const user = localData.find(item => item.interviewsales_user_id === id);
+              return user ? (user.interviewsales_user_name || user.interviewsales_user) : `ID:${id}`;
+            });
+          
+          console.log('[约访管家筛选] 筛选值处理:', {
+            originalFilters: filters[key],
+            processedValues: values,
+            selectedNames,
+            hasNull: values.includes(null)
+          });
+          
           // 如果只包含null，传递[null]表示IS NULL条件
           if (values.length === 1 && values[0] === null) {
             params[`p_${key}`] = [null];
+            console.log('[约访管家筛选] 传递NULL条件');
           } else if (values.includes(null)) {
             // 如果包含null和其他值，传递所有值（后端会处理IS NULL和= ANY）
             params[`p_${key}`] = values;
+            console.log('[约访管家筛选] 传递混合条件:', values);
           } else {
             // 只有非null值
             params[`p_${key}`] = values;
+            console.log('[约访管家筛选] 传递ID列表:', values, '对应姓名:', selectedNames);
           }
         } else {
-          delete params[`p_${key}`];  
+          delete params[`p_${key}`];
+          console.log('[约访管家筛选] 清除筛选条件');
         }
         return;
       }
@@ -2108,6 +2230,71 @@ const FollowupsGroupList: React.FC = () => {
     } catch (error) {
       console.error(`获取${fieldName}筛选选项出错:`, error);
       return [];
+    }
+  };
+
+  // 获取管家列表
+  const fetchInterviewsalesUserList = async () => {
+    if (interviewsalesUserLoading) return;
+    
+    setInterviewsalesUserLoading(true);
+    try {
+      console.log('[约访管家筛选] 开始获取管家列表');
+      
+      const { data, error } = await supabase.rpc('get_filter_options', {
+        p_field_name: 'interviewsales_user_id',
+        p_filters: tableFilters // 传递当前筛选条件
+      });
+      
+      if (error) {
+        console.error('[约访管家筛选] 获取管家列表失败:', error);
+        // 如果后端函数不可用，回退到本地数据
+        const fallbackList = localData
+          .filter(item => item.interviewsales_user_id && item.interviewsales_user_name)
+          .map(item => ({
+            id: item.interviewsales_user_id,
+            name: item.interviewsales_user_name || item.interviewsales_user
+          }))
+          .filter((item, index, arr) => 
+            arr.findIndex(i => i.id === item.id) === index
+          )
+          .sort((a, b) => a.name.localeCompare(b.name));
+        
+        setInterviewsalesUserList(fallbackList);
+        console.log('[约访管家筛选] 使用本地数据作为回退:', fallbackList);
+        return;
+      }
+      
+      // 转换后端数据格式
+      const userList = (data || []).map((item: any) => ({
+        id: parseInt(item.value),
+        name: item.text
+      })).filter((item: any) => !isNaN(item.id) && item.id > 0 && item.name && item.name.trim());
+      
+      // 按名称排序
+      userList.sort((a: any, b: any) => a.name.localeCompare(b.name));
+      
+      console.log('[约访管家筛选] 获取管家列表成功:', userList);
+      console.log('[约访管家筛选] 原始数据:', data);
+      setInterviewsalesUserList(userList);
+      
+    } catch (error) {
+      console.error('[约访管家筛选] 获取管家列表出错:', error);
+      // 出错时也使用本地数据作为回退
+      const fallbackList = localData
+        .filter(item => item.interviewsales_user_id && item.interviewsales_user_name)
+        .map(item => ({
+          id: item.interviewsales_user_id,
+          name: item.interviewsales_user_name || item.interviewsales_user
+        }))
+        .filter((item, index, arr) => 
+          arr.findIndex(i => i.id === item.id) === index
+        )
+        .sort((a, b) => a.name.localeCompare(b.name));
+      
+      setInterviewsalesUserList(fallbackList);
+    } finally {
+      setInterviewsalesUserLoading(false);
     }
   };
 

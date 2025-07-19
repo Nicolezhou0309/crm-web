@@ -1,3 +1,6 @@
+-- 部署修复后的 get_filter_options 函数
+-- 修复 interviewsales_user_id 字段的查询问题
+
 -- 创建获取筛选选项的后端函数
 CREATE OR REPLACE FUNCTION public.get_filter_options(
   p_field_name TEXT,
@@ -133,12 +136,13 @@ BEGIN
       WHERE 1=1
       ORDER BY 
         CASE WHEN f.%I IS NULL OR f.%I = 0 THEN 1 ELSE 0 END,
-        text
+        COALESCE(up.%I, f.%I::TEXT)
     ', 
       field_name, field_name, display_name, field_name,
       field_name, field_name, field_name,
       field_name, field_name, display_name, field_name,
-      field_name, field_name, field_name
+      field_name, field_name, field_name,
+      display_name, field_name
     );
   ELSE
     -- 普通字符串字段

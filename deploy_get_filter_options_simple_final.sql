@@ -1,3 +1,6 @@
+-- 部署最终简化版本的 get_filter_options 函数
+-- 完全避免复杂的 format 参数
+
 -- 创建获取筛选选项的后端函数
 CREATE OR REPLACE FUNCTION public.get_filter_options(
   p_field_name TEXT,
@@ -114,32 +117,28 @@ BEGIN
     );
   ELSIF field_type = 'user' THEN
     -- 用户字段：显示用户名，值为用户ID，需要关联users_profile表
-    sql_query := format('
+    -- 使用硬编码的字段名避免复杂的format参数
+    sql_query := '
       SELECT DISTINCT
         CASE 
-          WHEN f.%I IS NULL OR f.%I = 0 THEN ''未分配''
-          ELSE COALESCE(up.%I, f.%I::TEXT)
+          WHEN f.interviewsales_user_id IS NULL OR f.interviewsales_user_id = 0 THEN ''未分配''
+          ELSE COALESCE(up.nickname, f.interviewsales_user_id::TEXT)
         END as text,
         CASE 
-          WHEN f.%I IS NULL OR f.%I = 0 THEN NULL
-          ELSE f.%I::TEXT
+          WHEN f.interviewsales_user_id IS NULL OR f.interviewsales_user_id = 0 THEN NULL
+          ELSE f.interviewsales_user_id::TEXT
         END as value,
         CASE 
-          WHEN f.%I IS NULL OR f.%I = 0 THEN NULL
-          ELSE COALESCE(up.%I, f.%I::TEXT)
+          WHEN f.interviewsales_user_id IS NULL OR f.interviewsales_user_id = 0 THEN NULL
+          ELSE COALESCE(up.nickname, f.interviewsales_user_id::TEXT)
         END as search_text
       FROM followups f
-      LEFT JOIN users_profile up ON f.%I = up.id
+      LEFT JOIN users_profile up ON f.interviewsales_user_id = up.id
       WHERE 1=1
       ORDER BY 
-        CASE WHEN f.%I IS NULL OR f.%I = 0 THEN 1 ELSE 0 END,
-        text
-    ', 
-      field_name, field_name, display_name, field_name,
-      field_name, field_name, field_name,
-      field_name, field_name, display_name, field_name,
-      field_name, field_name, field_name
-    );
+        CASE WHEN f.interviewsales_user_id IS NULL OR f.interviewsales_user_id = 0 THEN 1 ELSE 0 END,
+        f.interviewsales_user_id
+    ';
   ELSE
     -- 普通字符串字段
     sql_query := format('
