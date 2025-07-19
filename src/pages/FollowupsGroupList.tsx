@@ -2992,16 +2992,33 @@ const FollowupsGroupList: React.FC = () => {
             跟进记录
           </Title>
           <Space>
-            {/* 现有的搜索和刷新按钮 */}
-            <Search
-              placeholder="编号、联系方式、管家..."
-              allowClear
-              value={keywordSearch}
-              onChange={(e) => setKeywordSearch(e.target.value)}
-              onSearch={handleGlobalSearch}
-              className="page-search"
-              style={{ width: 260 }}
-            />
+            {/* 关键词搜索使用filterDropdown */}
+            <div style={{ position: 'relative' }}>
+              <Input.Search
+                placeholder="编号、联系方式、管家..."
+                allowClear
+                value={keywordSearch}
+                onChange={(e) => setKeywordSearch(e.target.value)}
+                onSearch={handleGlobalSearch}
+                className="page-search"
+                style={{ width: 260 }}
+                enterButton={
+                  <Button type="primary" size="small">
+                    搜索
+                  </Button>
+                }
+                onClear={() => {
+                  setKeywordSearch('');
+                  const params = { ...tableFilters };
+                  delete params.p_keyword;
+                  setTableFilters(params);
+                  setShouldResetPagination(true);
+                  if (groupField) {
+                    fetchGroupCount(groupField);
+                  }
+                }}
+              />
+            </div>
             <Select
               options={groupFieldOptions}
               value={groupField}
@@ -3092,6 +3109,29 @@ const FollowupsGroupList: React.FC = () => {
               style={{ marginRight: 8, marginBottom: 8 }}
             >
               入住日期: {dayjs(tableFilters.p_moveintime_start).format('YYYY-MM-DD')} ~ {dayjs(tableFilters.p_moveintime_end).format('YYYY-MM-DD')}
+            </Tag>
+          )}
+          {/* 关键词筛选标签 */}
+          {tableFilters.p_keyword && (
+            <Tag
+              closable
+              className="filter-tag"
+              onClose={() => {
+                setKeywordSearch('');
+                const newFilters = { ...tableFilters };
+                delete newFilters.p_keyword;
+                setTableFilters(newFilters);
+                setPagination(p => ({ ...p, current: 1 }));
+                fetchFollowups(newFilters, 1, pagination.pageSize);
+                
+                // 同时更新分组统计
+                if (groupField) {
+                  fetchGroupCount(groupField);
+                }
+              }}
+              style={{ marginRight: 8, marginBottom: 8 }}
+            >
+              关键词: {tableFilters.p_keyword}
             </Tag>
           )}
           {/* 其它字段Tag */}
