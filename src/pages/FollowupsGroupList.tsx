@@ -3009,13 +3009,7 @@ const FollowupsGroupList: React.FC = () => {
                 }
                 onClear={() => {
                   setKeywordSearch('');
-                  const params = { ...tableFilters };
-                  delete params.p_keyword;
-                  setTableFilters(params);
-                  setShouldResetPagination(true);
-                  if (groupField) {
-                    fetchGroupCount(groupField);
-                  }
+                  resetFilter('keyword');
                 }}
               />
             </div>
@@ -3118,16 +3112,7 @@ const FollowupsGroupList: React.FC = () => {
               className="filter-tag"
               onClose={() => {
                 setKeywordSearch('');
-                const newFilters = { ...tableFilters };
-                delete newFilters.p_keyword;
-                setTableFilters(newFilters);
-                setPagination(p => ({ ...p, current: 1 }));
-                fetchFollowups(newFilters, 1, pagination.pageSize);
-                
-                // 同时更新分组统计
-                if (groupField) {
-                  fetchGroupCount(groupField);
-                }
+                resetFilter('keyword');
               }}
               style={{ marginRight: 8, marginBottom: 8 }}
             >
