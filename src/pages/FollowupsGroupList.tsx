@@ -871,7 +871,12 @@ const FollowupsGroupList: React.FC = () => {
             <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
               筛选
             </Button>
-            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('leadid');
+              confirm && confirm(); 
+            }}>
               重置
             </Button>
           </div>
@@ -1015,7 +1020,12 @@ const FollowupsGroupList: React.FC = () => {
             <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
               筛选
             </Button>
-            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('phone');
+              confirm && confirm(); 
+            }}>
               重置
             </Button>
           </div>
@@ -1056,7 +1066,12 @@ const FollowupsGroupList: React.FC = () => {
             <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
               筛选
             </Button>
-            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('wechat');
+              confirm && confirm(); 
+            }}>
               重置
             </Button>
           </div>
@@ -1100,7 +1115,12 @@ const FollowupsGroupList: React.FC = () => {
             <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
               筛选
             </Button>
-            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('created_at');
+              confirm && confirm(); 
+            }}>
               重置
             </Button>
           </div>
@@ -1224,7 +1244,9 @@ const FollowupsGroupList: React.FC = () => {
                 筛选
               </Button>
               <Button size="small" onClick={() => { 
+                setSelectedKeys([]); // 清空当前选中的值
                 clearFilters && clearFilters(); 
+                resetFilter('interviewsales_user_id');
                 confirm && confirm(); 
               }}>
                 重置
@@ -1366,7 +1388,12 @@ const FollowupsGroupList: React.FC = () => {
               <Button 
                 className="filter-reset-btn"
                 size="small" 
-                onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}
+                onClick={() => { 
+                  setSelectedKeys([]); // 清空当前选中的值
+                  clearFilters && clearFilters(); 
+                  resetFilter('worklocation');
+                  confirm && confirm(); 
+                }}
               >
                 重置
               </Button>
@@ -1460,7 +1487,12 @@ const FollowupsGroupList: React.FC = () => {
             <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
               筛选
             </Button>
-            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('userbudget');
+              confirm && confirm(); 
+            }}>
               重置
             </Button>
           </div>
@@ -1494,7 +1526,12 @@ const FollowupsGroupList: React.FC = () => {
             <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
               筛选
             </Button>
-            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('moveintime');
+              confirm && confirm(); 
+            }}>
               重置
             </Button>
           </div>
@@ -1652,7 +1689,12 @@ const FollowupsGroupList: React.FC = () => {
               <Button 
                 className="filter-reset-btn"
                 size="small" 
-                onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}
+                onClick={() => { 
+                  setSelectedKeys([]); // 清空当前选中的值
+                  clearFilters && clearFilters(); 
+                  resetFilter('majorcategory');
+                  confirm && confirm(); 
+                }}
               >
                 重置
               </Button>
@@ -2547,6 +2589,53 @@ const FollowupsGroupList: React.FC = () => {
 
   // 添加频率控制监控功能
   const [frequencyStats] = useState<any>(null);
+
+  // 统一的筛选重置函数
+  const resetFilter = (fieldName: string) => {
+    // 清空当前字段的Table筛选条件
+    setTableColumnFilters((filters: any) => {
+      const updated = { ...filters };
+      updated[fieldName] = null;
+      return updated;
+    });
+    
+    // 清空tableFilters中的对应字段
+    setTableFilters((prev: any) => {
+      const updated = { ...prev };
+      // 处理特殊字段（日期范围字段）
+      if (fieldName === 'created_at') {
+        delete updated.p_created_at_start;
+        delete updated.p_created_at_end;
+      } else if (fieldName === 'moveintime') {
+        delete updated.p_moveintime_start;
+        delete updated.p_moveintime_end;
+      } else {
+        // 普通字段
+        const paramKey = `p_${fieldName}`;
+        delete updated[paramKey];
+      }
+      return updated;
+    });
+    
+    // 重新获取数据
+    const newFilters = { ...tableFilters };
+    if (fieldName === 'created_at') {
+      delete newFilters.p_created_at_start;
+      delete newFilters.p_created_at_end;
+    } else if (fieldName === 'moveintime') {
+      delete newFilters.p_moveintime_start;
+      delete newFilters.p_moveintime_end;
+    } else {
+      const paramKey = `p_${fieldName}`;
+      delete newFilters[paramKey];
+    }
+    fetchFollowups(newFilters, 1, pagination.pageSize);
+    
+    // 同时更新分组统计
+    if (groupField) {
+      fetchGroupCount(groupField);
+    }
+  };
 
   // 获取频率控制统计信息
 
