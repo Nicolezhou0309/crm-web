@@ -953,7 +953,6 @@ const FollowupsGroupList: React.FC = () => {
       key: 'phone',
       ellipsis: true,
       filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => {
-        const phoneFilters = getFilters('phone', 'phone');
         const filteredPhoneFilters = useMemo(() =>
           phoneFilters.filter(filter => {
             if (!phoneSearch) return true;
@@ -1028,7 +1027,6 @@ const FollowupsGroupList: React.FC = () => {
       key: 'wechat',
       ellipsis: true,
       filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => {
-        const wechatFilters = getFilters('wechat', 'wechat');
         const filteredWechatFilters = useMemo(() =>
           wechatFilters.filter(filter => {
             if (!wechatSearch) return true;
@@ -2127,6 +2125,12 @@ const FollowupsGroupList: React.FC = () => {
   // 获取动态字段的筛选选项（从后端获取）
   const fetchDynamicFilterOptions = async (fieldName: string) => {
     try {
+      // 临时方案：使用现有的 getFilters 函数，直到后端函数部署完成
+      const filters = getFilters(fieldName, fieldName);
+      return filters;
+      
+      // 后端函数部署后的代码（暂时注释）
+      /*
       const { data, error } = await supabase.rpc('get_filter_options', {
         p_field_name: fieldName,
         p_filters: tableFilters // 传递当前筛选条件
@@ -2138,6 +2142,7 @@ const FollowupsGroupList: React.FC = () => {
       }
       
       return data || [];
+      */
     } catch (error) {
       console.error(`获取${fieldName}筛选选项出错:`, error);
       return [];
