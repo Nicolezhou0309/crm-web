@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Tree, Table, Button, Modal, Form, Input, message, Badge, Dropdown, Space, Select, Tag, List, Card, Avatar, Typography } from 'antd';
+import { Tree, Table, Button, Modal, Form, Input, message, Badge, Dropdown, Space, Select, Tag, List, Card, Avatar, Typography, Tooltip } from 'antd';
 import { supabase } from '../supaClient';
-import { EllipsisOutlined, ExclamationCircleOutlined, CrownOutlined, MailOutlined, SearchOutlined, UserOutlined, TeamOutlined } from '@ant-design/icons';
+import { EllipsisOutlined, ExclamationCircleOutlined, CrownOutlined, MailOutlined, SearchOutlined, UserOutlined, TeamOutlined, TrophyOutlined, TeamOutlined as TeamIcon } from '@ant-design/icons';
 import { PermissionGate } from '../components/PermissionGate';
 import type { Key } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
@@ -57,29 +57,17 @@ const DepartmentPage = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const { data: user } = await supabase.auth.getUser();
       
-      console.log('🔍 认证状态检查:', {
-        hasSession: !!session,
-        hasUser: !!user,
-        sessionUserId: session?.user?.id,
-        userUserId: user?.user?.id,
-        hasAccessToken: !!session?.access_token
-      });
       
       if (session?.access_token) {
         try {
           const payload = JSON.parse(atob(session.access_token.split('.')[1]));
-          console.log('🔐 JWT Claims:', {
-            sub: payload.sub,
-            role: payload.role,
-            iss: payload.iss,
-            hasSub: !!payload.sub
-          });
+
         } catch (e) {
-          console.error('❌ JWT解析失败:', e);
+          
         }
       }
     } catch (e) {
-      console.error('❌ 认证状态检查失败:', e);
+      
     }
   };
   
@@ -134,17 +122,156 @@ const DepartmentPage = () => {
     if (!deptId) {
       const { data } = await supabase
         .from('users_profile')
-        .select('user_id, organization_id, nickname, email, status, organizations(name)');
-      setMembers(data || []);
+        .select('id, user_id, organization_id, nickname, email, status, organizations(name)');
+      
+      // 获取积分信息 - 使用 profile.id (bigint) 而不是 user_id (uuid)
+      const profileIds = data?.map(user => user.id).filter(Boolean) || [];
+      let pointsData: any[] = [];
+      if (profileIds.length > 0) {
+        
+        // 使用正确的积分表名：user_points_wallet
+        const { data: points, error: pointsError } = await supabase
+          .from('user_points_wallet')
+          .select('user_id, total_points')
+          .in('user_id', profileIds);
+        
+        pointsData = points || [];
+      } else {
+      }
+      
+      // 获取销售组信息 - 使用 profile.id (bigint) 而不是 user_id (uuid)
+      let salesGroupsData: any[] = [];
+      if (profileIds.length > 0) {
+        
+        // 获取基础销售组信息 - 使用 profile.id
+        const { data: salesGroups, error: salesGroupsError } = await supabase
+          .from('users_list')
+          .select('id, groupname, list, allocation')
+          .overlaps('list', profileIds);
+        
+        
+        // 获取每个用户的销售组状态
+        const salesGroupsWithStatus = await Promise.all(
+          (salesGroups || []).map(async (group) => {
+            
+            // 为每个用户获取该销售组的详细状态
+            const userStatusPromises = profileIds.map(async (profileId) => {
+              
+              const { data: userStatus, error: statusError } = await supabase.rpc('get_user_allocation_status_multi', {
+                p_user_id: profileId
+              });
+              
+              return { profileId, status: userStatus };
+            });
+            
+            const userStatuses = await Promise.all(userStatusPromises);
+            
+            return {
+              ...group,
+              user_statuses: userStatuses
+            };
+          })
+        );
+        
+        salesGroupsData = salesGroupsWithStatus;
+      }
+      
+      // 合并数据
+      const membersWithData = data?.map(user => {
+        const userPoints = pointsData.find(p => p.user_id === user.id);
+        const userSalesGroups = salesGroupsData.filter(sg => 
+          sg.list && sg.list.includes(user.id)
+        );
+        
+        return {
+          ...user,
+          points: userPoints?.total_points || 0,
+          sales_groups: userSalesGroups
+        };
+      }) || [];
+      
+      setMembers(membersWithData);
       setLoading(false);
       return;
     }
     const deptIds = getAllDeptIds(departments, deptId);
     const { data } = await supabase
       .from('users_profile')
-      .select('user_id, organization_id, nickname, email, status, organizations(name)')
+      .select('id, user_id, organization_id, nickname, email, status, organizations(name)')
       .in('organization_id', deptIds);
-    setMembers(data || []);
+    
+    // 获取积分信息 - 使用 profile.id (bigint) 而不是 user_id (uuid)
+    const profileIds = data?.map(user => user.id).filter(Boolean) || [];
+    let pointsData: any[] = [];
+    if (profileIds.length > 0) {
+      
+      // 使用正确的积分表名：user_points_wallet
+      const { data: points, error: pointsError } = await supabase
+        .from('user_points_wallet')
+        .select('user_id, total_points')
+        .in('user_id', profileIds);
+      
+      
+      pointsData = points || [];
+    } else {
+    }
+    
+    // 获取销售组信息 - 使用 profile.id (bigint) 而不是 user_id (uuid)
+    let salesGroupsData: any[] = [];
+    if (profileIds.length > 0) {
+      
+      // 获取基础销售组信息 - 使用 profile.id
+      const { data: salesGroups, error: salesGroupsError } = await supabase
+        .from('users_list')
+        .select('id, groupname, list, allocation')
+        .overlaps('list', profileIds);
+      
+      
+      // 获取每个用户的销售组状态
+      const salesGroupsWithStatus = await Promise.all(
+        (salesGroups || []).map(async (group) => {
+          
+                      // 为每个用户获取该销售组的详细状态
+            const userStatusPromises = profileIds.map(async (profileId) => {
+              
+              const { data: userStatus, error: statusError } = await supabase.rpc('get_user_allocation_status_multi', {
+                p_user_id: profileId
+              });
+              
+              
+              
+              return { profileId, status: userStatus };
+            });
+          
+          const userStatuses = await Promise.all(userStatusPromises);
+          
+          return {
+            ...group,
+            user_statuses: userStatuses
+          };
+        })
+      );
+      
+      salesGroupsData = salesGroupsWithStatus;
+    } else {
+    }
+    
+    // 合并数据
+    const membersWithData = data?.map(user => {
+      const userPoints = pointsData.find(p => p.user_id === user.id);
+      const userSalesGroups = salesGroupsData.filter(sg => 
+        sg.list && sg.list.includes(user.id)
+      );
+      
+      
+      return {
+        ...user,
+        points: userPoints?.total_points || 0,
+        sales_groups: userSalesGroups
+      };
+    }) || [];
+    
+    setMembers(membersWithData);
     setLoading(false);
   };
 
@@ -274,20 +401,12 @@ const DepartmentPage = () => {
   // 邀请用户注册
   const handleInviteUser = async (email: string, name?: string) => {
     try {
-      console.log('📧 邀请用户:', email);
       
       // 1. 首先检查用户认证状态
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('🔍 邀请前认证检查:', {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        hasAccessToken: !!session?.access_token,
-        userId: session?.user?.id,
-        userEmail: session?.user?.email
-      });
+
       
       if (!session || !session.user) {
-        console.error('❌ 用户未登录');
         message.error('用户未登录，请先登录后再邀请成员');
         return;
       }
@@ -301,7 +420,6 @@ const DepartmentPage = () => {
       
       // 如果查询出错，记录但不阻止流程
       if (profileError && profileError.code !== 'PGRST116') {
-        console.warn('查询用户资料时出现警告:', profileError);
       }
 
       if (existingProfile && existingProfile.user_id) {
@@ -312,17 +430,11 @@ const DepartmentPage = () => {
 
       // 3. 检查是否有权限邀请到该部门
       if (!selectedDept?.id) {
-        console.error('❌ 未选择部门');
         message.error('请先选择要邀请用户加入的部门');
         return;
       }
 
-      console.log('📤 发送邀请请求:', {
-        email,
-        name: name || email.split('@')[0],
-        organizationId: selectedDept.id,
-        redirectTo: `${window.location.origin}/set-password`
-      });
+
 
       // 4. 使用专用的invite-user Edge Function发送邀请邮件
       const { data, error } = await supabase.functions.invoke('invite-user', {
@@ -334,10 +446,9 @@ const DepartmentPage = () => {
         }
       });
 
-      console.log('📥 邀请响应:', { data, error });
+
 
       if (error) {
-        console.error('❌ 邀请用户失败:', error);
         
         // 详细错误处理
         let errorMessage = '邀请用户失败';
@@ -355,14 +466,13 @@ const DepartmentPage = () => {
         return;
       }
 
-      console.log('✅ 邀请成功:', data);
+
       message.success('邀请邮件已发送！用户将收到注册邀请邮件。');
       
       // 刷新成员列表
       fetchMembers(selectedDept?.id ?? null);
       
     } catch (error: any) {
-      console.error('❌ 邀请用户异常:', error);
       message.error('邀请用户失败: ' + (error.message || '未知错误'));
     }
   };
@@ -370,21 +480,18 @@ const DepartmentPage = () => {
   // 发送密码重置邮件
   const handleResetPassword = async (email: string) => {
     try {
-      console.log('🔑 发送密码重置邮件:', email);
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) {
-        console.error('发送密码重置邮件失败:', error);
         throw new Error(error.message || '发送密码重置邮件失败');
       }
 
       message.success('密码重置邮件已发送！');
       
     } catch (error: any) {
-      console.error('发送密码重置邮件异常:', error);
       message.error(error.message || '发送密码重置邮件失败');
     }
   };
@@ -392,7 +499,6 @@ const DepartmentPage = () => {
   // 重置邮箱地址
   const handleChangeEmail = async (userId: string, newEmail: string) => {
     try {
-      console.log('📧 重置邮箱地址:', { userId, newEmail });
       
       // 首先检查新邮箱是否已被使用
       const { data: existingUser, error: checkError } = await supabase
@@ -402,7 +508,6 @@ const DepartmentPage = () => {
         .limit(1);
       
       if (checkError) {
-        console.error('检查邮箱唯一性失败:', checkError);
         throw new Error('检查邮箱唯一性失败');
       }
 
@@ -434,7 +539,6 @@ const DepartmentPage = () => {
       });
       
     } catch (error: any) {
-      console.error('重置邮箱异常:', error);
       message.error(error.message || '重置邮箱失败');
     }
   };
@@ -782,9 +886,173 @@ const DepartmentPage = () => {
                 )
               },
               {
+                title: '剩余积分',
+                dataIndex: 'points',
+                className: 'page-col-nowrap',
+                width: 100,
+                render: (points: number, record: any) => (
+                  <span style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    color: points > 0 ? '#52c41a' : '#ff4d4f',
+                    fontWeight: 600,
+                    fontSize: '14px'
+                  }}>
+                    <TrophyOutlined style={{ fontSize: '12px' }} />
+                    {points || 0}
+                  </span>
+                )
+              },
+              {
+                title: '销售组状态',
+                dataIndex: 'sales_groups',
+                className: 'page-col-nowrap',
+                width: 120,
+                render: (salesGroups: any[], record: any) => { 
+                  if (!salesGroups || salesGroups.length === 0) {
+                    return (
+                      <span style={{ 
+                        color: '#8c8c8c',
+                        fontSize: '12px'
+                      }}>
+                        未加入
+                      </span>
+                    );
+                  }
+                  
+                  // 检查当前用户在该销售组中的状态
+                  const userGroups = salesGroups.filter(sg => 
+                    sg.list && sg.list.includes(record.id)
+                  );
+                  
+                  if (userGroups.length === 0) {
+                    return (
+                      <span style={{ 
+                        color: '#8c8c8c',
+                        fontSize: '12px'
+                      }}>
+                        未加入
+                      </span>
+                    );
+                  }
+                  
+                  // 检查是否有异常状态
+                  const hasAbnormal = userGroups.some(sg => {
+                    const userStatus = sg.user_statuses?.find((us: any) => us.profileId === record.id);
+                    // get_user_allocation_status_multi 返回数组，需要检查该用户在该组中的状态
+                    if (!userStatus?.status || !Array.isArray(userStatus.status)) {
+                      return false;
+                    }
+                    // 找到该用户在该组中的状态
+                    const groupStatus = userStatus.status.find((status: any) => 
+                      status.groupname === sg.groupname
+                    );
+                    const isAbnormal = groupStatus && !groupStatus.can_allocate;
+                    
+                    return isAbnormal;
+                  });
+                  
+                  return (
+                    <Badge 
+                      color={hasAbnormal ? 'red' : 'green'} 
+                      text={hasAbnormal ? '异常' : '正常'}
+                      style={{ fontSize: '12px' }}
+                    />
+                  );
+                }
+              },
+              {
+                title: '销售组列表',
+                dataIndex: 'sales_groups',
+                className: 'page-col-nowrap',
+                width: 350,
+                render: (salesGroups: any[], record: any) => {
+                  if (!salesGroups || salesGroups.length === 0) {
+                    return <span style={{ color: '#8c8c8c' }}>-</span>;
+                  }
+                  
+                  // 过滤出当前用户所属的销售组
+                  const userGroups = salesGroups.filter(sg => 
+                    sg.list && sg.list.includes(record.id)
+                  );
+                  
+                  if (userGroups.length === 0) {
+                    return <span style={{ color: '#8c8c8c' }}>-</span>;
+                  }
+                  
+                  return (
+                    <div style={{ 
+                      display: 'flex', 
+                      flexWrap: 'wrap', 
+                      gap: '4px',
+                      maxWidth: '330px',
+                      minHeight: '24px',
+                      maxHeight: '80px',
+                      alignItems: 'flex-start',
+                      overflowY: 'auto',
+                      overflowX: 'hidden'
+                    }}>
+                      {userGroups.map((group, index) => {
+                        // 检查该用户在该销售组中的状态
+                        const userStatus = group.user_statuses?.find((us: any) => us.profileId === record.id);
+                        // get_user_allocation_status_multi 返回数组，需要检查该用户在该组中的状态
+                        let isAbnormal = false;
+                        let abnormalReasons: string[] = [];
+                        if (userStatus?.status && Array.isArray(userStatus.status)) {
+                          // 找到该用户在该组中的状态
+                          const groupStatus = userStatus.status.find((status: any) => 
+                            status.groupname === group.groupname
+                          );
+                          isAbnormal = groupStatus && !groupStatus.can_allocate;
+                          if (isAbnormal && groupStatus?.reason && Array.isArray(groupStatus.reason)) {
+                            abnormalReasons = groupStatus.reason;
+                          }
+                        }
+                        
+                        // 构建 tooltip 内容
+                        const tooltipContent = isAbnormal && abnormalReasons.length > 0 
+                          ? `${group.groupname}\n异常原因：\n${abnormalReasons.join('\n')}`
+                          : group.groupname;
+                        
+                        return (
+                          <Tooltip 
+                            key={group.id} 
+                            title={tooltipContent} 
+                            placement="top"
+                            overlayStyle={{ 
+                              maxWidth: '350px',
+                              whiteSpace: 'pre-line'
+                            }}
+                          >
+                            <Tag 
+                              color={isAbnormal ? 'red' : 'blue'}
+                              style={{ 
+                                fontSize: '11px',
+                                margin: 0,
+                                padding: '2px 6px',
+                                borderRadius: '6px',
+                                lineHeight: '1.3',
+                                maxWidth: '120px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                cursor: 'help'
+                              }}
+                            >
+                              {group.groupname}
+                            </Tag>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+              },
+              {
                 title: '操作',
                 dataIndex: 'actions',
-                width: 200,
+                width: 220,
                 render: (_: any, record: any) => {
                   // 检查是否有权限管理该用户
                   const canManage = hasUserManagePermission(record.organization_id);
@@ -868,11 +1136,7 @@ const DepartmentPage = () => {
                               label: '邮箱重置指引',
                               onClick: () => {
                                 if (record.user_id) {
-                                  console.log('🔥 点击重置邮箱按钮，用户信息:', { 
-                                    user_id: record.user_id, 
-                                    email: record.email, 
-                                    organization_id: record.organization_id 
-                                  });
+                                  
                                   setCurrentResetUser(record);
                                   setShowResetEmail(true);
                                   resetEmailForm.resetFields();
@@ -924,6 +1188,8 @@ const DepartmentPage = () => {
               borderRadius: '12px',
               overflow: 'hidden'
             }}
+            scroll={{ x: 1000 }}
+            rowClassName={(record, index) => 'dept-table-row'}
             pagination={{ 
               pageSize: 20,
               showSizeChanger: true,

@@ -390,7 +390,7 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   padding: 24px;
   border: 1px solid #f0f0f0;
-  overflow: hidden;
+  overflow: auto;
   display: flex;
   flex-direction: column;
 }
@@ -447,7 +447,7 @@
 
 .dept-table-actions .ant-btn {
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 14px;
   height: 28px;
   padding: 0 8px;
   display: flex;
@@ -502,4 +502,72 @@
 .dept-tree .ant-tree-node-selected .dept-member-count {
   background: #1677ff;
   color: #fff;
+}
+
+/* ========== 表格行优化 ========== */
+
+/* 表格行高度控制 */
+.dept-table-row {
+  height: auto;
+  min-height: 48px;
+  max-height: 100px;
+}
+
+.dept-table-row .ant-table-cell {
+  padding: 8px 12px;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+/* 销售组列表列优化 */
+.dept-table-row .ant-table-cell:has(div[style*="display: flex"]) {
+  padding: 6px 12px;
+}
+
+/* 标签容器优化 */
+.dept-table-row .ant-table-cell div[style*="display: flex"] {
+  min-height: 24px;
+  max-height: 80px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 销售组列表滚动条样式 */
+.dept-table-row .ant-table-cell div[style*="display: flex"]::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dept-table-row .ant-table-cell div[style*="display: flex"]::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 2px;
+}
+
+.dept-table-row .ant-table-cell div[style*="display: flex"]::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 2px;
+  transition: background 0.3s;
+}
+
+.dept-table-row .ant-table-cell div[style*="display: flex"]::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+/* 标签样式优化 */
+.dept-table-row .ant-tag {
+  margin: 2px 2px;
+  max-width: 120px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: help;
+}
+
+/* 表格容器优化 */
+.page-table-wrap {
+  overflow-x: auto;
+  min-width: 100%;
+}
+
+.page-table {
+  min-width: 1000px;
 } 
