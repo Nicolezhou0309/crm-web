@@ -15,6 +15,16 @@ export async function fetchEnumValues(enumName: string): Promise<string[]> {
   return data || [];
 }
 
+// 获取地铁站数据
+export async function fetchMetroStations(): Promise<{ line: string; name: string }[]> {
+  const { data, error } = await supabase.rpc('get_metrostations');
+  if (error) {
+    console.error('获取地铁站数据失败:', error);
+    return [];
+  }
+  return data || [];
+}
+
 // 生成并发安全的leadid
 export async function generateLeadId(): Promise<string> {
   const { data, error } = await supabase.rpc('gen_leadid');

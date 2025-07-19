@@ -32,6 +32,9 @@ import PointsRules from './pages/PointsRules';
 import AnnouncementManagement from './pages/AnnouncementManagement';
 import { HonorManagement } from './pages/HonorManagement';
 import { AchievementManagement } from './pages/AchievementManagement';
+import LoadingDemo from './pages/LoadingDemo';
+import CacheDebugPage from './pages/CacheDebugPage';
+import TestTools from './pages/TestTools';
 import './App.css';
 import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
@@ -47,6 +50,8 @@ import BannerManagement from './pages/BannerManagement';
 import { Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import { UserProvider, useUser } from './context/UserContext';
+import CacheDebugPanel from './components/CacheDebugPanel';
+import LoadingScreen from './components/LoadingScreen';
 
 
 const { Sider, Content, Header } = Layout;
@@ -90,7 +95,7 @@ const App: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { user, profile, loading } = useUser();
+  const { user, profile, loading, sessionTimeRemaining, isSessionExpired } = useUser();
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth, setSiderWidth] = React.useState(220);
   const minSiderWidth = 56;
@@ -98,6 +103,8 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // 调试面板状态
+  const [debugPanelVisible, setDebugPanelVisible] = React.useState(false);
   
   // 头像状态管理
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined);
@@ -226,17 +233,7 @@ const AppContent: React.FC = () => {
 
   // 如果正在加载用户信息，显示加载状态
   if (loading) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        fontSize: '16px'
-      }}>
-        正在加载用户信息...
-      </div>
-    );
+    return <LoadingScreen useRandomMessage={true} />;
   }
 
   // 公开页面（登录页面）不需要用户认证，直接渲染
@@ -250,7 +247,7 @@ const AppContent: React.FC = () => {
   }
 
   // 如果用户未登录且不是公开页面，跳转到登录页面
-  if (!user) {
+  if (!user || isSessionExpired) {
     return <Navigate to="/login" replace />;
   }
 
@@ -700,6 +697,9 @@ const AppContent: React.FC = () => {
                   } />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/banner-management" element={<BannerManagement />} />
+                  <Route path="/loading-demo" element={<LoadingDemo />} />
+                  <Route path="/cache-debug" element={<CacheDebugPage />} />
+                  <Route path="/test-tools" element={<TestTools />} />
                   <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>
@@ -707,6 +707,13 @@ const AppContent: React.FC = () => {
           </Layout>
         </Layout>
         {notificationDrawer}
+        {/* 缓存调试面板 */}
+        {process.env.NODE_ENV === 'development' && (
+          <CacheDebugPanel 
+            isVisible={debugPanelVisible} 
+            onClose={() => setDebugPanelVisible(false)} 
+          />
+        )}
       </div>
     </ConfigProvider>
   );

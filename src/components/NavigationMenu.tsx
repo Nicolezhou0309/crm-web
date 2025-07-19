@@ -19,6 +19,9 @@ import {
   MenuFoldOutlined,
   BellOutlined,
   CrownOutlined,
+  ExperimentOutlined,
+  BugOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 
@@ -155,6 +158,12 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       icon: <SettingOutlined />,
       label: '系统管理',
       children: [
+        {
+          key: 'test-tools',
+          icon: <ToolOutlined />,
+          label: '测试工具集',
+          path: '/test-tools',
+        },
         { 
           key: 'roles', 
           icon: <KeyOutlined />, 
@@ -178,6 +187,18 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           icon: <HomeOutlined />,
           label: '首页管理',
           path: '/banner-management',
+        },
+        {
+          key: 'load-demo',
+          icon: <ExperimentOutlined />,
+          label: '加载演示',
+          path: '/loading-demo',
+        },
+        {
+          key: 'cache-debug',
+          icon: <BugOutlined />,
+          label: '缓存调试',
+          path: '/cache-debug',
         },
       ]
     },

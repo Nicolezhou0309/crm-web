@@ -30,11 +30,9 @@ export class FrequencyController {
   }
   async recordOperation(recordId?: string, oldValue?: string, newValue?: string): Promise<void> {
     if (!this.userId || this.userId <= 0) {
-      console.log('[FREQ] recordOperation: userId 无效，跳过记录');
       return;
     }
     try {
-      console.log('[FREQ] recordOperation: 调用后端 RPC，userId:', this.userId, 'recordId:', recordId, 'oldValue:', oldValue, 'newValue:', newValue);
       const { data, error } = await supabase.rpc('record_operation', {
         p_user_id: this.userId,
         p_operation_type: 'update',
@@ -43,12 +41,10 @@ export class FrequencyController {
         p_new_value: newValue,
       });
       if (error) {
-        console.log('[FREQ] recordOperation: RPC 调用失败，error:', error);
-      } else {
-        console.log('[FREQ] recordOperation: 后端返回结果:', data);
+        console.error('[FREQ] recordOperation: RPC 调用失败，error:', error);
       }
     } catch (error) {
-      console.log('[FREQ] recordOperation: 异常捕获，error:', error);
+      console.error('[FREQ] recordOperation: 异常捕获，error:', error);
     }
   }
 }
