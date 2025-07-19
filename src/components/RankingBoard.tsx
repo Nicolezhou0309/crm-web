@@ -8,12 +8,12 @@ const rankingTabs = [
     data: [
       { id: 1, name: '梁伟', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=1', value: 215, followed: false },
       { id: 2, name: '任菲菲', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=2', value: 164, followed: false },
-      { id: 3, name: '8年了寻找稳基', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=3', value: 166, followed: false },
-      { id: 4, name: '稳健投资先锋', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=4', value: 150, followed: false },
-      { id: 5, name: 'ann8209小蜜蜂', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=5', value: 153, followed: false },
-      { id: 6, name: '哎你梅一天', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=6', value: 144, followed: false },
-      { id: 7, name: '周家养基人', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=7', value: 140, followed: false },
-      { id: 8, name: 'jd_151394uwa', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=8', value: 139, followed: false },
+      { id: 3, name: '李士军', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=3', value: 166, followed: false },
+      { id: 4, name: '唐攀', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=4', value: 150, followed: false },
+      { id: 5, name: '康萍', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=5', value: 153, followed: false },
+      { id: 6, name: '周轩元', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=6', value: 144, followed: false },
+      { id: 7, name: '罗兰兰', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=7', value: 140, followed: false },
+      { id: 8, name: '张桃', avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=8', value: 139, followed: false },
     ],
   },
   {
@@ -124,7 +124,7 @@ const RankingBoard: React.FC = () => {
                 }}>TOP.2</span>
               </div>
               <span style={{ fontWeight: 600, fontSize: 13, marginBottom: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data[1].name}</span>
-              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500, whiteSpace: 'nowrap' }}>新作{data[1].value}件</span>
+              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500, whiteSpace: 'nowrap' }}>成交{data[1].value}套</span>
             </div>
           )}
           {/* TOP1 中间 */}
@@ -157,7 +157,7 @@ const RankingBoard: React.FC = () => {
                 }}>TOP.1</span>
               </div>
               <span style={{ fontWeight: 600, fontSize: 13, marginBottom: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data[0].name}</span>
-              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500, whiteSpace: 'nowrap' }}>新作{data[0].value}件</span>
+              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500, whiteSpace: 'nowrap' }}>成交{data[0].value}套</span>
             </div>
           )}
           {/* TOP3 右边 */}
@@ -189,7 +189,7 @@ const RankingBoard: React.FC = () => {
                 }}>TOP.3</span>
               </div>
               <span style={{ fontWeight: 600, fontSize: 13, marginBottom: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data[2].name}</span>
-              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500, whiteSpace: 'nowrap' }}>新作{data[2].value}件</span>
+              <span style={{ fontSize: 11, color: '#d97b2b', fontWeight: 500, whiteSpace: 'nowrap' }}>成交{data[2].value}套</span>
             </div>
           )}
         </div>
@@ -202,7 +202,7 @@ const RankingBoard: React.FC = () => {
               <span style={{ width: 20, textAlign: 'center', fontWeight: 700, color: '#d97b2b', fontSize: 13 }}>{idx + 4}</span>
               <Avatar src={item.avatar} size={28} style={{ margin: '0 8px' }} />
               <span style={{ flex: 1, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</span>
-              <span style={{ color: '#d97b2b', fontSize: 11, marginRight: 6, whiteSpace: 'nowrap' }}>新作{item.value}件</span>
+              <span style={{ color: '#d97b2b', fontSize: 11, marginRight: 6, whiteSpace: 'nowrap' }}>成交{item.value}套</span>
               <Button
                 size="small"
                 type={followed[item.id] ? 'default' : 'primary'}
@@ -230,7 +230,7 @@ const RankingBoard: React.FC = () => {
         {myInfo.rank ? (
           <>
             <span style={{ marginLeft: 10, color: '#d97b2b', fontWeight: 600 }}>第{myInfo.rank}名</span>
-            <span style={{ marginLeft: 8, color: '#d97b2b', fontSize: 11 }}>新作{myInfo.value}件</span>
+            <span style={{ marginLeft: 8, color: '#d97b2b', fontSize: 11 }}>成交{myInfo.value}套</span>
           </>
         ) : (
           <span style={{ marginLeft: 10, color: '#bbb', fontWeight: 500 }}>未上榜</span>

@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
-import { List, Tag, Checkbox, Tooltip, Tabs } from 'antd';
-import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons';
+import React, { useState, useMemo } from 'react';
+import { Checkbox, Tooltip, Tabs } from 'antd';
 
 export interface TodoItem {
   id: string;
@@ -18,13 +17,19 @@ export interface TodoItem {
 const mockData: TodoItem[] = [
   {
     id: '1',
-    title: '下班去后海',
+    title: '1*0888续租',
+    tag: '特急',
+    tagColor: 'red',
     due: '11月18日 18:00',
+    owner: '麦莉',
+    starter: '我',
+    startTime: '11月18日 15:05',
+    code: '190006',
     status: 'todo',
   },
   {
     id: '2',
-    title: '完成今天的UI设计工作',
+    title: '提交小红书勤奋度',
     tag: '特急',
     tagColor: 'red',
     due: '3小时后',
@@ -36,9 +41,9 @@ const mockData: TodoItem[] = [
   },
   {
     id: '3',
-    title: 'APP设计走查',
-    tag: '测试',
-    tagColor: 'green',
+    title: '发布小红书内容',
+    tag: '一般',
+    tagColor: 'blue',
     due: '明天',
     owner: '麦莉',
     starter: '我',
@@ -48,14 +53,86 @@ const mockData: TodoItem[] = [
   },
   {
     id: '4',
-    title: '完成app切图标注工作',
-    tag: '一般',
-    tagColor: 'blue',
-    due: '11-19 完成',
+    title: '2*0666房租催收',
+    tag: '重要',
+    tagColor: 'orange',
+    due: '11月19日 12:00',
     owner: '霍勒斯',
     starter: '我',
     startTime: '11月18日 15:05',
     code: '180064',
+    status: 'todo',
+  },
+  {
+    id: '5',
+    title: '提交月度绩效报告',
+    tag: '重要',
+    tagColor: 'orange',
+    due: '11月20日 17:00',
+    owner: '我',
+    starter: '我',
+    startTime: '11月18日 15:05',
+    code: '180065',
+    status: 'todo',
+  },
+  {
+    id: '6',
+    title: '3*0999房间清洁检查',
+    tag: '一般',
+    tagColor: 'blue',
+    due: '11月21日 14:00',
+    owner: '麦莉',
+    starter: '我',
+    startTime: '11月18日 15:05',
+    code: '180066',
+    status: 'todo',
+  },
+  {
+    id: '7',
+    title: '4*0555租客投诉处理',
+    tag: '特急',
+    tagColor: 'red',
+    due: '11月18日 20:00',
+    owner: '霍勒斯',
+    starter: '我',
+    startTime: '11月18日 15:05',
+    code: '180067',
+    status: 'todo',
+  },
+  {
+    id: '8',
+    title: '5*0777水电费催缴',
+    tag: '一般',
+    tagColor: 'blue',
+    due: '11月22日 16:00',
+    owner: '麦莉',
+    starter: '我',
+    startTime: '11月18日 15:05',
+    code: '180068',
+    status: 'todo',
+  },
+  {
+    id: '9',
+    title: '6*0444房间维修跟进',
+    tag: '重要',
+    tagColor: 'orange',
+    due: '11月23日 10:00',
+    owner: '霍勒斯',
+    starter: '我',
+    startTime: '11月18日 15:05',
+    code: '180069',
+    status: 'done',
+  },
+  {
+    id: '10',
+    title: '7*0333租客退房手续',
+    tag: '一般',
+    tagColor: 'blue',
+    due: '11月24日 15:00',
+    owner: '麦莉',
+    starter: '我',
+    startTime: '11月18日 15:05',
+    code: '180070',
     status: 'done',
   },
 ];
@@ -63,83 +140,30 @@ const mockData: TodoItem[] = [
 const TodoCenter: React.FC = () => {
   const [todos, setTodos] = useState<TodoItem[]>(mockData);
   const [activeTab, setActiveTab] = useState<'todo'|'done'>('todo');
-  const [openMonths, setOpenMonths] = useState<string[]>(() => {
-    // 默认未开始分组全部展开，已完成分组全部收起
-    const now = new Date();
-    return [`${now.getFullYear()}-${now.getMonth() + 1}`]; // 初始本月展开，tab切换时动态调整
-  });
-  // 记录tab切换，避免每次数据变化都重置openMonths
-  const tabChangedRef = useRef(false);
 
   // 分组
   const todoList = todos.filter(t => t.status === 'todo');
   const doneList = todos.filter(t => t.status === 'done');
 
-  // 按月分组未完成事项
-  const todoListByMonth = useMemo(() => {
-    const map = new Map<string, TodoItem[]>();
-    todoList.forEach(item => {
-      let monthKey = '未分组';
-      if (item.due) {
-        // 支持“11月18日 18:00”或“11-19 完成”
-        const match = item.due.match(/(\d{1,2})[月\-](\d{1,2})/);
-        if (match) {
-          const now = new Date();
-          const year = now.getFullYear();
-          const month = parseInt(match[1], 10);
-          monthKey = `${year}-${month}`;
-        }
-      }
-      if (!map.has(monthKey)) map.set(monthKey, []);
-      map.get(monthKey)!.push(item);
+  // 按时间排序未完成事项
+  const sortedTodoList = useMemo(() => {
+    return todoList.sort((a, b) => {
+      if (!a.due && !b.due) return 0;
+      if (!a.due) return 1;
+      if (!b.due) return -1;
+      return a.due.localeCompare(b.due);
     });
-    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0])); // [[monthKey, TodoItem[]], ...]
   }, [todoList]);
 
-  // 按月分组已完成事项
-  const doneListByMonth = useMemo(() => {
-    const map = new Map<string, TodoItem[]>();
-    doneList.forEach(item => {
-      let monthKey = '未分组';
-      if (item.due) {
-        const match = item.due.match(/(\d{1,2})[月\-](\d{1,2})/);
-        if (match) {
-          const now = new Date();
-          const year = now.getFullYear();
-          const month = parseInt(match[1], 10);
-          monthKey = `${year}-${month}`;
-        }
-      }
-      if (!map.has(monthKey)) map.set(monthKey, []);
-      map.get(monthKey)!.push(item);
+  // 按时间排序已完成事项
+  const sortedDoneList = useMemo(() => {
+    return doneList.sort((a, b) => {
+      if (!a.due && !b.due) return 0;
+      if (!a.due) return 1;
+      if (!b.due) return -1;
+      return a.due.localeCompare(b.due);
     });
-    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [doneList]);
-
-  // tab切换时只在首次切换时设置默认展开分组，之后不再自动重置
-  useEffect(() => {
-    if (!tabChangedRef.current) {
-      if (activeTab === 'todo') {
-        setOpenMonths(todoListByMonth.length > 0 ? [todoListByMonth[0][0]] : []);
-      } else {
-        setOpenMonths([]);
-      }
-      tabChangedRef.current = true;
-    }
-  }, [activeTab, todoListByMonth]);
-  // 切换tab时重置tabChangedRef
-  useEffect(() => {
-    tabChangedRef.current = false;
-  }, [activeTab]);
-
-  // 月份分组展开/收起
-  const toggleMonth = (monthKey: string) => {
-    setOpenMonths(list =>
-      list.includes(monthKey)
-        ? [] // 已展开则收起全部
-        : [monthKey] // 只展开当前分组
-    );
-  };
 
   // 勾选切换
   const handleCheck = (id: string, checked: boolean) => {
@@ -152,7 +176,7 @@ const TodoCenter: React.FC = () => {
   const renderItem = (item: TodoItem) => {
     // 判断是否特急事项
     const isUrgent = item.tag === '特急';
-    // 截止时间分两行：如“11月18日 18:00” → ["11月18日", "18:00"]
+    // 截止时间分两行：如"11月18日 18:00" → ["11月18日", "18:00"]
     let dueDate = '', dueTime = '';
     if (item.due) {
       const match = item.due.match(/^(\d{1,2}月\d{1,2}日)[\s ]?(\d{1,2}:\d{2})?$/);
@@ -164,7 +188,7 @@ const TodoCenter: React.FC = () => {
       }
     }
     return (
-      <div style={{ display: 'flex', alignItems: 'flex-start', padding: '6px 0', borderBottom: '1px solid #f3f3f3' }}>
+      <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid #f3f3f3' }}>
         <Checkbox
           checked={item.status === 'done'}
           onChange={e => handleCheck(item.id, e.target.checked)}
@@ -186,13 +210,12 @@ const TodoCenter: React.FC = () => {
                 verticalAlign: 'middle',
               }}>{item.title}</span>
             </Tooltip>
-            {/* 不再显示紧急度标签 */}
           </div>
           <div style={{ color: '#bbb', fontSize: 11, marginTop: 2, textAlign: 'left' }}>
             {item.starter && <span>我发起的</span>} {item.startTime && <span style={{ marginLeft: 8 }}>{item.startTime}</span>}
           </div>
         </div>
-        <div style={{ minWidth: 56, textAlign: 'right', color: '#888', fontSize: 12, marginLeft: 8, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
+        <div style={{ minWidth: 56, textAlign: 'right', color: '#888', fontSize: 12, marginLeft: 8, marginRight: 8, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
           <span>{dueDate}</span>
           {dueTime && <span>{dueTime}</span>}
         </div>
@@ -201,8 +224,8 @@ const TodoCenter: React.FC = () => {
   };
 
   return (
-    <div style={{ width: '100%', background: '#fff', borderRadius: 18, boxShadow: '0 4px 16px rgba(255,107,53,0.08)', padding: 20, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ fontSize: 16, fontWeight: 700, color: '#222', marginBottom: 8, textAlign: 'left' }}>待办事项</div>
+    <div style={{ width: '100%', background: '#fff', borderRadius: 18, boxShadow: '0 4px 16px rgba(255,107,53,0.08)', padding: 20, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: '#222', marginBottom: 8, textAlign: 'left' }}>待办中心</div>
       <Tabs
         activeKey={activeTab}
         onChange={key => setActiveTab(key as 'todo'|'done')}
@@ -211,31 +234,15 @@ const TodoCenter: React.FC = () => {
             key: 'todo',
             label: `未开始 (${todoList.length})`,
             children: (
-              <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-                {todoList.length === 0
-                  ? <div style={{ color: '#bbb', fontSize: 13, padding: '12px 0' }}>暂无待办事项</div>
-                  : todoListByMonth.map(([monthKey, items]) => {
-                      // monthKey: "2024-11"
-                      const [year, month] = monthKey.split('-');
-                      const label = monthKey === '未分组' ? '未分组' : `${year}年${month}月`;
-                      const open = openMonths.includes(monthKey);
-                      return (
-                        <div key={monthKey} style={{ marginBottom: 8 }}>
-                          <div
-                            style={{ fontSize: 13, color: '#888', fontWeight: 500, margin: '8px 0 2px 0', cursor: 'pointer', display: 'flex', alignItems: 'center', userSelect: 'none' }}
-                            onClick={() => toggleMonth(monthKey)}
-                          >
-                            {open ? <CaretDownOutlined style={{ fontSize: 14, marginRight: 4 }} /> : <CaretRightOutlined style={{ fontSize: 14, marginRight: 4 }} />}
-                            {label}
-                          </div>
-                          {open && items.map(item => (
-                            <div key={item.id}>
-                              {renderItem(item)}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
+              <div style={{ 
+                height: '300px',
+                overflow: 'auto', 
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#d9d9d9 #f5f5f5'
+              }}>
+                {sortedTodoList.length === 0
+                  ? <div style={{ color: '#bbb', fontSize: 13, padding: '12px 0' }}>暂无待办任务</div>
+                  : sortedTodoList.map(item => renderItem(item))}
               </div>
             ),
           },
@@ -243,36 +250,21 @@ const TodoCenter: React.FC = () => {
             key: 'done',
             label: `已完成 (${doneList.length})`,
             children: (
-              <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-                {doneList.length === 0
-                  ? <div style={{ color: '#bbb', fontSize: 13, padding: '12px 0' }}>暂无已完成事项</div>
-                  : doneListByMonth.map(([monthKey, items]) => {
-                      const [year, month] = monthKey.split('-');
-                      const label = monthKey === '未分组' ? '未分组' : `${year}年${month}月`;
-                      const open = openMonths.includes(monthKey);
-                      return (
-                        <div key={monthKey} style={{ marginBottom: 8 }}>
-                          <div
-                            style={{ fontSize: 13, color: '#888', fontWeight: 500, margin: '8px 0 2px 0', cursor: 'pointer', display: 'flex', alignItems: 'center', userSelect: 'none' }}
-                            onClick={() => toggleMonth(monthKey)}
-                          >
-                            {open ? <CaretDownOutlined style={{ fontSize: 14, marginRight: 4 }} /> : <CaretRightOutlined style={{ fontSize: 14, marginRight: 4 }} />}
-                            {label}
-                          </div>
-                          {open && items.map(item => (
-                            <div key={item.id}>
-                              {renderItem(item)}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
+              <div style={{ 
+                height: '300px',
+                overflow: 'auto', 
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#d9d9d9 #f5f5f5'
+              }}>
+                {sortedDoneList.length === 0
+                  ? <div style={{ color: '#bbb', fontSize: 13, padding: '12px 0' }}>暂无已完成任务</div>
+                  : sortedDoneList.map(item => renderItem(item))}
               </div>
             ),
           },
         ]}
         size="small"
-        style={{ marginTop: 0, flex: 1, minHeight: 0 }}
+        style={{ marginTop: 0, flex: 1 }}
         tabBarStyle={{ marginBottom: 8 }}
       />
     </div>

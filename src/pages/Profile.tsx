@@ -1,5 +1,5 @@
 import { Form, Input, Button, message, Card, Tag, Divider, List, Typography, Space, Badge, Upload, Avatar, Modal, Tooltip, Spin } from 'antd';
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../supaClient';
 import { useRolePermissions } from '../hooks/useRolePermissions';
 import { useAchievements } from '../hooks/useAchievements';
@@ -19,17 +19,18 @@ const { Title, Text } = Typography;
 
 const Profile = () => {
   const [form] = Form.useForm();
-  // const [nameForm] = Form.useForm(); // 移除
   const [emailForm] = Form.useForm();
-  const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [department] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarModal, setAvatarModal] = useState(false);
-  const [avatarTs, setAvatarTs] = useState<number>(Date.now()); // 新增
-  const [loadingProfile, setLoadingProfile] = useState(true); // 新增
+  const [avatarTs, setAvatarTs] = useState<number>(Date.now());
+  const [loadingProfile, setLoadingProfile] = useState(true);
   
+  // 使用UserContext获取用户信息
+  const { user, profile, refreshUser } = useUser();
+
   // 使用角色权限Hook
   const { 
     userRoles, 
@@ -45,8 +46,6 @@ const Profile = () => {
   const { avatarFrames, getEquippedAvatarFrame, equipAvatarFrame } = useAchievements();
   const equippedFrame = getEquippedAvatarFrame();
 
-  const { refreshUser } = useUser();
-
   // 1. fetchAll 提到组件作用域外部，且只查 avatar_url 字段
   const fetchAll = async () => {
     setLoadingProfile(true);
@@ -59,7 +58,6 @@ const Profile = () => {
       .select('avatar_url, updated_at')
       .eq('user_id', user.id)
       .single();
-    setUser(user);
     setAvatarUrl(profileData?.avatar_url || null);
     setAvatarTs(profileData?.updated_at ? new Date(profileData.updated_at).getTime() : Date.now());
     setLoadingProfile(false);
@@ -88,6 +86,11 @@ const Profile = () => {
 
   // 头像上传处理
   const handleAvatarUpload = async (info: any) => {
+    if (!user) {
+      message.error('用户信息获取失败');
+      return;
+    }
+    
     if (info.file.status === 'uploading') {
       setAvatarUploading(true);
       return;
@@ -284,9 +287,10 @@ const Profile = () => {
 
       {/* 头像框系统 */}
       <Card title="我的头像框" style={{ marginBottom: 24 }}>
-        {loadingProfile ? (
+        {loadingProfile || !user ? (
           <Spin style={{ display: 'block', margin: '60px auto' }} />
         ) : (
+          <div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             {/* 默认头像框卡片 */}
             <Tooltip title="默认头像框">
@@ -435,6 +439,7 @@ const Profile = () => {
                 </Tooltip>
               );
             })}
+          </div>
           </div>
         )}
       </Card>

@@ -1,0 +1,254 @@
+/* FollowupsGroupList 抽屉样式优化 */
+
+/* 抽屉容器 - 使用更高优先级 */
+.lead-detail-drawer.lead-detail-drawer {
+  --primary-color: #1890ff;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  --text-color: #262626;
+  --text-secondary: #8c8c8c;
+  --border-color: #f0f0f0;
+  --bg-color: #fafafa;
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 抽屉头部 */
+.lead-detail-drawer .ant-drawer-header {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.lead-detail-drawer .ant-drawer-title {
+  font-weight: 600;
+  color: var(--text-color);
+  font-size: 16px;
+}
+
+/* 抽屉内容区域 */
+.lead-detail-drawer .ant-drawer-body {
+  padding: 24px;
+  background: transparent;
+}
+
+/* 抽屉布局 */
+.lead-detail-drawer .drawer-flex-row {
+  display: flex;
+  gap: 0px;
+  min-height: 300px;
+  align-items: flex-start;
+}
+
+/* 左侧信息区域 */
+.lead-detail-drawer .page-drawer-info {
+  flex: 0 0 200px;
+  padding: 0px;
+  text-align: left;
+}
+
+.lead-detail-drawer .page-drawer-info .mb-12 {
+  margin-bottom: 12px;
+  padding: 8px 0;
+}
+
+/* 右侧表单区域 */
+.lead-detail-drawer .page-drawer-form {
+  flex: 1;
+  padding: 20px;
+}
+
+/* Ant Design默认步骤条样式 */
+.lead-detail-drawer .ant-steps {
+  margin-bottom: 32px;
+}
+
+/* 步骤项容器 */
+.lead-detail-drawer .ant-steps .ant-steps-item {
+  position: relative;
+}
+
+/* 文字样式 */
+.lead-detail-drawer .ant-steps .ant-steps-item-title {
+  font-weight: 500;
+  color: #666;
+  font-size: 14px;
+  transition: color 0.3s ease;
+}
+
+/* 已完成步骤文字 */
+.lead-detail-drawer .ant-steps .ant-steps-item-finish .ant-steps-item-title {
+  color: #1890ff;
+  font-weight: 600;
+}
+
+/* 当前步骤文字 */
+.lead-detail-drawer .ant-steps .ant-steps-item-process .ant-steps-item-title {
+  color: #1890ff;
+  font-weight: 600;
+}
+
+/* 待完成步骤文字 */
+.lead-detail-drawer .ant-steps .ant-steps-item-wait .ant-steps-item-title {
+  color: #999;
+  font-weight: 400;
+}
+
+/* 表单样式 */
+.lead-detail-drawer .ant-form {
+  padding: 20px;
+  background: transparent;
+}
+
+.lead-detail-drawer .ant-form-item-label > label {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.lead-detail-drawer .ant-input,
+.lead-detail-drawer .ant-select-selector,
+.lead-detail-drawer .ant-picker {
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+  background: transparent;
+}
+
+.lead-detail-drawer .ant-input:hover,
+.lead-detail-drawer .ant-select-selector:hover,
+.lead-detail-drawer .ant-picker:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+  background: transparent;
+}
+
+.lead-detail-drawer .ant-input:focus,
+.lead-detail-drawer .ant-select-focused .ant-select-selector,
+.lead-detail-drawer .ant-picker-focused {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  background: transparent;
+}
+
+/* 步骤字段布局 */
+.lead-detail-drawer .page-step-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.lead-detail-drawer .page-step-field-item {
+  padding: 16px;
+}
+
+/* 单栏布局 */
+.lead-detail-drawer .page-step-fields-single {
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+/* 按钮样式 */
+.lead-detail-drawer .ant-btn {
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.lead-detail-drawer .ant-btn-primary {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.lead-detail-drawer .ant-btn-primary:hover {
+  background: #4096ff;
+  border-color: #4096ff;
+}
+
+.lead-detail-drawer .ant-btn-default {
+  border-color: var(--border-color);
+}
+
+.lead-detail-drawer .ant-btn-default:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* 文本样式 */
+.lead-detail-drawer .text-secondary {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.lead-detail-drawer .text-primary {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.lead-detail-drawer .text-muted {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* 复制按钮样式 */
+.lead-detail-drawer .ant-typography-copy {
+  color: var(--primary-color) !important;
+}
+
+.lead-detail-drawer .ant-typography-copy:hover {
+  color: #4096ff !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .lead-detail-drawer .drawer-flex-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .lead-detail-drawer .page-drawer-info {
+    flex: none;
+  }
+  
+  .lead-detail-drawer .page-step-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lead-detail-drawer .ant-drawer-body {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 滚动条样式 */
+.lead-detail-drawer .ant-drawer-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.lead-detail-drawer .ant-drawer-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lead-detail-drawer .ant-drawer-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lead-detail-drawer .ant-drawer-body::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.lead-detail-drawer .ant-drawer-body::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+} 

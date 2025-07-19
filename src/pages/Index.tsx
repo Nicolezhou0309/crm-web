@@ -99,7 +99,7 @@ const Index: React.FC = () => {
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <Spin size='large' />
-          <div style={{ marginTop: 16, fontSize: 16, color: '#666' }}>数据加载中...</div>
+          <div style={{ marginTop: 16, fontSize: 16, color: '#666' }}></div>
         </div>
       )}
       <div style={{ background: '#f5f6fa', width: '100%', minHeight: '100%' }}>

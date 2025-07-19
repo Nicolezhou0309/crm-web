@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { achievementApi, type Achievement, type AvatarFrame, type Badge } from '../api/achievementApi';
-import { getCurrentProfileId } from '../api/pointsApi';
+import { useUser } from '../context/UserContext';
 
 export interface AchievementStats {
   total: number;
@@ -20,10 +20,15 @@ export const useAchievements = () => {
   const [loading, setLoading] = useState(true);
   const [profileId, setProfileId] = useState<number | null>(null);
 
-  // 获取用户ID
+  // 从UserContext获取用户信息
+  const { profile } = useUser();
+
+  // 当profile变化时更新profileId
   useEffect(() => {
-    getCurrentProfileId().then(setProfileId);
-  }, []);
+    if (profile?.id) {
+      setProfileId(profile.id);
+    }
+  }, [profile]);
 
   // 加载成就数据
   const loadAchievements = useCallback(async (userId: number) => {

@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Table, Typography, Button, Space, Select, message, Input, Tag, Tooltip, DatePicker, Form, Steps, Drawer, Checkbox, Spin, Cascader, InputNumber, Divider, Alert } from 'antd';
+import type { StepsProps } from 'antd';
 import { ReloadOutlined, CopyOutlined, UserOutlined } from '@ant-design/icons';
 import { supabase, fetchEnumValues, fetchMetroStations } from '../supaClient';
 import dayjs from 'dayjs';
@@ -10,6 +11,7 @@ import type { FilterDropdownProps } from 'antd/es/table/interface';
 
 import locale from 'antd/es/date-picker/locale/zh_CN';
 import '../index.css'; // 假设全局样式在index.css
+import './FollowupsGroupList.css';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import { useFrequencyController, FrequencyController } from '../components/Followups/useFrequencyController';
 import { ContractDealsTable } from '../components/Followups/ContractDealsTable';
@@ -20,6 +22,8 @@ import { useUser } from '../context/UserContext';
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
 const { RangePicker } = DatePicker;
+
+
 
 // 可选分组字段配置
 const groupFieldOptions = [
@@ -2932,7 +2936,7 @@ const FollowupsGroupList: React.FC = () => {
                 className="page-search"
                 style={{ width: 260 }}
                 enterButton={
-                  <Button type="primary" size="small">
+                  <Button icon={<ReloadOutlined />}>
                     搜索
                   </Button>
                 }
@@ -3267,6 +3271,7 @@ const FollowupsGroupList: React.FC = () => {
           onClose={handleDrawerClose}
           destroyOnClose
           footer={null}
+          className="lead-detail-drawer"
         >
           <div className="drawer-flex-row">
             {/* 左侧线索信息 */}
@@ -3306,7 +3311,12 @@ const FollowupsGroupList: React.FC = () => {
             <div className="page-drawer-form">
               <Steps
                 current={currentStep}
-                items={followupStages.map((stage, idx) => ({ title: stage, disabled: idx !== 0 }))}
+                items={followupStages.map((stage, idx) => ({ 
+                  title: stage, 
+                  disabled: idx !== 0,
+                  subTitle: null,
+                  description: null
+                }))}
                 onChange={(step: number) => {
                   if (step === 0) {
                     setCurrentStep(step);
@@ -3315,6 +3325,8 @@ const FollowupsGroupList: React.FC = () => {
                   }
                 }}
                 style={{ marginBottom: 32 }}
+                data-current={currentStep}
+                size="small"
               />
               <Form
                 form={stageForm}

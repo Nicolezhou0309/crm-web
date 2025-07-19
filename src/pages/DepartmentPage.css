@@ -337,8 +337,8 @@
   background: #e6f4ff;
 }
 
-/* 表格分页器样式 */
-.page-table .ant-pagination {
+/* 表格分页器样式 - 已取消 */
+/* .page-table .ant-pagination {
   margin-top: 16px;
   text-align: right;
 }
@@ -355,7 +355,7 @@
 
 .page-table .ant-pagination-item:hover {
   border-color: #1677ff;
-}
+} */
 
 /* 表格加载状态 */
 .page-table .ant-spin-container {
