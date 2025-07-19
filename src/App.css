@@ -226,3 +226,79 @@ body {
   font-size: 14px !important;
 }
 
+/* 自定义筛选卡片统一样式 */
+.custom-filter-card {
+  padding: 12px;
+  width: 320px;
+  max-height: 400px;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.custom-filter-card .filter-section {
+  margin-bottom: 12px;
+}
+
+.custom-filter-card .filter-label {
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: 500;
+  line-height: 1.5715;
+}
+
+.custom-filter-card .filter-select {
+  width: 100%;
+  font-size: 14px;
+}
+
+.custom-filter-card .filter-select .ant-select-selector {
+  font-size: 14px;
+}
+
+.custom-filter-card .filter-select .ant-select-selection-item {
+  font-size: 14px;
+  line-height: 1.5715;
+}
+
+.custom-filter-card .filter-select .ant-select-selection-placeholder {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.25);
+  line-height: 1.5715;
+}
+
+.custom-filter-card .filter-actions {
+  text-align: right;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 8px;
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.custom-filter-card .filter-reset-btn {
+  color: rgba(0, 0, 0, 0.45);
+  border-color: #d9d9d9;
+  background: transparent;
+  font-size: 14px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+}
+
+.custom-filter-card .filter-reset-btn:hover {
+  color: rgba(0, 0, 0, 0.65);
+  border-color: #40a9ff;
+  background: transparent;
+}
+
+.custom-filter-card .filter-confirm-btn {
+  font-size: 14px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+}
+

@@ -211,7 +211,7 @@ const FollowupsGroupList: React.FC = () => {
     'p_moveintime_end', 'p_moveintime_start',
     'p_offset', 'p_remark',
     'p_scheduledcommunity',
-    'p_source', 'p_userbudget', 'p_userrating',
+    'p_source', 'p_userbudget', 'p_userbudget_min', 'p_userbudget_max', 'p_userrating',
     'p_wechat', 'p_worklocation', 'p_phone', 'p_keyword'
   ];
 
@@ -277,13 +277,7 @@ const FollowupsGroupList: React.FC = () => {
 
       const { data, error } = await supabase.rpc('filter_followups', rpcParams);
       
-      // 记录约访管家筛选相关的日志
-      if (rpcParams.p_interviewsales_user_id) {
-        console.log('[约访管家筛选] 后端调用参数:', {
-          p_interviewsales_user_id: rpcParams.p_interviewsales_user_id,
-          totalParams: Object.keys(rpcParams).length
-        });
-      }
+
       
       if (error) {
         message.error('获取跟进记录失败: ' + error.message);
@@ -752,6 +746,7 @@ const FollowupsGroupList: React.FC = () => {
     worklocation: any[];
     userbudget: any[];
     followupresult: any[];
+    majorcategory: any[];
     leadtype: any[];
   }>({
     leadid: [],
@@ -762,6 +757,7 @@ const FollowupsGroupList: React.FC = () => {
     worklocation: [],
     userbudget: [],
     followupresult: [],
+    majorcategory: [],
     leadtype: []
   });
 
@@ -785,24 +781,37 @@ const FollowupsGroupList: React.FC = () => {
     localStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
     
     return options;
-  }, [tableFilters]);
+  }, []); // 移除tableFilters依赖，避免无限循环
 
   // 初始化动态筛选选项
   useEffect(() => {
     const initializeDynamicFilters = async () => {
+      console.log('[动态筛选] 开始初始化动态筛选选项');
+      
       const [
         remarkOptions,
         worklocationOptions,
         userbudgetOptions,
         followupresultOptions,
+        majorcategoryOptions,
         leadtypeOptions
       ] = await Promise.all([
         getDynamicFilters('remark'),
         getDynamicFilters('worklocation'),
         getDynamicFilters('userbudget'),
         getDynamicFilters('followupresult'),
+        getDynamicFilters('majorcategory'),
         getDynamicFilters('leadtype')
       ]);
+
+      console.log('[动态筛选] 获取到的选项:', {
+        remark: remarkOptions.length,
+        worklocation: worklocationOptions.length,
+        userbudget: userbudgetOptions.length,
+        followupresult: followupresultOptions.length,
+        majorcategory: majorcategoryOptions.length,
+        leadtype: leadtypeOptions.length
+      });
 
       setDynamicFilters({
         leadid: [],
@@ -813,6 +822,7 @@ const FollowupsGroupList: React.FC = () => {
         worklocation: worklocationOptions,
         userbudget: userbudgetOptions,
         followupresult: followupresultOptions,
+        majorcategory: majorcategoryOptions,
         leadtype: leadtypeOptions
       });
     };
@@ -824,7 +834,14 @@ const FollowupsGroupList: React.FC = () => {
   const remarkFilters = useMemo(() => dynamicFilters.remark, [dynamicFilters.remark]);
   const worklocationFilters = useMemo(() => dynamicFilters.worklocation, [dynamicFilters.worklocation]);
   const userbudgetFilters = useMemo(() => dynamicFilters.userbudget, [dynamicFilters.userbudget]);
-  const followupresultFilters = useMemo(() => dynamicFilters.followupresult, [dynamicFilters.followupresult]);
+  const followupresultFilters = useMemo(() => {
+    console.log('[跟进备注筛选] 当前筛选选项:', dynamicFilters.followupresult);
+    return dynamicFilters.followupresult;
+  }, [dynamicFilters.followupresult]);
+  const majorcategoryFilters = useMemo(() => {
+    console.log('[跟进结果筛选] 当前筛选选项:', dynamicFilters.majorcategory);
+    return dynamicFilters.majorcategory;
+  }, [dynamicFilters.majorcategory]);
   const leadtypeFilters = useMemo(() => dynamicFilters.leadtype, [dynamicFilters.leadtype]);
 
   // 管家列表状态
@@ -1202,18 +1219,11 @@ const FollowupsGroupList: React.FC = () => {
             </div>
             <div style={{ textAlign: 'right' }}>
               <Button type="primary" size="small" onClick={() => {
-                console.log('[约访管家筛选] 确认筛选:', {
-                  selectedKeys,
-                  selectedNames: selectedKeys.map(id => 
-                    userList.find(u => u.id === id)?.name
-                  ).filter(Boolean)
-                });
                 confirm();
               }} style={{ marginRight: 8 }}>
                 筛选
               </Button>
               <Button size="small" onClick={() => { 
-                console.log('[约访管家筛选] 重置筛选');
                 clearFilters && clearFilters(); 
                 confirm && confirm(); 
               }}>
@@ -1267,6 +1277,116 @@ const FollowupsGroupList: React.FC = () => {
       key: 'worklocation',
       ellipsis: true,
       width: 200, // 增加列宽以适应多级选择
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => {
+        // 处理多级选项，将线路转换为具体站点
+        const processSelectedKeys = (keys: any[]) => {
+          const processedKeys: string[] = [];
+          
+          keys.forEach(key => {
+            if (typeof key === 'string') {
+              if (key.includes('号线')) {
+                // 如果是线路，找到该线路下的所有站点
+                const line = metroStationOptions.find(line => line.value === key);
+                if (line && line.children) {
+                  line.children.forEach((station: any) => {
+                    processedKeys.push(station.value);
+                  });
+                }
+              } else {
+                // 如果是具体站点，直接添加
+                processedKeys.push(key);
+              }
+            }
+          });
+          
+          return processedKeys;
+        };
+
+        return (
+          <div className="custom-filter-card">
+            <div className="filter-section">
+              <div className="filter-label">按线路筛选：</div>
+              <Select
+                mode="multiple"
+                placeholder="选择地铁线路"
+                value={selectedKeys.filter((key: any) => typeof key === 'string' && key.includes('号线'))}
+                onChange={(values) => {
+                  const stationKeys = selectedKeys.filter((key: any) => typeof key === 'string' && !key.includes('号线'));
+                  setSelectedKeys([...stationKeys, ...values]);
+                }}
+                options={metroStationOptions.map(line => ({
+                  label: line.label,
+                  value: line.value
+                }))}
+                allowClear
+                maxTagCount={2}
+                maxTagTextLength={8}
+                maxTagPlaceholder={(omittedValues) => `+${omittedValues.length}`}
+                className="filter-select"
+                dropdownStyle={{
+                  maxHeight: 200,
+                  overflow: 'auto'
+                }}
+              />
+            </div>
+            <div className="filter-section">
+              <div className="filter-label">按站点筛选：</div>
+              <Select
+                mode="multiple"
+                placeholder="选择具体站点"
+                value={selectedKeys.filter((key: any) => typeof key === 'string' && !key.includes('号线'))}
+                onChange={(values) => {
+                  const lineKeys = selectedKeys.filter((key: any) => typeof key === 'string' && key.includes('号线'));
+                  setSelectedKeys([...lineKeys, ...values]);
+                }}
+                options={metroStationOptions.flatMap(line => 
+                  line.children ? line.children.map((station: any) => ({
+                    label: `${line.label} - ${station.label}`,
+                    value: station.value,
+                    title: `${line.label} - ${station.label}` // 添加title用于tooltip
+                  })) : []
+                )}
+                allowClear
+                showSearch
+                maxTagCount={2}
+                maxTagTextLength={10}
+                maxTagPlaceholder={(omittedValues) => `+${omittedValues.length}`}
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                className="filter-select"
+                dropdownStyle={{
+                  maxHeight: 200,
+                  overflow: 'auto'
+                }}
+                optionLabelProp="title"
+              />
+            </div>
+            <div className="filter-actions">
+              <Button 
+                className="filter-reset-btn"
+                size="small" 
+                onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}
+              >
+                重置
+              </Button>
+              <Button 
+                type="primary" 
+                size="small" 
+                className="filter-confirm-btn"
+                onClick={() => {
+                  // 在确认时处理多级选项
+                  const processedKeys = processSelectedKeys(selectedKeys);
+                  setSelectedKeys(processedKeys);
+                  confirm();
+                }}
+              >
+                筛选
+              </Button>
+            </div>
+          </div>
+        );
+      },
       onCell: () => ({ style: { ...defaultCellStyle, minWidth: 180, maxWidth: 220 } }),
       filteredValue: tableColumnFilters.worklocation ?? null,
       render: (text: string, record: any) => (
@@ -1296,7 +1416,56 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'userbudget',
       key: 'userbudget',
       ellipsis: true,
-      filters: userbudgetFilters,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 4 }}>预算范围筛选：</div>
+            <InputNumber
+              placeholder="最小预算"
+              style={{ width: 100, marginRight: 8 }}
+              value={selectedKeys.length >= 1 && typeof selectedKeys[0] === 'number' ? selectedKeys[0] : undefined}
+              onChange={(value) => {
+                const newKeys = [...selectedKeys];
+                newKeys[0] = value as any;
+                setSelectedKeys(newKeys);
+              }}
+            />
+            <InputNumber
+              placeholder="最大预算"
+              style={{ width: 100 }}
+              value={selectedKeys.length >= 2 && typeof selectedKeys[1] === 'number' ? selectedKeys[1] : undefined}
+              onChange={(value) => {
+                const newKeys = [...selectedKeys];
+                newKeys[1] = value as any;
+                setSelectedKeys(newKeys);
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 4 }}>预算选项筛选：</div>
+            <Select
+              mode="multiple"
+              placeholder="选择预算选项"
+              style={{ width: '100%' }}
+              value={selectedKeys.filter((key: any) => typeof key === 'string')}
+              onChange={(values) => {
+                const rangeKeys = selectedKeys.filter((key: any) => typeof key === 'number');
+                setSelectedKeys([...rangeKeys, ...values]);
+              }}
+              options={userbudgetFilters}
+              allowClear
+            />
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.userbudget ?? null,
       render: renderUserbudget
@@ -1377,6 +1546,133 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'majorcategory',
       key: 'majorcategory',
       width: 220,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => {
+        // 处理多级选项，将一级分类转换为分类值，具体结果转换为对应的分类值
+        const processSelectedKeys = (keys: any[]) => {
+          const processedKeys: string[] = [];
+          
+          keys.forEach(key => {
+            if (typeof key === 'string') {
+              // 检查是否是一级分类（包含子选项的分类）
+              const category = majorCategoryOptions.find(cat => cat.value === key);
+              if (category && category.children && category.children.length > 0) {
+                // 如果是一级分类，直接添加分类值
+                processedKeys.push(category.value);
+              } else {
+                // 如果是具体结果，找到对应的分类值
+                const parentCategory = majorCategoryOptions.find(cat => 
+                  cat.children && cat.children.some((child: any) => child.value === key)
+                );
+                if (parentCategory) {
+                  processedKeys.push(parentCategory.value);
+                } else {
+                  // 如果找不到父分类，直接添加原值
+                  processedKeys.push(key);
+                }
+              }
+            }
+          });
+          
+          return processedKeys;
+        };
+
+        return (
+          <div className="custom-filter-card">
+            <div className="filter-section">
+              <div className="filter-label">按分类筛选：</div>
+              <Select
+                mode="multiple"
+                placeholder="选择跟进分类"
+                value={selectedKeys.filter((key: any) => {
+                  const category = majorCategoryOptions.find(cat => cat.value === key);
+                  return category && category.children && category.children.length > 0;
+                })}
+                onChange={(values) => {
+                  const resultKeys = selectedKeys.filter((key: any) => {
+                    const category = majorCategoryOptions.find(cat => cat.value === key);
+                    return !category || !category.children || category.children.length === 0;
+                  });
+                  setSelectedKeys([...resultKeys, ...values]);
+                }}
+                options={majorCategoryOptions.filter(cat => cat.children && cat.children.length > 0).map(category => ({
+                  label: category.label,
+                  value: category.value
+                }))}
+                allowClear
+                maxTagCount={2}
+                maxTagTextLength={8}
+                maxTagPlaceholder={(omittedValues) => `+${omittedValues.length}`}
+                className="filter-select"
+                dropdownStyle={{
+                  maxHeight: 200,
+                  overflow: 'auto'
+                }}
+              />
+            </div>
+            <div className="filter-section">
+              <div className="filter-label">按具体结果筛选：</div>
+              <Select
+                mode="multiple"
+                placeholder="选择具体跟进结果"
+                value={selectedKeys.filter((key: any) => {
+                  const category = majorCategoryOptions.find(cat => cat.value === key);
+                  return !category || !category.children || category.children.length === 0;
+                })}
+                onChange={(values) => {
+                  const categoryKeys = selectedKeys.filter((key: any) => {
+                    const category = majorCategoryOptions.find(cat => cat.value === key);
+                    return category && category.children && category.children.length > 0;
+                  });
+                  setSelectedKeys([...categoryKeys, ...values]);
+                }}
+                options={majorCategoryOptions.flatMap(category => 
+                  category.children ? category.children.map((child: any) => ({
+                    label: `${category.label} - ${child.label}`,
+                    value: child.value,
+                    title: `${category.label} - ${child.label}` // 添加title用于tooltip
+                  })) : []
+                )}
+                allowClear
+                showSearch
+                maxTagCount={2}
+                maxTagTextLength={10}
+                maxTagPlaceholder={(omittedValues) => `+${omittedValues.length}`}
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                className="filter-select"
+                dropdownStyle={{
+                  maxHeight: 200,
+                  overflow: 'auto'
+                }}
+                optionLabelProp="title"
+              />
+            </div>
+            <div className="filter-actions">
+              <Button 
+                className="filter-reset-btn"
+                size="small" 
+                onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}
+              >
+                重置
+              </Button>
+              <Button 
+                type="primary" 
+                size="small" 
+                className="filter-confirm-btn"
+                onClick={() => {
+                  // 在确认时处理多级选项
+                  const processedKeys = processSelectedKeys(selectedKeys);
+                  setSelectedKeys(processedKeys);
+                  confirm();
+                }}
+              >
+                筛选
+              </Button>
+            </div>
+          </div>
+        );
+      },
       onCell: () => ({ style: { ...defaultCellStyle, minWidth: 180, maxWidth: 260 } }),
       filteredValue: tableColumnFilters.majorcategory ?? null,
       render: (text: string, record: any) => (
@@ -1431,7 +1727,7 @@ const FollowupsGroupList: React.FC = () => {
         </Tooltip>
       )
     },
-  ], [followupstageFilters, sourceFilters, leadtypeFilters, remarkFilters, customerprofileFilters, worklocationFilters, userbudgetFilters, userratingFilters, followupresultFilters, scheduledcommunityFilters, communityEnum, followupstageEnum, customerprofileEnum, sourceEnum, userratingEnum, majorCategoryOptions, metroStationOptions, tableColumnFilters, forceUpdate]);
+  ], [followupstageFilters, sourceFilters, leadtypeFilters, remarkFilters, customerprofileFilters, worklocationFilters, userbudgetFilters, userratingFilters, followupresultFilters, majorcategoryFilters, scheduledcommunityFilters, communityEnum, followupstageEnum, customerprofileEnum, sourceEnum, userratingEnum, majorCategoryOptions, metroStationOptions, tableColumnFilters, forceUpdate]);
 
   const filterKeyMap: Record<string, string> = {
     leadid: 'p_leadid',
@@ -1472,15 +1768,6 @@ const FollowupsGroupList: React.FC = () => {
     Object.keys(filters).forEach(key => {
       
       if (key === 'interviewsales_user_id') {
-        console.log('[约访管家筛选] 处理筛选参数:', {
-          key,
-          filters: filters[key],
-          currentData: localData.slice(0, 3).map(item => ({
-            id: item.interviewsales_user_id,
-            name: item.interviewsales_user_name || item.interviewsales_user
-          }))
-        });
-        
         if (filters[key] && filters[key].length > 0) {
           const values = filters[key].map((v: any) => {
             if (v === null || v === 'null' || v === undefined || v === '') return null;
@@ -1496,29 +1783,18 @@ const FollowupsGroupList: React.FC = () => {
               return user ? (user.interviewsales_user_name || user.interviewsales_user) : `ID:${id}`;
             });
           
-          console.log('[约访管家筛选] 筛选值处理:', {
-            originalFilters: filters[key],
-            processedValues: values,
-            selectedNames,
-            hasNull: values.includes(null)
-          });
-          
           // 如果只包含null，传递[null]表示IS NULL条件
           if (values.length === 1 && values[0] === null) {
             params[`p_${key}`] = [null];
-            console.log('[约访管家筛选] 传递NULL条件');
           } else if (values.includes(null)) {
             // 如果包含null和其他值，传递所有值（后端会处理IS NULL和= ANY）
             params[`p_${key}`] = values;
-            console.log('[约访管家筛选] 传递混合条件:', values);
           } else {
             // 只有非null值
             params[`p_${key}`] = values;
-            console.log('[约访管家筛选] 传递ID列表:', values, '对应姓名:', selectedNames);
           }
         } else {
           delete params[`p_${key}`];
-          console.log('[约访管家筛选] 清除筛选条件');
         }
         return;
       }
@@ -1578,10 +1854,102 @@ const FollowupsGroupList: React.FC = () => {
         return;
       }
 
+      // 预算范围字段处理
+      if (key === 'userbudget') {
+        const val = filters[key] as any;
+        if (val && val.length > 0) {
+          // 处理预算范围筛选
+          if (val.length === 2 && typeof val[0] === 'number' && typeof val[1] === 'number') {
+            // 范围筛选
+            params['p_userbudget_min'] = val[0];
+            params['p_userbudget_max'] = val[1];
+            delete params['p_userbudget']; // 删除普通预算筛选
+          } else {
+            // 普通多选筛选
+            if (val.length === 1 && val[0] === null) {
+              params['p_userbudget'] = [null];
+            } else if (val.includes(null)) {
+              params['p_userbudget'] = val;
+            } else {
+              params['p_userbudget'] = val;
+            }
+            delete params['p_userbudget_min'];
+            delete params['p_userbudget_max'];
+          }
+        } else {
+          delete params['p_userbudget'];
+          delete params['p_userbudget_min'];
+          delete params['p_userbudget_max'];
+        }
+        return;
+      }
+
       // 多选字段处理
       if (multiSelectFields.includes(key)) {
         const paramKey = filterKeyMap[key];
         if (!paramKey) return;
+        
+        // 跟进备注字段特殊处理
+        if (key === 'followupresult') {
+          console.log('[跟进备注筛选] 处理筛选参数:', {
+            key,
+            filters: filters[key],
+            paramKey
+          });
+          
+          if (filters[key] && filters[key].length > 0) {
+            console.log('[跟进备注筛选] 筛选值:', filters[key]);
+            
+            // 如果只包含null，传递[null]表示IS NULL条件
+            if (filters[key].length === 1 && filters[key][0] === null) {
+              params[paramKey] = [null];
+              console.log('[跟进备注筛选] 传递NULL条件');
+            } else if (filters[key].includes(null)) {
+              // 如果包含null和其他值，传递所有值
+              params[paramKey] = filters[key];
+              console.log('[跟进备注筛选] 传递混合条件:', filters[key]);
+            } else {
+              // 只有非null值
+              params[paramKey] = filters[key];
+              console.log('[跟进备注筛选] 传递筛选值:', filters[key]);
+            }
+          } else {
+            delete params[paramKey];
+            console.log('[跟进备注筛选] 清除筛选条件');
+          }
+          return;
+        }
+        
+        // 跟进结果字段特殊处理
+        if (key === 'majorcategory') {
+          console.log('[跟进结果筛选] 处理筛选参数:', {
+            key,
+            filters: filters[key],
+            paramKey
+          });
+          
+          if (filters[key] && filters[key].length > 0) {
+            console.log('[跟进结果筛选] 筛选值:', filters[key]);
+            
+            // 如果只包含null，传递[null]表示IS NULL条件
+            if (filters[key].length === 1 && filters[key][0] === null) {
+              params[paramKey] = [null];
+              console.log('[跟进结果筛选] 传递NULL条件');
+            } else if (filters[key].includes(null)) {
+              // 如果包含null和其他值，传递所有值
+              params[paramKey] = filters[key];
+              console.log('[跟进结果筛选] 传递混合条件:', filters[key]);
+            } else {
+              // 只有非null值
+              params[paramKey] = filters[key];
+              console.log('[跟进结果筛选] 传递筛选值:', filters[key]);
+            }
+          } else {
+            delete params[paramKey];
+            console.log('[跟进结果筛选] 清除筛选条件');
+          }
+          return;
+        }
         
         if (filters[key] && filters[key].length > 0) {
           // 如果只包含null，传递[null]表示IS NULL条件
@@ -2209,26 +2577,36 @@ const FollowupsGroupList: React.FC = () => {
   // 获取动态字段的筛选选项（从后端获取）
   const fetchDynamicFilterOptions = async (fieldName: string) => {
     try {
-      // 临时方案：使用现有的 getFilters 函数，直到后端函数部署完成
-      const filters = getFilters(fieldName, fieldName);
-      return filters;
+      console.log(`[动态筛选] 开始获取${fieldName}选项`);
       
-      // 后端函数部署后的代码（暂时注释）
-      /*
-      const { data, error } = await supabase.rpc('get_filter_options', {
-        p_field_name: fieldName,
-        p_filters: tableFilters // 传递当前筛选条件
-      });
-      
-      if (error) {
-        console.error(`获取${fieldName}筛选选项失败:`, error);
-        return [];
+      // 跟进备注和跟进结果字段使用后端函数获取所有选项
+      if (fieldName === 'followupresult' || fieldName === 'majorcategory') {
+        console.log(`[${fieldName === 'followupresult' ? '跟进备注' : '跟进结果'}筛选] 使用后端函数获取选项`);
+        
+        const { data, error } = await supabase.rpc('get_filter_options', {
+          p_field_name: fieldName,
+          p_filters: {} // 不传递筛选条件，获取所有选项
+        });
+        
+        if (error) {
+          console.error(`[${fieldName === 'followupresult' ? '跟进备注' : '跟进结果'}筛选] 获取筛选选项失败:`, error);
+          // 回退到本地数据
+          const fallbackData = getFilters(fieldName, fieldName);
+          console.log(`[${fieldName === 'followupresult' ? '跟进备注' : '跟进结果'}筛选] 使用本地数据作为回退:`, fallbackData);
+          return fallbackData;
+        }
+        
+        console.log(`[${fieldName === 'followupresult' ? '跟进备注' : '跟进结果'}筛选] 获取选项成功:`, data);
+        return data || [];
       }
       
-      return data || [];
-      */
+      // 其他字段暂时使用本地数据
+      console.log(`[动态筛选] ${fieldName}使用本地数据`);
+      const filters = getFilters(fieldName, fieldName);
+      console.log(`[动态筛选] ${fieldName}本地数据:`, filters);
+      return filters;
     } catch (error) {
-      console.error(`获取${fieldName}筛选选项出错:`, error);
+      console.error(`[动态筛选] 获取${fieldName}筛选选项出错:`, error);
       return [];
     }
   };
@@ -2239,8 +2617,6 @@ const FollowupsGroupList: React.FC = () => {
     
     setInterviewsalesUserLoading(true);
     try {
-      console.log('[约访管家筛选] 开始获取管家列表');
-      
       const { data, error } = await supabase.rpc('get_filter_options', {
         p_field_name: 'interviewsales_user_id',
         p_filters: tableFilters // 传递当前筛选条件
@@ -2261,7 +2637,6 @@ const FollowupsGroupList: React.FC = () => {
           .sort((a, b) => a.name.localeCompare(b.name));
         
         setInterviewsalesUserList(fallbackList);
-        console.log('[约访管家筛选] 使用本地数据作为回退:', fallbackList);
         return;
       }
       
@@ -2274,8 +2649,6 @@ const FollowupsGroupList: React.FC = () => {
       // 按名称排序
       userList.sort((a: any, b: any) => a.name.localeCompare(b.name));
       
-      console.log('[约访管家筛选] 获取管家列表成功:', userList);
-      console.log('[约访管家筛选] 原始数据:', data);
       setInterviewsalesUserList(userList);
       
     } catch (error) {

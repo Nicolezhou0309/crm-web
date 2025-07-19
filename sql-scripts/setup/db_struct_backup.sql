@@ -612,6 +612,8 @@ CREATE OR REPLACE FUNCTION public.filter_followups(
   p_showingsales_user bigint[] DEFAULT NULL::bigint[],
   p_source source[] DEFAULT NULL::source[],
   p_userbudget text[] DEFAULT NULL::text[],
+  p_userbudget_min numeric DEFAULT NULL::numeric,
+  p_userbudget_max numeric DEFAULT NULL::numeric,
   p_userrating userrating[] DEFAULT NULL::userrating[],
   p_wechat text[] DEFAULT NULL::text[],
   p_worklocation text[] DEFAULT NULL::text[],
@@ -733,10 +735,20 @@ BEGIN
       AND ($3 IS NULL OR f.customerprofile = ANY($3) OR (ARRAY_LENGTH($3, 1) = 1 AND $3[1] IS NULL AND f.customerprofile IS NULL))
       AND ($21 IS NULL OR f.worklocation = ANY($21) OR (ARRAY_LENGTH($21, 1) = 1 AND $21[1] IS NULL AND f.worklocation IS NULL))
       AND ($18 IS NULL OR f.userbudget = ANY($18) OR (ARRAY_LENGTH($18, 1) = 1 AND $18[1] IS NULL AND f.userbudget IS NULL))
+      AND ($43 IS NULL OR (CASE WHEN f.userbudget ~ ''^[0-9]+$'' THEN CAST(f.userbudget AS numeric) ELSE NULL END) >= $43)
+      AND ($44 IS NULL OR (CASE WHEN f.userbudget ~ ''^[0-9]+$'' THEN CAST(f.userbudget AS numeric) ELSE NULL END) <= $44)
       AND ($12 IS NULL OR f.moveintime >= $12 OR f.moveintime IS NULL)
       AND ($11 IS NULL OR f.moveintime <= $11 OR f.moveintime IS NULL)
       AND ($19 IS NULL OR f.userrating = ANY($19) OR (ARRAY_LENGTH($19, 1) = 1 AND $19[1] IS NULL AND f.userrating IS NULL))
-      AND ($10 IS NULL OR f.majorcategory = ANY($10) OR (ARRAY_LENGTH($10, 1) = 1 AND $10[1] IS NULL AND f.majorcategory IS NULL))
+      AND ($10 IS NULL OR (
+        CASE 
+          WHEN f.majorcategory IN (''已预约'') THEN ''已预约''
+          WHEN f.majorcategory IN (''房子未到期，提前了解'', ''多房源对比'', ''未到上海'', ''工作地点不确定'', ''价格原因'', ''位置原因'', ''户型原因'', ''短租'', ''其他'') THEN ''观望中''
+          WHEN f.majorcategory IN (''房间太贵'', ''面积太小'', ''通勤太远'', ''房间无厨房'', ''到地铁站太远'', ''重客已签约'', ''其他'') THEN ''已流失''
+          WHEN f.majorcategory IN (''电话空号'', ''微信号搜索不到'', ''好友申请不通过'', ''消息未回复'', ''电话不接'') THEN ''未触达''
+          ELSE f.majorcategory
+        END = ANY($10)
+      ) OR (ARRAY_LENGTH($10, 1) = 1 AND $10[1] IS NULL AND f.majorcategory IS NULL))
       AND ($4 IS NULL OR f.followupresult = ANY($4) OR (ARRAY_LENGTH($4, 1) = 1 AND $4[1] IS NULL AND f.followupresult IS NULL))
       AND ($15 IS NULL OR f.scheduledcommunity = ANY($15) OR (ARRAY_LENGTH($15, 1) = 1 AND $15[1] IS NULL AND f.scheduledcommunity IS NULL))
       AND ($20 IS NULL OR l.wechat = ANY($20) OR (ARRAY_LENGTH($20, 1) = 1 AND $20[1] IS NULL AND l.wechat IS NULL))
@@ -784,7 +796,7 @@ BEGIN
         p_created_at_end, p_created_at_start, p_customerprofile, p_followupresult, p_followupstage,
         p_interviewsales_user_id, p_leadid, p_leadtype, p_limit, p_majorcategory, p_moveintime_end,
         p_moveintime_start, p_offset, p_remark, p_scheduledcommunity, p_showingsales_user,
-        p_source, p_userbudget, p_userrating, p_wechat, p_worklocation,
+        p_source, p_userbudget, p_userbudget_min, p_userbudget_max, p_userrating, p_wechat, p_worklocation,
         -- 新增参数
         p_phone, p_qq, p_location, p_budget, p_douyinid, p_douyin_accountname, p_staffname,
         p_redbookid, p_area, p_notelink, p_campaignid, p_campaignname, p_unitid, p_unitname,
@@ -875,7 +887,7 @@ BEGIN
         p_created_at_end, p_created_at_start, p_customerprofile, p_followupresult, p_followupstage,
         p_interviewsales_user_id, p_leadid, p_leadtype, p_limit, p_majorcategory, p_moveintime_end,
         p_moveintime_start, p_offset, p_remark, p_scheduledcommunity, p_showingsales_user,
-        p_source, p_userbudget, p_userrating, p_wechat, p_worklocation,
+        p_source, p_userbudget, p_userbudget_min, p_userbudget_max, p_userrating, p_wechat, p_worklocation,
         -- 新增参数
         p_phone, p_qq, p_location, p_budget, p_douyinid, p_douyin_accountname, p_staffname,
         p_redbookid, p_area, p_notelink, p_campaignid, p_campaignname, p_unitid, p_unitname,
@@ -1239,7 +1251,15 @@ BEGIN
         where_conditions := where_conditions || ' AND f.userrating = ANY($10)';
     END IF;
     IF p_majorcategory IS NOT NULL THEN
-        where_conditions := where_conditions || ' AND f.majorcategory = ANY($11)';
+        where_conditions := where_conditions || ' AND (
+          CASE 
+            WHEN f.majorcategory IN (''已预约'') THEN ''已预约''
+            WHEN f.majorcategory IN (''房子未到期，提前了解'', ''多房源对比'', ''未到上海'', ''工作地点不确定'', ''价格原因'', ''位置原因'', ''户型原因'', ''短租'', ''其他'') THEN ''观望中''
+            WHEN f.majorcategory IN (''房间太贵'', ''面积太小'', ''通勤太远'', ''房间无厨房'', ''到地铁站太远'', ''重客已签约'', ''其他'') THEN ''已流失''
+            WHEN f.majorcategory IN (''电话空号'', ''微信号搜索不到'', ''好友申请不通过'', ''消息未回复'', ''电话不接'') THEN ''未触达''
+            ELSE f.majorcategory
+          END = ANY($11)
+        )';
     END IF;
     IF p_subcategory IS NOT NULL THEN
         where_conditions := where_conditions || ' AND f.subcategory = ANY($12)';

@@ -22,6 +22,7 @@ DECLARE
     "worklocation": {"field": "worklocation", "display": "worklocation", "type": "string"},
     "userbudget": {"field": "userbudget", "display": "userbudget", "type": "string"},
     "followupresult": {"field": "followupresult", "display": "followupresult", "type": "string"},
+    "majorcategory": {"field": "majorcategory", "display": "majorcategory", "type": "string"},
     "leadtype": {"field": "leadtype", "display": "leadtype", "type": "string"}
   }'::JSONB;
   field_config JSONB;
@@ -70,9 +71,7 @@ BEGIN
       FROM followups f
       LEFT JOIN leads l ON f.leadid = l.leadid
       WHERE 1=1
-      ORDER BY 
-        CASE WHEN l.%I IS NULL OR l.%I = '''' THEN 1 ELSE 0 END,
-        COALESCE(l.%I::TEXT, '''')
+      ORDER BY text
     ', 
       field_name, field_name, field_name, field_name, field_name, field_name,
       field_name, field_name, field_name,
@@ -103,9 +102,7 @@ BEGIN
       FROM followups f
       LEFT JOIN leads l ON f.leadid = l.leadid
       WHERE 1=1
-      ORDER BY 
-        CASE WHEN l.%I IS NULL OR l.%I = '''' THEN 1 ELSE 0 END,
-        COALESCE(l.%I::TEXT, '''')
+      ORDER BY text
     ', 
       field_name, field_name, field_name, field_name, field_name, field_name,
       field_name, field_name, field_name,
@@ -131,15 +128,55 @@ BEGIN
       FROM followups f
       LEFT JOIN users_profile up ON f.%I = up.id
       WHERE 1=1
-      ORDER BY 
-        CASE WHEN f.%I IS NULL OR f.%I = 0 THEN 1 ELSE 0 END,
-        text
+      ORDER BY text
     ', 
       field_name, field_name, display_name, field_name,
       field_name, field_name, field_name,
       field_name, field_name, display_name, field_name,
-      field_name, field_name, field_name
+      field_name, field_name, field_name,
+      display_name, field_name, field_name
     );
+  ELSIF p_field_name = 'majorcategory' THEN
+    -- 跟进结果字段：返回一级选项
+    sql_query := '
+      SELECT DISTINCT
+        CASE 
+          WHEN f.majorcategory IS NULL OR f.majorcategory = '''' THEN ''为空''
+          ELSE 
+            CASE 
+              WHEN f.majorcategory IN (''已预约'') THEN ''已预约''
+              WHEN f.majorcategory IN (''房子未到期，提前了解'', ''多房源对比'', ''未到上海'', ''工作地点不确定'', ''价格原因'', ''位置原因'', ''户型原因'', ''短租'', ''其他'') THEN ''观望中''
+              WHEN f.majorcategory IN (''房间太贵'', ''面积太小'', ''通勤太远'', ''房间无厨房'', ''到地铁站太远'', ''重客已签约'', ''其他'') THEN ''已流失''
+              WHEN f.majorcategory IN (''电话空号'', ''微信号搜索不到'', ''好友申请不通过'', ''消息未回复'', ''电话不接'') THEN ''未触达''
+              ELSE f.majorcategory
+            END
+        END as text,
+        CASE 
+          WHEN f.majorcategory IS NULL OR f.majorcategory = '''' THEN NULL
+          ELSE 
+            CASE 
+              WHEN f.majorcategory IN (''已预约'') THEN ''已预约''
+              WHEN f.majorcategory IN (''房子未到期，提前了解'', ''多房源对比'', ''未到上海'', ''工作地点不确定'', ''价格原因'', ''位置原因'', ''户型原因'', ''短租'', ''其他'') THEN ''观望中''
+              WHEN f.majorcategory IN (''房间太贵'', ''面积太小'', ''通勤太远'', ''房间无厨房'', ''到地铁站太远'', ''重客已签约'', ''其他'') THEN ''已流失''
+              WHEN f.majorcategory IN (''电话空号'', ''微信号搜索不到'', ''好友申请不通过'', ''消息未回复'', ''电话不接'') THEN ''未触达''
+              ELSE f.majorcategory
+            END
+        END as value,
+        CASE 
+          WHEN f.majorcategory IS NULL OR f.majorcategory = '''' THEN NULL
+          ELSE 
+            CASE 
+              WHEN f.majorcategory IN (''已预约'') THEN ''已预约''
+              WHEN f.majorcategory IN (''房子未到期，提前了解'', ''多房源对比'', ''未到上海'', ''工作地点不确定'', ''价格原因'', ''位置原因'', ''户型原因'', ''短租'', ''其他'') THEN ''观望中''
+              WHEN f.majorcategory IN (''房间太贵'', ''面积太小'', ''通勤太远'', ''房间无厨房'', ''到地铁站太远'', ''重客已签约'', ''其他'') THEN ''已流失''
+              WHEN f.majorcategory IN (''电话空号'', ''微信号搜索不到'', ''好友申请不通过'', ''消息未回复'', ''电话不接'') THEN ''未触达''
+              ELSE f.majorcategory
+            END
+        END as search_text
+      FROM followups f
+      WHERE 1=1
+      ORDER BY text
+    ';
   ELSE
     -- 普通字符串字段
     sql_query := format('
@@ -158,12 +195,9 @@ BEGIN
         END as search_text
       FROM followups f
       WHERE 1=1
-      ORDER BY 
-        CASE WHEN f.%I IS NULL OR f.%I = '''' THEN 1 ELSE 0 END,
-        COALESCE(f.%I::TEXT, '''')
+      ORDER BY text
     ', 
       field_name, field_name, field_name, field_name,
-      field_name, field_name, field_name,
       field_name, field_name, field_name,
       field_name, field_name, field_name
     );
