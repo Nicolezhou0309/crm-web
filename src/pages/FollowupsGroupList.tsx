@@ -482,8 +482,13 @@ const FollowupsGroupList: React.FC = () => {
     setTableFilters(newFilters);
     // 分组条件变化时重置分页
     setShouldResetPagination(true);
-    // 只刷新明细数据，不刷新分组统计
+    // 刷新明细数据和分组统计
     fetchFollowups(newFilters, 1, pagination.pageSize);
+    
+    // 同时更新分组统计
+    if (groupField) {
+      fetchGroupCount(groupField);
+    }
   };
 
   // 只在分组字段变化时 fetch 分组统计，并同步 selectedGroup
@@ -514,7 +519,7 @@ const FollowupsGroupList: React.FC = () => {
   }, [groupField]);
 
   // 优化：分离明细数据刷新和分组统计刷新
-  // 当tableFilters变化时，只刷新明细数据，保持当前分页
+  // 当tableFilters变化时，同时刷新明细数据和分组统计
   useEffect(() => {
     // 避免初始化时的重复调用
     if (Object.keys(tableFilters).length > 0) {
@@ -522,6 +527,11 @@ const FollowupsGroupList: React.FC = () => {
       const shouldReset = shouldResetPagination;
       const targetPage = shouldReset ? 1 : pagination.current;
       fetchFollowups(tableFilters, targetPage, pagination.pageSize);
+      
+      // 同时更新分组统计
+      if (groupField) {
+        fetchGroupCount(groupField);
+      }
       
       // 重置标志
       if (shouldReset) {
@@ -1422,6 +1432,11 @@ const FollowupsGroupList: React.FC = () => {
     setTableColumnFilters(filters);
     // 筛选条件变化时重置分页
     setShouldResetPagination(true);
+    
+    // 同时更新分组统计
+    if (groupField) {
+      fetchGroupCount(groupField);
+    }
   };
 
   // 工具函数：将时间字段转为dayjs对象（支持null/undefined/空字符串）
@@ -1504,6 +1519,11 @@ const FollowupsGroupList: React.FC = () => {
     setTableFilters(params);
     // 搜索条件变化时重置分页
     setShouldResetPagination(true);
+    
+    // 同时更新分组统计
+    if (groupField) {
+      fetchGroupCount(groupField);
+    }
   };
 
   // 快捷日期筛选处理
@@ -1535,6 +1555,11 @@ const FollowupsGroupList: React.FC = () => {
     setTableFilters(newFilters);
     // 日期筛选条件变化时重置分页
     setShouldResetPagination(true);
+    
+    // 同时更新分组统计
+    if (groupField) {
+      fetchGroupCount(groupField);
+    }
   }
 
   // 监听tableFilters变化，自动高亮快捷日期按钮
@@ -2053,6 +2078,163 @@ const FollowupsGroupList: React.FC = () => {
             </Space>
         </div>
         )}
+
+        {/* 筛选条件标签区 */}
+        <div style={{ margin: '8px 0 0 0', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+          {/* 合并创建日期区间Tag */}
+          {tableFilters.p_created_at_start && tableFilters.p_created_at_end && (
+            <Tag
+              closable
+              className="filter-tag"
+              onClose={() => {
+                const newFilters = { ...tableFilters };
+                delete newFilters.p_created_at_start;
+                delete newFilters.p_created_at_end;
+                setTableFilters(newFilters);
+                setTableColumnFilters((filters: any) => ({ ...filters, created_at: null }));
+                setPagination(p => ({ ...p, current: 1 }));
+                fetchFollowups(newFilters, 1, pagination.pageSize);
+                
+                // 同时更新分组统计
+                if (groupField) {
+                  fetchGroupCount(groupField);
+                }
+              }}
+              style={{ marginRight: 8, marginBottom: 8 }}
+            >
+              创建日期: {dayjs(tableFilters.p_created_at_start).format('YYYY-MM-DD')} ~ {dayjs(tableFilters.p_created_at_end).format('YYYY-MM-DD')}
+            </Tag>
+          )}
+          {/* 合并入住日期区间Tag */}
+          {tableFilters.p_moveintime_start && tableFilters.p_moveintime_end && (
+            <Tag
+              closable
+              className="filter-tag"
+              onClose={() => {
+                const newFilters = { ...tableFilters };
+                delete newFilters.p_moveintime_start;
+                delete newFilters.p_moveintime_end;
+                setTableFilters(newFilters);
+                setTableColumnFilters((filters: any) => ({ ...filters, moveintime: null }));
+                setPagination(p => ({ ...p, current: 1 }));
+                fetchFollowups(newFilters, 1, pagination.pageSize);
+                
+                // 同时更新分组统计
+                if (groupField) {
+                  fetchGroupCount(groupField);
+                }
+              }}
+              style={{ marginRight: 8, marginBottom: 8 }}
+            >
+              入住日期: {dayjs(tableFilters.p_moveintime_start).format('YYYY-MM-DD')} ~ {dayjs(tableFilters.p_moveintime_end).format('YYYY-MM-DD')}
+            </Tag>
+          )}
+          {/* 其它字段Tag */}
+          {Object.entries(tableFilters)
+            .filter(([key, value]) =>
+              value != null &&
+              (Array.isArray(value) ? value.length > 0 : String(value).length > 0) &&
+              ![
+                'p_keyword',
+                'p_created_at_start', 'p_created_at_end',
+                'p_moveintime_start', 'p_moveintime_end',
+                'created_at', 'moveintime' // 新增，彻底排除
+              ].includes(key)
+            )
+            .map(([key, value]) => {
+              const fieldLabelMap: Record<string, string> = {
+                p_leadid: '线索编号',
+                p_leadtype: '线索来源',
+                p_interviewsales_user_id: '约访管家',
+                p_showingsales_user_id: '带看管家',
+                p_followupstage: '阶段',
+                p_customerprofile: '用户画像',
+                p_worklocation: '工作地点',
+                p_userbudget: '用户预算',
+                p_userrating: '来访意向',
+                p_majorcategory: '跟进结果',
+                p_subcategory: '子类目',
+                p_followupresult: '跟进备注',
+                p_showingsales_user: '带看管家',
+                p_scheduledcommunity: '预约社区',
+                p_source: '渠道',
+                p_remark: '客服备注',
+                p_phone: '手机号',
+                p_wechat: '微信号',
+                moveintime: '入住日期',
+                created_at: '创建日期',
+                // ...如有其它字段
+              };
+              const label = fieldLabelMap[key] || key.replace(/^p_/, '');
+              const values = Array.isArray(value) ? value : [value];
+              return values.map((v: string, idx: number) => {
+                // 约访管家和带看管家特殊处理，显示昵称
+                let displayText = v;
+                if (key === 'p_interviewsales_user_id') {
+                  // 从当前数据中查找对应的昵称
+                  const found = localData.find(item => String(item.interviewsales_user_id) === String(v));
+                  if (v === null || v === undefined || String(v) === 'null' || (typeof v === 'number' && isNaN(v))) {
+                    displayText = '未分配';
+                  } else {
+                    displayText = found?.interviewsales_user_name || found?.interviewsales_user || v;
+                  }
+                } else if (key === 'p_showingsales_user_id') {
+                  // 从当前数据中查找对应的昵称
+                  const found = localData.find(item => String(item.showingsales_user_id) === String(v));
+                  if (v === null || v === undefined || String(v) === 'null' || (typeof v === 'number' && isNaN(v))) {
+                    displayText = '未分配';
+                  } else {
+                    displayText = found?.showingsales_user_name || found?.showingsales_user || v;
+                  }
+                } else if (key === 'p_scheduledcommunity' && (v === null || v === undefined || String(v) === 'null' || String(v) === '')) {
+                  displayText = '未分配';
+                } else if (key === 'p_phone' && v) {
+                  // 手机号筛选标签脱敏
+                  displayText = maskPhone(String(v));
+                } else if (key === 'p_wechat' && v) {
+                  // 微信号筛选标签脱敏
+                  displayText = maskWechat(String(v));
+                } else if (v === null || v === undefined || String(v) === 'null' || (typeof v === 'number' && isNaN(v))) {
+                  displayText = '为空';
+                }
+                return (
+                  <Tag
+                    key={`filter_${key}_${String(v)}_${idx}`}
+                    closable
+                    className="filter-tag"
+                    onClose={() => {
+                      const updatedFilters = { ...tableFilters };
+                      if (Array.isArray(updatedFilters[key])) {
+                        updatedFilters[key] = updatedFilters[key].filter((item: string) => item !== v);
+                        if (updatedFilters[key].length === 0) delete updatedFilters[key];
+                      } else {
+                        delete updatedFilters[key];
+                      }
+                      // 只清空当前字段的Table筛选条件，其它字段不变
+                      const columnKey = key.replace(/^p_/, '');
+                      setTableColumnFilters((filters: any) => {
+                        const updated = { ...filters };
+                        updated[columnKey] = null;
+                        return updated;
+                      });
+                      setTableFilters(updatedFilters);
+                      setPagination(p => ({ ...p, current: 1 }));
+                      fetchFollowups(updatedFilters, 1, pagination.pageSize);
+                      
+                      // 同时更新分组统计
+                      if (groupField) {
+                        fetchGroupCount(groupField);
+                      }
+                    }}
+                    style={{ marginRight: 8, marginBottom: 8 }}
+                  >
+                    {/* 时间字段格式化 */}
+                    {(key === 'moveintime' || key === 'created_at') ? `${label}: ${dayjs(v).format('YYYY-MM-DD')}` : `${label}: ${displayText}`}
+                  </Tag>
+                );
+              });
+            })}
+        </div>
 
         {/* 主体区：左右分栏布局 */}
         <div className="main-flex-layout">
