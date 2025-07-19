@@ -19,7 +19,8 @@ import {
 } from 'antd';
 import { 
   PlusOutlined, 
-  ReloadOutlined
+  ReloadOutlined,
+  UserOutlined
 } from '@ant-design/icons';
 import { supabase, fetchEnumValues, generateLeadId } from '../supaClient';
 import dayjs from 'dayjs';
@@ -332,7 +333,7 @@ const LeadsList: React.FC = () => {
         
         return (
           <Tooltip title={text}>
-            <span style={{ fontWeight: 600, color: '#1677ff' }}>{maskPhone(text)}</span>
+            <span style={{ color: '#000' }}>{maskPhone(text)}</span>
           </Tooltip>
         );
       },
@@ -476,7 +477,8 @@ const LeadsList: React.FC = () => {
       width: 120,
       filters: getFilters('interviewsales'),
       render: (text: string) => (
-        <span style={{ color: text ? '#1677ff' : '#999' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', color: '#000' }}>
+          <UserOutlined style={{ color: '#bfbfbf', marginRight: 6, fontSize: 18 }} />
           {text || '未分配'}
         </span>
       ),

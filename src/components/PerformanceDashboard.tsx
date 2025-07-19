@@ -318,7 +318,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               boxShadow: '0 4px 16px rgba(52,107,255,0.08)', // shadow统一
               padding: 0,
             }}
-            bodyStyle={{ padding: 6 }}
+            styles={{ body: { padding: 6 } }}
           >
             <Statistic
               title={<span style={{ fontSize: 11 }}>30天线索量</span>}
@@ -342,7 +342,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               boxShadow: '0 4px 16px rgba(52,107,255,0.08)', // shadow统一
               padding: 0,
             }}
-            bodyStyle={{ padding: 6 }}
+            styles={{ body: { padding: 6 } }}
           >
             <Statistic
               title={<span style={{ fontSize: 11 }}>30天成交量</span>}
@@ -366,7 +366,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               boxShadow: '0 4px 16px rgba(52,107,255,0.08)', // shadow统一
               padding: 0,
             }}
-            bodyStyle={{ padding: 6 }}
+            styles={{ body: { padding: 6 } }}
           >
             <Statistic
               title={<span style={{ fontSize: 11 }}>30天转化率</span>}

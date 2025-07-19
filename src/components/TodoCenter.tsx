@@ -228,7 +228,11 @@ const TodoCenter: React.FC = () => {
                             {open ? <CaretDownOutlined style={{ fontSize: 14, marginRight: 4 }} /> : <CaretRightOutlined style={{ fontSize: 14, marginRight: 4 }} />}
                             {label}
                           </div>
-                          {open && items.map(renderItem)}
+                          {open && items.map(item => (
+                            <div key={item.id}>
+                              {renderItem(item)}
+                            </div>
+                          ))}
                         </div>
                       );
                     })}
@@ -255,7 +259,11 @@ const TodoCenter: React.FC = () => {
                             {open ? <CaretDownOutlined style={{ fontSize: 14, marginRight: 4 }} /> : <CaretRightOutlined style={{ fontSize: 14, marginRight: 4 }} />}
                             {label}
                           </div>
-                          {open && items.map(renderItem)}
+                          {open && items.map(item => (
+                            <div key={item.id}>
+                              {renderItem(item)}
+                            </div>
+                          ))}
                         </div>
                       );
                     })}

@@ -5,7 +5,7 @@ interface LoadingScreenProps {
   message?: string;
   subtitle?: string;
   showProgress?: boolean;
-  type?: 'auth' | 'data' | 'profile' | 'system' | 'random';
+  type?: 'auth' | 'data' | 'profile' | 'system' | 'sales' | 'customer' | 'ai' | 'random';
   useRandomMessage?: boolean;
 }
 

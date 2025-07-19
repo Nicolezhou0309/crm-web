@@ -6,7 +6,7 @@ const { Title, Text } = Typography;
 
 const LoadingDemo: React.FC = () => {
   const [showLoading, setShowLoading] = useState(false);
-  const [loadingType, setLoadingType] = useState<'auth' | 'data' | 'profile' | 'system' | 'random'>('random');
+  const [loadingType, setLoadingType] = useState<'auth' | 'data' | 'profile' | 'system' | 'sales' | 'customer' | 'ai' | 'random'>('random');
 
   const handleShowLoading = (type: typeof loadingType) => {
     setLoadingType(type);
@@ -81,6 +81,39 @@ const LoadingDemo: React.FC = () => {
             显示系统初始化加载
           </Button>
         </Card>
+
+        <Card title="销售相关加载" size="small" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <Text>用于销售场景的加载效果</Text>
+          <br />
+          <Button 
+            onClick={() => handleShowLoading('sales')}
+            style={{ marginTop: 8 }}
+          >
+            显示销售加载
+          </Button>
+        </Card>
+
+        <Card title="客户分析加载" size="small" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <Text>用于客户画像分析的加载效果</Text>
+          <br />
+          <Button 
+            onClick={() => handleShowLoading('customer')}
+            style={{ marginTop: 8 }}
+          >
+            显示客户分析加载
+          </Button>
+        </Card>
+
+        <Card title="AI分析加载" size="small" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <Text>用于AI智能分析的加载效果</Text>
+          <br />
+          <Button 
+            onClick={() => handleShowLoading('ai')}
+            style={{ marginTop: 8 }}
+          >
+            显示AI分析加载
+          </Button>
+        </Card>
       </Space>
 
       <Divider />
@@ -99,6 +132,37 @@ const LoadingDemo: React.FC = () => {
             <li>正在检查您的权限...🔐</li>
             <li>正在加载您的个人资料...👤</li>
             <li>正在初始化系统...🔧</li>
+            <li><strong>新增管家销售主题：</strong></li>
+            <li>正在为您加载客户画像…🖼️</li>
+            <li>AI正在分析客户偏好…🤖</li>
+            <li>系统正在优化您的沟通话术…💬</li>
+            <li>正在计算客户成交概率…📈</li>
+            <li>正在生成客户跟进策略…🗓️</li>
+            <li>系统正在模拟客户反应…🎭</li>
+            <li>您的下一个成交正在路上…🚀</li>
+            <li>正在为您挖掘新的销售突破口…⛏️</li>
+            <li>管家大神经验包加载中…🧠</li>
+            <li>系统检测到您的业绩即将飙升…📊</li>
+            <li>您的专属销售Buff已生效…🛡️</li>
+            <li><strong>新增激励型销售文案：</strong></li>
+            <li>您的第5单正在派送中…📦</li>
+            <li>系统检测到超级客户正在靠近…🦸</li>
+            <li>恭喜！您的努力值已满格…⚡</li>
+            <li>正在为您连接财富信号…📡</li>
+            <li>您的开单锦鲤正在游来…🐠</li>
+            <li>幸运值充值完成…✨</li>
+            <li>您的业绩火箭正在点火…🔥</li>
+            <li>检测到您今日战斗力+200%…💥</li>
+            <li>销售暴击技能加载中…🎯</li>
+            <li>系统偷偷为您预留了VIP客户…🤫</li>
+            <li>恭喜解锁【开单狂魔】成就…🏆</li>
+            <li>您今天的笑容价值10万…😊</li>
+            <li>磁场感应：客户即将说'Yes'…🧲</li>
+            <li>您的'成交气场'已全开…🌈</li>
+            <li>系统赠您一次'必开单'机会…🎰</li>
+            <li>财神爷正在为您筛选客户…💰</li>
+            <li>您的开单符已生效…🀄</li>
+            <li>本月旺运指数：🌟🌟🌟🌟🌟</li>
           </ul>
         </div>
       </Card>

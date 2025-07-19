@@ -5,6 +5,7 @@ import { EllipsisOutlined, ExclamationCircleOutlined, CrownOutlined, MailOutline
 import { PermissionGate } from '../components/PermissionGate';
 import type { Key } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
+import './DepartmentPage.css';
 
 const { Search } = Input;
 const { Text } = Typography;
@@ -228,7 +229,6 @@ const DepartmentPage = () => {
           key: `user_${user.user_id || user.email}`,
           title: (
             <span className="tree-member-node">
-              <UserOutlined className="tree-member-icon" />
               <span className="tree-member-name">
                 {highlightTreeText(user.nickname || '未命名', treeSearch, true)}
               </span>
@@ -241,6 +241,11 @@ const DepartmentPage = () => {
           title: (
             <span className="tree-dept-node">
               {highlightTreeText(item.name, treeSearch, false)}
+              {deptMembers.length > 0 && (
+                <span className="dept-member-count">
+                  {deptMembers.length}人
+                </span>
+              )}
             </span>
           ),
           key: item.id,
@@ -515,12 +520,13 @@ const DepartmentPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', padding: 24 }}>
-      <div className="page-card dept-tree" style={{ width: 280 }}>
-        {/* 树节点搜索框 */}
-        <div style={{ marginBottom: 16, padding: '0 8px' }}>
+    <div className="dept-page-container">
+      <div className="dept-tree-container" style={{ width: 320 }}>
+        {/* 搜索框区域 */}
+        <div className="dept-search-section">
           <Input
-            size="small"
+            className="dept-search-input"
+            size="large"
             allowClear
             placeholder="搜索部门或人员名称"
             value={treeSearch}
@@ -528,85 +534,114 @@ const DepartmentPage = () => {
             prefix={<SearchOutlined />}
           />
         </div>
-        <Tree
-          className="compact-dept-tree"
-          treeData={buildTree(departments)}
-          draggable
-          showLine={false}
-          expandedKeys={treeSearch.trim() ? autoExpandKeys : expandedKeys}
-          onExpand={keys => setExpandedKeys(keys)}
-          selectedKeys={selectedDept ? [selectedDept.id] : []}
-          onSelect={(_, { node }) => {
-            // 只允许选中部门节点，人员节点不可选
-            if (!node || node.key === undefined || node.key === null || String(node.key).startsWith('user_')) {
-              setSelectedDept(null);
-            } else {
-              setSelectedDept({ id: String(node.key), name: node.title });
-            }
-          }}
-          onDrop={async (info) => {
-            const dragKey = String(info.dragNode.key);
-            const dropKey = String(info.node.key);
-            // 只允许拖拽部门节点
-            if (String(dragKey).startsWith('user_') || String(dropKey).startsWith('user_')) return;
-            // 权限校验：只能拖到自己可管理的部门下
-            if (!canManageOrganization(dropKey)) {
-              message.warning('无权限调整到该部门下');
-              return;
-            }
-            // 禁止拖拽到自身或子节点
-            const getAllChildIds = (id: string): string[] => {
-              const result = [id];
-              const findChildren = (pid: string) => {
-                departments.filter(dep => dep.parent_id === pid).forEach(dep => {
-                  result.push(dep.id);
-                  findChildren(dep.id);
-                });
-              };
-              findChildren(id);
-              return result;
-            };
-            const invalidIds = getAllChildIds(dragKey);
-            if (invalidIds.includes(dropKey)) {
-              message.warning('不能拖拽到自身或子节点下');
-              return;
-            }
-            // 拖拽到根节点
-            const newParentId = info.dropToGap ? null : dropKey;
-            await supabase.from('organizations').update({ parent_id: newParentId }).eq('id', dragKey);
-            message.success('部门关系已调整');
-            fetchDepartments();
-          }}
-          style={{ marginBottom: 16 }}
-        />
-        {hasManagePermission(selectedDept?.id) && (
-          <Button
-            type="primary"
-            className="page-btn"
-            block
-            onClick={() => setShowAddDept(true)}
-          >
-            新增部门
-          </Button>
-        )}
+        
+        {/* 树形结构容器 */}
+        <div className="dept-tree-wrapper">
+          <div className="dept-tree-content">
+            <Tree
+              className="dept-tree"
+              treeData={buildTree(departments)}
+              draggable={(node) => {
+                // 只有部门节点可以拖动，成员节点不可拖动
+                return !String(node.key).startsWith('user_');
+              }}
+              showLine={false}
+              expandedKeys={treeSearch.trim() ? autoExpandKeys : expandedKeys}
+              onExpand={keys => setExpandedKeys(keys)}
+              selectedKeys={selectedDept ? [selectedDept.id] : []}
+              onSelect={(_, { node }) => {
+                // 只允许选中部门节点，人员节点不可选
+                if (!node || node.key === undefined || node.key === null || String(node.key).startsWith('user_')) {
+                  setSelectedDept(null);
+                } else {
+                  setSelectedDept({ id: String(node.key), name: node.title });
+                }
+              }}
+              onDrop={async (info) => {
+                const dragKey = String(info.dragNode.key);
+                const dropKey = String(info.node.key);
+                // 只允许拖拽部门节点
+                if (String(dragKey).startsWith('user_') || String(dropKey).startsWith('user_')) return;
+                // 权限校验：只能拖到自己可管理的部门下
+                if (!canManageOrganization(dropKey)) {
+                  message.warning('无权限调整到该部门下');
+                  return;
+                }
+                // 禁止拖拽到自身或子节点
+                const getAllChildIds = (id: string): string[] => {
+                  const result = [id];
+                  const findChildren = (pid: string) => {
+                    departments.filter(dep => dep.parent_id === pid).forEach(dep => {
+                      result.push(dep.id);
+                      findChildren(dep.id);
+                    });
+                  };
+                  findChildren(id);
+                  return result;
+                };
+                const invalidIds = getAllChildIds(dragKey);
+                if (invalidIds.includes(dropKey)) {
+                  message.warning('不能拖拽到自身或子节点下');
+                  return;
+                }
+                // 拖拽到根节点
+                const newParentId = info.dropToGap ? null : dropKey;
+                await supabase.from('organizations').update({ parent_id: newParentId }).eq('id', dragKey);
+                message.success('部门关系已调整');
+                fetchDepartments();
+              }}
+            />
+          </div>
+        </div>
+        
+        {/* 底部按钮区域 */}
+        <div className="dept-tree-actions">
+          {hasManagePermission(selectedDept?.id) && (
+            <Button
+              type="primary"
+              className="dept-add-btn"
+              onClick={() => setShowAddDept(true)}
+            >
+              新增部门
+            </Button>
+          )}
+        </div>
       </div>
-      <div className="page-card" style={{ flex: 1 }}>
-        <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="dept-content-area">
+        <div className="dept-page-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h2 style={{ margin: 0 }}>{selectedDept?.name || '全部人员'}</h2>
+            <h2 className="dept-page-title">
+              {selectedDept?.name || '全部人员'}
+            </h2>
             {selectedDept && (() => {
               const dept = departments.find(d => d.id === selectedDept.id);
               if (dept?.admin_profile) {
-                return <Tag color="blue">管理员: {dept.admin_profile.nickname}</Tag>;
+                return (
+                  <Tag 
+                    color="blue" 
+                    className="dept-status-badge"
+                  >
+                    管理员: {dept.admin_profile.nickname}
+                  </Tag>
+                );
               }
               return null;
             })()}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="dept-action-buttons">
             {hasManagePermission(selectedDept?.id) && (
               <Button
                 type="primary"
-                className="page-btn"
+                size="large"
+                style={{
+                  borderRadius: '12px',
+                  fontWeight: 600,
+                  height: '40px',
+                  padding: '0 20px',
+                  background: 'linear-gradient(135deg, #1677ff 0%, #4096ff 100%)',
+                  border: 'none',
+                  boxShadow: '0 4px 12px rgba(22, 119, 255, 0.3)'
+                }}
                 onClick={() => setShowInviteMember(true)}
                 disabled={!selectedDept}
               >
@@ -673,7 +708,18 @@ const DepartmentPage = () => {
                 }}
                 trigger={['click']}
               >
-                <Button type="text" icon={<EllipsisOutlined />} />
+                <Button 
+                  type="text" 
+                  icon={<EllipsisOutlined />}
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                />
               </Dropdown>
             )}
           </div>
@@ -686,25 +732,59 @@ const DepartmentPage = () => {
             loading={loading}
             rowKey={(record) => record.user_id || record.email || `temp_${record.email}_${record.nickname || 'unknown'}`}
             columns={[
-              { title: '姓名', dataIndex: 'nickname', className: 'page-col-nowrap' },
-              { title: '邮箱', dataIndex: 'email', className: 'page-col-nowrap' },
+              { 
+                title: '姓名', 
+                dataIndex: 'nickname', 
+                className: 'page-col-nowrap',
+                render: (text: string) => (
+                  <span style={{ fontWeight: 600, color: '#262626' }}>
+                    {text || '未命名'}
+                  </span>
+                )
+              },
+              { 
+                title: '邮箱', 
+                dataIndex: 'email', 
+                className: 'page-col-nowrap',
+                render: (text: string) => (
+                  <span style={{ color: '#595959', fontFamily: 'monospace' }}>
+                    {text || '-'}
+                  </span>
+                )
+              },
               {
                 title: '部门',
                 dataIndex: ['organizations', 'name'],
                 className: 'page-col-nowrap',
-                render: (name: string) => name || '未分配'
+                render: (name: string) => (
+                  <Tag 
+                    color="blue" 
+                    style={{ 
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 500
+                    }}
+                  >
+                    {name || '未分配'}
+                  </Tag>
+                )
               },
               {
                 title: '状态',
                 dataIndex: 'status',
                 className: 'page-col-nowrap',
                 render: (status: string) => (
-                  <Badge color={status === 'left' ? 'gray' : statusColorMap[status] || 'gray'} text={status === 'left' ? '已离职' : statusTextMap[status] || '未知'} />
+                  <Badge 
+                    color={status === 'left' ? 'gray' : statusColorMap[status] || 'gray'} 
+                    text={status === 'left' ? '已离职' : statusTextMap[status] || '未知'}
+                    style={{ fontSize: '12px' }}
+                  />
                 )
               },
               {
                 title: '操作',
                 dataIndex: 'actions',
+                width: 200,
                 render: (_: any, record: any) => {
                   // 检查是否有权限管理该用户
                   const canManage = hasUserManagePermission(record.organization_id);
@@ -714,9 +794,10 @@ const DepartmentPage = () => {
                   }
                   
                   return (
-                    <Space>
+                    <div className="dept-table-actions">
                       <Button
                         size="small"
+                        type="link"
                         disabled={record.status === 'left'}
                         onClick={() => {
                           Modal.confirm({
@@ -804,7 +885,11 @@ const DepartmentPage = () => {
                         }}
                         trigger={['click']}
                       >
-                        <Button size="small" icon={<MailOutlined />}>
+                        <Button 
+                          size="small" 
+                          type="link"
+                          icon={<MailOutlined />}
+                        >
                           邮箱管理
                         </Button>
                       </Dropdown>
@@ -812,6 +897,7 @@ const DepartmentPage = () => {
                       <Button
                         danger
                         size="small"
+                        type="link"
                         disabled={record.status === 'left'}
                         onClick={() => {
                           Modal.confirm({
@@ -828,13 +914,22 @@ const DepartmentPage = () => {
                       >
                         离职
                       </Button>
-                    </Space>
+                    </div>
                   );
                 }
               }
             ]}
-            style={{ marginTop: 0 }}
-            pagination={{ pageSize: 20 }}
+            style={{ 
+              marginTop: 0,
+              borderRadius: '12px',
+              overflow: 'hidden'
+            }}
+            pagination={{ 
+              pageSize: 20,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
+            }}
           />
         </div>
       </div>

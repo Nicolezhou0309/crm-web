@@ -98,7 +98,8 @@ const Index: React.FC = () => {
           background: 'rgba(255,255,255,0.8)', zIndex: 9999,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-          <Spin size='large' tip='数据加载中...' />
+          <Spin size='large' />
+          <div style={{ marginTop: 16, fontSize: 16, color: '#666' }}>数据加载中...</div>
         </div>
       )}
       <div style={{ background: '#f5f6fa', width: '100%', minHeight: '100%' }}>
@@ -152,8 +153,8 @@ const Index: React.FC = () => {
                 onCancel={() => setIframeBanner(null)}
                 footer={null}
                 width={1000}
-                bodyStyle={{ padding: 16, height: 600 }}
-                destroyOnClose
+                styles={{ body: { padding: 16, height: 600 } }}
+                destroyOnHidden
                 centered
               >
                 {iframeBanner && (
@@ -225,7 +226,7 @@ const Index: React.FC = () => {
                 currentDeals={27}
                 targetDeals={50}
                 showSlider={true}
-                height={'100%'}
+                height={600}
                 defaultRange={[7, 13]}
               />
             </Modal>
@@ -253,9 +254,11 @@ const Index: React.FC = () => {
                   justifyContent: 'flex-start',
                   padding: 0,
                 }}
-                bodyStyle={{ padding: 16, flex: 1, overflowY: 'auto', minHeight: 0 }}
-                headStyle={{ display: 'none' }}
-                bordered={false}
+                styles={{ 
+                  body: { padding: 16, flex: 1, overflowY: 'auto', minHeight: 0 },
+                  header: { display: 'none' }
+                }}
+                variant="borderless"
               >
                 <AllocationStatusCard />
               </Card>

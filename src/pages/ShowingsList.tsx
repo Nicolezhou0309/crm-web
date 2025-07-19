@@ -30,7 +30,8 @@ import {
   BarChartOutlined,
   FileTextOutlined,
   ExpandAltOutlined,
-  ZoomInOutlined
+  ZoomInOutlined,
+  UserOutlined
 } from '@ant-design/icons';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import ShowingConversionRate from '../components/ShowingConversionRate';
@@ -219,15 +220,6 @@ const ShowingsList: React.FC = () => {
     const totalDeals = (directDealsCount || 0) + (reservedCount || 0);
     const conversionRate = showingsCount && totalDeals ? (totalDeals / showingsCount) * 100 : 0;
     
-    // 调试信息
-    console.log('卡片统计调试信息:');
-    console.log('本月带看量:', showingsCount);
-    console.log('本月直签量:', directDealsCount);
-    console.log('本月预定量:', reservedCount);
-    console.log('本月总成交量:', totalDeals);
-    console.log('转化率:', conversionRate);
-    console.log('原始数据条数:', showingsData?.length);
-    
     setStats({
       monthShowings: showingsCount || 0,
       monthDeals: totalDeals,
@@ -316,11 +308,7 @@ const ShowingsList: React.FC = () => {
       setData(showings || []);
       setTotal(count);
       
-      // 调试信息
-      console.log('明细查询调试信息:');
-      console.log('当前页数据条数:', showings?.length);
-      console.log('总数据条数:', count);
-      console.log('当前筛选条件:', filters);
+
     } catch (error) {
       message.error('获取带看记录失败: ' + (error as Error).message);
     } finally {
@@ -633,7 +621,12 @@ const ShowingsList: React.FC = () => {
       dataIndex: 'interviewsales_nickname',
       key: 'interviewsales',
       width: 120,
-      render: (text: string) => text || '-',
+      render: (text: string) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', color: '#000' }}>
+          <UserOutlined style={{ color: '#bfbfbf', marginRight: 6, fontSize: 18 }} />
+          {text || '-'}
+        </span>
+      ),
     },
     {
       title: '分配管家',
@@ -642,14 +635,24 @@ const ShowingsList: React.FC = () => {
       filters: salesOptions.map(opt => ({ text: opt.label, value: opt.label })),
       onFilter: (value: boolean | Key, record: ShowingWithRelations) => record.showingsales_nickname === value,
       width: 120,
-      render: (text: string) => text || '-',
+      render: (text: string) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', color: '#000' }}>
+          <UserOutlined style={{ color: '#bfbfbf', marginRight: 6, fontSize: 18 }} />
+          {text || '-'}
+        </span>
+      ),
     },
     {
       title: '实际带看管家',
       dataIndex: 'trueshowingsales_nickname',
       key: 'trueshowingsales',
       width: 120,
-      render: (text: string) => text || '-',
+      render: (text: string) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', color: '#000' }}>
+          <UserOutlined style={{ color: '#bfbfbf', marginRight: 6, fontSize: 18 }} />
+          {text || '-'}
+        </span>
+      ),
     },
     {
       title: '看房结果',
@@ -1585,8 +1588,8 @@ const ShowingsList: React.FC = () => {
         footer={null}
         width={1200}
         centered
-        bodyStyle={{ 
-          padding: '24px'
+        styles={{ 
+          body: { padding: '24px' }
         }}
         style={{
           borderRadius: '8px',
