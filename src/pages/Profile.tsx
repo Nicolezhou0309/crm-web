@@ -13,7 +13,7 @@ import {
   UploadOutlined} from '@ant-design/icons';
 import ImgCrop from 'antd-img-crop';
 import imageCompression from 'browser-image-compression';
-import { UserContext } from '../context/UserContext';
+import { useUser } from '../context/UserContext';
 
 const { Title, Text } = Typography;
 
@@ -45,32 +45,33 @@ const Profile = () => {
   const { avatarFrames, getEquippedAvatarFrame, equipAvatarFrame } = useAchievements();
   const equippedFrame = getEquippedAvatarFrame();
 
-  const { refreshAvatar } = useContext(UserContext);
+  const { refreshUser } = useUser();
 
   // 1. fetchAll 提到组件作用域外部，且只查 avatar_url 字段
   const fetchAll = async () => {
     setLoadingProfile(true);
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) {
+    if (!user) {
       setLoadingProfile(false);
       return;
     }
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
       .from('users_profile')
       .select('avatar_url, updated_at')
-      .eq('user_id', userData.user.id)
+      .eq('user_id', user.id)
       .single();
-    setUser(userData.user);
-    setAvatarUrl(profile?.avatar_url || null);
-    setAvatarTs(profile?.updated_at ? new Date(profile.updated_at).getTime() : Date.now());
+    setUser(user);
+    setAvatarUrl(profileData?.avatar_url || null);
+    setAvatarTs(profileData?.updated_at ? new Date(profileData.updated_at).getTime() : Date.now());
     setLoadingProfile(false);
   };
 
   // 并行获取用户信息、部门、头像
   useEffect(() => {
-    fetchAll();
+    if (user) {
+      fetchAll();
+    }
     // 移除 nameForm 依赖
-  }, []);
+  }, [user]);
 
   // 监听email变化，同步到邮箱表单
   useEffect(() => {
@@ -142,7 +143,7 @@ const Profile = () => {
       message.success('头像上传成功');
       localStorage.setItem('avatar_refresh_token', Date.now().toString());
       window.dispatchEvent(new Event('avatar_refresh_token'));
-      refreshAvatar(); // 新增，刷新 context 缓存
+      refreshUser(); // 新增，刷新 context 缓存
     }
   };
 
@@ -225,13 +226,13 @@ const Profile = () => {
               icon={<UserOutlined />}
               onClick={async () => {
                 if (supabase && user) {
-                  const { data: profile } = await supabase
+                  const { data: profileData } = await supabase
                     .from('users_profile')
                     .select('avatar_url')
                     .eq('user_id', user.id)
                     .single();
-                  if (profile?.avatar_url) {
-                    setAvatarUrl(profile.avatar_url);
+                  if (profileData?.avatar_url) {
+                    setAvatarUrl(profileData.avatar_url);
                   }
                 }
                 setAvatarModal(true);

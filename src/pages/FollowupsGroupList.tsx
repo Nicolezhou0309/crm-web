@@ -1,9 +1,9 @@
 // 复制自FollowupsList.tsx，后续将在此文件实现自定义字段分组功能
 // ... existing code from FollowupsList.tsx ... 
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { Table, Typography, Button, Space, Select, message, Input, Tag, Tooltip, DatePicker, Form, Steps, Drawer, Checkbox, Spin } from 'antd';
-import { ReloadOutlined, CopyOutlined, CheckOutlined } from '@ant-design/icons';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { Table, Typography, Button, Space, Select, message, Input, Tag, Tooltip, DatePicker, Form, Steps, Drawer, Checkbox, Spin, Cascader, InputNumber, Divider, Alert } from 'antd';
+import { ReloadOutlined, CopyOutlined, UserOutlined } from '@ant-design/icons';
 import { supabase, fetchEnumValues } from '../supaClient';
 import dayjs from 'dayjs';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
@@ -11,39 +11,15 @@ import type { FilterDropdownProps } from 'antd/es/table/interface';
 import locale from 'antd/es/date-picker/locale/zh_CN';
 import '../index.css'; // 假设全局样式在index.css
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
+import { useFrequencyController, FrequencyController } from '../components/Followups/useFrequencyController';
+import { ContractDealsTable } from '../components/Followups/ContractDealsTable';
+import { saveFieldWithFrequency } from '../components/Followups/followupApi';
+import { toBeijingTimeStr, normalizeUtcString } from '../utils/timeUtils';
+import { useUser } from '../context/UserContext';
 
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
 const { RangePicker } = DatePicker;
-
-// 跟进记录数据类型定义
-interface Followup {
-  id: string;
-  leadid: string;
-  created_at: string;
-  source: string;
-  leadtype: string;
-  interviewsales_user_id?: number | null;
-  interviewsales_user?: string; // 昵称
-  interviewsales_user_name?: string; // 兼容后端不同字段
-  showingsales_user_id?: number | null;
-  showingsales_user?: string;
-  showingsales_user_name?: string; // 新增，带看管家昵称
-  followupstage: string;
-  customerprofile: string;
-  worklocation: string;
-  userbudget: string;
-  moveintime: string;
-  userrating: string;
-  majorcategory: string;
-  subcategory: string;
-  followupresult: string;
-  scheduletime: string;
-  scheduledcommunity: string;
-  phone: string;
-  wechat: string;
-  remark: string;
-}
 
 // 可选分组字段配置
 const groupFieldOptions = [
@@ -77,225 +53,53 @@ const maskWechat = (wechat: string): string => {
   return wechat.substring(0, 2) + '****' + wechat.substring(wechat.length - 2);
 };
 
-// 签约记录表格组件
-const ContractDealsTable = ({
-  dealsList,
-  dealsLoading,
-  onAdd,
-  onEdit,
-  onDelete,
-  isReadOnly = false,
-  currentRecord,
-  communityEnum,
-  setDealsList,
-}: {
-  dealsList: any[];
-  dealsLoading: boolean;
-  onAdd: () => void;
-  onEdit: (record: any) => void;
-  onDelete: (record: any) => void;
-  isReadOnly?: boolean;
-  currentRecord: any;
-  communityEnum: any[];
-  setDealsList: React.Dispatch<React.SetStateAction<any[]>>;
-}) => (
-  <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', flex: 1 }}>
-    <div
-      style={{
-        background: '#fafbfc',
-        borderRadius: 6,
-        padding: '0 0 0 16px',
-        minHeight: 48,
-        marginBottom: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderBottom: '1px solid #f0f0f0',
-      }}
-    >
-      <div style={{ fontWeight: 600, fontSize: 16, color: '#222', display: 'flex', alignItems: 'center' }}>
-        <span style={{ marginRight: 8 }}>📊 签约记录</span>
-        <span style={{ fontSize: 12, color: '#888', fontWeight: 400 }}>(共 {dealsList.length} 条记录)</span>
-      </div>
-      {!isReadOnly && (
-        <Button
-          type="primary"
-          size="small"
-          style={{ height: 32, borderRadius: 4, fontWeight: 500, marginRight: 16 }}
-          onClick={onAdd}
-        >
-          新增
-        </Button>
-      )}
-    </div>
-    <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
-      <Table
-        dataSource={dealsList}
-        loading={dealsLoading}
-        size="small"
-        pagination={false}
-        scroll={{ y: 'calc(100vh - 400px)', x: 900 }}
-        columns={[
-          {
-            title: '签约日期',
-            dataIndex: 'contractdate',
-            key: 'contractdate',
-            width: 120,
-            render: (text, record) => {
-              if (!isReadOnly && record.isEditing) {
-                return (
-                  <DatePicker
-                    size="small"
-                    value={text ? dayjs(text) : undefined}
-                    format="YYYY-MM-DD"
-                    onChange={(date) => {
-                      const newDate = date ? date.format('YYYY-MM-DD') : '';
-                      setDealsList((prev: any[]) => prev.map((item: any) =>
-                        item.id === record.id
-                          ? { ...item, contractdate: newDate }
-                          : item
-                      ));
-                    }}
-                    style={{ width: '100%' }}
-                  />
-                );
-              }
-              return text ? dayjs(text).format('YYYY-MM-DD') : '-';
-            }
-          },
-          {
-            title: '签约社区',
-            dataIndex: 'community',
-            key: 'community',
-            width: 140,
-            render: (text, record) => {
-              if (!isReadOnly && record.isEditing) {
-                return (
-                  <Select
-                    size="small"
-                    value={text}
-                    options={communityEnum}
-                    placeholder="选择社区"
-                    style={{ width: '100%' }}
-                    onChange={(value) => {
-                      setDealsList((prev: any[]) => prev.map((item: any) =>
-                        item.id === record.id
-                          ? { ...item, community: value }
-                          : item
-                      ));
-                    }}
-                  />
-                );
-              }
-              return text ? <Tag color="blue">{text}</Tag> : '-';
-            }
-          },
-          {
-            title: '签约操作编号',
-            dataIndex: 'contractnumber',
-            key: 'contractnumber',
-            width: 160,
-            render: (text, record) => {
-              if (!isReadOnly && record.isEditing) {
-                return (
-                  <Input
-                    size="small"
-                    value={text}
-                    placeholder="输入操作编号"
-                    onChange={(e) => {
-                      setDealsList((prev: any[]) => prev.map((item: any) =>
-                        item.id === record.id
-                          ? { ...item, contractnumber: e.target.value }
-                          : item
-                      ));
-                    }}
-                  />
-                );
-              }
-              return text ? <span style={{ fontWeight: 600, color: '#1890ff' }}>{text}</span> : '-';
-            }
-          },
-          {
-            title: '签约房间号',
-            dataIndex: 'roomnumber',
-            key: 'roomnumber',
-            width: 140,
-            render: (text, record) => {
-              if (!isReadOnly && record.isEditing) {
-                return (
-                  <Input
-                    size="small"
-                    value={text}
-                    placeholder="输入房间号"
-                    onChange={(e) => {
-                      setDealsList((prev: any[]) => prev.map((item: any) =>
-                        item.id === record.id
-                          ? { ...item, roomnumber: e.target.value }
-                          : item
-                      ));
-                    }}
-                  />
-                );
-              }
-              return text || '-';
-            }
-          },
-          {
-            title: '操作',
-            key: 'action',
-            width: 120,
-            render: (_, record) => {
-              if (isReadOnly) return null;
-              if (record.isEditing) {
-                return (
-                  <Space size="small">
-                    <Button
-                      type="primary"
-                      size="small"
-                      onClick={async () => onEdit(record)}
-                    >
-                      确认提交
-                    </Button>
-                    <Button
-                      size="small"
-                      onClick={() => onDelete(record)}
-                    >
-                      取消
-                    </Button>
-                  </Space>
-                );
-              }
-              return (
-                <Button
-                  size="small"
-                  onClick={() => onEdit(record)}
-                >
-                  编辑
-                </Button>
-              );
-            }
-          }
-        ]}
-        rowKey="id"
-        style={{ backgroundColor: '#fafafa', width: '100%', minWidth: 0 }}
-        locale={{
-          emptyText: dealsLoading ? '加载中...' : '暂无签约记录，点击"新增"按钮添加'
-        }}
-      />
-    </div>
-  </div>
-);
-
 const FollowupsGroupList: React.FC = () => {
+  // 使用 UserContext 中的用户信息
+  const { user, profile, loading: userLoading } = useUser();
+  
+  // 1. 优化 userId 和 frequencyController 初始化
+  const [userId, setUserId] = useState<number | null>(null);
+  const [frequencyController, setFrequencyController] = useState<FrequencyController | null>(null);
+  const [frequencyControllerReady, setFrequencyControllerReady] = useState(false); // 标记 frequencyController 是否已准备就绪
+
+  // 合并用户认证和频控初始化，确保顺序执行
+  useEffect(() => {
+    async function initializeUserAndFrequency() {
+      console.log('[FREQ] 开始初始化用户认证和频控系统');
+      
+      if (userLoading) {
+        console.log('[FREQ] 用户信息正在加载中，等待...');
+        return;
+      }
+      
+      if (user && profile) {
+        console.log('[FREQ] 获取到用户信息:', user.id, 'profile:', profile.id);
+        setUserId(profile.id);
+        
+        // 立即创建 FrequencyController
+        console.log('[FREQ] 创建 FrequencyController，userId:', profile.id);
+        const controller = new FrequencyController(profile.id);
+        setFrequencyController(controller);
+        setFrequencyControllerReady(true);
+        console.log('[FREQ] FrequencyController 已创建并设置');
+      } else {
+        console.log('[FREQ] 用户未登录或 profile 不存在，设置 frequencyControllerReady 为 true');
+        setFrequencyControllerReady(true);
+      }
+    }
+    
+    initializeUserAndFrequency();
+  }, [user, profile, userLoading]);
+
   // 跟进数据
-  const [data, setData] = useState<Followup[]>([]);
+  const [data, setData] = useState<any[]>([]);
+  const [localData, setLocalData] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [groupField, setGroupField] = useState<string | undefined>(undefined);
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [tableFilters, setTableFilters] = useState<any>({});
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
-  // 编辑相关
-  const [inputCache, setInputCache] = useState<{ [key: string]: string }>({});
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   // 枚举
   const [communityEnum, setCommunityEnum] = useState<{ label: string; value: string }[]>([]);
   const [followupstageEnum, setFollowupstageEnum] = useState<{ label: string; value: string }[]>([]);
@@ -313,38 +117,24 @@ const FollowupsGroupList: React.FC = () => {
   // 1. State
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [currentStage, setCurrentStage] = useState('');
-  const [currentRecord, setCurrentRecord] = useState<Followup | null>(null);
+  const [currentRecord, setCurrentRecord] = useState<any | null>(null);
   const [stageForm] = Form.useForm();
   const [currentStep, setCurrentStep] = useState(0);
   // 在组件内部
   const [phoneSearch, setPhoneSearch] = useState('');
   const [wechatSearch, setWechatSearch] = useState('');
   const [keywordSearch, setKeywordSearch] = useState('');
-  // 签约信息状态
-  const [contractForm] = Form.useForm();
-  const [contractInfo, setContractInfo] = useState({
-    contractcommunity: '',
-    contractnumber: '',
-    roomnumber: ''
-  });
   // 签约记录列表状态
-  const [dealsList, setDealsList] = useState<Deal[]>([]);
+  const [dealsList, setDealsList] = useState<any[]>([]);
   const [dealsLoading, setDealsLoading] = useState(false);
   const [leadDetailDrawerOpen, setLeadDetailDrawerOpen] = useState(false);
   const [leadDetailId, setLeadDetailId] = useState<string | null>(null);
+  const [majorCategoryOptions, setMajorCategoryOptions] = useState<any[]>([]);
+  const [forceUpdate, setForceUpdate] = useState(0); // 强制更新计数器
 
-  // 定义Deal类型
-  interface Deal {
-    id: string;
-    leadid: string;
-    contractdate?: string;
-    community?: string;
-    contractnumber?: string;
-    roomnumber?: string;
-    created_at?: string;
-    isNew?: boolean;
-    isEditing?: boolean;
-  }
+  
+  // 使用 useRef 跟踪 localData 引用，避免不必要的 setState
+  const localDataRef = useRef<any[]>([]);
 
   // 2. 步骤条、表单字段、label
   const followupStages = [
@@ -497,11 +287,11 @@ const FollowupsGroupList: React.FC = () => {
         const total = data && data.length > 0 ? Number(data[0].total_count) : 0;
         
         // 前端校验：只保留id非空且唯一的行
-        const filtered = (data || []).filter((item: any): item is Followup => !!item && !!item.id);
-        const unique = Array.from(new Map(filtered.map((i: Followup) => [i.id, i])).values()) as Followup[];
+        const filtered = (data || []).filter((item: any): item is any => !!item && !!item.id);
+        const unique = Array.from(new Map(filtered.map((i: any) => [i.id, i])).values()) as any[];
         
         // 优化数据处理：减少循环次数
-        const safeData = unique.map((item: Followup) => {
+        const safeData = unique.map((item: any) => {
           // 直接处理，避免多次循环
           const processedItem = { ...item };
           
@@ -533,8 +323,9 @@ const FollowupsGroupList: React.FC = () => {
         });
 
         setData(safeData);
+        setLocalData(safeData); // 同步更新 localData
+        localDataRef.current = safeData; // 同步更新 ref
         setPagination(prev => ({ ...prev, total, current: page, pageSize }));
-        setInputCache({});
       }
     } catch (error) {
       message.error('获取跟进记录失败');
@@ -744,38 +535,9 @@ const FollowupsGroupList: React.FC = () => {
   }, []);
 
   // handleCellSave
-  const handleCellSave = async (record: Followup, dataIndex: keyof Followup, value: any) => {
-    let saveVal = value;
-    if (value === '') {
-      saveVal = null;
-    }
-    try {
-      const { error } = await supabase
-        .from('followups')
-        .update({ [dataIndex]: saveVal })
-        .eq('id', record.id);
-      if (error) {
-        message.error(`保存失败: ${error.message} (字段: ${dataIndex})`);
-      } else {
-        setData(prevData => prevData.map(item =>
-          item.id === record.id
-            ? { ...item, [dataIndex]: saveVal }
-            : item
-        ));
-        setInputCache(cache => {
-          const c = { ...cache };
-          delete c[record.id + '-' + dataIndex];
-          return c;
-        });
-        message.success('保存成功');
-      }
-    } catch (error) {
-      message.error('保存失败');
-    }
-  };
 
   // getFilters 逻辑，value为ID（number），text为昵称，只收集number类型id
-  const getFilters = (idKey: keyof Followup, nameKey: keyof Followup) => {
+  const getFilters = (idKey: keyof any, nameKey: keyof any) => {
     const map = new Map();
     data.forEach(item => {
       const id = item[idKey];
@@ -827,20 +589,93 @@ const FollowupsGroupList: React.FC = () => {
     return filters;
   };
 
-  // columns完整定义
+  // 在FollowupsGroupList组件内部，columns useMemo之前，提前计算所有filters
+  const leadidFilters = useMemo(() => getFilters('leadid', 'leadid'), [data]);
+  const followupstageFilters = useMemo(() => getFilters('followupstage', 'followupstage'), [data]);
+  const phoneFilters = useMemo(() => getFilters('phone', 'phone'), [data]);
+  const wechatFilters = useMemo(() => getFilters('wechat', 'wechat'), [data]);
+  const sourceFilters = useMemo(() => getFilters('source', 'source'), [data]);
+  const leadtypeFilters = useMemo(() => getFilters('leadtype', 'leadtype'), [data]);
+  const interviewsalesUserFilters = useMemo(() => getFilters('interviewsales_user_id', 'interviewsales_user_name'), [data]);
+  const remarkFilters = useMemo(() => getFilters('remark', 'remark'), [data]);
+  const customerprofileFilters = useMemo(() => getFilters('customerprofile', 'customerprofile'), [data]);
+  const worklocationFilters = useMemo(() => getFilters('worklocation', 'worklocation'), [data]);
+  const userbudgetFilters = useMemo(() => getFilters('userbudget', 'userbudget'), [data]);
+  const userratingFilters = useMemo(() => getFilters('userrating', 'userrating'), [data]);
+  const followupresultFilters = useMemo(() => getFilters('followupresult', 'followupresult'), [data]);
+  const scheduledcommunityFilters = useMemo(() => getFilters('scheduledcommunity', 'scheduledcommunity'), [data]);
+
+  // 在FollowupsGroupList组件内部，columns useMemo之前，定义render函数
+  const renderUserbudget = (_text: string, record: any) => {
+    return (
+      <InputNumber
+        defaultValue={record.userbudget === '' ? undefined : Number(record.userbudget)}
+        min={0}
+        max={99999999}
+        step={100}
+        precision={0}
+        style={{ minWidth: 100, maxWidth: 140, width: '100%' }}
+        placeholder="请输入用户预算"
+        onChange={() => {}}
+        onBlur={async (e) => {
+          const val = (e.target as HTMLInputElement).value;
+          const valStr = val === '' ? '' : String(val);
+          const originalValue = data.find(item => item.id === record.id)?.userbudget || '';
+          if (valStr !== originalValue) {
+            await handleAnyFieldSave(record, 'userbudget', valStr);
+          }
+        }}
+        onPressEnter={async (e) => {
+          const val = (e.target as HTMLInputElement).value;
+          const valStr = val === '' ? '' : String(val);
+          const originalValue = data.find(item => item.id === record.id)?.userbudget || '';
+          if (valStr !== originalValue) {
+            await handleAnyFieldSave(record, 'userbudget', valStr);
+          }
+        }}
+        disabled={isFieldDisabled()}
+        key={forceUpdate}
+      />
+    );
+  };
+
+  const renderFollowupresult = (_text: string, record: any) => (
+    <Input
+      defaultValue={record.followupresult || ''}
+      onChange={() => {}}
+      onBlur={async (e) => {
+        const val = (e.target as HTMLInputElement).value;
+        const originalValue = data.find(item => item.id === record.id)?.followupresult || '';
+        if (val !== originalValue) {
+          await handleAnyFieldSave(record, 'followupresult', val);
+        }
+      }}
+      onPressEnter={async (e) => {
+        const val = (e.target as HTMLInputElement).value;
+        const originalValue = data.find(item => item.id === record.id)?.followupresult || '';
+        if (val !== originalValue) {
+          await handleAnyFieldSave(record, 'followupresult', val);
+        }
+      }}
+              style={{ minWidth: 120, maxWidth: 180 }}
+        placeholder="请输入跟进备注"
+        disabled={isFieldDisabled()}
+        key={forceUpdate}
+    />
+  );
+
   const columns = useMemo(() => [
-    // 线索编号，唯一标识，带复制功能，左侧冻结
     {
       title: '线索编号',
       dataIndex: 'leadid',
       key: 'leadid',
       fixed: 'left' as const,
       ellipsis: true,
-      filters: getFilters('leadid', 'leadid'),
+      filters: leadidFilters,
       filterSearch: true,
       onCell: () => ({ style: { ...defaultCellStyle, minWidth: 120, maxWidth: 180 } }),
       filteredValue: tableColumnFilters.leadid ?? null,
-      render: (text: string, record: Followup) => {
+      render: (text: string, record: any) => {
         return text ? (
           <span style={{ display: 'inline-flex', alignItems: 'center' }}>
             <Button
@@ -862,14 +697,13 @@ const FollowupsGroupList: React.FC = () => {
         ) : <span style={{ color: '#bbb' }}>-</span>;
       }
     },
-    // 跟进阶段，按钮渲染，颜色区分不同阶段，左侧冻结
     {
       title: '跟进阶段',
       dataIndex: 'followupstage',
       key: 'followupstage',
       fixed: 'left' as const,
       ellipsis: true,
-      filters: getFilters('followupstage', 'followupstage'),
+      filters: followupstageFilters,
       onCell: () => ({
         style: {
           ...defaultCellStyle,
@@ -877,7 +711,7 @@ const FollowupsGroupList: React.FC = () => {
         }
       }),
       filteredValue: tableColumnFilters.followupstage ?? null,
-      render: (text: string, record: Followup) => {
+      render: (text: string, record: any) => {
         const item = followupstageEnum.find(i => i.value === text);
         const stageColorMap: Record<string, string> = {
           '丢单': '#ff4d4f', '待接收': '#bfbfbf', '确认需求': '#1677ff', '邀约到店': '#fa8c16', '已到店': '#52c41a', '赢单': '#faad14',
@@ -898,10 +732,10 @@ const FollowupsGroupList: React.FC = () => {
               padding: '0 8px',
               zIndex: 2
             }}
-            onClick={async () => {
+            onClick={() => {
+              if (isFieldDisabled()) return;
               const isPending = (typeof item === 'object' ? item.label : item) === '待接收' || (typeof text === 'string' && text === '待接收');
               if (isPending) {
-
                 followupstageEnum.forEach((enumItem) => {
                   if (typeof enumItem === 'object') {
                   } else {
@@ -917,29 +751,30 @@ const FollowupsGroupList: React.FC = () => {
                   message.error('系统错误：未找到确认需求阶段配置');
                   return;
                 }
-                try {
-                  const { error } = await supabase
-                    .from('followups')
-                    .update({ followupstage: nextStage })
-                    .eq('id', record.id)
-                    .select();
-                  if (error) {
-                    message.error('更新失败: ' + error.message);
-                  } else {
-                    setData(prev => prev.map(item => item.id === record.id ? { ...item, followupstage: nextStage } : item));
-                    message.success('已接收，阶段已推进到"确认需求"');
+                (async () => {
+                  try {
+                    const { error } = await supabase
+                      .from('followups')
+                      .update({ followupstage: nextStage })
+                      .eq('id', record.id)
+                      .select();
+                    if (error) {
+                      message.error('更新失败: ' + error.message);
+                    } else {
+                      setData(prev => prev.map(item => item.id === record.id ? { ...item, followupstage: nextStage } : item));
+                      setLocalData(prev => prev.map(item => item.id === record.id ? { ...item, followupstage: nextStage } : item));
+                      message.success('已接收，阶段已推进到"确认需求"');
+                    }
+                  } catch (error) {
+                    message.error('操作失败: ' + (error as Error).message);
                   }
-                } catch (error) {
-                  message.error('操作失败: ' + (error as Error).message);
-                }
+                })();
               } else {
                 setCurrentRecord(record);
                 setDrawerOpen(true);
                 setCurrentStage(record.followupstage);
                 setCurrentStep(followupStages.indexOf(record.followupstage));
                 stageForm.setFieldsValue(convertDateFields(record));
-                
-                // 如果是"已到店"或"赢单"阶段，检查是否有deals记录
                 if (record.followupstage === '已到店' || record.followupstage === '赢单') {
                   checkDealsRecord(record.leadid);
                   fetchDealsList(record.leadid);
@@ -950,7 +785,6 @@ const FollowupsGroupList: React.FC = () => {
         );
       }
     },
-    // 手机号，带复制功能，数据脱敏
     {
       title: '手机号',
       dataIndex: 'phone',
@@ -1026,7 +860,6 @@ const FollowupsGroupList: React.FC = () => {
         );
       }
     },
-    // 微信号，带复制功能，数据脱敏
     {
       title: '微信号',
       dataIndex: 'wechat',
@@ -1102,7 +935,6 @@ const FollowupsGroupList: React.FC = () => {
         );
       }
     },
-    // 创建日期
     {
       title: '创建日期',
       dataIndex: 'created_at',
@@ -1143,99 +975,120 @@ const FollowupsGroupList: React.FC = () => {
           </Tooltip>
         );
       },
-      sorter: (a: Followup, b: Followup) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      sorter: (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     },
-    // 渠道，枚举渲染Tag
     {
       title: '渠道',
       dataIndex: 'source',
       key: 'source',
-      width: 50,
+      width: 80,
       ellipsis: true,
-      filters: getFilters('source', 'source'),
+      filters: sourceFilters,
       filterMultiple: true,
-      onCell: () => ({ style: { ...defaultCellStyle } }),
+      onCell: () => ({ style: { ...defaultCellStyle, minWidth: 60, maxWidth: 100 } }),
       filteredValue: tableColumnFilters.source ?? null,
       render: (text: string) => {
         const item = sourceEnum.find(i => i.value === text);
         return <Tag color="blue">{item?.label || text}</Tag>;
       }
     },
-    // 来源
     {
       title: '线索来源',
       dataIndex: 'leadtype',
       key: 'leadtype',
       ellipsis: true,
-      filters: getFilters('leadtype', 'leadtype'),
+      filters: leadtypeFilters,
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.leadtype ?? null,
     },
-    // 约访管家
     {
       title: '约访管家',
       dataIndex: 'interviewsales_user_id',
       key: 'interviewsales_user_id',
       ellipsis: true,
-      filters: getFilters('interviewsales_user_id', 'interviewsales_user_name'),
+      filters: interviewsalesUserFilters,
       filterSearch: true,
       filteredValue: tableColumnFilters.interviewsales_user_id ?? null,
       onCell: () => ({ style: { ...defaultCellStyle } }),
-      render: (_: any, record: Followup) => record.interviewsales_user_name || record.interviewsales_user || '-',
+      render: (_: any, record: any) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+          <UserOutlined style={{ color: '#bfbfbf', marginRight: 6, fontSize: 18}} />
+          {record.interviewsales_user_name || record.interviewsales_user || '-'}
+        </span>
+      ),
     },
-    // 客服备注
     {
       title: '客服备注',
       dataIndex: 'remark',
       key: 'remark',
       ellipsis: true,
-      filters: getFilters('remark', 'remark'),
+      filters: remarkFilters,
       filterSearch: true,
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.remark ?? null,
       render: (text: string) => text ? <Tooltip title={text}><span>{text}</span></Tooltip> : '-'
     },
-    // 用户画像，原位编辑
     {
       title: '用户画像',
       dataIndex: 'customerprofile',
       key: 'customerprofile',
-      filters: getFilters('customerprofile', 'customerprofile'),
+      filters: customerprofileFilters,
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.customerprofile ?? null,
-      render: (text: string, record: Followup) => (
-        <Select value={text} options={customerprofileEnum} style={{ width: '100%', minWidth: 100 }} onChange={val => handleCellSave(record, 'customerprofile', val)} />
+      render: (text: string, record: any) => (
+        <Select 
+          value={text} 
+          options={customerprofileEnum} 
+          style={{ width: '100%', minWidth: 100 }} 
+          onChange={val => handleAnyFieldSave(record, 'customerprofile', val)} 
+          disabled={isFieldDisabled()}
+          key={forceUpdate}
+        />
       )
     },
-    // 工作地点，原位编辑
     {
       title: '工作地点',
       dataIndex: 'worklocation',
       key: 'worklocation',
       ellipsis: true,
-      filters: getFilters('worklocation', 'worklocation'),
+      filters: worklocationFilters,
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.worklocation ?? null,
-      render: (text: string, record: Followup) => (
-        <Tooltip title={text}>
-          <Input value={inputCache[record.id + '-worklocation'] ?? text} onChange={e => setInputCache(cache => ({ ...cache, [record.id + '-worklocation']: e.target.value }))} onBlur={() => { const val = inputCache[record.id + '-worklocation'] ?? text; if (val !== text) { handleCellSave(record, 'worklocation', val); } else { setInputCache(cache => { const c = { ...cache }; delete c[record.id + '-worklocation']; return c; }); } }} style={{ minWidth: 120, maxWidth: 180 }} />
-        </Tooltip>
+      render: (_text: string, record: any) => (
+        <Input
+          value={record.worklocation || ''}
+          onChange={() => {}}
+          onBlur={async (e) => {
+            const val = (e.target as HTMLInputElement).value;
+            const originalValue = data.find(item => item.id === record.id)?.worklocation || '';
+            if (val !== originalValue) {
+              await handleAnyFieldSave(record, 'worklocation', val);
+            }
+          }}
+          onPressEnter={async (e) => {
+            const val = (e.target as HTMLInputElement).value;
+            const originalValue = data.find(item => item.id === record.id)?.worklocation || '';
+            if (val !== originalValue) {
+              await handleAnyFieldSave(record, 'worklocation', val);
+            }
+          }}
+          style={{ minWidth: 120, maxWidth: 180 }}
+          placeholder="请输入工作地点"
+          disabled={isFieldDisabled()}
+          key={forceUpdate}
+        />
       )
     },
-    // 用户预算，原位编辑
     {
       title: '用户预算',
       dataIndex: 'userbudget',
       key: 'userbudget',
       ellipsis: true,
-      filters: getFilters('userbudget', 'userbudget'),
+      filters: userbudgetFilters,
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.userbudget ?? null,
-      render: (text: string, record: Followup) => (
-        <Input value={inputCache[record.id + '-userbudget'] ?? text} onChange={e => setInputCache(cache => ({ ...cache, [record.id + '-userbudget']: e.target.value }))} onBlur={() => { const val = inputCache[record.id + '-userbudget'] ?? text; if (val !== text) { handleCellSave(record, 'userbudget', val); } else { setInputCache(cache => { const c = { ...cache }; delete c[record.id + '-userbudget']; return c; }); } }} style={{ minWidth: 100, maxWidth: 140 }} />
-      )
+      render: renderUserbudget
     },
-    // 入住日期，原位编辑
     {
       title: '入住日期',
       dataIndex: 'moveintime',
@@ -1268,103 +1121,105 @@ const FollowupsGroupList: React.FC = () => {
       ),
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.moveintime ?? null,
-      render: (text: string, record: Followup) => (
+      render: (text: string, record: any) => {
+        return (
         <DatePicker
           locale={locale}
           style={{ minWidth: 120, maxWidth: 180 }}
           placeholder="请选择入住日期"
-          value={inputCache[record.id + '-moveintime'] ? dayjs(inputCache[record.id + '-moveintime']) : (text ? dayjs(text) : undefined)}
+            value={text ? dayjs(text) : undefined}
           format="YYYY-MM-DD"
-          onChange={v => {
-            const val = v ? v.format('YYYY-MM-DD') + ' 00:00:00' : '';
-            setInputCache(cache => ({ ...cache, [record.id + '-moveintime']: val }));
-            handleCellSave(record, 'moveintime', val);
+          onChange={async v => {
+              if (v) {
+                const val = v.format('YYYY-MM-DD') + ' 00:00:00';
+                await handleAnyFieldSave(record, 'moveintime', val);
+              }
           }}
+          disabled={isFieldDisabled()}
+          key={forceUpdate}
         />
-      )
+        );
+      }
     },
-    // 来访意向，原位编辑
     {
       title: '来访意向',
       dataIndex: 'userrating',
       key: 'userrating',
       ellipsis: true,
-      filters: getFilters('userrating', 'userrating'),
+      filters: userratingFilters,
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.userrating ?? null,
-      render: (text: string, record: Followup) => (
+      render: (text: string, record: any) => (
         <Select
           value={text}
           options={userratingEnum}
           style={{ minWidth: 100, maxWidth: 140 }}
-          onChange={val => handleCellSave(record, 'userrating', val)}
+          onChange={val => handleAnyFieldSave(record, 'userrating', val)}
+          disabled={isFieldDisabled()}
+          key={forceUpdate}
         />
       )
     },
-    // 跟进结果，原位编辑
     {
       title: '跟进结果',
       dataIndex: 'majorcategory',
       key: 'majorcategory',
-      ellipsis: true,
-      filters: getFilters('majorcategory', 'majorcategory'),
-      onCell: () => ({ style: { ...defaultCellStyle } }),
+      width: 220,
+      onCell: () => ({ style: { ...defaultCellStyle, minWidth: 180, maxWidth: 260 } }),
       filteredValue: tableColumnFilters.majorcategory ?? null,
-      render: (text: string, record: Followup) => (
-        <Tooltip title={text}>
-          <Input value={inputCache[record.id + '-majorcategory'] ?? text} onChange={e => setInputCache(cache => ({ ...cache, [record.id + '-majorcategory']: e.target.value }))} onBlur={() => { const val = inputCache[record.id + '-majorcategory'] ?? text; if (val !== text) { handleCellSave(record, 'majorcategory', val); } else { setInputCache(cache => { const c = { ...cache }; delete c[record.id + '-majorcategory']; return c; }); } }} style={{ minWidth: 120, maxWidth: 180 }} />
-        </Tooltip>
+      render: (text: string, record: any) => (
+        <Cascader
+          options={majorCategoryOptions}
+          value={findCascaderPath(majorCategoryOptions, text)}
+          onChange={async (_value, selectedOptions) => {
+            const selectedText = selectedOptions && selectedOptions.length > 1 ? selectedOptions[1].label : '';
+            if (selectedText !== text) {
+              await handleAnyFieldSave(record, 'majorcategory', selectedText);
+            }
+          }}
+          placeholder="请选择跟进结果"
+          style={{ minWidth: 180, maxWidth: 260 }}
+          showSearch
+          changeOnSelect={false}
+          allowClear
+          disabled={isFieldDisabled()}
+          key={forceUpdate}
+        />
       )
     },
-    // 跟进备注，原位编辑
     {
       title: '跟进备注',
       dataIndex: 'followupresult',
       key: 'followupresult',
       ellipsis: true,
-      filters: getFilters('followupresult', 'followupresult'),
+      filters: followupresultFilters,
       filterSearch: true,
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.followupresult ?? null,
-      render: (text: string, record: Followup) => (
-        <Tooltip title={text}>
-          <Input
-            value={inputCache[record.id + '-followupresult'] ?? text}
-            onChange={e => setInputCache(cache => ({ ...cache, [record.id + '-followupresult']: e.target.value }))}
-            onBlur={() => {
-              const val = inputCache[record.id + '-followupresult'] ?? text;
-              if (val !== text) {
-                handleCellSave(record, 'followupresult', val);
-              } else {
-                setInputCache(cache => {
-                  const c = { ...cache };
-                  delete c[record.id + '-followupresult'];
-                  return c;
-                });
-              }
-            }}
-            style={{ minWidth: 120, maxWidth: 180 }}
-            placeholder="请输入跟进备注"
-          />
-        </Tooltip>
-      )
-        },
-    // 预约社区，原位编辑
+      render: renderFollowupresult
+    },
     {
       title: '预约社区',
       dataIndex: 'scheduledcommunity',
       key: 'scheduledcommunity',
       ellipsis: true,
-      filters: getFilters('scheduledcommunity', 'scheduledcommunity'),
+      filters: scheduledcommunityFilters,
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.scheduledcommunity ?? null,
-      render: (text: string, record: Followup) => (
+      render: (text: string, record: any) => (
         <Tooltip title={text}>
-          <Select value={text} options={communityEnum} style={{ minWidth: 120, maxWidth: 180 }} onChange={val => handleCellSave(record, 'scheduledcommunity', val)} />
+          <Select 
+            value={text} 
+            options={communityEnum} 
+            style={{ minWidth: 120, maxWidth: 180 }} 
+            onChange={val => handleAnyFieldSave(record, 'scheduledcommunity', val)} 
+            disabled={isFieldDisabled()}
+            key={forceUpdate}
+          />
         </Tooltip>
       )
     },
-  ], [data, inputCache, communityEnum, followupstageEnum, customerprofileEnum, sourceEnum, userratingEnum, getFilters, tableColumnFilters]);
+  ], [leadidFilters, followupstageFilters, phoneFilters, wechatFilters, sourceFilters, leadtypeFilters, interviewsalesUserFilters, remarkFilters, customerprofileFilters, worklocationFilters, userbudgetFilters, userratingFilters, followupresultFilters, scheduledcommunityFilters, communityEnum, followupstageEnum, customerprofileEnum, sourceEnum, userratingEnum, majorCategoryOptions, tableColumnFilters]);
 
   const filterKeyMap: Record<string, string> = {
     leadid: 'p_leadid',
@@ -1563,8 +1418,7 @@ const FollowupsGroupList: React.FC = () => {
         .eq('leadid', leadid)
         .single();
       
-      if (error && error.code !== 'PGRST116') { // PGRST116是"未找到记录"错误
-        console.error('查询deals记录失败:', error);
+      if (error && error.code !== 'PGRST116') { 
         return null;
       }
       
@@ -1703,890 +1557,972 @@ const FollowupsGroupList: React.FC = () => {
     fetchFollowups();
   }, []);
 
-  return (
-    <div className="page-card">
-      {/* 顶部操作区 */}
-      <div className="page-header">
-        <Title level={4} style={{ margin: 0, fontWeight: 700, color: '#222' }}>
-          跟进记录
-        </Title>
-        <Space>
-          <Search
-            placeholder="编号、联系方式、管家..."
-            allowClear
-            value={keywordSearch}
-            onChange={(e) => setKeywordSearch(e.target.value)}
-            onSearch={handleGlobalSearch}
-            className="page-search"
-            style={{ width: 260 }}
-          />
-          <Select
-            options={groupFieldOptions}
-            value={groupField}
-            onChange={val => {
-              setGroupField(val || undefined);
-              if (!val) setSelectedGroup(''); // 选"全部"时自动恢复明细
-            }}
-            className="page-btn"
-            style={{ width: 120 }}
-            placeholder="选择分组"
-            allowClear
-          />
-          <Button icon={<ReloadOutlined />} onClick={() => {
-            fetchFollowups(tableFilters);
-            if (groupField) {
-              fetchGroupCount(groupField);
-            }
-          }} className="page-btn">
-            刷新
-          </Button>
-        </Space>
-      </div>
-      {/* 筛选条件标签区 */}
-      <div style={{ margin: '8px 0 0 0', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-        {/* 关键字搜索Tag */}
-        {tableFilters.p_keyword && (
-          <Tag
-            closable
-            className="filter-tag"
-            onClose={() => {
-              const newFilters = { ...tableFilters };
-              delete newFilters.p_keyword;
-              setTableFilters(newFilters);
-              setKeywordSearch('');
-              setPagination(p => ({ ...p, current: 1 }));
-              fetchFollowups(newFilters, 1, pagination.pageSize);
-            }}
-            style={{ marginRight: 8, marginBottom: 8 }}
-          >
-            关键字: {tableFilters.p_keyword}
-          </Tag>
-        )}
-        {/* 合并创建日期区间Tag */}
-        {tableFilters.p_created_at_start && tableFilters.p_created_at_end && (
-          <Tag
-            closable
-            className="filter-tag"
-            onClose={() => {
-              const newFilters = { ...tableFilters };
-              delete newFilters.p_created_at_start;
-              delete newFilters.p_created_at_end;
-              setTableFilters(newFilters);
-              setTableColumnFilters((filters: any) => ({ ...filters, created_at: null }));
-              setPagination(p => ({ ...p, current: 1 }));
-              fetchFollowups(newFilters, 1, pagination.pageSize);
-            }}
-            style={{ marginRight: 8, marginBottom: 8 }}
-          >
-            创建日期: {dayjs(tableFilters.p_created_at_start).format('YYYY-MM-DD')} ~ {dayjs(tableFilters.p_created_at_end).format('YYYY-MM-DD')}
-          </Tag>
-        )}
-        {/* 合并入住日期区间Tag */}
-        {tableFilters.p_moveintime_start && tableFilters.p_moveintime_end && (
-          <Tag
-            closable
-            className="filter-tag"
-            onClose={() => {
-              const newFilters = { ...tableFilters };
-              delete newFilters.p_moveintime_start;
-              delete newFilters.p_moveintime_end;
-              setTableFilters(newFilters);
-              setTableColumnFilters((filters: any) => ({ ...filters, moveintime: null }));
-              setPagination(p => ({ ...p, current: 1 }));
-              fetchFollowups(newFilters, 1, pagination.pageSize);
-            }}
-            style={{ marginRight: 8, marginBottom: 8 }}
-          >
-            入住日期: {dayjs(tableFilters.p_moveintime_start).format('YYYY-MM-DD')} ~ {dayjs(tableFilters.p_moveintime_end).format('YYYY-MM-DD')}
-          </Tag>
-        )}
-        {/* 其它字段Tag */}
-        {Object.entries(tableFilters)
-          .filter(([key, value]) =>
-            value != null &&
-            (Array.isArray(value) ? value.length > 0 : String(value).length > 0) &&
-            ![
-              'p_keyword',
-              'p_created_at_start', 'p_created_at_end',
-              'p_moveintime_start', 'p_moveintime_end',
-              'created_at', 'moveintime' // 新增，彻底排除
-            ].includes(key)
-          )
-          .map(([key, value]) => {
-            const fieldLabelMap: Record<string, string> = {
-              p_leadid: '线索编号',
-              p_leadtype: '线索来源',
-              p_interviewsales_user_id: '约访管家',
-              p_showingsales_user_id: '带看管家',
-              p_followupstage: '阶段',
-              p_customerprofile: '用户画像',
-              p_worklocation: '工作地点',
-              p_userbudget: '用户预算',
-              p_userrating: '来访意向',
-              p_majorcategory: '跟进结果',
-              p_subcategory: '子类目',
-              p_followupresult: '跟进备注',
-              p_showingsales_user: '带看管家',
-              p_scheduledcommunity: '预约社区',
-              p_source: '渠道',
-              p_remark: '客服备注',
-              p_phone: '手机号',
-              moveintime: '入住日期',
-              created_at: '创建日期',
-              // ...如有其它字段
-            };
-            const label = fieldLabelMap[key] || key.replace(/^p_/, '');
-            const values = Array.isArray(value) ? value : [value];
-            return values.map((v: string, idx: number) => {
-              // 约访管家和带看管家特殊处理，显示昵称
-              let displayText = v;
-              if (key === 'p_interviewsales_user_id') {
-                // 从当前数据中查找对应的昵称
-                const found = data.find(item => String(item.interviewsales_user_id) === String(v));
-                if (v === null || v === undefined || String(v) === 'null' || (typeof v === 'number' && isNaN(v))) {
-                  displayText = '未分配';
-                } else {
-                  displayText = found?.interviewsales_user_name || found?.interviewsales_user || v;
-                }
-              } else if (key === 'p_showingsales_user_id') {
-                // 从当前数据中查找对应的昵称
-                const found = data.find(item => String(item.showingsales_user_id) === String(v));
-                if (v === null || v === undefined || String(v) === 'null' || (typeof v === 'number' && isNaN(v))) {
-                  displayText = '未分配';
-                } else {
-                  displayText = found?.showingsales_user_name || found?.showingsales_user || v;
-                }
-              } else if (key === 'p_scheduledcommunity' && (v === null || v === undefined || String(v) === 'null' || String(v) === '')) {
-                displayText = '未分配';
-              } else if (key === 'p_phone' && v) {
-                // 手机号筛选标签脱敏
-                displayText = maskPhone(String(v));
-              } else if (key === 'p_wechat' && v) {
-                // 微信号筛选标签脱敏
-                displayText = maskWechat(String(v));
-              } else if (v === null || v === undefined || String(v) === 'null' || (typeof v === 'number' && isNaN(v))) {
-                displayText = '为空';
-              }
-              return (
-                <Tag
-                  key={`filter_${key}_${String(v)}_${idx}`}
-                  closable
-                  className="filter-tag"
-                  onClose={() => {
-                    const updatedFilters = { ...tableFilters };
-                    if (Array.isArray(updatedFilters[key])) {
-                      updatedFilters[key] = updatedFilters[key].filter((item: string) => item !== v);
-                      if (updatedFilters[key].length === 0) delete updatedFilters[key];
-                    } else {
-                      delete updatedFilters[key];
-                    }
-                    // 只清空当前字段的Table筛选条件，其它字段不变
-                    const columnKey = key.replace(/^p_/, '');
-                    setTableColumnFilters((filters: any) => {
-                      const updated = { ...filters };
-                      updated[columnKey] = null;
-                      return updated;
-                    });
-                    setTableFilters(updatedFilters);
-                    setPagination(p => ({ ...p, current: 1 }));
-                    fetchFollowups(updatedFilters, 1, pagination.pageSize);
-                  }}
-                  style={{ marginRight: 8, marginBottom: 8 }}
-                >
-                  {/* 时间字段格式化 */}
-                  {(key === 'moveintime' || key === 'created_at') ? `${label}: ${dayjs(v).format('YYYY-MM-DD')}` : `${label}: ${displayText}`}
-                </Tag>
-              );
-            });
-          })}
-      </div>
-      {/* 主体区：左右分栏布局 */}
-      <div className="main-flex-layout">
-        {/* 左侧分组区（分组按钮+总数卡片） */}
-        <div className={`group-panel-sidebar ${groupPanelOpen ? 'open' : 'closed'}`}>
-          {/* 总记录数卡片 */}
-          <div style={{ paddingTop: 16, paddingBottom: 8,borderRadius: 16 }}>
-            <span className="group-card-title">总记录数</span>
-            <span className="group-card-count">{groupTotal}</span>
-          </div>
-                    {/* quick-date-bar 始终显示在分组区顶部 */}
-                    <div className="quick-date-bar">
-            <Button
-              className={`quick-date-btn${quickDateKey === 'thisWeek' ? ' active' : ''}`}
-              size="small"
-              onClick={() => handleQuickDate('thisWeek')}
-            >
-              本周
-            </Button>
-            <Button
-              className={`quick-date-btn${quickDateKey === 'lastWeek' ? ' active' : ''}`}
-              size="small"
-              onClick={() => handleQuickDate('lastWeek')}
-            >
-              上周
-            </Button>
-            <Button
-              className={`quick-date-btn${quickDateKey === 'thisMonth' ? ' active' : ''}`}
-              size="small"
-              onClick={() => handleQuickDate('thisMonth')}
-            >
-              本月
-            </Button>
-            <Button
-              className={`quick-date-btn${quickDateKey === 'lastMonth' ? ' active' : ''}`}
-              size="small"
-              onClick={() => handleQuickDate('lastMonth')}
-            >
-              上月
-            </Button>
-          </div>
-          {/* 分组按钮列表：每个分组一个按钮，支持高亮和取消分组 */}
-          <div style={{ maxHeight: 600, overflowY: 'auto' }}>
-            {groupRowsCache.map(group => {
-              // 约访管家和带看管家分组时展示昵称
-              let groupLabel = group.groupText || group.key;
-              // 处理预约社区字段的NULL值显示
-              if (groupField === 'scheduledcommunity' && (group.key === null || group.key === 'null' || group.key === '' || group.groupText === '未分组')) {
-                groupLabel = '未分配';
-              }
+  // 加载majorcategory分级选项
+  useEffect(() => {
+    async function fetchMajorCategoryOptions() {
+      // 读取Selection表id=1的selection字段
+      const { data, error } = await supabase
+        .from('Selection')
+        .select('selection')
+        .eq('id', 1)
+        .single();
+      if (!error && data && data.selection) {
+        setMajorCategoryOptions(data.selection);
+      }
+    }
+    fetchMajorCategoryOptions();
+  }, []);
 
-              // 统一未分配分组的选中判断逻辑
-              const isNullOrEmpty = (val: any) =>
-                val === null ||
-                val === undefined ||
-                String(val).toLowerCase() === 'null' ||
-                String(val) === '' ||
-                val === '未分组';
+  // 辅助函数：根据二级value找到完整路径
+  function findCascaderPath(options: any[], value: string): string[] {
+    for (const opt of options) {
+      if (opt.children) {
+        const child = opt.children.find((c: any) => c.value === value);
+        if (child) return [opt.value, child.value];
+      }
+    }
+    return [];
+  }
 
-              const isSelected =
-                (isNullOrEmpty(group.key) && (selectedGroup === 'null' || isNullOrEmpty(selectedGroup))) ||
-                String(selectedGroup) === String(group.key);
+  // 优化的 localData 更新函数
+  const updateLocalData = (id: string, field: keyof any, value: any) => {
+    const currentData = localDataRef.current;
+    const recordIndex = currentData.findIndex(item => item.id === id);
+    
+    if (recordIndex === -1) return;
+    
+    const record = currentData[recordIndex];
+    
+    if (record[field] === value) {
+      return; // 值没有变化，不更新
+    }
+    
+    // 创建新的数据
+    const newData = [...currentData];
+    newData[recordIndex] = { ...record, [field]: value };
+    
+    // 更新 ref 和 state
+    localDataRef.current = newData;
+    setLocalData(newData);
+  };
 
-              return (
-                <div
-                  key={`group_${groupField || 'unknown'}_${group.key}`}
-                  onClick={() => handleGroupClick(group.key)}
-                  className={`group-btn${isSelected ? ' group-btn-selected' : ''}`}
-                >
-                  <span className="group-btn-title">{groupLabel}</span>
-                  <span className="group-btn-count">{group.count} 条</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        {/* 右侧明细区 */}
-        <div className={`main-content-area ${groupPanelOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-          <Spin spinning={loading}>
-            <Table
-              columns={columns}
-              dataSource={data}
-              loading={loading}
-              pagination={{
-                current: pagination.current,
-                pageSize: pagination.pageSize,
-                total: pagination.total,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
-              }}
-              rowKey="id"
-              size="small"
-              bordered={false}
-              className="page-table compact-table"
-              onChange={handleTableChange}
-              scroll={{ x: 'max-content', y: 'calc(100vh - 280px)' }}
-              rowClassName={() => 'compact-table-row'}
-              sticky
-              tableLayout="fixed"
-            />
-          </Spin>
-        </div>
-      </div>
-      {/* Drawer 组件（放在 return 的最外层） */}
-      <Drawer
-        title="跟进阶段进度"
-        placement="bottom"
-        open={drawerOpen}
-        onClose={async () => {
-          // 关闭时自动保存
-          const values = stageForm.getFieldsValue();
-          if (currentRecord && currentRecord.id) {
-            const { error } = await supabase
-              .from('followups')
-              .update(values)
-              .eq('id', currentRecord.id);
-            if (!error) {
-              setData(prev =>
-                prev.map(item =>
-                  item.id === currentRecord.id
-                    ? { ...item, ...values }
-                    : item
-                )
-              );
-            }
+  // 批量更新函数（用于多个字段同时更新）
+
+  // 频率控制相关状态
+  const [isFrequencyLimited, setIsFrequencyLimited] = useState<boolean>(false);
+  const [hasCheckedFrequency, setHasCheckedFrequency] = useState<boolean>(false);
+  const [cooldown, setCooldown] = useState<{ until: number, secondsLeft: number, message: string } | null>(null);
+  
+  // 调试：监听 cooldown 状态变化
+  useEffect(() => {
+    console.log('[FREQ] cooldown 状态变化:', cooldown);
+  }, [cooldown]);
+  const cooldownTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // 页面加载后自动读取一次频控状态
+  useEffect(() => {
+    if (frequencyController && frequencyControllerReady) {
+      (async () => {
+        console.log('[FREQ] 页面加载检查频控状态');
+        const freqResult = await frequencyController.checkFrequency();
+        console.log('[FREQ] 频控检查结果:', freqResult);
+        setHasCheckedFrequency(true);
+        if (!freqResult.allowed) {
+          console.log('[FREQ] 检测到频控限制，设置 cooldown');
+          // 直接用 cooldown_until 字段
+          let bjStr = '';
+          let msg = '';
+          let until = Date.now();
+          let secondsLeft = 0;
+          if (freqResult.cooldown_until) {
+            bjStr = toBeijingTimeStr(freqResult.cooldown_until);
+            msg = `请按实际情况填写用户真实信息，勿敷衍了事，避免被系统暂时锁定。请在 ${bjStr} 后重试。`;
+            until = dayjs(freqResult.cooldown_until).valueOf();
+            secondsLeft = Math.ceil((until - Date.now()) / 1000);
+          } else {
+            msg = freqResult.message || '操作过于频繁，请稍后再试';
           }
-          setDrawerOpen(false);
-          setDealsList([]);
-        }}
-        destroyOnClose
-        footer={null}
-      >
-        <div className="drawer-flex-row">
-          {/* 左侧线索信息 */}
-          <div className="page-drawer-info">
-            <div className="mb-12">
-              <span className="text-secondary">线索编号：</span>
-              {currentRecord?.leadid ? (
-                <Paragraph copyable={{ text: currentRecord.leadid, tooltips: ['复制', '已复制'], icon: <CopyOutlined style={{ color: '#1677ff' }} /> }} style={{ margin: 0, color: '#1677ff', fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap', maxWidth: 320 }}>{currentRecord.leadid}</Paragraph>
-              ) : <span className="text-muted">-</span>}
+          setCooldown({ until, secondsLeft, message: msg });
+          setIsFrequencyLimited(true);
+          setForceUpdate(prev => prev + 1); // 页面加载时检查到频控限制，强制更新控件状态
+        } else {
+          setIsFrequencyLimited(false);
+        }
+      })();
+    } else if (frequencyControllerReady && !frequencyController) {
+      setHasCheckedFrequency(true);
+    }
+  }, [frequencyController, frequencyControllerReady]);
+
+  // 统一频控禁用判断：实时检查频控状态
+  const isFieldDisabled = () => {
+    // 如果有 cooldown 或频控限制，禁用
+    if (cooldown || isFrequencyLimited) {
+      return true;
+    }
+    
+    // 如果还没检查过频控状态，禁用（等待状态确定）
+    if (!hasCheckedFrequency) {
+      return true;
+    }
+    
+    // 如果 frequencyController 不存在但已准备好，说明没有频控系统，允许编辑
+    if (!frequencyController && frequencyControllerReady) {
+      return false;
+    }
+    
+    // 如果 frequencyController 还没准备好，禁用（等待状态确定）
+    if (!frequencyControllerReady) {
+      return true;
+    }
+    
+    // 其他情况不禁用
+    return false;
+  };
+
+  // 统一的频率控制保存函数（唯一入口）
+  const handleAnyFieldSave = async (record: any, field: keyof any, value: any) => {
+    console.log('[FREQ] 开始保存操作:', { recordId: record.id, field, value });
+    
+    // 1. 只在此处做频控检查
+    if (frequencyController && frequencyControllerReady) {
+      console.log('[FREQ] 执行频控检查');
+      const freqResult = await frequencyController.checkFrequency();
+      console.log('[FREQ] 频控检查结果:', freqResult);
+      
+      if (!freqResult.allowed) {
+        console.log('[FREQ] 频控检查失败，被拦截');
+        // 只用 allowed 字段判断，立即设置 cooldown 状态
+        let bjStr = '';
+        let msg = '';
+        let until = Date.now();
+        let secondsLeft = 0;
+        if (freqResult.cooldown_until) {
+          bjStr = toBeijingTimeStr(freqResult.cooldown_until);
+          msg = `请按实际情况填写用户真实信息，勿敷衍了事，避免被系统暂时锁定。请在 ${bjStr} 后重试。`;
+          until = dayjs(freqResult.cooldown_until).valueOf();
+          secondsLeft = Math.ceil((until - Date.now()) / 1000);
+        } else {
+          msg = freqResult.message || '操作过于频繁，请稍后再试';
+        }
+        setCooldown({ until, secondsLeft, message: msg });
+        setForceUpdate(prev => prev + 1);
+        if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+        cooldownTimer.current = setInterval(() => {
+          setCooldown(prev => {
+            if (!prev) return null;
+            const left = Math.ceil((prev.until - Date.now()) / 1000);
+            if (left < 1) {
+              clearInterval(cooldownTimer.current!);
+              setForceUpdate(prev => prev + 1);
+              return null;
+            }
+            return { ...prev, secondsLeft: left };
+          });
+        }, 1000);
+        message.error(msg);
+        return;
+      } else {
+        console.log('[FREQ] 频控检查通过，允许保存');
+      }
+    } else {
+      console.log('[FREQ] 跳过频控检查:', { 
+        hasController: !!frequencyController, 
+        controllerReady: frequencyControllerReady 
+      });
+    }
+    
+    // 2. 频控未命中，允许保存
+    const originalValue = data.find(item => item.id === record.id)?.[field];
+    if (originalValue === value) {
+      console.log('[FREQ] 值未变化，跳过保存');
+      return;
+    }
+    console.log('[FREQ] 开始保存到后端');
+    updateLocalData(record.id, field, value); // 乐观更新，UI先变
+    const result = await saveFieldWithFrequency(frequencyController, record, String(field), value, originalValue);
+    if (!result.success) {
+      updateLocalData(record.id, field, originalValue); // 失败回滚
+      message.error(result.error || '保存失败');
+      return;
+    }
+    console.log('[FREQ] 保存成功');
+    message.success('保存成功');
+  };
+
+  // 修改丢单按钮的处理
+  const handleDropout = async () => {
+    if (!currentRecord) return;
+    
+    // 检查丢单频率限制
+    if (!frequencyController) {
+      return;
+    }
+    
+    const values = stageForm.getFieldsValue();
+    // 从values中移除deals表特有的字段
+    const { contractcommunity, contractnumber, roomnumber, ...followupValues } = values;
+    const updateObj = { ...followupValues, followupstage: followupStages[0] };
+    
+    const { error } = await supabase
+      .from('followups')
+      .update(updateObj)
+      .eq('id', currentRecord.id);
+    if (!error) {
+      setData(prev => prev.map(item =>
+        item.id === currentRecord.id
+          ? { ...item, ...followupValues, followupstage: followupStages[0] }
+          : item
+      ));
+      setDrawerOpen(false);
+      message.success('已丢单');
+      
+      // 记录丢单操作
+      await frequencyController?.recordOperation(currentRecord.id, currentRecord.followupstage, followupStages[0]);
+    } else {
+      message.error('丢单失败: ' + error.message);
+    }
+  };
+
+  // 添加频率控制监控功能
+  const [frequencyStats] = useState<any>(null);
+
+  // 获取频率控制统计信息
+
+  // 手动触发清理
+
+  // 日志：初始化 frequencyController 和 userId
+  useEffect(() => {
+    if (frequencyController) {
+      const userId = frequencyController.getUserId ? frequencyController.getUserId() : undefined;
+    } else {
+    }
+  }, [frequencyController]);
+
+  return (
+    <>
+      {/* 优化：用Antd Alert展示冷却条，放在主内容card上方 */}
+      {cooldown && (
+        <Alert
+          type="warning"
+          showIcon
+          banner
+          style={{ marginBottom: 16, fontSize: 14, fontWeight: 'normal', textAlign: 'left' }}
+          message={
+            <span>
+               {cooldown.message} 
+            </span>
+          }
+        />
+      )}
+      <div className="page-card" style={{ marginTop: 0 }}>
+        {/* 顶部操作区 */}
+        <div className="page-header">
+          <Title level={4} style={{ margin: 0, fontWeight: 700, color: '#222' }}>
+            跟进记录
+          </Title>
+          <Space>
+            {/* 现有的搜索和刷新按钮 */}
+            <Search
+              placeholder="编号、联系方式、管家..."
+              allowClear
+              value={keywordSearch}
+              onChange={(e) => setKeywordSearch(e.target.value)}
+              onSearch={handleGlobalSearch}
+              className="page-search"
+              style={{ width: 260 }}
+            />
+            <Select
+              options={groupFieldOptions}
+              value={groupField}
+              onChange={val => {
+                setGroupField(val || undefined);
+                if (!val) setSelectedGroup(''); // 选"全部"时自动恢复明细
+              }}
+              className="page-btn"
+              style={{ width: 120 }}
+              placeholder="选择分组"
+              allowClear
+            />
+            <Button icon={<ReloadOutlined />} onClick={() => {
+              fetchFollowups(tableFilters);
+              if (groupField) {
+                fetchGroupCount(groupField);
+              }
+            }} className="page-btn">
+              刷新
+            </Button>
+          </Space>
+        </div>
+
+        {/* 频率控制统计信息 */}
+        {frequencyStats && (
+          <div style={{ 
+            margin: '8px 0', 
+            padding: '8px 12px', 
+            background: '#f6f8fa', 
+            borderRadius: '4px',
+            fontSize: '12px'
+          }}>
+            <Space split={<Divider type="vertical" />}>
+              {frequencyStats.map((stat: any) => (
+                <span key={stat.table_name}>
+                  {stat.table_name}: {stat.row_count}条记录
+                </span>
+              ))}
+            </Space>
+        </div>
+        )}
+
+        {/* 主体区：左右分栏布局 */}
+        <div className="main-flex-layout">
+          {/* 左侧分组区（分组按钮+总数卡片） */}
+          <div className={`group-panel-sidebar ${groupPanelOpen ? 'open' : 'closed'}`}>
+            {/* 总记录数卡片 */}
+            <div style={{ paddingTop: 16, paddingBottom: 8,borderRadius: 16 }}>
+              <span className="group-card-title">总记录数</span>
+              <span className="group-card-count">{groupTotal}</span>
             </div>
-            <div className="mb-12">
-              <span className="text-secondary">手机号：</span>
-              {currentRecord?.phone ? (
-                <Paragraph copyable={{ text: currentRecord.phone, tooltips: ['复制', '已复制'], icon: <CopyOutlined style={{ color: '#1677ff' }} /> }} style={{ margin: 0, display: 'inline-block', whiteSpace: 'nowrap', maxWidth: 320 }}>
-                  {maskPhone(currentRecord.phone)}
-                </Paragraph>
-              ) : <span className="text-muted">-</span>}
+                        {/* quick-date-bar 始终显示在分组区顶部 */}
+                        <div className="quick-date-bar">
+              <Button
+                className={`quick-date-btn${quickDateKey === 'thisWeek' ? ' active' : ''}`}
+                size="small"
+                onClick={() => handleQuickDate('thisWeek')}
+              >
+                本周
+              </Button>
+              <Button
+                className={`quick-date-btn${quickDateKey === 'lastWeek' ? ' active' : ''}`}
+                size="small"
+                onClick={() => handleQuickDate('lastWeek')}
+              >
+                上周
+              </Button>
+              <Button
+                className={`quick-date-btn${quickDateKey === 'thisMonth' ? ' active' : ''}`}
+                size="small"
+                onClick={() => handleQuickDate('thisMonth')}
+              >
+                本月
+              </Button>
+              <Button
+                className={`quick-date-btn${quickDateKey === 'lastMonth' ? ' active' : ''}`}
+                size="small"
+                onClick={() => handleQuickDate('lastMonth')}
+              >
+                上月
+              </Button>
             </div>
-            <div className="mb-12">
-              <span className="text-secondary">微信号：</span>
-              {currentRecord?.wechat ? (
-                <Paragraph copyable={{ text: currentRecord.wechat, tooltips: ['复制', '已复制'], icon: <CopyOutlined style={{ color: '#1677ff' }} /> }} style={{ margin: 0, display: 'inline-block', whiteSpace: 'nowrap', maxWidth: 320 }}>
-                  {maskWechat(currentRecord.wechat)}
-                </Paragraph>
-              ) : <span className="text-muted">-</span>}
-            </div>
-            <div className="mb-12">
-              <span className="text-secondary">渠道：</span>
-              <span className="text-primary">{currentRecord?.source || '-'}</span>
-            </div>
-            <div className="mb-12">
-              <span className="text-secondary">创建时间：</span>
-              <span>{currentRecord?.created_at ? new Date(currentRecord.created_at).toLocaleString('zh-CN') : '-'}</span>
+            {/* 分组按钮列表：每个分组一个按钮，支持高亮和取消分组 */}
+            <div style={{ maxHeight: 600, overflowY: 'auto' }}>
+              {groupRowsCache.map(group => {
+                // 约访管家和带看管家分组时展示昵称
+                let groupLabel = group.groupText || group.key;
+                // 处理预约社区字段的NULL值显示
+                if (groupField === 'scheduledcommunity' && (group.key === null || group.key === 'null' || group.key === '' || group.groupText === '未分组')) {
+                  groupLabel = '未分配';
+                }
+
+                // 统一未分配分组的选中判断逻辑
+                const isNullOrEmpty = (val: any) =>
+                  val === null ||
+                  val === undefined ||
+                  String(val).toLowerCase() === 'null' ||
+                  String(val) === '' ||
+                  val === '未分组';
+
+                const isSelected =
+                  (isNullOrEmpty(group.key) && (selectedGroup === 'null' || isNullOrEmpty(selectedGroup))) ||
+                  String(selectedGroup) === String(group.key);
+
+                return (
+                  <div
+                    key={`group_${groupField || 'unknown'}_${group.key}`}
+                    onClick={() => handleGroupClick(group.key)}
+                    className={`group-btn${isSelected ? ' group-btn-selected' : ''}`}
+                  >
+                    <span className="group-btn-title">{groupLabel}</span>
+                    <span className="group-btn-count">{group.count} 条</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
-          {/* 右侧步骤条和表单 */}
-          <div className="page-drawer-form">
-            <Steps
-              current={currentStep}
-              items={followupStages.map((stage, idx) => ({ title: stage, disabled: idx !== 0 }))}
-              onChange={(step: number) => {
-                if (step === 0) {
-                  setCurrentStep(step);
-                  setCurrentStage(followupStages[step]);
-                  if (currentRecord) stageForm.setFieldsValue(convertDateFields(currentRecord));
-                }
-              }}
-              style={{ marginBottom: 32 }}
-            />
-            <Form
-              form={stageForm}
-              layout="vertical"
-              onFinish={async (values: any) => {
-                // 1. 格式化所有日期字段为字符串
-                ['moveintime', 'scheduletime'].forEach(field => {
-                  if (values[field] && typeof values[field]?.format === 'function') {
-                    values[field] = values[field].format('YYYY-MM-DD HH:mm:ss');
+          {/* 右侧明细区 */}
+          <div className={`main-content-area ${groupPanelOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+            <Spin spinning={loading}>
+              <Table
+                columns={columns}
+                dataSource={localData}
+                loading={loading}
+                pagination={{
+                  current: pagination.current,
+                  pageSize: pagination.pageSize,
+                  total: pagination.total,
+                  showSizeChanger: true,
+                  pageSizeOptions: ['10', '20', '50'],
+                  showQuickJumper: true,
+                  showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+                }}
+                rowKey="id"
+                size="small"
+                bordered={false}
+                className="page-table compact-table"
+                onChange={handleTableChange}
+                scroll={{ x: 'max-content', y: 600 }}
+                rowClassName={() => 'compact-table-row'}
+                sticky
+                tableLayout="fixed"
+              />
+            </Spin>
+          </div>
+        </div>
+        {/* Drawer 组件（放在 return 的最外层） */}
+        <Drawer
+          title="跟进阶段进度"
+          placement="bottom"
+          open={drawerOpen}
+          onClose={async () => {
+            // 关闭时自动保存
+            const values = stageForm.getFieldsValue();
+            if (currentRecord && currentRecord.id) {
+              const { error } = await supabase
+                .from('followups')
+                .update(values)
+                .eq('id', currentRecord.id);
+              if (!error) {
+                setData(prev =>
+                  prev.map(item =>
+                    item.id === currentRecord.id
+                      ? { ...item, ...values }
+                      : item
+                  )
+                );
+              }
+            }
+            setDrawerOpen(false);
+            setDealsList([]);
+          }}
+          destroyOnClose
+          footer={null}
+        >
+          <div className="drawer-flex-row">
+            {/* 左侧线索信息 */}
+            <div className="page-drawer-info">
+              <div className="mb-12">
+                <span className="text-secondary">线索编号：</span>
+                {currentRecord?.leadid ? (
+                  <Paragraph copyable={{ text: currentRecord.leadid, tooltips: ['复制', '已复制'], icon: <CopyOutlined style={{ color: '#1677ff' }} /> }} style={{ margin: 0, color: '#1677ff', fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap', maxWidth: 320 }}>{currentRecord.leadid}</Paragraph>
+                ) : <span className="text-muted">-</span>}
+              </div>
+              <div className="mb-12">
+                <span className="text-secondary">手机号：</span>
+                {currentRecord?.phone ? (
+                  <Paragraph copyable={{ text: currentRecord.phone, tooltips: ['复制', '已复制'], icon: <CopyOutlined style={{ color: '#1677ff' }} /> }} style={{ margin: 0, display: 'inline-block', whiteSpace: 'nowrap', maxWidth: 320 }}>
+                    {maskPhone(currentRecord.phone)}
+                  </Paragraph>
+                ) : <span className="text-muted">-</span>}
+              </div>
+              <div className="mb-12">
+                <span className="text-secondary">微信号：</span>
+                {currentRecord?.wechat ? (
+                  <Paragraph copyable={{ text: currentRecord.wechat, tooltips: ['复制', '已复制'], icon: <CopyOutlined style={{ color: '#1677ff' }} /> }} style={{ margin: 0, display: 'inline-block', whiteSpace: 'nowrap', maxWidth: 320 }}>
+                    {maskWechat(currentRecord.wechat)}
+                  </Paragraph>
+                ) : <span className="text-muted">-</span>}
+              </div>
+              <div className="mb-12">
+                <span className="text-secondary">渠道：</span>
+                <span className="text-primary">{currentRecord?.source || '-'}</span>
+              </div>
+              <div className="mb-12">
+                <span className="text-secondary">创建时间：</span>
+                <span>{currentRecord?.created_at ? new Date(currentRecord.created_at).toLocaleString('zh-CN') : '-'}</span>
+              </div>
+            </div>
+            {/* 右侧步骤条和表单 */}
+            <div className="page-drawer-form">
+              <Steps
+                current={currentStep}
+                items={followupStages.map((stage, idx) => ({ title: stage, disabled: idx !== 0 }))}
+                onChange={(step: number) => {
+                  if (step === 0) {
+                    setCurrentStep(step);
+                    setCurrentStage(followupStages[step]);
+                    if (currentRecord) stageForm.setFieldsValue(convertDateFields(currentRecord));
                   }
-                });
-                if (!currentRecord) return;
-                // 2. 调用supabase update，保证数据同步到后端
-                const { error } = await supabase
-                  .from('followups')
-                  .update(values)
-                  .eq('id', currentRecord.id);
-                if (!error) {
-                  // 3. 只局部更新本地data，避免全表刷新
-                  setData(prev =>
-                    prev.map(item =>
-                      item.id === currentRecord.id
-                        ? { ...item, ...values }
-                        : item
-                    )
-                  );
-                  // 可选：setDrawerOpen(false); 或 message.success('保存成功');
-                } else {
-                  message.error('保存失败: ' + error.message);
-                }
-              }}
-              onFinishFailed={() => message.error('请完整填写所有必填项')}
-              onValuesChange={(changed) => {
-                // 保证所有时间字段始终为 dayjs 对象，且清空时为 undefined
-                const dateFields = ['moveintime', 'scheduletime'];
-                let needSet = false;
-                const patch: any = {};
-                dateFields.forEach(field => {
-                  if (field in changed) {
-                    const v = changed[field];
-                    if (!v || v === '' || v === null) {
-                      patch[field] = undefined;
-                      needSet = true;
-                    } else if (!dayjs.isDayjs(v)) {
-                      patch[field] = dayjs(v);
-                      needSet = true;
+                }}
+                style={{ marginBottom: 32 }}
+              />
+              <Form
+                form={stageForm}
+                layout="vertical"
+                onFinish={async (values: any) => {
+                  // 1. 格式化所有日期字段为字符串
+                  ['moveintime', 'scheduletime'].forEach(field => {
+                    if (values[field] && typeof values[field]?.format === 'function') {
+                      values[field] = values[field].format('YYYY-MM-DD HH:mm:ss');
                     }
+                  });
+                  if (!currentRecord) return;
+                  // 2. 调用supabase update，保证数据同步到后端
+                  const { error } = await supabase
+                    .from('followups')
+                    .update(values)
+                    .eq('id', currentRecord.id);
+                  if (!error) {
+                    // 3. 只局部更新本地data，避免全表刷新
+                    setData(prev =>
+                      prev.map(item =>
+                        item.id === currentRecord.id
+                          ? { ...item, ...values }
+                          : item
+                      )
+                    );
+                    // 可选：setDrawerOpen(false); 或 message.success('保存成功');
+                  } else {
+                    message.error('保存失败: ' + error.message);
                   }
-                });
-                if (needSet) {
-                  stageForm.setFieldsValue(patch);
-                }
-              }}
-            >
-              {currentStage === '丢单' ? (
-                <>
-                  <Form.Item
-                    name="followupresult"
-                    label="丢单原因"
-                  >
-                    <Input placeholder="请输入丢单原因" />
-                  </Form.Item>
-                  <div className="mt-16">
-                    <Button type="primary" className="mr-8"
-                      onClick={async () => {
-                        if (!currentRecord) return;
-                        const values = stageForm.getFieldsValue();
-                        // 从values中移除deals表特有的字段
-                        const { contractcommunity, contractnumber, roomnumber, ...followupValues } = values;
-                        const updateObj = { ...followupValues, followupstage: followupStages[0] };
-                        const { error } = await supabase
-                          .from('followups')
-                          .update(updateObj)
-                          .eq('id', currentRecord.id);
-                        if (!error) {
-                          setData(prev => prev.map(item =>
-                            item.id === currentRecord.id
-                              ? { ...item, ...followupValues, followupstage: followupStages[0] }
-                              : item
-                          ));
-                          setDrawerOpen(false);
-                          message.success('已丢单');
-                        } else {
-                          message.error('丢单失败: ' + error.message);
-                        }
-                      }}
-                    >确定丢单</Button>
-                    <Button
-                      type="default"
-                      onClick={async () => {
-                        if (!currentRecord) return;
-                        // 恢复到"确认需求"阶段
-                        const nextStage = followupStages[2];
-                        const { error } = await supabase
-                          .from('followups')
-                          .update({ followupstage: nextStage })
-                          .eq('id', currentRecord.id);
-                        if (!error) {
-                          setData(prev => prev.map(item =>
-                            item.id === currentRecord.id
-                              ? { ...item, followupstage: nextStage }
-                              : item
-                          ));
-                          setDrawerOpen(false);
-                          message.success('已恢复至确认需求');
-                        } else {
-                          message.error('恢复失败: ' + error.message);
-                        }
-                      }}
-                    >恢复</Button>
-                  </div>
-                </>
-                              ) : (
-                <>
-                  {/* 其他阶段使用三分栏布局 */}
-                  {currentStage !== '已到店' && currentStage !== '赢单' && (
-                    <div className="page-step-fields">
-                      {(stageFields[currentStage as keyof typeof stageFields] || []).map((field: string) => (
-                        <div key={field} className="page-step-field-item">
-                          <Form.Item
-                            name={field}
-                            label={fieldLabelMap[field] || field}
-                          >
-                            {field === 'scheduledcommunity'
-                              ? <Select options={communityEnum} placeholder="请选择社区" loading={communityEnum.length === 0} disabled={communityEnum.length === 0} />
-                              : field === 'customerprofile'
-                                ? <Select options={customerprofileEnum} placeholder="请选择用户画像" loading={customerprofileEnum.length === 0} disabled={customerprofileEnum.length === 0} />
-                                : field === 'followupstage'
-                                  ? <Select options={followupstageEnum} placeholder="请选择阶段" loading={followupstageEnum.length === 0} disabled={followupstageEnum.length === 0} />
-                                  : field === 'userrating'
-                                    ? <Select options={userratingEnum} placeholder="请选择来访意向" loading={userratingEnum.length === 0} disabled={userratingEnum.length === 0} />
-                                    : field === 'moveintime' || field === 'scheduletime'
-                                      ? <DatePicker
-                                          showTime
-                                          locale={locale}
-                                          style={{ width: '100%' }}
-                                          placeholder="请选择时间"
-                                          value={(() => {
-                                            const v = stageForm.getFieldValue(field);
-                                            if (!v || v === '' || v === null) return undefined;
-                                            if (dayjs.isDayjs(v)) return v;
-                                            if (typeof v === 'string') return dayjs(v);
-                                            return undefined;
-                                          })()}
-                                          onChange={(v: any) => {
-                                            stageForm.setFieldValue(field, v || undefined);
-                                            setTimeout(() => stageForm.submit(), 0);
-                                          }}
-                                        />
-                                      : <Input />}
-                          </Form.Item>
-                        </div>
-                      ))}
+                }}
+                onFinishFailed={() => message.error('请完整填写所有必填项')}
+                onValuesChange={(changed) => {
+                  // 保证所有时间字段始终为 dayjs 对象，且清空时为 undefined
+                  const dateFields = ['moveintime', 'scheduletime'];
+                  let needSet = false;
+                  const patch: any = {};
+                  dateFields.forEach(field => {
+                    if (field in changed) {
+                      const v = changed[field];
+                      if (!v || v === '' || v === null) {
+                        patch[field] = undefined;
+                        needSet = true;
+                      } else if (!dayjs.isDayjs(v)) {
+                        patch[field] = dayjs(v);
+                        needSet = true;
+                      }
+                    }
+                  });
+                  if (needSet) {
+                    stageForm.setFieldsValue(patch);
+                  }
+                }}
+              >
+                {currentStage === '丢单' ? (
+                  <>
+                    <Form.Item
+                      name="followupresult"
+                      label="丢单原因"
+                    >
+                      <Input placeholder="请输入丢单原因" disabled={isFieldDisabled()} key={forceUpdate} />
+                    </Form.Item>
+                    <div className="mt-16">
+                      <Button type="primary" className="mr-8"
+                        onClick={handleDropout}
+                      >确定丢单</Button>
                     </div>
-                  )}
-                    
-                  {/* 已到店阶段显示签约信息表格 */}
-                  {currentStage === '已到店' && (
-                    <div className="page-step-fields-single">
-                      <ContractDealsTable
-                        dealsList={dealsList}
-                        dealsLoading={dealsLoading}
-                        onAdd={() => {
-                          const newRow: Deal = {
-                            id: `new_${Date.now()}`,
-                            leadid: currentRecord?.leadid || '',
-                            contractdate: dayjs().format('YYYY-MM-DD'),
-                            community: '',
-                            contractnumber: '',
-                            roomnumber: '',
-                            created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-                            isNew: true,
-                            isEditing: true,
-                          };
-                          setDealsList((prev: Deal[]) => [newRow, ...prev]);
-                        }}
-                        onEdit={async (record) => {
-                          // 编辑/保存逻辑
-                          if (record.isNew) {
-                            // 新增记录
-                            const dealData = {
-                              leadid: currentRecord?.leadid,
-                              contractdate: record.contractdate || dayjs().format('YYYY-MM-DD'),
-                              community: record.community,
-                              contractnumber: record.contractnumber,
-                              roomnumber: record.roomnumber
+                  </>
+                                  ) : (
+                  <>
+                    {/* 其他阶段使用三分栏布局 */}
+                    {currentStage !== '已到店' && currentStage !== '赢单' && (
+                      <div className="page-step-fields">
+                        {(stageFields[currentStage as keyof typeof stageFields] || []).map((field: string) => (
+                          <div key={field} className="page-step-field-item">
+                            <Form.Item
+                              name={field}
+                              label={fieldLabelMap[field] || field}
+                            >
+                              {field === 'scheduledcommunity'
+                                ? <Select options={communityEnum} placeholder="请选择社区" loading={communityEnum.length === 0} disabled={communityEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
+                                : field === 'customerprofile'
+                                  ? <Select options={customerprofileEnum} placeholder="请选择用户画像" loading={customerprofileEnum.length === 0} disabled={customerprofileEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
+                                  : field === 'followupstage'
+                                    ? <Select options={followupstageEnum} placeholder="请选择阶段" loading={followupstageEnum.length === 0} disabled={followupstageEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
+                                    : field === 'userrating'
+                                      ? <Select options={userratingEnum} placeholder="请选择来访意向" loading={userratingEnum.length === 0} disabled={userratingEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
+                                      : field === 'moveintime' || field === 'scheduletime'
+                                        ? <DatePicker
+                                            showTime
+                                            locale={locale}
+                                            style={{ width: '100%' }}
+                                            placeholder="请选择时间"
+                                            disabled={isFieldDisabled()}
+                                            key={forceUpdate}
+                                            value={(() => {
+                                              const v = stageForm.getFieldValue(field);
+                                              if (!v || v === '' || v === null) return undefined;
+                                              if (dayjs.isDayjs(v)) return v;
+                                              if (typeof v === 'string') return dayjs(v);
+                                              return undefined;
+                                            })()}
+                                            onChange={(v: any) => {
+                                              stageForm.setFieldValue(field, v || undefined);
+                                              setTimeout(() => stageForm.submit(), 0);
+                                            }}
+                                          />
+                                        : <Input disabled={isFieldDisabled()} key={forceUpdate} />}
+                            </Form.Item>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                      
+                    {/* 已到店阶段显示签约信息表格 */}
+                    {currentStage === '已到店' && (
+                      <div className="page-step-fields-single">
+                        <ContractDealsTable
+                          dealsList={dealsList}
+                          dealsLoading={dealsLoading}
+                          onAdd={() => {
+                            const newRow: any = {
+                              id: `new_${Date.now()}`,
+                              leadid: currentRecord?.leadid || '',
+                              contractdate: dayjs().format('YYYY-MM-DD'),
+                              community: '',
+                              contractnumber: '',
+                              roomnumber: '',
+                              created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+                              isNew: true,
+                              isEditing: true,
                             };
-                            const { data: newDeal, error } = await supabase
-                              .from('deals')
-                              .insert([dealData])
-                              .select()
-                              .single();
-                            if (error) {
-                              message.error('创建签约记录失败: ' + error.message);
-                              return;
-                            }
-                            setDealsList(prev => prev.map(item =>
-                              item.id === record.id
-                                ? { ...newDeal, isEditing: false }
-                                : item
-                            ));
-                            message.success('签约记录已保存');
-                          } else {
-                            // 更新现有记录
-                            const { error } = await supabase
-                              .from('deals')
-                              .update({
-                                contractdate: record.contractdate,
+                            setDealsList((prev: any[]) => [newRow, ...prev]);
+                          }}
+                          onEdit={async (record) => {
+                            // 编辑/保存逻辑
+                            if (record.isNew) {
+                              // 新增记录
+                              const dealData = {
+                                leadid: currentRecord?.leadid,
+                                contractdate: record.contractdate || dayjs().format('YYYY-MM-DD'),
                                 community: record.community,
                                 contractnumber: record.contractnumber,
                                 roomnumber: record.roomnumber
-                              })
-                              .eq('id', record.id);
-                            if (error) {
-                              message.error('更新签约记录失败: ' + error.message);
-                              return;
+                              };
+                              const { data: newDeal, error } = await supabase
+                                .from('deals')
+                                .insert([dealData])
+                                .select()
+                                .single();
+                              if (error) {
+                                message.error('创建签约记录失败: ' + error.message);
+                                return;
+                              }
+                              setDealsList(prev => prev.map(item =>
+                                item.id === record.id
+                                  ? { ...newDeal, isEditing: false }
+                                  : item
+                              ));
+                              message.success('签约记录已保存');
+                            } else {
+                              // 更新现有记录
+                              const { error } = await supabase
+                                .from('deals')
+                                .update({
+                                  contractdate: record.contractdate,
+                                  community: record.community,
+                                  contractnumber: record.contractnumber,
+                                  roomnumber: record.roomnumber
+                                })
+                                .eq('id', record.id);
+                              if (error) {
+                                message.error('更新签约记录失败: ' + error.message);
+                                return;
+                              }
+                              setDealsList(prev => prev.map(item =>
+                                item.id === record.id
+                                  ? { ...item, isEditing: false }
+                                  : item
+                              ));
+                              message.success('签约记录已更新');
                             }
-                            setDealsList(prev => prev.map(item =>
-                              item.id === record.id
-                                ? { ...item, isEditing: false }
-                                : item
-                            ));
-                            message.success('签约记录已更新');
-                          }
-                        }}
-                        onDelete={(record) => {
-                          if (record.isNew) {
-                            setDealsList(prev => prev.filter(item => item.id !== record.id));
-                          } else {
-                            setDealsList(prev => prev.map(item =>
-                              item.id === record.id
-                                ? { ...item, isEditing: false }
-                                : item
-                            ));
-                          }
-                        }}
-                        currentRecord={currentRecord}
-                        communityEnum={communityEnum}
-                        setDealsList={setDealsList}
-                      />
-                    </div>
-                  )}
-                    
-                  {/* 赢单阶段显示成交记录信息 */}
-                  {currentStage === '赢单' && (
-                    <div className="page-step-fields-single">
-                      <ContractDealsTable
-                        dealsList={dealsList}
-                        dealsLoading={dealsLoading}
-                        onAdd={() => {
-                          const newRow: Deal = {
-                            id: `new_${Date.now()}`,
-                            leadid: currentRecord?.leadid || '',
-                            contractdate: dayjs().format('YYYY-MM-DD'),
-                            community: '',
-                            contractnumber: '',
-                            roomnumber: '',
-                            created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-                            isNew: true,
-                            isEditing: true,
-                          };
-                          setDealsList((prev: Deal[]) => [newRow, ...prev]);
-                        }}
-                        onEdit={async (record) => {
-                          // 编辑/保存逻辑
-                          if (record.isNew) {
-                            // 新增记录
-                            const dealData = {
-                              leadid: currentRecord?.leadid,
-                              contractdate: record.contractdate || dayjs().format('YYYY-MM-DD'),
-                              community: record.community,
-                              contractnumber: record.contractnumber,
-                              roomnumber: record.roomnumber
+                          }}
+                          onDelete={(record) => {
+                            if (record.isNew) {
+                              setDealsList(prev => prev.filter(item => item.id !== record.id));
+                            } else {
+                              setDealsList(prev => prev.map(item =>
+                                item.id === record.id
+                                  ? { ...item, isEditing: false }
+                                  : item
+                              ));
+                            }
+                          }}
+                          currentRecord={currentRecord}
+                          communityEnum={communityEnum}
+                          setDealsList={setDealsList}
+                        />
+                      </div>
+                    )}
+                      
+                    {/* 赢单阶段显示成交记录信息 */}
+                    {currentStage === '赢单' && (
+                      <div className="page-step-fields-single">
+                        <ContractDealsTable
+                          dealsList={dealsList}
+                          dealsLoading={dealsLoading}
+                          onAdd={() => {
+                            const newRow: any = {
+                              id: `new_${Date.now()}`,
+                              leadid: currentRecord?.leadid || '',
+                              contractdate: dayjs().format('YYYY-MM-DD'),
+                              community: '',
+                              contractnumber: '',
+                              roomnumber: '',
+                              created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+                              isNew: true,
+                              isEditing: true,
                             };
-                            const { data: newDeal, error } = await supabase
-                              .from('deals')
-                              .insert([dealData])
-                              .select()
-                              .single();
-                            if (error) {
-                              message.error('创建签约记录失败: ' + error.message);
-                              return;
-                            }
-                            setDealsList(prev => prev.map(item =>
-                              item.id === record.id
-                                ? { ...newDeal, isEditing: false }
-                                : item
-                            ));
-                            message.success('签约记录已保存');
-                          } else {
-                            // 更新现有记录
-                            const { error } = await supabase
-                              .from('deals')
-                              .update({
-                                contractdate: record.contractdate,
+                            setDealsList((prev: any[]) => [newRow, ...prev]);
+                          }}
+                          onEdit={async (record) => {
+                            // 编辑/保存逻辑
+                            if (record.isNew) {
+                              // 新增记录
+                              const dealData = {
+                                leadid: currentRecord?.leadid,
+                                contractdate: record.contractdate || dayjs().format('YYYY-MM-DD'),
                                 community: record.community,
                                 contractnumber: record.contractnumber,
                                 roomnumber: record.roomnumber
-                              })
-                              .eq('id', record.id);
-                            if (error) {
-                              message.error('更新签约记录失败: ' + error.message);
-                              return;
+                              };
+                              const { data: newDeal, error } = await supabase
+                                .from('deals')
+                                .insert([dealData])
+                                .select()
+                                .single();
+                              if (error) {
+                                message.error('创建签约记录失败: ' + error.message);
+                                return;
+                              }
+                              setDealsList(prev => prev.map(item =>
+                                item.id === record.id
+                                  ? { ...newDeal, isEditing: false }
+                                  : item
+                              ));
+                              message.success('签约记录已保存');
+                            } else {
+                              // 更新现有记录
+                              const { error } = await supabase
+                                .from('deals')
+                                .update({
+                                  contractdate: record.contractdate,
+                                  community: record.community,
+                                  contractnumber: record.contractnumber,
+                                  roomnumber: record.roomnumber
+                                })
+                                .eq('id', record.id);
+                              if (error) {
+                                message.error('更新签约记录失败: ' + error.message);
+                                return;
+                              }
+                              setDealsList(prev => prev.map(item =>
+                                item.id === record.id
+                                  ? { ...item, isEditing: false }
+                                  : item
+                              ));
+                              message.success('签约记录已更新');
                             }
-                            setDealsList(prev => prev.map(item =>
-                              item.id === record.id
-                                ? { ...item, isEditing: false }
-                                : item
-                            ));
-                            message.success('签约记录已更新');
-                          }
-                        }}
-                        onDelete={(record) => {
-                          if (record.isNew) {
-                            setDealsList(prev => prev.filter(item => item.id !== record.id));
-                          } else {
-                            setDealsList(prev => prev.map(item =>
-                              item.id === record.id
-                                ? { ...item, isEditing: false }
-                                : item
-                            ));
-                          }
-                        }}
-                        currentRecord={currentRecord}
-                        communityEnum={communityEnum}
-                        setDealsList={setDealsList}
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="mt-16">
-                    <Button
-                      disabled={currentStep === 0}
-                      className="mr-8"
-                      style={{ marginRight: 8 }}
-                      onClick={async () => {
-                        // 上一步前自动保存
-                        try {
-                          const values = await stageForm.validateFields();
-                          if (!currentRecord) return;
-                          // 从values中移除deals表特有的字段
-                          const { contractcommunity, contractnumber, roomnumber, ...followupValues } = values;
-                          const updateObj = { ...followupValues, followupstage: followupStages[currentStep - 1] };
-                          const { error } = await supabase
-                            .from('followups')
-                            .update(updateObj)
-                            .eq('id', currentRecord.id);
-                          if (!error) {
-                            setData(prev => prev.map(item =>
-                              item.id === currentRecord.id
-                                ? { ...item, ...followupValues, followupstage: followupStages[currentStep - 1] }
-                                : item
-                            ));
-                            setCurrentStep(currentStep - 1);
-                            setCurrentStage(followupStages[currentStep - 1]);
-                          } else {
-                            message.error('保存失败: ' + error.message);
-                          }
-                        } catch {
-                          message.error('请完整填写所有必填项');
-                        }
-                      }}
-                    >上一步</Button>
-                    {/* 新增发放带看单按钮，仅在邀约到店阶段显示 */}
-                    {currentStage === '邀约到店' && (
+                          }}
+                          onDelete={(record) => {
+                            if (record.isNew) {
+                              setDealsList(prev => prev.filter(item => item.id !== record.id));
+                            } else {
+                              setDealsList(prev => prev.map(item =>
+                                item.id === record.id
+                                  ? { ...item, isEditing: false }
+                                  : item
+                              ));
+                            }
+                          }}
+                          currentRecord={currentRecord}
+                          communityEnum={communityEnum}
+                          setDealsList={setDealsList}
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="mt-16">
                       <Button
-                        type="primary"
+                        disabled={currentStep === 0}
+                        className="mr-8"
                         style={{ marginRight: 8 }}
                         onClick={async () => {
-                          if (!currentRecord) return;
-                          const values = stageForm.getFieldsValue();
-                          const community = values.scheduledcommunity || null;
-                          if (!community) {
-                            message.error('请先选择预约社区');
-                            return;
-                          }
-                          // 1. 调用分配函数
-                          const { data: assignedUserId, error } = await supabase.rpc('assign_showings_user', { p_community: community });
-                          if (error || !assignedUserId) {
-                            message.error('分配带看人员失败: ' + (error?.message || '无可用人员'));
-                            return;
-                          }
-                          // 2. 查询成员昵称
-                          let nickname = '';
-                          if (assignedUserId) {
-                            const { data: userData, error: userError } = await supabase
-                              .from('users_profile')
-                              .select('nickname')
-                              .eq('id', assignedUserId)
-                              .single();
-                            nickname = userData?.nickname || String(assignedUserId);
-                          }
-                          // 3. 新增showings记录
-                          const insertParams = {
-                            leadid: currentRecord.leadid,
-                            scheduletime: values.scheduletime ? dayjs(values.scheduletime).toISOString() : null,
-                            community,
-                            showingsales: assignedUserId,
-                          };
-                          const { error: insertError } = await supabase.from('showings').insert(insertParams).select();
-                          if (insertError) {
-                            message.error('发放带看单失败: ' + insertError.message);
-                            return;
-                          }
-                          // 4. 推进到"已到店"阶段
-                          const nextStage = '已到店';
-                          const { error: updateError } = await supabase
-                            .from('followups')
-                            .update({ followupstage: nextStage })
-                            .eq('id', currentRecord.id);
-                          if (updateError) {
-                            message.error('推进阶段失败: ' + updateError.message);
-                            return;
-                          }
-                          setData(prev =>
-                            prev.map(item =>
-                              item.id === currentRecord.id
-                                ? { ...item, followupstage: nextStage }
-                                : item
-                            )
-                          );
-                          setCurrentStep(currentStep + 1);
-                          setCurrentStage(nextStage);
-                          message.success(`带看单已发放，分配给 ${nickname}`);
-                        }}
-                      >
-                        发放带看单
-                      </Button>
-                    )}
-                    {currentStep === followupStages.length - 1 ? (
-                      <Button
-                        type="primary"
-                        style={{ marginLeft: 8 }}
-                        onClick={() => {
-                          message.success('跟进阶段管理完成');
-                          setDrawerOpen(false);
-                        }}
-                      >
-                        完成
-                      </Button>
-                    ) : (
-                      <Button
-                        type="primary"
-                        style={{ marginLeft: 8 }}
-                        onClick={async () => {
-                          // 下一步前自动保存
+                          // 上一步前自动保存
                           try {
                             const values = await stageForm.validateFields();
                             if (!currentRecord) return;
-                            
-                            // 从values中移除deals表特有的字段，避免更新followups表时出错
+                            // 从values中移除deals表特有的字段
                             const { contractcommunity, contractnumber, roomnumber, ...followupValues } = values;
-                              
-                              // 如果是"已到店"阶段推进到"赢单"阶段，需要验证是否有签约记录
-                              if (currentStage === '已到店' && currentStep + 1 === followupStages.length - 1) {
-                                // 检查是否有签约记录
-                                if (dealsList.length === 0) {
-                                  message.error('请至少添加一条签约记录后再推进到"赢单"阶段');
-                                  return;
-                                }
-                                
-                                // 检查是否有正在编辑的记录
-                                const hasEditingRecord = dealsList.some(record => record.isEditing);
-                                if (hasEditingRecord) {
-                                  message.error('请先完成当前编辑的签约记录');
-                                  return;
-                                }
-                                
-                                message.success('可以推进到"赢单"阶段');
-                              }
-                              
-                              const updateObj = { ...followupValues, followupstage: followupStages[currentStep + 1] };
-                              const { error } = await supabase
-                                .from('followups')
-                                .update(updateObj)
-                                .eq('id', currentRecord.id);
-                              if (!error) {
-                                setData(prev => prev.map(item =>
-                                  item.id === currentRecord.id
-                                    ? { ...item, ...followupValues, followupstage: followupStages[currentStep + 1] }
-                                    : item
-                                ));
-                                setCurrentStep(currentStep + 1);
-                                setCurrentStage(followupStages[currentStep + 1]);
-                              } else {
-                                message.error('保存失败: ' + error.message);
-                              }
-                            } catch {
-                              message.error('请完整填写所有必填项');
+                            const updateObj = { ...followupValues, followupstage: followupStages[currentStep - 1] };
+                            const { error } = await supabase
+                              .from('followups')
+                              .update(updateObj)
+                              .eq('id', currentRecord.id);
+                            if (!error) {
+                              setData(prev => prev.map(item =>
+                                item.id === currentRecord.id
+                                  ? { ...item, ...followupValues, followupstage: followupStages[currentStep - 1] }
+                                  : item
+                              ));
+                              setCurrentStep(currentStep - 1);
+                              setCurrentStage(followupStages[currentStep - 1]);
+                            } else {
+                              message.error('保存失败: ' + error.message);
                             }
+                          } catch {
+                            message.error('请完整填写所有必填项');
+                          }
+                        }}
+                      >上一步</Button>
+                      {/* 新增发放带看单按钮，仅在邀约到店阶段显示 */}
+                      {currentStage === '邀约到店' && (
+                        <Button
+                          type="primary"
+                          style={{ marginRight: 8 }}
+                          onClick={async () => {
+                            if (isFieldDisabled()) return;
+                            if (!currentRecord) return;
+                            const values = stageForm.getFieldsValue();
+                            const community = values.scheduledcommunity || null;
+                            if (!community) {
+                              message.error('请先选择预约社区');
+                              return;
+                            }
+                            // 1. 调用分配函数
+                            const { data: assignedUserId, error } = await supabase.rpc('assign_showings_user', { p_community: community });
+                            if (error || !assignedUserId) {
+                              message.error('分配带看人员失败: ' + (error?.message || '无可用人员'));
+                              return;
+                            }
+                            // 2. 查询成员昵称
+                            let nickname = '';
+                            if (assignedUserId) {
+                              const { data: userData } = await supabase
+                                .from('users_profile')
+                                .select('nickname')
+                                .eq('id', assignedUserId)
+                                .single();
+                              nickname = userData?.nickname || String(assignedUserId);
+                            }
+                            // 3. 新增showings记录
+                            const insertParams = {
+                              leadid: currentRecord.leadid,
+                              scheduletime: values.scheduletime ? dayjs(values.scheduletime).toISOString() : null,
+                              community,
+                              showingsales: assignedUserId,
+                            };
+                            const { error: insertError } = await supabase.from('showings').insert(insertParams).select();
+                            if (insertError) {
+                              message.error('发放带看单失败: ' + insertError.message);
+                              return;
+                            }
+                            // 4. 推进到"已到店"阶段
+                            const nextStage = '已到店';
+                            const { error: updateError } = await supabase
+                              .from('followups')
+                              .update({ followupstage: nextStage })
+                              .eq('id', currentRecord.id);
+                            if (updateError) {
+                              message.error('推进阶段失败: ' + updateError.message);
+                              return;
+                            }
+                            setData(prev =>
+                              prev.map(item =>
+                                item.id === currentRecord.id
+                                  ? { ...item, followupstage: nextStage }
+                                  : item
+                              )
+                            );
+                            setCurrentStep(currentStep + 1);
+                            setCurrentStage(nextStage);
+                            message.success(`带看单已发放，分配给 ${nickname}`);
                           }}
+                        >
+                          发放带看单
+                        </Button>
+                      )}
+                      {currentStep === followupStages.length - 1 ? (
+                        <Button
+                          type="primary"
+                          style={{ marginLeft: 8 }}
+                          onClick={() => {
+                            message.success('跟进阶段管理完成');
+                            setDrawerOpen(false);
+                          }}
+                        >
+                          完成
+                        </Button>
+                      ) : (
+                        <Button
+                          type="primary"
+                          style={{ marginLeft: 8 }}
+                          onClick={async () => {
+                            // 下一步前自动保存
+                            try {
+                              const values = await stageForm.validateFields();
+                              if (!currentRecord) return;
+                              
+                              // 从values中移除deals表特有的字段，避免更新followups表时出错
+                              const { contractcommunity, contractnumber, roomnumber, ...followupValues } = values;
+                                
+                                // 如果是"已到店"阶段推进到"赢单"阶段，需要验证是否有签约记录
+                                if (currentStage === '已到店' && currentStep + 1 === followupStages.length - 1) {
+                                  // 检查是否有签约记录
+                                  if (dealsList.length === 0) {
+                                    message.error('请至少添加一条签约记录后再推进到"赢单"阶段');
+                                    return;
+                                  }
+                                  
+                                  // 检查是否有正在编辑的记录
+                                  const hasEditingRecord = dealsList.some(record => record.isEditing);
+                                  if (hasEditingRecord) {
+                                    message.error('请先完成当前编辑的签约记录');
+                                    return;
+                                  }
+                                  
+                                  message.success('可以推进到"赢单"阶段');
+                                }
+                                
+                                const updateObj = { ...followupValues, followupstage: followupStages[currentStep + 1] };
+                                const { error } = await supabase
+                                  .from('followups')
+                                  .update(updateObj)
+                                  .eq('id', currentRecord.id);
+                                if (!error) {
+                                  setData(prev => prev.map(item =>
+                                    item.id === currentRecord.id
+                                      ? { ...item, ...followupValues, followupstage: followupStages[currentStep + 1] }
+                                      : item
+                                  ));
+                                  setCurrentStep(currentStep + 1);
+                                  setCurrentStage(followupStages[currentStep + 1]);
+                                } else {
+                                  message.error('保存失败: ' + error.message);
+                                }
+                              } catch {
+                                message.error('请完整填写所有必填项');
+                              }
+                            }
+                          }
                         >
                           下一步
                         </Button>
                       )}
-                  </div>
-                </>
-              )}
-            </Form>
+                    </div>
+                  </>
+                )}
+              </Form>
+            </div>
           </div>
-        </div>
-      </Drawer>
-      <LeadDetailDrawer
-        visible={leadDetailDrawerOpen}
-        leadid={leadDetailId || ''}
-        onClose={() => setLeadDetailDrawerOpen(false)}
-      />
-    </div>
+        </Drawer>
+        <LeadDetailDrawer
+          visible={leadDetailDrawerOpen}
+          leadid={leadDetailId || ''}
+          onClose={() => setLeadDetailDrawerOpen(false)}
+        />
+      </div>
+    </>
   );
 };
 

@@ -1,25 +1,11 @@
 import React from 'react';
 import { Layout, Typography, Button, ConfigProvider } from 'antd';
 import {
-  FileTextOutlined,
   UserOutlined,
-  EyeOutlined,
-  CheckCircleOutlined,
-  DashboardOutlined,
-  DatabaseOutlined,
-  AppstoreOutlined,
-  HomeOutlined,
-  SolutionOutlined,
-  KeyOutlined,
-  SettingOutlined,
-  BranchesOutlined,
-  GiftOutlined,
-  TrophyOutlined,
-  CrownOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
 import LottieLogo from './components/LottieLogo';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import TestSupabase from './pages/TestSupabase';
 import LeadsList from './pages/LeadsList';
 import ShowingsList from './pages/ShowingsList';
@@ -52,15 +38,15 @@ import PrivateRoute from './components/PrivateRoute';
 import { NotificationCenter } from './components/NotificationCenter';
 import { PermissionGate } from './components/PermissionGate';
 import { Badge, Popover, Drawer } from 'antd';
-import { BellOutlined } from '@ant-design/icons';
 import { useAchievements } from './hooks/useAchievements';
 import { supabase } from './supaClient';
-import { getUserPointsInfo, getCurrentProfileId } from './api/pointsApi';
+import { getUserPointsInfo } from './api/pointsApi';
 import { useRealtimeNotifications } from './hooks/useRealtimeNotifications';
 import ShowingsQueueManagement from './pages/ShowingsQueueManagement';
 import BannerManagement from './pages/BannerManagement';
 import { Menu } from 'antd';
 import type { MenuProps } from 'antd';
+import { UserProvider, useUser } from './context/UserContext';
 
 
 const { Sider, Content, Header } = Layout;
@@ -96,6 +82,15 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
 }
 
 const App: React.FC = () => {
+  return (
+    <UserProvider>
+      <AppContent />
+    </UserProvider>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const { user, profile, loading } = useUser();
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth, setSiderWidth] = React.useState(220);
   const minSiderWidth = 56;
@@ -116,28 +111,27 @@ const App: React.FC = () => {
   
   // 详细通知抽屉状态
   const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
-  const [menuCurrent, setMenuCurrent] = React.useState('');
+
+  // 成就系统 - 必须在所有条件渲染之前调用
+  const { getEquippedAvatarFrame } = useAchievements();
+  const equippedFrame = getEquippedAvatarFrame();
+  // 兼容icon_url字段和frame_data.icon_url
+  const frameUrl = (equippedFrame && (equippedFrame as any).icon_url) || equippedFrame?.frame_data?.icon_url;
+
   const onMenuClick: MenuProps['onClick'] = e => {
-    setMenuCurrent(e.key);
     if (e.key === 'followups') navigate('/followups');
   };
 
   // 获取头像URL的函数
   const fetchAvatar = React.useCallback(async () => {
     setAvatarLoading(true);
-    const { data } = await supabase.auth.getUser();
-    if (data.user) {
-      const { data: profile } = await supabase
-        .from('users_profile')
-        .select('avatar_url')
-        .eq('user_id', data.user.id)
-        .single();
-      setAvatarUrl(profile?.avatar_url || undefined);
+    if (profile?.avatar_url) {
+      setAvatarUrl(profile.avatar_url);
     } else {
       setAvatarUrl(undefined);
     }
     setAvatarLoading(false);
-  }, []);
+  }, [profile]);
 
   // 获取用户积分信息
   const loadUserPoints = React.useCallback(async (id: number) => {
@@ -176,15 +170,10 @@ const App: React.FC = () => {
 
   // 获取用户ID和积分
   React.useEffect(() => {
-    const fetchUserInfo = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        const id = await getCurrentProfileId();
-        setProfileId(id);
-      }
-    };
-    fetchUserInfo();
-  }, []);
+    if (profile?.id) {
+      setProfileId(profile.id);
+    }
+  }, [profile]);
   
   React.useEffect(() => {
     if (profileId) {
@@ -198,15 +187,15 @@ const App: React.FC = () => {
     let match = '';
     let maxLen = 0;
     for (const group of menuItems) {
-      if (group.children) {
+      if (group && 'children' in group && group.children) {
         for (const item of group.children) {
-          if (item.path && location.pathname.startsWith(item.path) && item.path.length > maxLen) {
-            match = item.key;
+          if (item && 'path' in item && typeof item.path === 'string' && location.pathname.startsWith(item.path) && item.path.length > maxLen) {
+            match = String(item.key || '');
             maxLen = item.path.length;
           }
         }
-      } else if (group.path && location.pathname.startsWith(group.path) && group.path.length > maxLen) {
-        match = group.key;
+      } else if (group && 'path' in group && typeof group.path === 'string' && location.pathname.startsWith(group.path) && group.path.length > maxLen) {
+        match = String(group.key || '');
         maxLen = group.path.length;
       }
     }
@@ -235,6 +224,22 @@ const App: React.FC = () => {
   // 判断是否为公开页面（不需要登录）
   const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password';
 
+  // 如果正在加载用户信息，显示加载状态
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '16px'
+      }}>
+        正在加载用户信息...
+      </div>
+    );
+  }
+
+  // 公开页面（登录页面）不需要用户认证，直接渲染
   if (isPublicPage) {
     return (
       <Routes>
@@ -244,10 +249,10 @@ const App: React.FC = () => {
     );
   }
 
-  const { getEquippedAvatarFrame } = useAchievements();
-  const equippedFrame = getEquippedAvatarFrame();
-  // 兼容icon_url字段和frame_data.icon_url
-  const frameUrl = (equippedFrame && (equippedFrame as any).icon_url) || equippedFrame?.frame_data?.icon_url;
+  // 如果用户未登录且不是公开页面，跳转到登录页面
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   // 悬浮卡片内容
   const userCardContent = (
@@ -380,7 +385,7 @@ const App: React.FC = () => {
           icon={<LogoutOutlined />}
           onClick={async () => {
             await supabase.auth.signOut();
-            window.location.href = '/login';
+            navigate('/login');
           }}
           style={{
             flex: 1,

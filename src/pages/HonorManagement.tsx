@@ -13,6 +13,7 @@ import { AchievementTriggers } from '../utils/achievementTriggers';
 import imageCompression from 'browser-image-compression';
 import Cropper from 'react-easy-crop';
 import { Modal as AntdModal } from 'antd';
+import { useUser } from '../context/UserContext';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -304,6 +305,7 @@ const AvatarFrameUploadButton: React.FC<{
 );
 
 export const HonorManagement: React.FC = () => {
+  const { user } = useUser();
   const [avatarFrames, setAvatarFrames] = useState<AvatarFrame[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [grantRecords, setGrantRecords] = useState<GrantRecord[]>([]);
@@ -656,8 +658,7 @@ export const HonorManagement: React.FC = () => {
     }
 
     try {
-      const currentUser = await supabase.auth.getUser();
-      const grantedBy = currentUser.data.user?.id;
+      const grantedBy = user?.id;
 
       // 批量发放头像框
       const grantPromises = selectedUsers.flatMap(userId =>

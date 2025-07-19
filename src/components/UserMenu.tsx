@@ -1,66 +1,34 @@
 import { Dropdown } from 'antd';
 import { useState, useEffect } from 'react';
 import { supabase } from '../supaClient';
+import { useUser } from '../context/UserContext';
 
 export function useUserMenuAvatarUrl() {
-  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        const { data: profile } = await supabase
-          .from('users_profile')
-          .select('avatar_url')
-          .eq('user_id', data.user.id)
-          .single();
-        setAvatarUrl(profile?.avatar_url || undefined);
-      } else {
-        setAvatarUrl(undefined);
-      }
-    })();
-  }, []);
-  return avatarUrl;
+  const { profile } = useUser();
+  return profile?.avatar_url;
 }
 
 const UserMenu = () => {
-  const [, setUser] = useState<any>(null);
-
-  // 获取用户信息和头像
-  const fetchUserAndAvatar = async () => {
-    const { data } = await supabase.auth.getUser();
-    setUser(data.user);
-    if (data.user) {
-      // 查询 users_profile.avatar_url
-      const { data: profile } = await supabase
-        .from('users_profile')
-        .select('avatar_url')
-        .eq('user_id', data.user.id)
-        .single();
-    }
-  };
-
-  useEffect(() => {
-    fetchUserAndAvatar();
-  }, []);
+  const { user, profile, refreshUser } = useUser();
 
   // 监听全局刷新口令
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'avatar_refresh_token') {
-        fetchUserAndAvatar();
+        refreshUser();
       }
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
-  }, []);
+  }, [refreshUser]);
 
   useEffect(() => {
     const handleAvatarRefresh = () => {
-      fetchUserAndAvatar();
+      refreshUser();
     };
     window.addEventListener('avatar_refresh_token', handleAvatarRefresh);
     return () => window.removeEventListener('avatar_refresh_token', handleAvatarRefresh);
-  }, []);
+  }, [refreshUser]);
 
   const menuItems = [
     {
