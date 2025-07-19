@@ -875,7 +875,7 @@ const FollowupsGroupList: React.FC = () => {
               setSelectedKeys([]); // 清空当前选中的值
               clearFilters && clearFilters(); 
               resetFilter('leadid');
-              confirm && confirm(); 
+              // 不调用confirm，直接执行重置
             }}>
               重置
             </Button>
@@ -912,7 +912,32 @@ const FollowupsGroupList: React.FC = () => {
       key: 'followupstage',
       fixed: 'left' as const,
       ellipsis: true,
-      filters: followupstageFilters,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Select
+            mode="multiple"
+            placeholder="选择跟进阶段"
+            value={selectedKeys}
+            onChange={setSelectedKeys}
+            options={followupstageFilters}
+            allowClear
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('followupstage');
+              // 不调用confirm，直接执行重置
+            }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       onCell: () => ({
         style: {
           ...defaultCellStyle,
@@ -1024,7 +1049,7 @@ const FollowupsGroupList: React.FC = () => {
               setSelectedKeys([]); // 清空当前选中的值
               clearFilters && clearFilters(); 
               resetFilter('phone');
-              confirm && confirm(); 
+              // 不调用confirm，直接执行重置
             }}>
               重置
             </Button>
@@ -1070,7 +1095,7 @@ const FollowupsGroupList: React.FC = () => {
               setSelectedKeys([]); // 清空当前选中的值
               clearFilters && clearFilters(); 
               resetFilter('wechat');
-              confirm && confirm(); 
+              // 不调用confirm，直接执行重置
             }}>
               重置
             </Button>
@@ -1119,7 +1144,7 @@ const FollowupsGroupList: React.FC = () => {
               setSelectedKeys([]); // 清空当前选中的值
               clearFilters && clearFilters(); 
               resetFilter('created_at');
-              confirm && confirm(); 
+              // 不调用confirm，直接执行重置
             }}>
               重置
             </Button>
@@ -1144,8 +1169,32 @@ const FollowupsGroupList: React.FC = () => {
       key: 'source',
       width: 80,
       ellipsis: true,
-      filters: sourceFilters,
-      filterMultiple: true,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Select
+            mode="multiple"
+            placeholder="选择渠道"
+            value={selectedKeys}
+            onChange={setSelectedKeys}
+            options={sourceFilters}
+            allowClear
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('source');
+              // 不调用confirm，直接执行重置
+            }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle, minWidth: 60, maxWidth: 100 } }),
       filteredValue: tableColumnFilters.source ?? null,
       render: (text: string) => {
@@ -1158,7 +1207,32 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'leadtype',
       key: 'leadtype',
       ellipsis: true,
-      filters: leadtypeFilters,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Select
+            mode="multiple"
+            placeholder="选择线索来源"
+            value={selectedKeys}
+            onChange={setSelectedKeys}
+            options={leadtypeFilters}
+            allowClear
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('leadtype');
+              // 不调用confirm，直接执行重置
+            }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.leadtype ?? null,
     },
@@ -1247,7 +1321,7 @@ const FollowupsGroupList: React.FC = () => {
                 setSelectedKeys([]); // 清空当前选中的值
                 clearFilters && clearFilters(); 
                 resetFilter('interviewsales_user_id');
-                confirm && confirm(); 
+                // 不调用confirm，直接执行重置
               }}>
                 重置
               </Button>
@@ -1269,8 +1343,36 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'remark',
       key: 'remark',
       ellipsis: true,
-      filters: remarkFilters,
-      filterSearch: true,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Select
+            mode="multiple"
+            placeholder="选择客服备注"
+            value={selectedKeys}
+            onChange={setSelectedKeys}
+            options={remarkFilters}
+            allowClear
+            showSearch
+            filterOption={(input, option) =>
+              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+            }
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('remark');
+              // 不调用confirm，直接执行重置
+            }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.remark ?? null,
       render: (text: string) => text ? <Tooltip title={text}><span>{text}</span></Tooltip> : '-'
@@ -1279,7 +1381,32 @@ const FollowupsGroupList: React.FC = () => {
       title: '用户画像',
       dataIndex: 'customerprofile',
       key: 'customerprofile',
-      filters: customerprofileFilters,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Select
+            mode="multiple"
+            placeholder="选择用户画像"
+            value={selectedKeys}
+            onChange={setSelectedKeys}
+            options={customerprofileFilters}
+            allowClear
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('customerprofile');
+              // 不调用confirm，直接执行重置
+            }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.customerprofile ?? null,
       render: (text: string, record: any) => (
@@ -1392,7 +1519,7 @@ const FollowupsGroupList: React.FC = () => {
                   setSelectedKeys([]); // 清空当前选中的值
                   clearFilters && clearFilters(); 
                   resetFilter('worklocation');
-                  confirm && confirm(); 
+                  // 不调用confirm，直接执行重置
                 }}
               >
                 重置
@@ -1491,7 +1618,7 @@ const FollowupsGroupList: React.FC = () => {
               setSelectedKeys([]); // 清空当前选中的值
               clearFilters && clearFilters(); 
               resetFilter('userbudget');
-              confirm && confirm(); 
+              // 不调用confirm，直接执行重置
             }}>
               重置
             </Button>
@@ -1530,7 +1657,7 @@ const FollowupsGroupList: React.FC = () => {
               setSelectedKeys([]); // 清空当前选中的值
               clearFilters && clearFilters(); 
               resetFilter('moveintime');
-              confirm && confirm(); 
+              // 不调用confirm，直接执行重置
             }}>
               重置
             </Button>
@@ -1564,7 +1691,32 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'userrating',
       key: 'userrating',
       ellipsis: true,
-      filters: userratingFilters,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Select
+            mode="multiple"
+            placeholder="选择来访意向"
+            value={selectedKeys}
+            onChange={setSelectedKeys}
+            options={userratingFilters}
+            allowClear
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('userrating');
+              // 不调用confirm，直接执行重置
+            }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.userrating ?? null,
       render: (text: string, record: any) => (
@@ -1693,7 +1845,7 @@ const FollowupsGroupList: React.FC = () => {
                   setSelectedKeys([]); // 清空当前选中的值
                   clearFilters && clearFilters(); 
                   resetFilter('majorcategory');
-                  confirm && confirm(); 
+                  // 不调用confirm，直接执行重置
                 }}
               >
                 重置
@@ -1742,8 +1894,36 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'followupresult',
       key: 'followupresult',
       ellipsis: true,
-      filters: followupresultFilters,
-      filterSearch: true,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Select
+            mode="multiple"
+            placeholder="选择跟进备注"
+            value={selectedKeys}
+            onChange={setSelectedKeys}
+            options={followupresultFilters}
+            allowClear
+            showSearch
+            filterOption={(input, option) =>
+              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+            }
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('followupresult');
+              // 不调用confirm，直接执行重置
+            }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.followupresult ?? null,
       render: renderFollowupresult
@@ -1753,7 +1933,32 @@ const FollowupsGroupList: React.FC = () => {
       dataIndex: 'scheduledcommunity',
       key: 'scheduledcommunity',
       ellipsis: true,
-      filters: scheduledcommunityFilters,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <Select
+            mode="multiple"
+            placeholder="选择预约社区"
+            value={selectedKeys}
+            onChange={setSelectedKeys}
+            options={scheduledcommunityFilters}
+            allowClear
+            style={{ width: 200, marginBottom: 8 }}
+          />
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
+              筛选
+            </Button>
+            <Button size="small" onClick={() => { 
+              setSelectedKeys([]); // 清空当前选中的值
+              clearFilters && clearFilters(); 
+              resetFilter('scheduledcommunity');
+              // 不调用confirm，直接执行重置
+            }}>
+              重置
+            </Button>
+          </div>
+        </div>
+      ),
       onCell: () => ({ style: { ...defaultCellStyle } }),
       filteredValue: tableColumnFilters.scheduledcommunity ?? null,
       render: (text: string, record: any) => (
