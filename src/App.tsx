@@ -455,7 +455,15 @@ const AppContent: React.FC = () => {
             }}
           >
             <LottieLogo width={40} height={40} />
-            <img src="/VLINKER.svg" alt="VLINKER" style={{ height: 36, marginLeft: 4, verticalAlign: 'middle' }} />
+                            <img 
+                  src="/VLINKER.svg" 
+                  alt="VLINKER" 
+                  style={{ height: 36, marginLeft: 4, verticalAlign: 'middle' }}
+                  onError={(e) => {
+                    console.warn('VLINKER.svg加载失败，使用备用文本');
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
           </div>
           <div className="app-header-user" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
             <UserMenu />

@@ -98,27 +98,27 @@ const Login: React.FC = () => {
           <h2 style={{ margin: 0, color: '#1890ff' }}>用户登录</h2>
         </div>
         <Form onFinish={handleLogin} layout="vertical">
-          <Form.Item
-            name="email"
-            label="邮箱"
-            rules={[
-              { required: true, message: '请输入邮箱' },
-              { pattern: /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/, message: '请输入有效邮箱' }
-            ]}
-            style={{ marginBottom: 24 }}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label="密码"
-            rules={[
-              { required: true, min: 6, message: '密码至少6位' }
-            ]}
-            style={{ marginBottom: 24 }}
-          >
-            <Input.Password />
-          </Form.Item>
+                            <Form.Item
+                    name="email"
+                    label="邮箱"
+                    rules={[
+                      { required: true, message: '请输入邮箱' },
+                      { pattern: /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/, message: '请输入有效邮箱' }
+                    ]}
+                    style={{ marginBottom: 24 }}
+                  >
+                    <Input autoComplete="username" />
+                  </Form.Item>
+                  <Form.Item
+                    name="password"
+                    label="密码"
+                    rules={[
+                      { required: true, min: 6, message: '密码至少6位' }
+                    ]}
+                    style={{ marginBottom: 24 }}
+                  >
+                    <Input.Password autoComplete="current-password" />
+                  </Form.Item>
           <Button type="primary" htmlType="submit" loading={loading} block> 登录 </Button>
         </Form>
       </div>

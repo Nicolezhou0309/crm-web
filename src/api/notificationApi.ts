@@ -1,4 +1,5 @@
 import { supabase } from '../supaClient';
+import { withRetry, supabaseRetryOptions } from '../utils/retryUtils';
 import type { DuplicateNotification } from '../types/allocation';
 
 export interface Notification {
@@ -87,28 +88,30 @@ class NotificationApi {
   private cache = new CacheManager();
 
   private async request(endpoint: string, options: RequestInit = {}) {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      throw new Error('用户未登录');
-    }
+    return withRetry(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('用户未登录');
+      }
 
-    const response = await fetch(`${this.baseUrl}?action=${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-        ...options.headers,
-      },
-    });
+      const response = await fetch(`${this.baseUrl}?action=${endpoint}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          ...options.headers,
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('API错误详情:', error);
-      throw new Error(error.error || error.details || '请求失败');
-    }
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('API错误详情:', error);
+        throw new Error(error.error || error.details || '请求失败');
+      }
 
-    return response.json();
+      return response.json();
+    }, supabaseRetryOptions);
   }
 
   // 获取用户通知 - 添加缓存和分页

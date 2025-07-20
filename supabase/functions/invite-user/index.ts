@@ -26,7 +26,7 @@ Deno.serve(async (req)=>{
   try {
     console.log('收到邀请用户请求:', req.method, req.url);
     // 验证环境变量
-    const FRONTEND_URL = Deno.env.get('FRONTEND_URL') || 'https://crm-web-two.vercel.app';
+    const FRONTEND_URL = Deno.env.get('FRONTEND_URL') || 'https://crm-web-ncioles-projects.vercel.app';
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');

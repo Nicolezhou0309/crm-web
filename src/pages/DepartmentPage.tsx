@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Key } from 'react';
 import { Tree, Table, Button, Modal, Form, Input, message, Badge, Dropdown, Select, Tag, Tooltip } from 'antd';
 import { supabase } from '../supaClient';
+import { withRetry, supabaseRetryOptions } from '../utils/retryUtils';
 import { EllipsisOutlined, ExclamationCircleOutlined, CrownOutlined, MailOutlined, SearchOutlined, TrophyOutlined } from '@ant-design/icons';
 import { usePermissions } from '../hooks/usePermissions';
 import './DepartmentPage.css';
@@ -402,27 +403,28 @@ const DepartmentPage = () => {
         duration: 0
       });
 
-      // 5. 异步发送邀请邮件 - 不等待结果
-      supabase.functions.invoke('invite-user', {
-        body: {
-          email: email,
-          name: name || email.split('@')[0],
-          organizationId: selectedDept.id,
-          redirectTo: `${window.location.origin}/set-password`
-        }
-                      }).then(({ }) => {
-          // 处理邀请结果
-          if (Error()) {
+      // 5. 异步发送邀请邮件 - 使用重试机制
+      withRetry(async () => {
+        const { data, error } = await supabase.functions.invoke('invite-user', {
+          body: {
+            email: email,
+            name: name || email.split('@')[0],
+            organizationId: selectedDept.id,
+            redirectTo: `${window.location.origin}/set-password`
+          }
+        });
+        
+        if (error) {
           // 详细错误处理
           let errorMessage = '邀请用户失败';
-          if (errorMessage?.includes('未授权')) {
+          if (error.message?.includes('未授权')) {
             errorMessage = '认证失败，请刷新页面重新登录';
-          } else if (errorMessage?.includes('无权管理')) {
+          } else if (error.message?.includes('无权管理')) {
             errorMessage = '您没有权限管理此部门';
-          } else if (errorMessage?.includes('已被注册')) {
+          } else if (error.message?.includes('已被注册')) {
             errorMessage = '该邮箱已被注册，无法重复邀请';
-          } else if (errorMessage) {
-            errorMessage = errorMessage;
+          } else if (error.message) {
+            errorMessage = error.message;
           }
           
           message.error({
@@ -430,6 +432,7 @@ const DepartmentPage = () => {
             key: inviteKey,
             duration: 3
           });
+          throw new Error(errorMessage);
         } else {
           // 邀请成功
           message.success({
@@ -443,8 +446,10 @@ const DepartmentPage = () => {
             fetchMembers(selectedDept?.id ?? null);
           }, 1000);
         }
-      }).catch((error) => {
-        // 处理网络错误等异常
+        
+        return data;
+      }, supabaseRetryOptions).catch((error) => {
+        // 处理重试失败后的最终错误
         message.error({
           content: '邀请发送失败: ' + (error.message || '网络错误'),
           key: inviteKey,
