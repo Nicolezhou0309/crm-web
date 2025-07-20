@@ -72,7 +72,27 @@ const SetPassword: React.FC = () => {
       }
       
       if (session?.user) {
-        console.log('✅ [SetPassword] 已有认证session，直接使用:', session.user);
+        console.log('✅ [SetPassword] 已有认证session，检查是否需要设置密码:', session.user);
+        
+        // 检查用户是否已经设置了密码
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          console.error('❌ [SetPassword] 获取用户信息失败:', userError);
+          setTokenValid(false);
+          setVerifying(false);
+          return;
+        }
+        
+        // 如果用户已经设置了密码，直接跳转到首页
+        if (user?.user_metadata?.password_set) {
+          console.log('✅ [SetPassword] 用户已设置密码，跳转到首页');
+          navigate('/');
+          return;
+        }
+        
+        // 如果用户还没有设置密码，显示设置密码页面
+        console.log('✅ [SetPassword] 用户需要设置密码');
         setTokenValid(true);
         setUserInfo({
           email: session.user.email,
@@ -214,7 +234,11 @@ const SetPassword: React.FC = () => {
         
         // 设置密码
         const { error: updateError } = await supabase.auth.updateUser({
-          password: password
+          password: password,
+          data: {
+            password_set: true,
+            password_set_at: new Date().toISOString()
+          }
         });
 
         if (updateError) {
@@ -265,7 +289,11 @@ const SetPassword: React.FC = () => {
           
           // 设置密码
           const { error: updateError } = await supabase.auth.updateUser({
-            password: password
+            password: password,
+            data: {
+              password_set: true,
+              password_set_at: new Date().toISOString()
+            }
           });
 
           if (updateError) {
