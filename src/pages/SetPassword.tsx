@@ -85,8 +85,8 @@ const SetPassword: React.FC = () => {
     try {
       console.log('🔍 [SetPassword] 处理自定义邀请令牌...');
       
-      // 解码自定义token
-      const decodedToken = JSON.parse(atob(token));
+      // 解码自定义token - 使用UTF-8安全的base64解码
+      const decodedToken = JSON.parse(decodeURIComponent(escape(atob(token))));
       console.log('🔍 [SetPassword] 解码的令牌:', decodedToken);
       
       // 验证token是否过期

@@ -95,8 +95,16 @@ async function sendCustomInviteEmail(email, name, organizationName, inviteUrl) {
   const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
   const RESEND_FROM_DOMAIN = Deno.env.get('RESEND_FROM_DOMAIN') || 'resend.dev';
   
+  console.log('🔍 Resend配置检查:', {
+    hasApiKey: !!RESEND_API_KEY,
+    apiKeyLength: RESEND_API_KEY ? RESEND_API_KEY.length : 0,
+    domain: RESEND_FROM_DOMAIN,
+    email: email,
+    inviteUrl: inviteUrl
+  });
+  
   if (!RESEND_API_KEY) {
-    throw new Error('RESEND_API_KEY is not configured');
+    throw new Error('RESEND_API_KEY 未配置');
   }
 
   // 动态构建发件人地址
@@ -157,29 +165,51 @@ async function sendCustomInviteEmail(email, name, organizationName, inviteUrl) {
     </div>
   `;
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${RESEND_API_KEY}`
-    },
-    body: JSON.stringify({
-      from: fromAddress,
-      to: email,
-      subject: `邀请加入 ${organizationName} - 长租公寓CRM系统`,
-      html: emailHtml
-    })
+  const requestBody = {
+    from: fromAddress,
+    to: email,
+    subject: `邀请加入 ${organizationName} - 长租公寓CRM系统`,
+    html: emailHtml
+  };
+
+  console.log('📤 发送Resend请求:', {
+    url: 'https://api.resend.com/emails',
+    from: fromAddress,
+    to: email,
+    subject: requestBody.subject,
+    hasHtml: !!requestBody.html
   });
 
-  const data = await response.json();
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${RESEND_API_KEY}`
+      },
+      body: JSON.stringify(requestBody)
+    });
 
-  if (!response.ok) {
-    console.error('❌ Resend API错误:', data);
-    throw new Error(`发送邮件失败: ${data.message || '未知错误'}`);
+    console.log('📥 Resend响应状态:', response.status, response.statusText);
+
+    const data = await response.json();
+    console.log('📥 Resend响应数据:', data);
+
+    if (!response.ok) {
+      console.error('❌ Resend API错误:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: data
+      });
+      throw new Error(`Resend API错误 (${response.status}): ${data.message || data.error || '未知错误'}`);
+    }
+
+    console.log('✅ 邀请邮件发送成功:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Resend请求异常:', error);
+    throw new Error(`Resend请求失败: ${error.message}`);
   }
-
-  console.log('✅ 邀请邮件发送成功:', data);
-  return data;
 }
 
 Deno.serve(async (req) => {
@@ -205,13 +235,27 @@ Deno.serve(async (req) => {
       hasSupabaseUrl: !!SUPABASE_URL,
       hasAnonKey: !!SUPABASE_ANON_KEY,
       hasServiceKey: !!SUPABASE_SERVICE_ROLE_KEY,
-      hasResendKey: !!RESEND_API_KEY
+      hasResendKey: !!RESEND_API_KEY,
+      resendKeyLength: RESEND_API_KEY ? RESEND_API_KEY.length : 0
     });
     
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('❌ 缺少必要的环境变量');
+      console.error('❌ 缺少必要的Supabase环境变量');
       return new Response(JSON.stringify({
-        error: '服务器配置错误，缺少必要的环境变量'
+        error: '服务器配置错误，缺少必要的Supabase环境变量'
+      }), {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+    
+    if (!RESEND_API_KEY) {
+      console.error('❌ 缺少RESEND_API_KEY环境变量');
+      return new Response(JSON.stringify({
+        error: '服务器配置错误，缺少RESEND_API_KEY环境变量'
       }), {
         status: 500,
         headers: {
@@ -433,25 +477,44 @@ Deno.serve(async (req) => {
       }
     }
     
-    // 尝试使用Supabase内置邀请功能
+    // 优先使用Resend发送邀请邮件
     try {
-      console.log('🔄 尝试使用Supabase内置邀请功能...');
-      const supabaseInviteResult = await sendSupabaseInvite(
-        email, 
-        name || email.split('@')[0], 
-        organizationId, 
-        organization.name
+      console.log('🔄 优先使用Resend发送邀请邮件...');
+      
+      // 检查Resend API密钥是否配置
+      if (!RESEND_API_KEY) {
+        throw new Error('RESEND_API_KEY 未配置，无法发送邀请邮件');
+      }
+      
+      // 生成自定义邀请链接 - 使用UTF-8安全的base64编码
+      const inviteData = {
+        email: email,
+        organization_id: organizationId,
+        organization_name: organization.name,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7天后过期
+      };
+      
+      // 使用UTF-8安全的base64编码
+      const inviteToken = btoa(unescape(encodeURIComponent(JSON.stringify(inviteData))));
+      
+      const inviteUrl = `${FRONTEND_URL}/set-password?token=${inviteToken}&type=custom_invite`;
+      
+      const resendResult = await sendCustomInviteEmail(
+        email,
+        name || email.split('@')[0],
+        organization.name,
+        inviteUrl
       );
       
-      console.log('✅ Supabase邀请成功');
+      console.log('✅ Resend邀请成功');
       
       return new Response(JSON.stringify({
         success: true,
-        method: 'supabase_invite',
+        method: 'resend_invite',
         data: {
-          email_id: supabaseInviteResult.id,
+          email_id: resendResult.id,
           invite_sent_at: new Date().toISOString(),
-          redirect_url: `${FRONTEND_URL}/set-password`
+          redirect_url: inviteUrl
         }
       }), {
         status: 200,
@@ -461,39 +524,29 @@ Deno.serve(async (req) => {
         }
       });
       
-    } catch (supabaseError) {
-      console.error('❌ Supabase邀请失败，尝试Resend备用方案:', supabaseError);
+    } catch (resendError) {
+      console.error('❌ Resend邀请失败，尝试Supabase备用方案:', resendError);
       
-      // 如果Supabase邀请失败，使用Resend备用方案
+      // 如果Resend邀请失败，使用Supabase备用方案
       try {
-        console.log('🔄 尝试使用Resend备用方案...');
+        console.log('🔄 尝试使用Supabase备用方案...');
         
-        // 生成自定义邀请链接
-        const inviteToken = btoa(JSON.stringify({
-          email: email,
-          organization_id: organizationId,
-          organization_name: organization.name,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7天后过期
-        }));
-        
-        const inviteUrl = `${FRONTEND_URL}/set-password?token=${inviteToken}&type=custom_invite`;
-        
-        const resendResult = await sendCustomInviteEmail(
-          email,
-          name || email.split('@')[0],
-          organization.name,
-          inviteUrl
+        const supabaseInviteResult = await sendSupabaseInvite(
+          email, 
+          name || email.split('@')[0], 
+          organizationId, 
+          organization.name
         );
         
-        console.log('✅ Resend邀请成功');
+        console.log('✅ Supabase邀请成功');
         
         return new Response(JSON.stringify({
           success: true,
-          method: 'custom_invite',
+          method: 'supabase_invite',
           data: {
-            email_id: resendResult.id,
+            email_id: supabaseInviteResult.id,
             invite_sent_at: new Date().toISOString(),
-            redirect_url: inviteUrl
+            redirect_url: `${FRONTEND_URL}/set-password`
           }
         }), {
           status: 200,
@@ -503,12 +556,12 @@ Deno.serve(async (req) => {
           }
         });
         
-      } catch (resendError) {
-        console.error('❌ Resend邀请也失败:', resendError);
+      } catch (supabaseError) {
+        console.error('❌ Supabase邀请也失败:', supabaseError);
         
         return new Response(JSON.stringify({
           error: '邀请发送失败',
-          details: `Supabase邀请失败: ${supabaseError.message}, Resend邀请失败: ${resendError.message}`
+          details: `Resend邀请失败: ${resendError.message}, Supabase邀请失败: ${supabaseError.message}`
         }), {
           status: 500,
           headers: {
