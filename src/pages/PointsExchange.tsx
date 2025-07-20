@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { exchangePoints, filterExchangeRecords, getUserPointsInfo, getCurrentProfileId } from '../api/pointsApi';
 import { useAuth } from '../hooks/useAuth';
-import { Card, Row, Col, Button, Table, Tag, Space, Statistic, Typography, Spin, Alert, message } from 'antd';
-import { GiftOutlined, TrophyOutlined, WalletOutlined, LoadingOutlined, CrownOutlined, UserOutlined } from '@ant-design/icons';
+import { Card, Button, Typography, Space, Tag, message, Row, Col, Statistic, Alert, Spin, Table } from 'antd';
+import { GiftOutlined, WalletOutlined, LoadingOutlined, CrownOutlined, UserOutlined } from '@ant-design/icons';
 import type { ColumnsType, TableProps } from 'antd/es/table';
 
 interface ExchangeRecord {

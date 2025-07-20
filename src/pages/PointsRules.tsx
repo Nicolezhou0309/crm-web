@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getPointsRules } from '../api/pointsApi';
 import { Card, Row, Col, Statistic, Typography, Spin, Alert, Tag, Space, Divider } from 'antd';
 import { 
@@ -8,8 +8,7 @@ import {
   MinusOutlined, 
   SwapOutlined,
   InfoCircleOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined
+  CheckCircleOutlined
 } from '@ant-design/icons';
 
 interface PointsRule {

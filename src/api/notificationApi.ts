@@ -1,4 +1,5 @@
 import { supabase } from '../supaClient';
+import type { DuplicateNotification } from '../types/allocation';
 
 export interface Notification {
   id: string;
@@ -438,3 +439,74 @@ class NotificationApi {
 }
 
 export const notificationApi = new NotificationApi(); 
+
+// 重复客户通知相关API
+export const duplicateNotificationApi = {
+  // 获取重复客户通知列表
+  async getDuplicateNotifications(userId: number): Promise<DuplicateNotification[]> {
+    try {
+      const { data, error } = await supabase
+        .from('duplicate_notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('获取重复客户通知失败:', error);
+      throw error;
+    }
+  },
+
+  // 标记通知为已读
+  async markAsRead(notificationId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('duplicate_notifications')
+        .update({ 
+          notification_status: 'read',
+          read_at: new Date().toISOString()
+        })
+        .eq('id', notificationId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('标记通知为已读失败:', error);
+      throw error;
+    }
+  },
+
+  // 标记通知为已处理
+  async markAsHandled(notificationId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('duplicate_notifications')
+        .update({ 
+          notification_status: 'handled',
+          handled_at: new Date().toISOString()
+        })
+        .eq('id', notificationId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('标记通知为已处理失败:', error);
+      throw error;
+    }
+  },
+
+  // 删除通知
+  async deleteNotification(notificationId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('duplicate_notifications')
+        .delete()
+        .eq('id', notificationId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('删除通知失败:', error);
+      throw error;
+    }
+  }
+}; 

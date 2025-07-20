@@ -196,7 +196,7 @@ const BannerManagement: React.FC = () => {
       const blob = await compressImageTo2x(file);
       const fileExt = 'jpg';
       const filePath = `banner/${Date.now()}.${fileExt}`;
-      const { data, error } = await supabase.storage.from('banners').upload(filePath, blob, { upsert: true, contentType: 'image/jpeg' });
+      const { error } = await supabase.storage.from('banners').upload(filePath, blob, { upsert: true, contentType: 'image/jpeg' });
       if (error) throw error;
       const { data: publicUrlData } = supabase.storage.from('banners').getPublicUrl(filePath);
       setImageUrl(publicUrlData.publicUrl);

@@ -29,7 +29,7 @@ const Profile = () => {
   const [loadingProfile, setLoadingProfile] = useState(true);
   
   // 使用UserContext获取用户信息
-  const { user, profile, refreshUser } = useUser();
+  const { user, refreshUser } = useUser();
 
   // 使用角色权限Hook
   const { 
@@ -135,7 +135,7 @@ const Profile = () => {
         const urlParts = oldAvatarUrl.split('/');
         const oldFilePath = urlParts[urlParts.length - 1];
         if (oldFilePath) {
-          const { data, error } = await supabase.storage.from('avatars').remove([oldFilePath]);
+          const { error } = await supabase.storage.from('avatars').remove([oldFilePath]);
           if (error) {
           }
         } else {
@@ -348,22 +348,18 @@ const Profile = () => {
               let bg = '#fff';
               let bigText = '普通';
               let bigTextColor = '#bfbfbf';
-              let rarityIcon = null;
               if (frame.rarity === 'legendary') {
                 bg = 'linear-gradient(180deg, #ede7f6 0%, #fff 100%)';
                 bigText = '传说';
                 bigTextColor = '#722ed1';
-                rarityIcon = <span style={{fontSize:16,marginRight:4}}>👑</span>;
               } else if (frame.rarity === 'epic') {
                 bg = 'linear-gradient(180deg, #fff7e6 0%, #fff 100%)';
                 bigText = '史诗';
                 bigTextColor = '#fa8c16';
-                rarityIcon = <span style={{fontSize:16,marginRight:4}}>🔥</span>;
               } else if (frame.rarity === 'rare') {
                 bg = 'linear-gradient(180deg, #e6f7ff 0%, #fff 100%)';
                 bigText = '稀有';
                 bigTextColor = '#1890ff';
-                rarityIcon = <span style={{fontSize:16,marginRight:4}}>💎</span>;
               }
               return (
                 <Tooltip 

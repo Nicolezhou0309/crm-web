@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useRef, useLayoutEffect } from 'react';
-import { Progress, Tooltip, Card, Statistic, Slider, Button } from 'antd';
+import { Card, Statistic, Slider, Button } from 'antd';
 import { Line } from '@ant-design/charts';
-import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
-import { FullscreenOutlined } from '@ant-design/icons';
+import { RiseOutlined, FallOutlined } from '@ant-design/icons';
 import { ExpandAltOutlined } from '@ant-design/icons';
 
 interface PerformanceData {
@@ -66,13 +65,10 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
     { date: '2024-07-06', leads: 16, deals: 5 },
     { date: '2024-07-07', leads: 19, deals: 3 },
   ],
-  currentDeals = 27,
-  targetDeals = 50,
   title = '成交进度',
   className,
   style,
   showTrendChart = true,
-  showProgressBar = true,
   showStatsCards = true,
   height = undefined, // 默认不设定固定高度
   leads30Days = 320,
@@ -87,13 +83,8 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
   const [range, setRange] = useState<[number, number]>(defaultRange);
   // 用于判断整体拖动
   const prevRangeRef = useRef<[number, number]>(range);
-  // 拖动区间整体滑动的状态
-  const dragState = useRef<{ dragging: boolean; startX: number; startRange: [number, number] } | null>(null);
 
   // 计算进度百分比
-  const progressPercent = Math.round((currentDeals / targetDeals) * 100);
-  const isCompleted = currentDeals >= targetDeals;
-  const isNearTarget = progressPercent >= 80;
   const conversionRate = leads30Days > 0 ? Math.round((deals30Days / leads30Days) * 100 * 100) / 100 : 0;
 
   // 日期格式化函数
@@ -189,23 +180,17 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
     }
   };
 
-  const getProgressColor = () => {
-    if (isCompleted) return '#52c41a';
-    if (isNearTarget) return '#faad14';
-    return '#1890ff';
-  };
-
   const renderChangeIndicator = (change: number) => {
     if (change > 0) {
       return (
         <span style={{ color: '#52c41a', fontSize: 11 }}>
-          <ArrowUpOutlined /> +{change}%
+          <RiseOutlined /> +{change}%
         </span>
       );
     } else if (change < 0) {
       return (
         <span style={{ color: '#ff4d4f', fontSize: 11 }}>
-          <ArrowDownOutlined /> {change}%
+          <FallOutlined /> {change}%
         </span>
       );
     }

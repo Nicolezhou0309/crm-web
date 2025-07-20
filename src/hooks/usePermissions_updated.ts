@@ -71,7 +71,7 @@ export const usePermissions = () => {
       }
 
       // 使用数据库函数获取可管理的组织（递归）
-      const { data: managedOrgIds, error: orgError } = await supabase.rpc('get_managed_org_ids', { 
+      const { data: managedOrgIds } = await supabase.rpc('get_managed_org_ids', { 
         admin_id: user.id 
       });
       

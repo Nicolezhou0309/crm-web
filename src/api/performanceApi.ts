@@ -57,14 +57,14 @@ export const fetchPerformanceStats = async (): Promise<PerformanceStats> => {
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-    const { data: prevLeadsData, error: prevLeadsError } = await supabase
+    const { data: prevLeadsData } = await supabase
       .from('leads')
       .select('id, created_at')
       .gte('created_at', sixtyDaysAgo.toISOString())
       .lt('created_at', thirtyDaysAgo.toISOString())
       .eq('created_by', user.id);
 
-    const { data: prevDealsData, error: prevDealsError } = await supabase
+    const { data: prevDealsData } = await supabase
       .from('deals')
       .select('id, created_at')
       .gte('created_at', sixtyDaysAgo.toISOString())

@@ -7,18 +7,17 @@ import {
   Form,
   Input,
   Select,
-  DatePicker,
-  Switch,
   Space,
   Tag,
   message,
-  Popconfirm,
-  Tooltip,
-  Badge,
-  Typography,
   Row,
   Col,
+  Typography,
+  Popconfirm,
+  Switch,
+  Tooltip,
   Statistic,
+  DatePicker
 } from 'antd';
 import {
   PlusOutlined,
@@ -34,12 +33,10 @@ import {
 import { notificationApi } from '../api/notificationApi';
 import type { Announcement } from '../api/notificationApi';
 import dayjs from 'dayjs';
-import zhCN from 'antd/locale/zh_CN';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
 
 interface AnnouncementFormData {
   title: string;

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Table, 
-  Spin, 
   Typography, 
   Button, 
   Space, 
@@ -14,15 +13,12 @@ import {
   Col,
   Card,
   Tooltip,
-  Popconfirm,
   Form
 } from 'antd';
 import { 
   ReloadOutlined, 
   SearchOutlined,
   PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
   FilterOutlined
 } from '@ant-design/icons';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
@@ -33,9 +29,6 @@ import {
   getDealsSourceOptions,
   getDealsContractNumberOptions,
   getDealsRoomNumberOptions,
-  createDeal,
-  updateDeal,
-  deleteDeal,
   type Deal,
   type DealFilters
 } from '../api/dealsApi';

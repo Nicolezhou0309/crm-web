@@ -55,26 +55,6 @@
 9. "正在加载您的个人资料...👤"
 10. "正在初始化系统...🔧"
 
-### 4. 缓存调试 (`/cache-debug`)
-**功能**: 调试用户缓存和会话状态
-**图标**: 🐛 BugOutlined
-**路径**: `/cache-debug`
-
-**功能特性**:
-- 实时显示缓存状态
-- 会话时间监控
-- 缓存内容查看
-- 一键清除缓存
-- 活动时间更新
-
-**调试信息**:
-- 用户缓存状态
-- 个人资料缓存
-- 会话ID
-- 最后活动时间
-- 剩余会话时间
-- 缓存大小统计
-
 ## 导航菜单结构
 
 ### 系统管理菜单
@@ -85,8 +65,7 @@
 ├── 公告配置 (/announcements)
 ├── 数据库测试 (/test)
 ├── 首页管理 (/banner-management)
-├── 加载演示 (/loading-demo)
-└── 缓存调试 (/cache-debug)
+└── 加载演示 (/loading-demo)
 ```
 
 ## 使用指南
@@ -108,13 +87,6 @@
 3. 观察消息轮换和动画效果
 4. 测试不同类型的加载消息
 
-### 4. 缓存调试
-1. 进入缓存调试页面
-2. 查看实时缓存状态
-3. 监控会话时间
-4. 使用"清除缓存"功能重置缓存
-5. 点击"更新活动时间"模拟用户活动
-
 ## 开发环境配置
 
 ### 环境变量
@@ -126,7 +98,6 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ### 权限要求
 - 数据库测试需要数据库访问权限
-- 缓存调试需要本地存储权限
 - 所有测试工具都需要用户登录权限
 
 ## 故障排除
@@ -141,15 +112,7 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 - 确认网络连接正常
 - 检查API密钥权限
 
-#### 2. 缓存调试页面空白
-**症状**: 缓存调试页面显示空白
-**解决方案**:
-- 检查浏览器本地存储权限
-- 确认用户已登录
-- 刷新页面重新加载
-- 清除浏览器缓存
-
-#### 3. 加载演示不显示
+#### 2. 加载演示不显示
 **症状**: 加载演示页面无法正常显示
 **解决方案**:
 - 检查CSS样式是否正确加载
@@ -161,14 +124,11 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 #### 1. 使用浏览器开发者工具
 ```javascript
-// 在控制台中查看缓存状态
-console.log('Cache info:', localStorage);
+// 在控制台中查看网络请求
+console.log('Network requests:', performance.getEntriesByType('resource'));
 
-// 查看用户会话信息
-console.log('Session info:', {
-  lastActivity: localStorage.getItem('last_activity_timestamp'),
-  sessionId: localStorage.getItem('session_id')
-});
+// 查看页面性能指标
+console.log('Performance metrics:', performance.getEntriesByType('navigation')[0]);
 ```
 
 #### 2. 网络请求监控
@@ -185,9 +145,9 @@ console.log('Session info:', {
 
 ### 1. 测试流程
 1. **开发前**: 使用数据库测试验证环境配置
-2. **开发中**: 使用缓存调试监控状态变化
-3. **开发后**: 使用加载演示测试用户体验
-4. **部署前**: 全面测试所有功能
+2. **开发中**: 使用加载演示测试用户体验
+3. **开发后**: 全面测试所有功能
+4. **部署前**: 验证所有功能正常
 
 ### 2. 调试策略
 - 优先使用测试工具集页面
@@ -207,7 +167,6 @@ console.log('Session info:', {
 - ✅ 创建测试工具集页面
 - ✅ 集成数据库测试功能
 - ✅ 添加加载演示页面
-- ✅ 实现缓存调试工具
 - ✅ 完善导航菜单结构
 - ✅ 添加详细使用文档
 

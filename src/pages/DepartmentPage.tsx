@@ -1,14 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Tree, Table, Button, Modal, Form, Input, message, Badge, Dropdown, Space, Select, Tag, List, Card, Avatar, Typography, Tooltip } from 'antd';
-import { supabase } from '../supaClient';
-import { EllipsisOutlined, ExclamationCircleOutlined, CrownOutlined, MailOutlined, SearchOutlined, UserOutlined, TeamOutlined, TrophyOutlined, TeamOutlined as TeamIcon } from '@ant-design/icons';
-import { PermissionGate } from '../components/PermissionGate';
+import { useState, useEffect } from 'react';
 import type { Key } from 'react';
+import { Tree, Table, Button, Modal, Form, Input, message, Badge, Dropdown, Select, Tag, Tooltip } from 'antd';
+import { supabase } from '../supaClient';
+import { EllipsisOutlined, ExclamationCircleOutlined, CrownOutlined, MailOutlined, SearchOutlined, TrophyOutlined } from '@ant-design/icons';
 import { usePermissions } from '../hooks/usePermissions';
 import './DepartmentPage.css';
 
-const { Search } = Input;
-const { Text } = Typography;
+
 
 const statusColorMap: Record<string, string> = {
   active: 'green',
@@ -41,35 +39,13 @@ const DepartmentPage = () => {
   const [resetEmailForm] = Form.useForm();
   const [currentResetUser, setCurrentResetUser] = useState<any>(null);
   
-  // 新增：人员清单相关状态
-  const [searchKeyword, setSearchKeyword] = useState('');
-  const [filteredMembers, setFilteredMembers] = useState<any[]>([]);
-  const [showMemberList, setShowMemberList] = useState(true); // 控制人员清单显示
-  
   // 新增：树节点搜索关键词
   const [treeSearch, setTreeSearch] = useState('');
   // 新增：自动展开的keys
   const [autoExpandKeys, setAutoExpandKeys] = useState<Key[]>([]);
   
   // 检查用户认证状态
-  const checkAuthStatus = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const { data: user } = await supabase.auth.getUser();
-      
-      
-      if (session?.access_token) {
-        try {
-          const payload = JSON.parse(atob(session.access_token.split('.')[1]));
 
-        } catch (e) {
-          
-        }
-      }
-    } catch (e) {
-      
-    }
-  };
   
   useEffect(() => { 
     fetchDepartments();
@@ -87,7 +63,7 @@ const DepartmentPage = () => {
   // 新增：过滤人员列表
   useEffect(() => {
     filterMembers();
-  }, [searchKeyword, members]);
+  }, [members]);
 
   const fetchDepartments = async () => {
     // 1. 查所有部门
@@ -130,7 +106,7 @@ const DepartmentPage = () => {
       if (profileIds.length > 0) {
         
         // 使用正确的积分表名：user_points_wallet
-        const { data: points, error: pointsError } = await supabase
+        const { data: points } = await supabase
           .from('user_points_wallet')
           .select('user_id, total_points')
           .in('user_id', profileIds);
@@ -144,7 +120,7 @@ const DepartmentPage = () => {
       if (profileIds.length > 0) {
         
         // 获取基础销售组信息 - 使用 profile.id
-        const { data: salesGroups, error: salesGroupsError } = await supabase
+        const { data: salesGroups } = await supabase
           .from('users_list')
           .select('id, groupname, list, allocation')
           .overlaps('list', profileIds);
@@ -157,7 +133,7 @@ const DepartmentPage = () => {
             // 为每个用户获取该销售组的详细状态
             const userStatusPromises = profileIds.map(async (profileId) => {
               
-              const { data: userStatus, error: statusError } = await supabase.rpc('get_user_allocation_status_multi', {
+              const { data: userStatus } = await supabase.rpc('get_user_allocation_status_multi', {
                 p_user_id: profileId
               });
               
@@ -206,7 +182,7 @@ const DepartmentPage = () => {
     if (profileIds.length > 0) {
       
       // 使用正确的积分表名：user_points_wallet
-      const { data: points, error: pointsError } = await supabase
+      const { data: points } = await supabase
         .from('user_points_wallet')
         .select('user_id, total_points')
         .in('user_id', profileIds);
@@ -221,7 +197,7 @@ const DepartmentPage = () => {
     if (profileIds.length > 0) {
       
       // 获取基础销售组信息 - 使用 profile.id
-      const { data: salesGroups, error: salesGroupsError } = await supabase
+      const { data: salesGroups } = await supabase
         .from('users_list')
         .select('id, groupname, list, allocation')
         .overlaps('list', profileIds);
@@ -234,7 +210,7 @@ const DepartmentPage = () => {
                       // 为每个用户获取该销售组的详细状态
             const userStatusPromises = profileIds.map(async (profileId) => {
               
-              const { data: userStatus, error: statusError } = await supabase.rpc('get_user_allocation_status_multi', {
+              const { data: userStatus } = await supabase.rpc('get_user_allocation_status_multi', {
                 p_user_id: profileId
               });
               
@@ -277,34 +253,18 @@ const DepartmentPage = () => {
 
   // 新增：过滤人员列表
   const filterMembers = () => {
-    if (!searchKeyword.trim()) {
-      setFilteredMembers(members);
+    if (!treeSearch.trim()) {
+      setMembers(members);
       return;
     }
 
-    const keyword = searchKeyword.toLowerCase();
+    const keyword = treeSearch.toLowerCase();
     const filtered = members.filter(member => 
       member.nickname?.toLowerCase().includes(keyword) ||
       member.email?.toLowerCase().includes(keyword) ||
       member.organizations?.name?.toLowerCase().includes(keyword)
     );
-    setFilteredMembers(filtered);
-  };
-
-  // 新增：高亮搜索关键词
-  const highlightText = (text: string, keyword: string) => {
-    if (!keyword.trim() || !text) return text;
-    
-    const regex = new RegExp(`(${keyword})`, 'gi');
-    const parts = text.split(regex);
-    
-    return parts.map((part, index) => 
-      regex.test(part) ? (
-        <span key={index} style={{ backgroundColor: '#ffd54f', fontWeight: 'bold' }}>
-          {part}
-        </span>
-      ) : part
-    );
+    setMembers(filtered);
   };
 
   // 高亮函数：支持人员/部门不同class
@@ -398,7 +358,7 @@ const DepartmentPage = () => {
     return result;
   }
 
-  // 邀请用户注册
+  // 邀请用户注册 - 异步处理
   const handleInviteUser = async (email: string, name?: string) => {
     try {
       
@@ -434,48 +394,70 @@ const DepartmentPage = () => {
         return;
       }
 
+      // 4. 显示邀请进行中的提示
+      const inviteKey = `invite_${email}_${Date.now()}`;
+      message.loading({
+        content: '正在发送邀请邮件...',
+        key: inviteKey,
+        duration: 0
+      });
 
-
-      // 4. 使用专用的invite-user Edge Function发送邀请邮件
-      const { data, error } = await supabase.functions.invoke('invite-user', {
+      // 5. 异步发送邀请邮件 - 不等待结果
+      supabase.functions.invoke('invite-user', {
         body: {
           email: email,
           name: name || email.split('@')[0],
           organizationId: selectedDept.id,
           redirectTo: `${window.location.origin}/set-password`
         }
-      });
-
-
-
-      if (error) {
-        
-        // 详细错误处理
-        let errorMessage = '邀请用户失败';
-        if (error.message?.includes('未授权')) {
-          errorMessage = '认证失败，请刷新页面重新登录';
-        } else if (error.message?.includes('无权管理')) {
-          errorMessage = '您没有权限管理此部门';
-        } else if (error.message?.includes('已被注册')) {
-          errorMessage = '该邮箱已被注册，无法重复邀请';
-        } else if (error.message) {
-          errorMessage = error.message;
+                      }).then(({ }) => {
+          // 处理邀请结果
+          if (Error()) {
+          // 详细错误处理
+          let errorMessage = '邀请用户失败';
+          if (errorMessage?.includes('未授权')) {
+            errorMessage = '认证失败，请刷新页面重新登录';
+          } else if (errorMessage?.includes('无权管理')) {
+            errorMessage = '您没有权限管理此部门';
+          } else if (errorMessage?.includes('已被注册')) {
+            errorMessage = '该邮箱已被注册，无法重复邀请';
+          } else if (errorMessage) {
+            errorMessage = errorMessage;
+          }
+          
+          message.error({
+            content: errorMessage,
+            key: inviteKey,
+            duration: 3
+          });
+        } else {
+          // 邀请成功
+          message.success({
+            content: '邀请邮件已发送！用户将收到注册邀请邮件。',
+            key: inviteKey,
+            duration: 3
+          });
+          
+          // 异步刷新成员列表
+          setTimeout(() => {
+            fetchMembers(selectedDept?.id ?? null);
+          }, 1000);
         }
-        
-        message.error(errorMessage);
-        return;
-      }
-
-
-      message.success('邀请邮件已发送！用户将收到注册邀请邮件。');
-      
-      // 刷新成员列表
-      fetchMembers(selectedDept?.id ?? null);
+      }).catch((error) => {
+        // 处理网络错误等异常
+        message.error({
+          content: '邀请发送失败: ' + (error.message || '网络错误'),
+          key: inviteKey,
+          duration: 3
+        });
+      });
       
     } catch (error: any) {
       message.error('邀请用户失败: ' + (error.message || '未知错误'));
     }
   };
+
+
 
   // 发送密码重置邮件
   const handleResetPassword = async (email: string) => {
@@ -497,7 +479,7 @@ const DepartmentPage = () => {
   };
 
   // 重置邮箱地址
-  const handleChangeEmail = async (userId: string, newEmail: string) => {
+  const handleChangeEmail = async (_userId: string, newEmail: string) => {
     try {
       
       // 首先检查新邮箱是否已被使用
@@ -555,13 +537,18 @@ const DepartmentPage = () => {
     return canManageUser(userOrgId);
   };
 
-  // 邀请成员弹窗回调
+  // 邀请成员弹窗回调 - 异步处理
   const handleInviteMember = async () => {
     try {
       const values = await form.validateFields();
-      await handleInviteUser(values.email, values.name);
+      
+      // 立即关闭弹窗，不等待邀请结果
       setShowInviteMember(false);
       form.resetFields();
+      
+      // 异步处理邀请
+      handleInviteUser(values.email, values.name);
+      
     } catch (error: any) {
       message.error('邀请成员失败: ' + error.message);
     }
@@ -890,7 +877,7 @@ const DepartmentPage = () => {
                 dataIndex: 'points',
                 className: 'page-col-nowrap',
                 width: 100,
-                render: (points: number, record: any) => (
+                render: (points: number) => (
                   <span style={{ 
                     display: 'flex',
                     alignItems: 'center',
@@ -993,7 +980,7 @@ const DepartmentPage = () => {
                       overflowY: 'auto',
                       overflowX: 'hidden'
                     }}>
-                      {userGroups.map((group, index) => {
+                      {userGroups.map((group) => {
                         // 检查该用户在该销售组中的状态
                         const userStatus = group.user_statuses?.find((us: any) => us.profileId === record.id);
                         // get_user_allocation_status_multi 返回数组，需要检查该用户在该组中的状态
@@ -1020,9 +1007,11 @@ const DepartmentPage = () => {
                             key={group.id} 
                             title={tooltipContent} 
                             placement="top"
-                            overlayStyle={{ 
-                              maxWidth: '350px',
-                              whiteSpace: 'pre-line'
+                            styles={{ 
+                              root: {
+                                maxWidth: '350px',
+                                whiteSpace: 'pre-line'
+                              }
                             }}
                           >
                             <Tag 
@@ -1112,6 +1101,7 @@ const DepartmentPage = () => {
                               label: '发送邀请邮件',
                               onClick: () => {
                                 if (record.email) {
+                                  // 异步处理邀请，立即显示加载状态
                                   handleInviteUser(record.email, record.nickname);
                                 } else {
                                   message.error('用户邮箱信息缺失，无法发送邀请');
@@ -1189,7 +1179,7 @@ const DepartmentPage = () => {
               overflow: 'hidden'
             }}
             scroll={{ x: 1000 }}
-            rowClassName={(record, index) => 'dept-table-row'}
+            rowClassName={() => 'dept-table-row'}
             pagination={{ 
               pageSize: 20,
               showSizeChanger: true,

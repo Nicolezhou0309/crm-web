@@ -1,5 +1,5 @@
 import { Dropdown } from 'antd';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '../supaClient';
 import { useUser } from '../context/UserContext';
 
@@ -9,7 +9,7 @@ export function useUserMenuAvatarUrl() {
 }
 
 const UserMenu = () => {
-  const { user, profile, refreshUser } = useUser();
+  const { refreshUser } = useUser();
 
   // 监听全局刷新口令
   useEffect(() => {

@@ -33,7 +33,7 @@ export class FrequencyController {
       return;
     }
     try {
-      const { data, error } = await supabase.rpc('record_operation', {
+      const { error } = await supabase.rpc('record_operation', {
         p_user_id: this.userId,
         p_operation_type: 'update',
         p_record_id: recordId,

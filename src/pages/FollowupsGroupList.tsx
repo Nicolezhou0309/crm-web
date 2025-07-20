@@ -1,9 +1,8 @@
 // 复制自FollowupsList.tsx，后续将在此文件实现自定义字段分组功能
 // ... existing code from FollowupsList.tsx ... 
 
-import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { Table, Typography, Button, Space, Select, message, Input, Tag, Tooltip, DatePicker, Form, Steps, Drawer, Checkbox, Spin, Cascader, InputNumber, Divider, Alert } from 'antd';
-import type { StepsProps } from 'antd';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Table, Button, Form, Input, Select, Space, Tag, message, Typography, InputNumber, DatePicker, Alert, Tooltip, Spin, Checkbox, Cascader, Divider, Drawer, Steps } from 'antd';
 import { ReloadOutlined, CopyOutlined, UserOutlined } from '@ant-design/icons';
 import { supabase, fetchEnumValues, fetchMetroStations } from '../supaClient';
 import dayjs from 'dayjs';
@@ -13,15 +12,14 @@ import locale from 'antd/es/date-picker/locale/zh_CN';
 import '../index.css'; // 假设全局样式在index.css
 import './FollowupsGroupList.css';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
-import { useFrequencyController, FrequencyController } from '../components/Followups/useFrequencyController';
+import { FrequencyController } from '../components/Followups/useFrequencyController';
 import { ContractDealsTable } from '../components/Followups/ContractDealsTable';
 import CelebrationAnimation from '../components/CelebrationAnimation';
 import { saveFieldWithFrequency } from '../components/Followups/followupApi';
-import { toBeijingTimeStr, normalizeUtcString } from '../utils/timeUtils';
+import { toBeijingTimeStr } from '../utils/timeUtils';
 import { useUser } from '../context/UserContext';
 
 const { Title, Paragraph } = Typography;
-const { Search } = Input;
 const { RangePicker } = DatePicker;
 
 
@@ -62,8 +60,8 @@ const FollowupsGroupList: React.FC = () => {
   // 使用 UserContext 中的用户信息
   const { user, profile, loading: userLoading } = useUser();
   
-  // 1. 优化 userId 和 frequencyController 初始化
-  const [userId, setUserId] = useState<number | null>(null);
+    // 1. 优化 userId 和 frequencyController 初始化
+  const [, setUserId] = useState<number | null>(null);
   const [frequencyController, setFrequencyController] = useState<FrequencyController | null>(null);
   const [frequencyControllerReady, setFrequencyControllerReady] = useState(false); // 标记 frequencyController 是否已准备就绪
 
@@ -73,10 +71,10 @@ const FollowupsGroupList: React.FC = () => {
 
       
       if (user && profile) { 
-        setUserId(profile.id);
+        setUserId(Number(profile.id));
         
-        // 立即创建 FrequencyController
-        const controller = new FrequencyController(profile.id);
+        // 立即创建  FrequencyController
+        const controller = new FrequencyController(Number(profile.id));
         setFrequencyController(controller);
         setFrequencyControllerReady(true);
       } else {
@@ -117,8 +115,6 @@ const FollowupsGroupList: React.FC = () => {
   const [stageForm] = Form.useForm();
   const [currentStep, setCurrentStep] = useState(0);
   // 在组件内部
-  const [phoneSearch, setPhoneSearch] = useState('');
-  const [wechatSearch, setWechatSearch] = useState('');
   const [keywordSearch, setKeywordSearch] = useState('');
   // 签约记录列表状态
   const [dealsList, setDealsList] = useState<any[]>([]);
@@ -2009,12 +2005,6 @@ const FollowupsGroupList: React.FC = () => {
           });
           
           // 获取对应的管家姓名用于日志
-          const selectedNames = values
-            .filter((v: any) => v !== null)
-            .map((id: any) => {
-              const user = localData.find(item => item.interviewsales_user_id === id);
-              return user ? (user.interviewsales_user_name || user.interviewsales_user) : `ID:${id}`;
-            });
           
           // 如果只包含null，传递[null]表示IS NULL条件
           if (values.length === 1 && values[0] === null) {
@@ -2737,26 +2727,6 @@ const FollowupsGroupList: React.FC = () => {
   };
 
   // 修改丢单按钮的处理
-  const handleDropout = async () => {
-    if (!currentRecord) return;
-    
-    // 检查丢单频率限制
-    if (!frequencyController) {
-      return;
-    }
-    
-    const result = await saveDrawerForm({ followupstage: followupStages[0] });
-    
-    if (result.success) {
-      setDrawerOpen(false);
-      message.success('已丢单');
-      
-      // 记录丢单操作
-      await frequencyController?.recordOperation(currentRecord.id, currentRecord.followupstage, followupStages[0]);
-    } else {
-      message.error('丢单失败: ' + result.error);
-    }
-  };
 
   // 确认丢单处理函数
   const handleConfirmDropout = async () => {
@@ -2854,7 +2824,6 @@ const FollowupsGroupList: React.FC = () => {
   // 日志：初始化 frequencyController 和 userId
   useEffect(() => {
     if (frequencyController) {
-      const userId = frequencyController.getUserId ? frequencyController.getUserId() : undefined;
     } else {
     }
   }, [frequencyController]);
@@ -3830,8 +3799,9 @@ const FollowupsGroupList: React.FC = () => {
               {/* 固定底部按钮区域 */}
               <div className="drawer-footer">
                 <div className="button-group">
-                  {/* 丢单阶段不显示上一步按钮 */}
-                  {currentStage !== '丢单' && (
+                  {/* 上一步按钮显示逻辑 */}
+                  {currentStage !== '丢单' && 
+                   !(currentStage === '赢单' && dealsList.length > 0) && (
                     <Button
                       disabled={currentStep === 0}
                       onClick={async () => {
@@ -3948,7 +3918,6 @@ const FollowupsGroupList: React.FC = () => {
                       onClick={async () => {
                         // 下一步前自动保存
                         try {
-                          const values = await stageForm.validateFields();
                           if (!currentRecord) return;
                           
                           const result = await saveDrawerForm({ followupstage: followupStages[currentStep + 1] });

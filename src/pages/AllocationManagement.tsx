@@ -17,7 +17,6 @@ import {
   Popconfirm,
   Switch,
   InputNumber,
-  TimePicker,
   Alert,
   Tooltip,
   TreeSelect
@@ -52,7 +51,6 @@ import { validateRuleForm, validateGroupForm } from '../utils/validationUtils';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-const { RangePicker } = TimePicker;
 
 const AllocationManagement: React.FC = () => {
   // 将 Form 实例声明移到组件内部
@@ -66,7 +64,7 @@ const AllocationManagement: React.FC = () => {
   const [rules, setRules] = useState<SimpleAllocationRule[]>([]);
   const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
   const [, setAllocationLogs] = useState<SimpleAllocationLog[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   
   // 枚举值状态
   const [sourceOptions, setSourceOptions] = useState<string[]>([]);
@@ -313,9 +311,9 @@ const AllocationManagement: React.FC = () => {
       title: '规则名称',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string, record: PointsCostRule) => (
+      render: (_: string, record: PointsCostRule) => (
         <Space>
-          <Text strong>{text}</Text>
+          <Text strong>{record.name}</Text>
           {record.is_active ? (
             <Tag color="green">启用</Tag>
           ) : (
@@ -399,7 +397,7 @@ const AllocationManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      render: (text: string, record: PointsCostRule) => (
+      render: (_: string, record: PointsCostRule) => (
         <Space>
           <Button 
             type="link" 
@@ -483,7 +481,7 @@ const AllocationManagement: React.FC = () => {
     {
       title: '质量控制',
       key: 'quality_control',
-      render: (text: string, record: UserGroup) => (
+      render: (_: string, record: UserGroup) => (
         <div>
           <div>
             <Tag color={record.enable_quality_control ? 'green' : 'gray'}>
@@ -510,7 +508,7 @@ const AllocationManagement: React.FC = () => {
       title: '成员列表',
       key: 'members',
       width: 300,
-      render: (text: string, record: UserGroup) => {
+      render: (_: string, record: UserGroup) => {
         const members = groupMembersCache[record.id] || [];
         return (
           <div style={{ maxWidth: 280, minHeight: 32 }}>
@@ -541,7 +539,7 @@ const AllocationManagement: React.FC = () => {
       key: 'action',
       width: 120,
       fixed: 'right' as const, // 修复类型错误
-      render: (text: string, record: UserGroup) => {
+      render: (_: string, record: UserGroup) => {
         const usageInfo = getGroupUsageInfo(record.id);
         
         return (
@@ -633,7 +631,7 @@ const AllocationManagement: React.FC = () => {
       title: '使用规则',
       key: 'rule_name',
       width: 150,
-      render: (text: string, record: SimpleAllocationLog) => {
+      render: (_: string, record: SimpleAllocationLog) => {
         const ruleName = record.processing_details?.rule_name;
         return ruleName ? (
           <Tag color="blue">{ruleName}</Tag>
@@ -646,7 +644,7 @@ const AllocationManagement: React.FC = () => {
       title: '处理详情',
       key: 'processing_details',
       width:100,
-      render: (text: string, record: SimpleAllocationLog) => {
+      render: (_: string, record: SimpleAllocationLog) => {
         const details = record.processing_details;
         if (!details) return <Text type="secondary">无处理详情</Text>;
 
@@ -1543,7 +1541,7 @@ const AllocationManagement: React.FC = () => {
             setLogFilters(f => ({ ...f, page, pageSize }));
           }
         }}
-        onChange={(pagination, filters, sorter: any) => {
+        onChange={(pagination, _filters, sorter: any) => {
           setLogFilters(f => ({
             ...f,
             page: pagination.current || 1,
@@ -1591,7 +1589,7 @@ const AllocationManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      render: (text: string, record: any) => (
+      render: (_: string, record: any) => (
         <Space>
           <Button 
             type="link" 
@@ -2004,14 +2002,14 @@ const AllocationManagement: React.FC = () => {
             <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="time_start" label="开始时间">
-                <TimePicker format="HH:mm" placeholder="选择开始时间" />
-                </Form.Item>
-              </Col>
+                <Input placeholder="HH:mm 格式，如 09:00" />
+              </Form.Item>
+            </Col>
             <Col span={12}>
               <Form.Item name="time_end" label="结束时间">
-                <TimePicker format="HH:mm" placeholder="选择结束时间" />
-                </Form.Item>
-              </Col>
+                <Input placeholder="HH:mm 格式，如 18:00" />
+              </Form.Item>
+            </Col>
           </Row>
           
           <Form.Item name="weekdays" label="工作日">

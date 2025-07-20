@@ -1,5 +1,4 @@
 import { supabase } from '../../supaClient';
-import type { FrequencyController } from './useFrequencyController';
 
 /**
  * 通用：保存/更新跟进记录的单个字段

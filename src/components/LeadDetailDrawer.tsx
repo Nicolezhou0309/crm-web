@@ -10,12 +10,7 @@ import {
   Space,
   Button,
   message,
-  Divider,
-  Row,
-  Col,
-  Tooltip,
-  Badge,
-  Table
+  Badge
 } from 'antd';
 import {
   UserOutlined,
@@ -34,7 +29,7 @@ import { supabase } from '../supaClient';
 import dayjs from 'dayjs';
 import './LeadDetailDrawer.css';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 
 interface LeadDetailDrawerProps {

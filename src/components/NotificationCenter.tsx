@@ -50,7 +50,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   simple = false,
   onViewAll
 }) => {
-  const { user } = useAuth();
+  const { } = useAuth();
   usePermissions();
   const {
     notifications,

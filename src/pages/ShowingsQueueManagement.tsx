@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Tabs, Table, Button, Select, Modal, Form, Input, Switch, message, Popconfirm, TreeSelect, Tag, InputNumber } from 'antd';
+import { useState, useEffect } from 'react';
+import { Tabs, Table, Button, Select, Modal, Form, Input, message, Popconfirm, TreeSelect, Tag, InputNumber } from 'antd';
 import { allocationApi } from '../utils/allocationApi';
 import { supabase, fetchEnumValues } from '../supaClient';
 import type { UserGroup } from '../types/allocation';
@@ -26,7 +26,7 @@ interface EditModalState {
 
 export default function ShowingsQueueManagement() {
   const [communityOptions, setCommunityOptions] = useState<{ label: string; value: string }[]>([]);
-  const [community, setCommunity] = useState<string>(''); // 仅用于弹窗表单初始值
+  const [community] = useState<string>(''); // 仅用于弹窗表单初始值
   const [activeTab, setActiveTab] = useState<'base' | 'direct' | 'skip'>('base');
   const [baseQueues, setBaseQueues] = useState<UserGroup[]>([]);
   const [directCards, setDirectCards] = useState<QueueCard[]>([]);
@@ -371,7 +371,7 @@ export default function ShowingsQueueManagement() {
                 treeCheckable
                 showCheckedStrategy={TreeSelect.SHOW_CHILD}
                 treeCheckStrictly={false}
-                onSelect={(value, node) => {
+                onSelect={(value) => {
                   if (String(value).startsWith('dept_')) {
                     const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
                       const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
@@ -418,7 +418,7 @@ export default function ShowingsQueueManagement() {
                     return;
                   }
                 }}
-                onDeselect={(value, node) => {
+                onDeselect={(value) => {
                   if (String(value).startsWith('dept_')) {
                     const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
                       const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
@@ -455,7 +455,7 @@ export default function ShowingsQueueManagement() {
                     return;
                   }
                 }}
-                onChange={(val, labelList, extra) => {
+                onChange={(val) => {
                   const values = Array.isArray(val) ? val : [];
                   // 递归获取部门下所有成员（包括子部门）
                   const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
@@ -471,7 +471,7 @@ export default function ShowingsQueueManagement() {
                       return undefined;
                     })(treeData);
                     if (!dept) return [];
-                    let allUsers: string[] = [];
+
                     const getAllUsersFromNode = (node: any): string[] => {
                       let users: string[] = [];
                       if (node.children) {
@@ -581,7 +581,7 @@ export default function ShowingsQueueManagement() {
             dataSource={baseQueues}
             loading={loading}
             pagination={false}
-            onChange={(pagination, filters) => {
+            onChange={(_, filters) => {
               const val = filters.community ? filters.community[0] : null;
               setCommunityFilter(typeof val === 'string' ? val : (val ? String(val) : null));
             }}
@@ -594,7 +594,7 @@ export default function ShowingsQueueManagement() {
             dataSource={directCards}
             loading={loading}
             pagination={false}
-            onChange={(pagination, filters) => {
+            onChange={(_, filters) => {
               const val = filters.community ? filters.community[0] : null;
               setCommunityFilter(typeof val === 'string' ? val : (val ? String(val) : null));
             }}
@@ -607,7 +607,7 @@ export default function ShowingsQueueManagement() {
             dataSource={skipCards}
             loading={loading}
             pagination={false}
-            onChange={(pagination, filters) => {
+            onChange={(_, filters) => {
               const val = filters.community ? filters.community[0] : null;
               setCommunityFilter(typeof val === 'string' ? val : (val ? String(val) : null));
             }}

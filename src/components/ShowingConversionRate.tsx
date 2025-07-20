@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Spin, Radio, Space, Typography, DatePicker } from 'antd';
+import { Table, Spin, Radio, Typography, DatePicker } from 'antd';
 import { supabase } from '../supaClient';
 import dayjs from 'dayjs';
 

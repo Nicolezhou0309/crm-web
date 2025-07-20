@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Table, 
-  Spin, 
-  Typography, 
   Button, 
   Space, 
   Tag, 
@@ -20,18 +18,11 @@ import {
   Popconfirm
 } from 'antd';
 import { 
-  PlusOutlined, 
-  ReloadOutlined,
-  SearchOutlined,
-  FilterOutlined,
   EditOutlined,
   DeleteOutlined,
-  EyeOutlined,
-  BarChartOutlined,
-  FileTextOutlined,
-  ExpandAltOutlined,
+  UserOutlined,
   ZoomInOutlined,
-  UserOutlined
+  SearchOutlined
 } from '@ant-design/icons';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import ShowingConversionRate from '../components/ShowingConversionRate';
@@ -39,7 +30,6 @@ import {
   getShowings, 
   getShowingsCount, 
   getCommunityOptions, 
-  getViewResultOptions, 
   getSalesOptions,
   createShowing,
   updateShowing,
@@ -80,8 +70,6 @@ const floatAnimation = `
   }
 `;
 
-const { Title } = Typography;
-const { Search } = Input;
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
 
@@ -144,7 +132,6 @@ const ShowingsList: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<Showing | null>(null);
   const [form] = Form.useForm();
   const [filters, setFilters] = useState<ShowingFilters>({});
-  const [showFilters, setShowFilters] = useState(false);
   
   // 线索详情抽屉状态
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
@@ -233,13 +220,13 @@ const ShowingsList: React.FC = () => {
   // 获取看房结果选项（使用Selection.id=2）
   const fetchViewResultOptions = async () => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('Selection')
         .select('selection')
         .eq('id', 2)
         .single();
       
-      if (!error && data && data.selection) {
+      if (data && data.selection) {
         setViewResultOptions(data.selection);
       } else {
         // 如果获取失败，使用默认选项
@@ -369,61 +356,7 @@ const ShowingsList: React.FC = () => {
     }
   };
 
-  // 4. 筛选参数适配（handleFilter）
-  const handleFilter = (values: any) => {
-    const newFilters: ShowingFilters = {};
-    
-    // 处理多选字段
-    if (values.community && values.community.length > 0) {
-      newFilters.community = values.community;
-    }
-    if (values.showingsales && values.showingsales.length > 0) {
-      newFilters.showingsales = values.showingsales;
-    }
-    if (values.trueshowingsales && values.trueshowingsales.length > 0) {
-      newFilters.trueshowingsales = values.trueshowingsales;
-    }
-    if (values.interviewsales && values.interviewsales.length > 0) {
-      newFilters.interviewsales = values.interviewsales;
-    }
-    if (values.viewresult && values.viewresult.length > 0) {
-      newFilters.viewresult = values.viewresult;
-    }
-    
-    // 处理时间范围
-    if (values.scheduletime_range?.length === 2) {
-      newFilters.scheduletime_start = values.scheduletime_range[0].startOf('day').toISOString();
-      newFilters.scheduletime_end = values.scheduletime_range[1].endOf('day').toISOString();
-    }
-    if (values.arrivaltime_range?.length === 2) {
-      newFilters.arrivaltime_start = values.arrivaltime_range[0].startOf('day').toISOString();
-      newFilters.arrivaltime_end = values.arrivaltime_range[1].endOf('day').toISOString();
-    }
-    if (values.moveintime_range?.length === 2) {
-      newFilters.moveintime_start = values.moveintime_range[0].startOf('day').toISOString();
-      newFilters.moveintime_end = values.moveintime_range[1].endOf('day').toISOString();
-    }
-    
-    // 处理其他筛选条件
-    if (values.leadid) {
-      newFilters.leadid = values.leadid;
-    }
-    if (values.budget_min !== undefined && values.budget_min !== null) {
-      newFilters.budget_min = values.budget_min;
-    }
-    if (values.budget_max !== undefined && values.budget_max !== null) {
-      newFilters.budget_max = values.budget_max;
-    }
-    if (values.renttime_min !== undefined && values.renttime_min !== null) {
-      newFilters.renttime_min = values.renttime_min;
-    }
-    if (values.renttime_max !== undefined && values.renttime_max !== null) {
-      newFilters.renttime_max = values.renttime_max;
-    }
-    
-    setFilters(newFilters);
-    setCurrentPage(1);
-  };
+
 
   const getViewResultColor = (result: string) => {
     const colorMap: { [key: string]: string } = {
@@ -867,7 +800,7 @@ const ShowingsList: React.FC = () => {
   // 拉取卡片明细
   const fetchCardDetails = async (type: 'direct' | 'skip') => {
     setCardDetailLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('showings_queue_record')
       .select('*')
       .eq('queue_type', type)

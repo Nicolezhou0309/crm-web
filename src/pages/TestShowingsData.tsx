@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Card, Button, message } from 'antd';
 import { supabase } from '../supaClient';
 

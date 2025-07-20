@@ -1,5 +1,5 @@
 import React from 'react';
-import { Table, Button, DatePicker, Select, Input, Tag, Space } from 'antd';
+import { Table, Button, DatePicker, Select, Input, Tag } from 'antd';
 import type { Deal } from './followupTypes';
 import dayjs from 'dayjs';
 

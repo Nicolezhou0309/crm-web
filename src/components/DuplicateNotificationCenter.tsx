@@ -3,6 +3,7 @@ import { Card, List, Badge, Button, Tag, Modal, Descriptions, Space, Typography,
 import { BellOutlined, CheckOutlined, EyeOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { DuplicateNotification } from '../types/allocation';
 import { NOTIFICATION_STATUSES, DUPLICATE_TYPES } from '../types/allocation';
+import { duplicateNotificationApi } from '../api/notificationApi';
 import dayjs from 'dayjs';
 
 const { Text, Title } = Typography;
@@ -37,9 +38,8 @@ export const DuplicateNotificationCenter: React.FC<DuplicateNotificationCenterPr
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      // TODO: 实现重复通知功能
-      ('获取通知功能待实现', userId);
-      setNotifications([]);
+      const data = await duplicateNotificationApi.getDuplicateNotifications(userId);
+      setNotifications(data);
     } catch (error) {
       console.error('加载重复客户通知失败:', error);
     } finally {
@@ -59,7 +59,8 @@ export const DuplicateNotificationCenter: React.FC<DuplicateNotificationCenterPr
 
   const markAsRead = async (notificationId: string) => {
     try {
-      // 这里应该调用API标记为已读，暂时只更新本地状态
+      await duplicateNotificationApi.markAsRead(notificationId);
+      // 更新本地状态
       setNotifications(prev => 
         prev.map(n => 
           n.id === notificationId 
@@ -72,10 +73,10 @@ export const DuplicateNotificationCenter: React.FC<DuplicateNotificationCenterPr
     }
   };
 
-  const handleNotification = async (notificationId: string) => {
+  const handleProcessNotification = async (notificationId: string) => {
     try {
-      // TODO: 实现处理通知功能
-      ('处理通知功能待实现', notificationId);
+      await duplicateNotificationApi.markAsHandled(notificationId);
+      // 更新本地状态
       setNotifications(prev => 
         prev.map(n => 
           n.id === notificationId 
@@ -245,7 +246,7 @@ export const DuplicateNotificationCenter: React.FC<DuplicateNotificationCenterPr
               key="handle" 
               type="primary" 
               icon={<CheckOutlined />}
-              onClick={() => handleNotification(selectedNotification.id)}
+              onClick={() => handleProcessNotification(selectedNotification.id)}
             >
               标记为已处理
             </Button>

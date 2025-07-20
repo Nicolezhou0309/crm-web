@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import './CelebrationAnimation.css';
 
@@ -15,13 +15,9 @@ const CelebrationAnimation: React.FC<CelebrationAnimationProps> = ({
   title = '恭喜成交!',
   message = '您已成功完成一笔交易，继续保持！'
 }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (visible) {
-      setIsVisible(true);
-      
       // 创建原生DOM元素
       const modalContainer = document.createElement('div');
       modalContainer.className = 'celebration-modal-native';
@@ -109,7 +105,6 @@ const CelebrationAnimation: React.FC<CelebrationAnimationProps> = ({
       // 3秒后自动关闭
       const timer = setTimeout(() => {
         document.body.removeChild(modalContainer);
-        setIsVisible(false);
         onClose();
       }, 3000);
 

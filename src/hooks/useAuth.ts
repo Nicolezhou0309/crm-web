@@ -21,7 +21,7 @@ export const useAuth = () => {
 
     // 监听认证状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_, session) => {
         setUser(session?.user ?? null);
         setLoading(false);
       }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tabs, Button, Avatar, Tag } from 'antd';
+import { Tabs, Button, Avatar } from 'antd';
 
 const rankingTabs = [
   {

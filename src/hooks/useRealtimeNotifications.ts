@@ -135,7 +135,7 @@ export const useRealtimeNotifications = () => {
         debouncedUpdateUnreadCount();
         setLastUpdate(Date.now());
       })
-      .subscribe((status) => { 
+      .subscribe(() => { 
       });
     
     return () => {

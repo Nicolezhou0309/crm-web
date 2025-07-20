@@ -33,7 +33,6 @@ import AnnouncementManagement from './pages/AnnouncementManagement';
 import { HonorManagement } from './pages/HonorManagement';
 import { AchievementManagement } from './pages/AchievementManagement';
 import LoadingDemo from './pages/LoadingDemo';
-import CacheDebugPage from './pages/CacheDebugPage';
 import TestTools from './pages/TestTools';
 import TestShowingsData from './pages/TestShowingsData';
 import './App.css';
@@ -51,7 +50,6 @@ import BannerManagement from './pages/BannerManagement';
 import { Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import { UserProvider, useUser } from './context/UserContext';
-import CacheDebugPanel from './components/CacheDebugPanel';
 import LoadingScreen from './components/LoadingScreen';
 
 
@@ -96,7 +94,7 @@ const App: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { user, profile, loading, sessionTimeRemaining, isSessionExpired } = useUser();
+  const { user, profile, loading, isSessionExpired } = useUser();
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth, setSiderWidth] = React.useState(220);
   const minSiderWidth = 56;
@@ -104,8 +102,7 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 调试面板状态
-  const [debugPanelVisible, setDebugPanelVisible] = React.useState(false);
+
   
   // 头像状态管理
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined);
@@ -469,10 +466,12 @@ const AppContent: React.FC = () => {
             title={null}
             placement="bottomRight"
             trigger="hover"
-            overlayStyle={{ 
-              maxWidth: 340,
-              borderRadius: 8,
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+            styles={{ 
+              root: {
+                maxWidth: 340,
+                borderRadius: 8,
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+              }
             }}
           >
             <span style={{ position: 'absolute', top: 2, right: 48, zIndex: 10 }}>
@@ -699,7 +698,6 @@ const AppContent: React.FC = () => {
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/banner-management" element={<BannerManagement />} />
                   <Route path="/loading-demo" element={<LoadingDemo />} />
-                  <Route path="/cache-debug" element={<CacheDebugPage />} />
                   <Route path="/test-tools" element={<TestTools />} />
                   <Route path="/test-showings-data" element={<TestShowingsData />} />
                   <Route path="*" element={<Error404 />} />
@@ -709,13 +707,6 @@ const AppContent: React.FC = () => {
           </Layout>
         </Layout>
         {notificationDrawer}
-        {/* 缓存调试面板 */}
-        {process.env.NODE_ENV === 'development' && (
-          <CacheDebugPanel 
-            isVisible={debugPanelVisible} 
-            onClose={() => setDebugPanelVisible(false)} 
-          />
-        )}
       </div>
     </ConfigProvider>
   );

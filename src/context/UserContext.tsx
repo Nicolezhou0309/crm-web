@@ -133,7 +133,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionTimeRemaining, setSessionTimeRemaining] = useState(SESSION_TIMEOUT);
   const [showSessionWarning, setShowSessionWarning] = useState(false);
 
@@ -166,10 +165,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cacheManager.clearUserCache();
       setUser(null);
       setProfile(null);
-      setSessionId(null);
-      setLoading(false);
-      setError(null);
-      setShowSessionWarning(false);
       setSessionTimeRemaining(0);
     } catch (error) {
       console.error('登出失败:', error);
@@ -262,10 +257,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // 检查环境变量
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
       // 添加超时处理
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('获取用户信息超时')), 10000);
@@ -306,10 +297,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // 缓存用户信息
           cacheManager.setUserCache(user, profileData);
           
-          // 生成新的会话ID
-          const newSessionId = cacheManager.generateSessionId();
-          setSessionId(newSessionId);
-          
           // 检查会话状态
           checkSessionTimeout();
           
@@ -343,17 +330,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser();
     
     // 监听认证状态变化
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         refreshUser();
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setProfile(null);
-        setSessionId(null);
-        setLoading(false);
+        setSessionTimeRemaining(0);
         cacheManager.clearUserCache();
         setShowSessionWarning(false);
-        setSessionTimeRemaining(0);
       }
     });
 

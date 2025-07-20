@@ -39,8 +39,6 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
 
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [achievementModalVisible, setAchievementModalVisible] = useState(false);
-  const [avatarFrameModalVisible, setAvatarFrameModalVisible] = useState(false);
-  const [badgeModalVisible, setBadgeModalVisible] = useState(false);
 
   // 渲染成就卡片
   const renderAchievementCard = (achievement: Achievement) => {

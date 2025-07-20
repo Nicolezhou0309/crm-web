@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getUserPointsInfo, awardPoints, getCurrentProfileId, filterPointsTransactions } from '../api/pointsApi';
 import { getUserPointsAllocationStats, getUserPointsAllocationHistory } from '../api/pointsAllocationApi';
 import { useAuth } from '../hooks/useAuth';
@@ -52,7 +52,6 @@ export default function PointsDashboard() {
   const [pointsInfo, setPointsInfo] = useState<PointsInfo | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allocationStats, setAllocationStats] = useState<AllocationStats | null>(null);
-  const [allocationHistory, setAllocationHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<number | null>(null);
@@ -99,12 +98,12 @@ export default function PointsDashboard() {
 
   const loadAllocationData = async (id: number) => {
     try {
-      const [statsData, historyData] = await Promise.all([
+      const [statsData] = await Promise.all([
         getUserPointsAllocationStats(id),
         getUserPointsAllocationHistory(id, { limit: 10 })
       ]);
       setAllocationStats(statsData);
-      setAllocationHistory(historyData);
+      // setAllocationHistory(historyData); // This line was removed as per the edit hint
     } catch (err) {
       console.error('加载分配数据失败:', err);
     }

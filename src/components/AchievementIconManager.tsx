@@ -54,8 +54,6 @@ export const AchievementIconManager: React.FC<IconManagerProps> = ({ onIconUpdat
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [previewImage, setPreviewImage] = useState('');
-  const [previewTitle, setPreviewTitle] = useState('');
 
   // 常用图标推荐
   const iconSuggestions: {

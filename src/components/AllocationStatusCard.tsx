@@ -1,8 +1,8 @@
-import { Card, Spin, Tag, Tooltip } from 'antd';
+import { Spin } from 'antd';
 import { useEffect, useState } from 'react';
 import { supabase } from '../supaClient';
 import { getCurrentProfileId } from '../api/pointsApi';
-import { CheckCircleFilled, ExclamationCircleFilled, InfoCircleFilled } from '@ant-design/icons';
+import { CheckCircleFilled, ExclamationCircleFilled } from '@ant-design/icons';
 
 const statusIcon = (g: any) => {
   if (g.can_allocate) {
@@ -27,7 +27,7 @@ const AllocationStatusCard = () => {
         setLoading(false);
         return;
       }
-      const { data, error } = await supabase.rpc('get_user_allocation_status_multi', {
+      const { data } = await supabase.rpc('get_user_allocation_status_multi', {
         p_user_id: profileId,
       });
       if (Array.isArray(data)) {
