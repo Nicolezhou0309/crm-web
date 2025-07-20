@@ -21,6 +21,7 @@ import {
   CrownOutlined,
   ExperimentOutlined,
   ToolOutlined,
+  MailOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 
@@ -192,6 +193,12 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           icon: <ExperimentOutlined />,
           label: '加载演示',
           path: '/loading-demo',
+        },
+        {
+          key: 'email-test',
+          icon: <MailOutlined />,
+          label: '邮件测试',
+          path: '/email-test',
         },
       ]
     },

@@ -35,6 +35,7 @@ import { AchievementManagement } from './pages/AchievementManagement';
 import LoadingDemo from './pages/LoadingDemo';
 import TestTools from './pages/TestTools';
 import TestShowingsData from './pages/TestShowingsData';
+import EmailTest from './pages/EmailTest';
 import './App.css';
 import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
@@ -708,6 +709,7 @@ const AppContent: React.FC = () => {
                   <Route path="/loading-demo" element={<LoadingDemo />} />
                   <Route path="/test-tools" element={<TestTools />} />
                   <Route path="/test-showings-data" element={<TestShowingsData />} />
+                  <Route path="/email-test" element={<EmailTest />} />
                   <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>
