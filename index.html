@@ -4,7 +4,24 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="timezone" content="Asia/Shanghai" />
     <title>长租公寓CRM系统</title>
+    <script>
+      // 设置全局时区为北京时间
+      if (typeof Intl !== 'undefined') {
+        // 设置默认时区为Asia/Shanghai
+        Intl.DateTimeFormat.prototype.resolvedOptions = function() {
+          const options = Intl.DateTimeFormat.prototype.resolvedOptions.call(this);
+          options.timeZone = 'Asia/Shanghai';
+          return options;
+        };
+      }
+      
+      // 设置dayjs默认时区（如果使用dayjs）
+      if (typeof window !== 'undefined') {
+        window.__TIMEZONE__ = 'Asia/Shanghai';
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
