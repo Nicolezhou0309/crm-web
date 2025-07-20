@@ -167,6 +167,10 @@ Deno.serve(async (req)=>{
     // 设置重定向URL
     const redirectURL = redirectTo || `${FRONTEND_URL}/set-password`;
     console.log('使用重定向URL:', redirectURL);
+    console.log('环境变量FRONTEND_URL:', FRONTEND_URL);
+    console.log('传入的redirectTo:', redirectTo);
+    console.log('最终使用的redirectURL:', redirectURL);
+    
     // 发送邀请邮件
     console.log('发送邀请邮件:', email);
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
