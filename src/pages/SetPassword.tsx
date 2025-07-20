@@ -84,9 +84,35 @@ const SetPassword: React.FC = () => {
   const handleCustomInvite = async (token: string) => {
     try {
       console.log('🔍 [SetPassword] 处理自定义邀请令牌...');
+      console.log('🔍 [SetPassword] 原始token长度:', token.length);
+      console.log('🔍 [SetPassword] 原始token前20字符:', token.substring(0, 20));
       
-      // 解码自定义token - 使用UTF-8安全的base64解码
-      const decodedToken = JSON.parse(decodeURIComponent(escape(atob(token))));
+      // 尝试解码token
+      let decodedToken;
+      try {
+        // 首先尝试直接atob解码
+        const base64Decoded = atob(token);
+        console.log('🔍 [SetPassword] base64解码成功，长度:', base64Decoded.length);
+        
+        // 然后尝试JSON解析
+        decodedToken = JSON.parse(base64Decoded);
+        console.log('🔍 [SetPassword] JSON解析成功，使用直接解码方式');
+      } catch (directError: any) {
+        console.log('🔍 [SetPassword] 直接解码失败，尝试UTF-8安全解码...');
+        console.log('🔍 [SetPassword] 直接解码错误:', directError);
+        
+        // 如果直接解码失败，尝试UTF-8安全的解码
+        try {
+          const base64Decoded = atob(token);
+          const utf8Decoded = decodeURIComponent(escape(base64Decoded));
+          decodedToken = JSON.parse(utf8Decoded);
+          console.log('🔍 [SetPassword] UTF-8安全解码成功');
+        } catch (utf8Error: any) {
+          console.log('🔍 [SetPassword] UTF-8安全解码也失败:', utf8Error);
+          throw new Error(`Token解码失败: ${utf8Error.message}`);
+        }
+      }
+      
       console.log('🔍 [SetPassword] 解码的令牌:', decodedToken);
       
       // 验证token是否过期
