@@ -43,7 +43,7 @@ const SetPassword: React.FC = () => {
       
       if (error) {
         console.error('❌ [SetPassword] URL中包含错误信息:', { error, errorDescription });
-        handleInviteError(error, errorDescription);
+        handleInviteError(error, errorDescription || undefined);
         return;
       }
       
@@ -289,7 +289,7 @@ const SetPassword: React.FC = () => {
       console.log('🔑 [SetPassword] 处理Supabase邀请密码设置...');
       
       // 使用管理员API更新用户密码
-      const { data, error } = await supabase.auth.updateUser({
+      const { error } = await supabase.auth.updateUser({
         password: password,
         data: {
           password_set: true,
