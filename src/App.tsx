@@ -234,7 +234,7 @@ const AppContent: React.FC = () => {
     return <LoadingScreen useRandomMessage={true} />;
   }
 
-  // 公开页面（登录页面）不需要用户认证，直接渲染
+  // 公开页面（登录页面和设置密码页面）不需要用户认证，直接渲染
   if (isPublicPage) {
     return (
       <Routes>

@@ -84,8 +84,12 @@ const SetPassword: React.FC = () => {
           return;
         }
         
-        // 如果用户已经设置了密码，直接跳转到首页
-        if (user?.user_metadata?.password_set) {
+        // 检查用户是否已经有密码（通过检查用户元数据或尝试更新密码）
+        const hasPassword = user?.user_metadata?.password_set || 
+                          user?.app_metadata?.provider === 'email' ||
+                          user?.email_confirmed_at;
+        
+        if (hasPassword) {
           console.log('✅ [SetPassword] 用户已设置密码，跳转到首页');
           navigate('/');
           return;
