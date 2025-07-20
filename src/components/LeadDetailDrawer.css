@@ -475,12 +475,12 @@
   }
   
   .lead-detail-drawer .info-descriptions {
-    column: 1 !important;
+    columns: 1 !important;
   }
   
   .lead-detail-drawer .showing-descriptions,
   .lead-detail-drawer .deal-descriptions {
-    column: 1 !important;
+    columns: 1 !important;
   }
 }
 
