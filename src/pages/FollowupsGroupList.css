@@ -18,18 +18,25 @@
 .lead-detail-drawer .ant-drawer-header {
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  padding: 16px 24px;
+  min-height: auto;
 }
 
 .lead-detail-drawer .ant-drawer-title {
   font-weight: 600;
   color: var(--text-color);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 /* 抽屉内容区域 */
 .lead-detail-drawer .ant-drawer-body {
-  padding: 24px;
+  padding: 24px 24px 20px 24px;
   background: transparent;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 抽屉布局 */
@@ -37,6 +44,7 @@
   display: flex;
   gap: 0px;
   min-height: 300px;
+  height: 100%;
   align-items: flex-start;
 }
 
@@ -45,6 +53,7 @@
   flex: 0 0 200px;
   padding: 0px;
   text-align: left;
+  padding-top: 0;
 }
 
 .lead-detail-drawer .page-drawer-info .mb-12 {
@@ -52,15 +61,346 @@
   padding: 8px 0;
 }
 
+.lead-detail-drawer .page-drawer-info .mb-12:first-child {
+  padding-top: 0;
+  margin-top: 0;
+}
+
 /* 右侧表单区域 */
 .lead-detail-drawer .page-drawer-form {
   flex: 1;
   padding: 20px;
+  padding-top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* 表单内容区域 - 可滚动 */
+.lead-detail-drawer .form-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 三栏布局样式 */
+.lead-detail-drawer .page-step-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-bottom: 0;
+  flex: 1;
+}
+
+/* 双栏布局样式 - 用于邀约到店阶段和丢单阶段 */
+.lead-detail-drawer .page-step-fields[data-stage="邀约到店"],
+.lead-detail-drawer .page-step-fields[data-stage="丢单"] {
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 8px !important;
+}
+
+/* 已到店阶段使用单栏布局但保持极简风格 */
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 0;
+  flex: 1;
+}
+
+/* 赢单阶段使用单栏布局但保持极简风格 */
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 0;
+  flex: 1;
+}
+
+/* 邀约到店阶段的字段项样式 */
+.lead-detail-drawer .page-step-fields[data-stage="邀约到店"] .page-step-field-item {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 4px;
+  margin-bottom: 2px;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="邀约到店"] .page-step-field-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 丢单阶段的字段项样式 */
+.lead-detail-drawer .page-step-fields[data-stage="丢单"] .page-step-field-item {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px !important;
+  margin-bottom: 2px !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="丢单"] .page-step-field-item:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 已到店阶段的字段项样式 */
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .page-step-field-item {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px !important;
+  margin-bottom: 2px !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .page-step-field-item:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 赢单阶段的字段项样式 */
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .page-step-field-item {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px !important;
+  margin-bottom: 2px !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .page-step-field-item:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 表单字段项样式 */
+.lead-detail-drawer .page-step-field-item {
+  padding: 4px;
+  padding-bottom: 2px;
+}
+
+/* 优化Ant Design表单项的下边距 */
+.lead-detail-drawer .ant-form-item {
+  margin-bottom: 4px;
+}
+
+/* 三栏布局中的表单项特殊处理 */
+.lead-detail-drawer .page-step-fields .ant-form-item {
+  margin-bottom: 2px;
+}
+
+/* 邀约到店阶段的表单项特殊处理 */
+.lead-detail-drawer .page-step-fields[data-stage="邀约到店"] .ant-form-item {
+  margin-bottom: 2px;
+}
+
+/* 丢单阶段的表单项特殊处理 */
+.lead-detail-drawer .page-step-fields[data-stage="丢单"] .ant-form-item {
+  margin-bottom: 2px !important;
+}
+
+/* 已到店阶段的表单项特殊处理 */
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-form-item {
+  margin-bottom: 2px !important;
+}
+
+/* 赢单阶段的表单项特殊处理 */
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-form-item {
+  margin-bottom: 2px !important;
+}
+
+/* 最后一个表单项移除下边距 */
+.lead-detail-drawer .page-step-fields .ant-form-item:last-child,
+.lead-detail-drawer .page-step-fields-single .ant-form-item:last-child {
+  margin-bottom: 0;
+}
+
+.lead-detail-drawer .page-step-fields .page-step-field-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 优化表单项标签和输入框的间距 */
+.lead-detail-drawer .ant-form-item-label {
+  padding-bottom: 2px;
+}
+
+/* 邀约到店阶段的标签间距 */
+.lead-detail-drawer .page-step-fields[data-stage="邀约到店"] .ant-form-item-label {
+  padding-bottom: 1px;
+}
+
+/* 丢单阶段的标签间距 */
+.lead-detail-drawer .page-step-fields[data-stage="丢单"] .ant-form-item-label {
+  padding-bottom: 1px !important;
+}
+
+/* 已到店阶段的标签间距 */
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-form-item-label {
+  padding-bottom: 1px !important;
+}
+
+/* 赢单阶段的标签间距 */
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-form-item-label {
+  padding-bottom: 1px !important;
+}
+
+.lead-detail-drawer .ant-form-item-label > label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* 邀约到店阶段的标签样式 */
+.lead-detail-drawer .page-step-fields[data-stage="邀约到店"] .ant-form-item-label > label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+}
+
+/* 丢单阶段的标签样式 */
+.lead-detail-drawer .page-step-fields[data-stage="丢单"] .ant-form-item-label > label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+}
+
+/* 已到店阶段的标签样式 */
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-form-item-label > label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+}
+
+/* 赢单阶段的标签样式 */
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-form-item-label > label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+}
+
+/* 已到店和赢单阶段的ContractDealsTable极简样式 */
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-table,
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-table {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-table-thead > tr > th,
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-table-thead > tr > th {
+  background: transparent !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  padding: 8px 12px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #666 !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-table-tbody > tr > td,
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-table-tbody > tr > td {
+  background: transparent !important;
+  border-bottom: 1px solid #fafafa !important;
+  padding: 6px 12px !important;
+  font-size: 14px !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-table-tbody > tr:hover > td,
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-table-tbody > tr:hover > td {
+  background: #fafafa !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-table-tbody > tr:last-child > td,
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-table-tbody > tr:last-child > td {
+  border-bottom: none !important;
+}
+
+/* 签约表格右冻结列样式 */
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-table-fixed-right,
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-table-fixed-right {
+  background: transparent !important;
+  border-left: 1px solid #f0f0f0 !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-table-fixed-right .ant-table-thead > tr > th,
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-table-fixed-right .ant-table-thead > tr > th {
+  background: transparent !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #666 !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-table-fixed-right .ant-table-tbody > tr > td,
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-table-fixed-right .ant-table-tbody > tr > td {
+  background: transparent !important;
+  border-bottom: 1px solid #fafafa !important;
+  font-size: 14px !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] .ant-table-fixed-right .ant-table-tbody > tr:hover > td,
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] .ant-table-fixed-right .ant-table-tbody > tr:hover > td {
+  background: #fafafa !important;
+}
+
+/* 已到店和赢单阶段的表格头部极简样式 */
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] div[style*="background: transparent"],
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] div[style*="background: transparent"] {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 8px 0 !important;
+  margin-bottom: 8px !important;
+}
+
+.lead-detail-drawer .page-step-fields[data-stage="已到店"] div[style*="background: transparent"] div,
+.lead-detail-drawer .page-step-fields[data-stage="赢单"] div[style*="background: transparent"] div {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #666 !important;
+}
+
+/* 单栏布局样式 */
+.lead-detail-drawer .page-step-fields-single {
+  width: 100%;
+  margin-bottom: 0;
+  flex: 1;
+}
+
+/* 固定底部按钮区域 */
+.lead-detail-drawer .drawer-footer {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding: 16px 0 12px 0;
+  border-top: 1px solid #f0f0f0;
+  margin-top: auto;
+  z-index: 10;
+  flex-shrink: 0;
+  min-height: auto;
+  display: block;
+}
+
+/* 按钮组样式 */
+.lead-detail-drawer .drawer-footer .button-group {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 0 4px;
+}
+
+/* 按钮样式优化 */
+.lead-detail-drawer .drawer-footer .ant-btn {
+  height: 36px;
+  padding: 0 16px;
+  font-size: 14px;
+  border-radius: 6px;
+  font-weight: 500;
 }
 
 /* Ant Design默认步骤条样式 */
 .lead-detail-drawer .ant-steps {
   margin-bottom: 32px;
+  margin-top: 0;
 }
 
 /* 步骤项容器 */
@@ -94,85 +434,6 @@
   font-weight: 400;
 }
 
-/* 表单样式 */
-.lead-detail-drawer .ant-form {
-  padding: 20px;
-  background: transparent;
-}
-
-.lead-detail-drawer .ant-form-item-label > label {
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.lead-detail-drawer .ant-input,
-.lead-detail-drawer .ant-select-selector,
-.lead-detail-drawer .ant-picker {
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  transition: all 0.3s ease;
-  background: transparent;
-}
-
-.lead-detail-drawer .ant-input:hover,
-.lead-detail-drawer .ant-select-selector:hover,
-.lead-detail-drawer .ant-picker:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
-  background: transparent;
-}
-
-.lead-detail-drawer .ant-input:focus,
-.lead-detail-drawer .ant-select-focused .ant-select-selector,
-.lead-detail-drawer .ant-picker-focused {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-  background: transparent;
-}
-
-/* 步骤字段布局 */
-.lead-detail-drawer .page-step-fields {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.lead-detail-drawer .page-step-field-item {
-  padding: 16px;
-}
-
-/* 单栏布局 */
-.lead-detail-drawer .page-step-fields-single {
-  padding: 20px;
-  margin-bottom: 16px;
-}
-
-/* 按钮样式 */
-.lead-detail-drawer .ant-btn {
-  border-radius: 6px;
-  transition: all 0.3s ease;
-}
-
-.lead-detail-drawer .ant-btn-primary {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-}
-
-.lead-detail-drawer .ant-btn-primary:hover {
-  background: #4096ff;
-  border-color: #4096ff;
-}
-
-.lead-detail-drawer .ant-btn-default {
-  border-color: var(--border-color);
-}
-
-.lead-detail-drawer .ant-btn-default:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
 /* 文本样式 */
 .lead-detail-drawer .text-secondary {
   color: var(--text-secondary);
@@ -186,7 +447,7 @@
 
 .lead-detail-drawer .text-muted {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 /* 复制按钮样式 */
@@ -209,8 +470,18 @@
     flex: none;
   }
   
-  .lead-detail-drawer .page-step-fields {
-    grid-template-columns: 1fr;
+  /* 移动端按钮间距优化 */
+  .lead-detail-drawer .drawer-footer {
+    padding: 12px 0 20px 0;
+  }
+  
+  .lead-detail-drawer .drawer-footer .button-group {
+    gap: 8px;
+  }
+  
+  .lead-detail-drawer .drawer-footer .ant-btn {
+    height: 40px;
+    padding: 0 20px;
   }
 }
 
@@ -226,12 +497,14 @@
   }
 }
 
+/* 抽屉内容区域统一样式 */
 .lead-detail-drawer .ant-drawer-body {
   animation: fadeIn 0.3s ease-out;
-}
-
-/* 滚动条样式 */
-.lead-detail-drawer .ant-drawer-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 24px 24px 20px 24px;
+  overflow: visible;
   scrollbar-width: thin;
   scrollbar-color: var(--border-color) transparent;
 }
@@ -251,4 +524,27 @@
 
 .lead-detail-drawer .ant-drawer-body::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+}
+
+/* 防止抽屉整体滚动 */
+.lead-detail-drawer .ant-drawer-content {
+  height: 100%;
+  overflow: visible;
+}
+
+.lead-detail-drawer .ant-drawer-content-wrapper {
+  height: 100%;
+}
+
+/* 确保按钮条可见 */
+.lead-detail-drawer .drawer-footer {
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+}
+
+.lead-detail-drawer .button-group {
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: flex !important;
 } 

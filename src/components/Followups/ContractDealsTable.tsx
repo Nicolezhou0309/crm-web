@@ -21,26 +21,26 @@ export const ContractDealsTable: React.FC<Props> = ({
   <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', flex: 1 }}>
     <div
       style={{
-        background: '#fafbfc',
-        borderRadius: 6,
-        padding: '0 0 0 16px',
-        minHeight: 48,
-        marginBottom: 0,
+        background: 'transparent',
+        borderRadius: 0,
+        padding: '8px 0',
+        minHeight: 'auto',
+        marginBottom: '8px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderBottom: '1px solid #f0f0f0',
+        borderBottom: 'none',
       }}
     >
-      <div style={{ fontWeight: 600, fontSize: 16, color: '#222', display: 'flex', alignItems: 'center' }}>
+      <div style={{ fontWeight: 500, fontSize: 14, color: '#666', display: 'flex', alignItems: 'center' }}>
         <span style={{ marginRight: 8 }}>📊 签约记录</span>
-        <span style={{ fontSize: 12, color: '#888', fontWeight: 400 }}>(共 {dealsList.length} 条记录)</span>
+        <span style={{ fontSize: 14, color: '#999', fontWeight: 400 }}>(共 {dealsList.length} 条记录)</span>
       </div>
       {!isReadOnly && (
         <Button
           type="primary"
           size="small"
-          style={{ height: 32, borderRadius: 4, fontWeight: 500, marginRight: 16 }}
+          style={{ height: 28, borderRadius: 4, fontWeight: 500, marginRight: 0, fontSize: 14 }}
           onClick={onAdd}
         >
           新增
@@ -53,13 +53,13 @@ export const ContractDealsTable: React.FC<Props> = ({
         loading={dealsLoading}
         size="small"
         pagination={false}
-        scroll={{ y: 'calc(100vh - 400px)', x: 900 }}
+        scroll={{ y: 'calc(100vh - 400px)', x: 600 }}
         columns={[
           {
             title: '签约日期',
             dataIndex: 'contractdate',
             key: 'contractdate',
-            width: 120,
+            width: 100,
             render: (text, record) => {
               if (!isReadOnly && record.isEditing) {
                 return (
@@ -86,7 +86,7 @@ export const ContractDealsTable: React.FC<Props> = ({
             title: '签约社区',
             dataIndex: 'community',
             key: 'community',
-            width: 140,
+            width: 120,
             render: (text, record) => {
               if (!isReadOnly && record.isEditing) {
                 return (
@@ -113,7 +113,7 @@ export const ContractDealsTable: React.FC<Props> = ({
             title: '签约操作编号',
             dataIndex: 'contractnumber',
             key: 'contractnumber',
-            width: 160,
+            width: 140,
             render: (text, record) => {
               if (!isReadOnly && record.isEditing) {
                 return (
@@ -138,7 +138,7 @@ export const ContractDealsTable: React.FC<Props> = ({
             title: '签约房间号',
             dataIndex: 'roomnumber',
             key: 'roomnumber',
-            width: 140,
+            width: 120,
             render: (text, record) => {
               if (!isReadOnly && record.isEditing) {
                 return (
@@ -162,32 +162,36 @@ export const ContractDealsTable: React.FC<Props> = ({
           {
             title: '操作',
             key: 'action',
-            width: 120,
+            width: 100,
+            fixed: 'right',
             render: (_, record) => {
               if (isReadOnly) return null;
               if (record.isEditing) {
                 return (
-                  <Space size="small">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <Button
                       type="primary"
                       size="small"
                       onClick={async () => onEdit(record)}
+                      style={{ width: '100%', fontSize: 12, height: 24 }}
                     >
                       确认提交
                     </Button>
                     <Button
                       size="small"
                       onClick={() => onDelete(record)}
+                      style={{ width: '100%', fontSize: 12, height: 24 }}
                     >
                       取消
                     </Button>
-                  </Space>
+                  </div>
                 );
               }
               return (
                 <Button
                   size="small"
                   onClick={() => onEdit(record)}
+                  style={{ width: '100%', fontSize: 12, height: 24 }}
                 >
                   编辑
                 </Button>
@@ -196,7 +200,7 @@ export const ContractDealsTable: React.FC<Props> = ({
           }
         ]}
         rowKey="id"
-        style={{ backgroundColor: '#fafafa', width: '100%', minWidth: 0 }}
+        style={{ backgroundColor: 'transparent', width: '100%', minWidth: 0 }}
         locale={{
           emptyText: dealsLoading ? '加载中...' : '暂无签约记录，点击"新增"按钮添加'
         }}

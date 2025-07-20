@@ -640,7 +640,7 @@ const LeadsList: React.FC = () => {
         </Title>
         <Space>
           <Search
-            placeholder="搜索手机号、微信号或线索编号"
+            placeholder="线索编号或联系方式..."
             allowClear
             onSearch={handleGlobalSearch}
             className="page-search"

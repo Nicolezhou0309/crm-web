@@ -15,6 +15,7 @@ import './FollowupsGroupList.css';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import { useFrequencyController, FrequencyController } from '../components/Followups/useFrequencyController';
 import { ContractDealsTable } from '../components/Followups/ContractDealsTable';
+import CelebrationAnimation from '../components/CelebrationAnimation';
 import { saveFieldWithFrequency } from '../components/Followups/followupApi';
 import { toBeijingTimeStr, normalizeUtcString } from '../utils/timeUtils';
 import { useUser } from '../context/UserContext';
@@ -128,6 +129,7 @@ const FollowupsGroupList: React.FC = () => {
   const [forceUpdate, setForceUpdate] = useState(0); // 强制更新计数器
   const [shouldResetPagination, setShouldResetPagination] = useState(false); // 是否需要重置分页
   const [metroStationOptions, setMetroStationOptions] = useState<any[]>([]); // 地铁站多级选择选项
+  const [showCelebration, setShowCelebration] = useState(false); // 庆祝动画状态
 
   
   // 使用 useRef 跟踪 localData 引用，避免不必要的 setState
@@ -138,7 +140,7 @@ const FollowupsGroupList: React.FC = () => {
     '丢单', '待接收', '确认需求', '邀约到店', '已到店', '赢单'
   ];
   const stageFields = {
-    '丢单': ['followupresult'],
+    '丢单': ['majorcategory', 'followupresult'],
     '待接收': [],
     '确认需求': [
       'customerprofile',
@@ -165,6 +167,14 @@ const FollowupsGroupList: React.FC = () => {
     scheduledcommunity: '预约社区',
     showingsales_user: '带看管家',
     followupstage: '跟进阶段',
+  };
+
+  // 根据当前阶段动态调整字段标签
+  const getFieldLabel = (field: string, currentStage: string) => {
+    if (currentStage === '丢单' && field === 'followupresult') {
+      return '丢单原因';
+    }
+    return fieldLabelMap[field] || field;
   };
 
   // 获取枚举
@@ -2748,6 +2758,45 @@ const FollowupsGroupList: React.FC = () => {
     }
   };
 
+  // 确认丢单处理函数
+  const handleConfirmDropout = async () => {
+    if (!currentRecord) return;
+    
+    try {
+      await stageForm.validateFields();
+      const result = await saveDrawerForm({ followupstage: '丢单' });
+      
+      if (result.success) {
+        setDrawerOpen(false);
+        message.success('已确认丢单');
+      } else {
+        message.error('确认丢单失败: ' + result.error);
+      }
+    } catch {
+      message.error('请完整填写所有必填项');
+    }
+  };
+
+  // 恢复状态处理函数
+  const handleRestoreStatus = async () => {
+    if (!currentRecord) return;
+    
+    try {
+      await stageForm.validateFields();
+      const result = await saveDrawerForm({ followupstage: '确认需求' });
+      
+      if (result.success) {
+        setCurrentStep(2); // 确认需求是第3个阶段（索引2）
+        setCurrentStage('确认需求');
+        message.success('已恢复到确认需求阶段');
+      } else {
+        message.error('恢复状态失败: ' + result.error);
+      }
+    } catch {
+      message.error('请完整填写所有必填项');
+    }
+  };
+
   // 添加频率控制监控功能
   const [frequencyStats] = useState<any>(null);
 
@@ -3328,56 +3377,47 @@ const FollowupsGroupList: React.FC = () => {
                 data-current={currentStep}
                 size="small"
               />
-              <Form
-                form={stageForm}
-                layout="vertical"
-                onFinishFailed={() => message.error('请完整填写所有必填项')}
-                onValuesChange={(changed) => {
-                  // 保证所有时间字段始终为 dayjs 对象，且清空时为 undefined
-                  const dateFields = ['moveintime', 'scheduletime'];
-                  let needSet = false;
-                  const patch: any = {};
-                  dateFields.forEach(field => {
-                    if (field in changed) {
-                      const v = changed[field];
-                      if (!v || v === '' || v === null) {
-                        patch[field] = undefined;
-                        needSet = true;
-                      } else if (!dayjs.isDayjs(v)) {
-                        patch[field] = dayjs(v);
-                        needSet = true;
+              <div className="form-content">
+                <Form
+                  form={stageForm}
+                  layout="vertical"
+                  onFinishFailed={() => message.error('请完整填写所有必填项')}
+                  onValuesChange={(changed) => {
+                    // 保证所有时间字段始终为 dayjs 对象，且清空时为 undefined
+                    const dateFields = ['moveintime', 'scheduletime'];
+                    let needSet = false;
+                    const patch: any = {};
+                    dateFields.forEach(field => {
+                      if (field in changed) {
+                        const v = changed[field];
+                        if (!v || v === '' || v === null) {
+                          patch[field] = undefined;
+                          needSet = true;
+                        } else if (!dayjs.isDayjs(v)) {
+                          patch[field] = dayjs(v);
+                          needSet = true;
+                        }
                       }
+                    });
+                    if (needSet) {
+                      stageForm.setFieldsValue(patch);
                     }
-                  });
-                  if (needSet) {
-                    stageForm.setFieldsValue(patch);
-                  }
-                }}
-              >
-                {currentStage === '丢单' ? (
-                  <>
-                    <Form.Item
-                      name="followupresult"
-                      label="丢单原因"
-                    >
-                      <Input placeholder="请输入丢单原因" disabled={isFieldDisabled()} key={forceUpdate} />
-                    </Form.Item>
-                    <div className="mt-16">
-                      <Button type="primary" className="mr-8"
-                        onClick={handleDropout}
-                      >确定丢单</Button>
-                    </div>
-                  </>
-                                  ) : (
-                  <>
-                    {/* 其他阶段使用三分栏布局 */}
-                    {currentStage !== '已到店' && currentStage !== '赢单' && (
-                      <div className="page-step-fields">
+                  }}
+                >
+                    {/* 确认需求阶段使用三栏布局 */}
+                    {(currentStage === '确认需求' || currentStage === '邀约到店' || currentStage === '丢单') && (
+                      <div className="page-step-fields" data-stage={currentStage}>
                         {(stageFields[currentStage as keyof typeof stageFields] || []).map((field: string) => (
                           <div key={field} className="page-step-field-item">
                             <Form.Item
                               name={field}
-                              label={fieldLabelMap[field] || field}
+                              label={getFieldLabel(field, currentStage)}
+                              rules={[
+                                {
+                                  required: true,
+                                  message: `请填写${getFieldLabel(field, currentStage)}`,
+                                },
+                              ]}
                             >
                               {field === 'scheduledcommunity'
                                 ? <Select options={communityEnum} placeholder="请选择社区" loading={communityEnum.length === 0} disabled={communityEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
@@ -3392,11 +3432,19 @@ const FollowupsGroupList: React.FC = () => {
                                             options={metroStationOptions}
                                             value={findCascaderPath(metroStationOptions, stageForm.getFieldValue(field))}
                                             onChange={(_value, selectedOptions) => {
-                                              const selectedText = selectedOptions && selectedOptions.length > 1 ? selectedOptions[1].label : '';
+                                              let selectedText = '';
+                                              if (selectedOptions && selectedOptions.length > 0) {
+                                                if (selectedOptions.length > 1) {
+                                                  // 保存"一级选项/二级选项"格式
+                                                  selectedText = `${selectedOptions[0].label}/${selectedOptions[1].label}`;
+                                                } else {
+                                                  // 只有一级选项时
+                                                  selectedText = selectedOptions[0].label;
+                                                }
+                                              }
                                               stageForm.setFieldValue(field, selectedText);
                                             }}
                                             placeholder="请选择工作地点"
-                                            style={{ width: '100%', minWidth: 200 }}
                                             showSearch
                                             changeOnSelect={false}
                                             allowClear
@@ -3422,103 +3470,153 @@ const FollowupsGroupList: React.FC = () => {
                                                 stageForm.setFieldValue(field, v || undefined);
                                               }}
                                             />
-                                          : <Input disabled={isFieldDisabled()} key={forceUpdate} />}
+                                          : field === 'userbudget'
+                                            ? <InputNumber
+                                                style={{ width: '100%' }}
+                                                placeholder="请输入预算金额"
+                                                min={0}
+                                                precision={0}
+                                                disabled={isFieldDisabled()}
+                                                key={forceUpdate}
+                                              />
+                                            : field === 'majorcategory'
+                                              ? (majorCategoryOptions && majorCategoryOptions.length > 0 ? (
+                                                  <Cascader
+                                                    options={majorCategoryOptions}
+                                                    value={findCascaderPath(majorCategoryOptions, stageForm.getFieldValue(field))}
+                                                    onChange={(_value, selectedOptions) => {
+                                                      const selectedText = selectedOptions && selectedOptions.length > 1 ? selectedOptions[1].label : '';
+                                                      stageForm.setFieldValue(field, selectedText);
+                                                    }}
+                                                    placeholder="请选择跟进结果"
+                                                    showSearch
+                                                    changeOnSelect={false}
+                                                    allowClear
+                                                    disabled={isFieldDisabled()}
+                                                    key={forceUpdate}
+                                                  />
+                                                ) : (
+                                                  <Input 
+                                                    placeholder="跟进结果选项加载中..." 
+                                                    disabled={true} 
+                                                    key={forceUpdate}
+                                                  />
+                                                ))
+                                              : <Input disabled={isFieldDisabled()} key={forceUpdate} />}
                             </Form.Item>
                           </div>
                         ))}
                       </div>
                     )}
-                      
-                    {/* 已到店阶段显示签约信息表格 */}
-                    {currentStage === '已到店' && (
+                    
+                    {/* 其他阶段使用单栏布局 */}
+                    {currentStage !== '确认需求' && currentStage !== '邀约到店' && currentStage !== '丢单' && currentStage !== '已到店' && currentStage !== '赢单' && (
                       <div className="page-step-fields-single">
-                        <ContractDealsTable
-                          dealsList={dealsList}
-                          dealsLoading={dealsLoading}
-                          onAdd={() => {
-                            const newRow: any = {
-                              id: `new_${Date.now()}`,
-                              leadid: currentRecord?.leadid || '',
-                              contractdate: dayjs().format('YYYY-MM-DD'),
-                              community: '',
-                              contractnumber: '',
-                              roomnumber: '',
-                              created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-                              isNew: true,
-                              isEditing: true,
-                            };
-                            setDealsList((prev: any[]) => [newRow, ...prev]);
-                          }}
-                          onEdit={async (record) => {
-                            // 编辑/保存逻辑
-                            if (record.isNew) {
-                              // 新增记录
-                              const dealData = {
-                                leadid: currentRecord?.leadid,
-                                contractdate: record.contractdate || dayjs().format('YYYY-MM-DD'),
-                                community: record.community,
-                                contractnumber: record.contractnumber,
-                                roomnumber: record.roomnumber
-                              };
-                              const { data: newDeal, error } = await supabase
-                                .from('deals')
-                                .insert([dealData])
-                                .select()
-                                .single();
-                              if (error) {
-                                message.error('创建签约记录失败: ' + error.message);
-                                return;
-                              }
-                              setDealsList(prev => prev.map(item =>
-                                item.id === record.id
-                                  ? { ...newDeal, isEditing: false }
-                                  : item
-                              ));
-                              message.success('签约记录已保存');
-                            } else {
-                              // 更新现有记录
-                              const { error } = await supabase
-                                .from('deals')
-                                .update({
-                                  contractdate: record.contractdate,
-                                  community: record.community,
-                                  contractnumber: record.contractnumber,
-                                  roomnumber: record.roomnumber
-                                })
-                                .eq('id', record.id);
-                              if (error) {
-                                message.error('更新签约记录失败: ' + error.message);
-                                return;
-                              }
-                              setDealsList(prev => prev.map(item =>
-                                item.id === record.id
-                                  ? { ...item, isEditing: false }
-                                  : item
-                              ));
-                              message.success('签约记录已更新');
-                            }
-                          }}
-                          onDelete={(record) => {
-                            if (record.isNew) {
-                              setDealsList(prev => prev.filter(item => item.id !== record.id));
-                            } else {
-                              setDealsList(prev => prev.map(item =>
-                                item.id === record.id
-                                  ? { ...item, isEditing: false }
-                                  : item
-                              ));
-                            }
-                          }}
-                          currentRecord={currentRecord}
-                          communityEnum={communityEnum}
-                          setDealsList={setDealsList}
-                        />
+                        {(stageFields[currentStage as keyof typeof stageFields] || []).map((field: string) => (
+                          <div key={field}>
+                            <Form.Item
+                              name={field}
+                              label={getFieldLabel(field, currentStage)}
+                              rules={[
+                                {
+                                  required: true,
+                                  message: `请填写${getFieldLabel(field, currentStage)}`,
+                                },
+                              ]}
+                            >
+                              {field === 'scheduledcommunity'
+                                ? <Select options={communityEnum} placeholder="请选择社区" loading={communityEnum.length === 0} disabled={communityEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
+                                : field === 'customerprofile'
+                                  ? <Select options={customerprofileEnum} placeholder="请选择用户画像" loading={customerprofileEnum.length === 0} disabled={customerprofileEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
+                                  : field === 'followupstage'
+                                    ? <Select options={followupstageEnum} placeholder="请选择阶段" loading={followupstageEnum.length === 0} disabled={followupstageEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
+                                    : field === 'userrating'
+                                      ? <Select options={userratingEnum} placeholder="请选择来访意向" loading={userratingEnum.length === 0} disabled={userratingEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
+                                      : field === 'worklocation'
+                                        ? <Cascader
+                                            options={metroStationOptions}
+                                            value={findCascaderPath(metroStationOptions, stageForm.getFieldValue(field))}
+                                            onChange={(_value, selectedOptions) => {
+                                              let selectedText = '';
+                                              if (selectedOptions && selectedOptions.length > 0) {
+                                                if (selectedOptions.length > 1) {
+                                                  // 保存"一级选项/二级选项"格式
+                                                  selectedText = `${selectedOptions[0].label}/${selectedOptions[1].label}`;
+                                                } else {
+                                                  // 只有一级选项时
+                                                  selectedText = selectedOptions[0].label;
+                                                }
+                                              }
+                                              stageForm.setFieldValue(field, selectedText);
+                                            }}
+                                            placeholder="请选择工作地点"
+                                            showSearch
+                                            changeOnSelect={false}
+                                            allowClear
+                                            disabled={isFieldDisabled()}
+                                            key={forceUpdate}
+                                          />
+                                        : field === 'moveintime' || field === 'scheduletime'
+                                          ? <DatePicker
+                                              showTime
+                                              locale={locale}
+                                              style={{ width: '100%' }}
+                                              placeholder="请选择时间"
+                                              disabled={isFieldDisabled()}
+                                              key={forceUpdate}
+                                              value={(() => {
+                                                const v = stageForm.getFieldValue(field);
+                                                if (!v || v === '' || v === null) return undefined;
+                                                if (dayjs.isDayjs(v)) return v;
+                                                if (typeof v === 'string') return dayjs(v);
+                                                return undefined;
+                                              })()}
+                                              onChange={(v: any) => {
+                                                stageForm.setFieldValue(field, v || undefined);
+                                              }}
+                                            />
+                                          : field === 'userbudget'
+                                            ? <InputNumber
+                                                style={{ width: '100%' }}
+                                                placeholder="请输入预算金额"
+                                                min={0}
+                                                precision={0}
+                                                disabled={isFieldDisabled()}
+                                                key={forceUpdate}
+                                              />
+                                            : field === 'majorcategory'
+                                              ? (majorCategoryOptions && majorCategoryOptions.length > 0 ? (
+                                                  <Cascader
+                                                    options={majorCategoryOptions}
+                                                    value={findCascaderPath(majorCategoryOptions, stageForm.getFieldValue(field))}
+                                                    onChange={(_value, selectedOptions) => {
+                                                      const selectedText = selectedOptions && selectedOptions.length > 1 ? selectedOptions[1].label : '';
+                                                      stageForm.setFieldValue(field, selectedText);
+                                                    }}
+                                                    placeholder="请选择跟进结果"
+                                                    showSearch
+                                                    changeOnSelect={false}
+                                                    allowClear
+                                                    disabled={isFieldDisabled()}
+                                                    key={forceUpdate}
+                                                  />
+                                                ) : (
+                                                  <Input 
+                                                    placeholder="跟进结果选项加载中..." 
+                                                    disabled={true} 
+                                                    key={forceUpdate}
+                                                  />
+                                                ))
+                                              : <Input disabled={isFieldDisabled()} key={forceUpdate} />}
+                            </Form.Item>
+                          </div>
+                        ))}
                       </div>
                     )}
-                      
-                    {/* 赢单阶段显示成交记录信息 */}
-                    {currentStage === '赢单' && (
-                      <div className="page-step-fields-single">
+                    
+                    {/* 已到店阶段显示签约信息表格 */}
+                    {currentStage === '已到店' && (
+                      <div className="page-step-fields" data-stage="已到店">
                         <ContractDealsTable
                           dealsList={dealsList}
                           dealsLoading={dealsLoading}
@@ -3537,52 +3635,77 @@ const FollowupsGroupList: React.FC = () => {
                             setDealsList((prev: any[]) => [newRow, ...prev]);
                           }}
                           onEdit={async (record) => {
-                            // 编辑/保存逻辑
-                            if (record.isNew) {
-                              // 新增记录
-                              const dealData = {
-                                leadid: currentRecord?.leadid,
-                                contractdate: record.contractdate || dayjs().format('YYYY-MM-DD'),
-                                community: record.community,
-                                contractnumber: record.contractnumber,
-                                roomnumber: record.roomnumber
-                              };
-                              const { data: newDeal, error } = await supabase
-                                .from('deals')
-                                .insert([dealData])
-                                .select()
-                                .single();
-                              if (error) {
-                                message.error('创建签约记录失败: ' + error.message);
-                                return;
-                              }
-                              setDealsList(prev => prev.map(item =>
-                                item.id === record.id
-                                  ? { ...newDeal, isEditing: false }
-                                  : item
-                              ));
-                              message.success('签约记录已保存');
-                            } else {
-                              // 更新现有记录
-                              const { error } = await supabase
-                                .from('deals')
-                                .update({
-                                  contractdate: record.contractdate,
+                            // 如果记录正在编辑中，执行保存逻辑
+                            if (record.isEditing) {
+                              if (record.isNew) {
+                                // 新增记录
+                                const dealData = {
+                                  leadid: currentRecord?.leadid,
+                                  contractdate: record.contractdate || dayjs().format('YYYY-MM-DD'),
                                   community: record.community,
                                   contractnumber: record.contractnumber,
                                   roomnumber: record.roomnumber
-                                })
-                                .eq('id', record.id);
-                              if (error) {
-                                message.error('更新签约记录失败: ' + error.message);
-                                return;
+                                };
+                                const { data: newDeal, error } = await supabase
+                                  .from('deals')
+                                  .insert([dealData])
+                                  .select()
+                                  .single();
+                                if (error) {
+                                  message.error('创建签约记录失败: ' + error.message);
+                                  return;
+                                }
+                                setDealsList(prev => prev.map(item =>
+                                  item.id === record.id
+                                    ? { ...newDeal, isEditing: false }
+                                    : item
+                                ));
+                                message.success('签约记录已保存');
+                                
+                                // 自动推进到赢单阶段
+                                try {
+                                  const result = await saveDrawerForm({ followupstage: '赢单' });
+                                  if (result.success) {
+                                    setCurrentStep(followupStages.indexOf('赢单'));
+                                    setCurrentStage('赢单');
+                                    message.success('已自动推进到赢单阶段');
+                                    // 触发庆祝动画
+                                    setShowCelebration(true);
+                                  } else {
+                                    message.error('推进阶段失败: ' + result.error);
+                                  }
+                                } catch (error) {
+                                  message.error('推进阶段失败');
+                                }
+                              } else {
+                                // 更新现有记录
+                                const { error } = await supabase
+                                  .from('deals')
+                                  .update({
+                                    contractdate: record.contractdate,
+                                    community: record.community,
+                                    contractnumber: record.contractnumber,
+                                    roomnumber: record.roomnumber
+                                  })
+                                  .eq('id', record.id);
+                                if (error) {
+                                  message.error('更新签约记录失败: ' + error.message);
+                                  return;
+                                }
+                                setDealsList(prev => prev.map(item =>
+                                  item.id === record.id
+                                    ? { ...item, isEditing: false }
+                                    : item
+                                ));
+                                message.success('签约记录已更新');
                               }
+                            } else {
+                              // 如果记录不在编辑状态，设置为编辑状态
                               setDealsList(prev => prev.map(item =>
                                 item.id === record.id
-                                  ? { ...item, isEditing: false }
+                                  ? { ...item, isEditing: true }
                                   : item
                               ));
-                              message.success('签约记录已更新');
                             }
                           }}
                           onDelete={(record) => {
@@ -3603,144 +3726,249 @@ const FollowupsGroupList: React.FC = () => {
                       </div>
                     )}
                     
-                    <div className="mt-16">
-                      <Button
-                        disabled={currentStep === 0}
-                        className="mr-8"
-                        style={{ marginRight: 8 }}
-                        onClick={async () => {
-                          // 上一步前自动保存
-                          try {
-                            await stageForm.validateFields();
-                            const result = await saveDrawerForm({ followupstage: followupStages[currentStep - 1] });
-                            
-                            if (result.success) {
-                              setCurrentStep(currentStep - 1);
-                              setCurrentStage(followupStages[currentStep - 1]);
-                            } else {
-                              message.error('保存失败: ' + result.error);
-                            }
-                          } catch {
-                            message.error('请完整填写所有必填项');
-                          }
-                        }}
-                      >上一步</Button>
-                      {/* 新增发放带看单按钮，仅在邀约到店阶段显示 */}
-                      {currentStage === '邀约到店' && (
-                        <Button
-                          type="primary"
-                          style={{ marginRight: 8 }}
-                          onClick={async () => {
-                            if (isFieldDisabled()) return;
-                            if (!currentRecord) return;
-                            const values = stageForm.getFieldsValue();
-                            const community = values.scheduledcommunity || null;
-                            if (!community) {
-                              message.error('请先选择预约社区');
-                              return;
-                            }
-                            // 1. 调用分配函数
-                            const { data: assignedUserId, error } = await supabase.rpc('assign_showings_user', { p_community: community });
-                            if (error || !assignedUserId) {
-                              message.error('分配带看人员失败: ' + (error?.message || '无可用人员'));
-                              return;
-                            }
-                            // 2. 查询成员昵称
-                            let nickname = '';
-                            if (assignedUserId) {
-                              const { data: userData } = await supabase
-                                .from('users_profile')
-                                .select('nickname')
-                                .eq('id', assignedUserId)
-                                .single();
-                              nickname = userData?.nickname || String(assignedUserId);
-                            }
-                            // 3. 新增showings记录
-                            const insertParams = {
-                              leadid: currentRecord.leadid,
-                              scheduletime: values.scheduletime ? dayjs(values.scheduletime).toISOString() : null,
-                              community,
-                              showingsales: assignedUserId,
+                    {/* 赢单阶段显示成交记录信息 */}
+                    {currentStage === '赢单' && (
+                      <div className="page-step-fields" data-stage="赢单">
+                        <ContractDealsTable
+                          dealsList={dealsList}
+                          dealsLoading={dealsLoading}
+                          onAdd={() => {
+                            const newRow: any = {
+                              id: `new_${Date.now()}`,
+                              leadid: currentRecord?.leadid || '',
+                              contractdate: dayjs().format('YYYY-MM-DD'),
+                              community: '',
+                              contractnumber: '',
+                              roomnumber: '',
+                              created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+                              isNew: true,
+                              isEditing: true,
                             };
-                            const { error: insertError } = await supabase.from('showings').insert(insertParams).select();
-                            if (insertError) {
-                              message.error('发放带看单失败: ' + insertError.message);
-                              return;
-                            }
-                            // 4. 推进到"已到店"阶段
-                            const result = await saveDrawerForm({ followupstage: '已到店' });
-                            
-                            if (result.success) {
-                              setCurrentStep(currentStep + 1);
-                              setCurrentStage('已到店');
-                              message.success(`带看单已发放，分配给 ${nickname}`);
-                            } else {
-                              message.error('推进阶段失败: ' + result.error);
-                            }
+                            setDealsList((prev: any[]) => [newRow, ...prev]);
                           }}
-                        >
-                          发放带看单
-                        </Button>
-                      )}
-                      {currentStep === followupStages.length - 1 ? (
-                        <Button
-                          type="primary"
-                          style={{ marginLeft: 8 }}
-                          onClick={() => {
-                            message.success('跟进阶段管理完成');
-                            setDrawerOpen(false);
-                          }}
-                        >
-                          完成
-                        </Button>
-                      ) : (
-                        <Button
-                          type="primary"
-                          style={{ marginLeft: 8 }}
-                          onClick={async () => {
-                            // 下一步前自动保存
-                            try {
-                              const values = await stageForm.validateFields();
-                              if (!currentRecord) return;
-                              
-                              // 如果是"已到店"阶段推进到"赢单"阶段，需要验证是否有签约记录
-                              if (currentStage === '已到店' && currentStep + 1 === followupStages.length - 1) {
-                                // 检查是否有签约记录
-                                if (dealsList.length === 0) {
-                                  message.error('请至少添加一条签约记录后再推进到"赢单"阶段');
+                          onEdit={async (record) => {
+                            // 如果记录正在编辑中，执行保存逻辑
+                            if (record.isEditing) {
+                              if (record.isNew) {
+                                // 新增记录
+                                const dealData = {
+                                  leadid: currentRecord?.leadid,
+                                  contractdate: record.contractdate || dayjs().format('YYYY-MM-DD'),
+                                  community: record.community,
+                                  contractnumber: record.contractnumber,
+                                  roomnumber: record.roomnumber
+                                };
+                                const { data: newDeal, error } = await supabase
+                                  .from('deals')
+                                  .insert([dealData])
+                                  .select()
+                                  .single();
+                                if (error) {
+                                  message.error('创建签约记录失败: ' + error.message);
                                   return;
                                 }
-                                
-                                // 检查是否有正在编辑的记录
-                                const hasEditingRecord = dealsList.some(record => record.isEditing);
-                                if (hasEditingRecord) {
-                                  message.error('请先完成当前编辑的签约记录');
-                                  return;
-                                }
-                                
-                                message.success('可以推进到"赢单"阶段');
-                              }
-                              
-                              const result = await saveDrawerForm({ followupstage: followupStages[currentStep + 1] });
-                              
-                              if (result.success) {
-                                setCurrentStep(currentStep + 1);
-                                setCurrentStage(followupStages[currentStep + 1]);
+                                setDealsList(prev => prev.map(item =>
+                                  item.id === record.id
+                                    ? { ...newDeal, isEditing: false }
+                                    : item
+                                ));
+                                message.success('签约记录已保存');
+                                // 赢单阶段不需要自动推进，已经是最终阶段
+                                // 触发庆祝动画
+                                setShowCelebration(true);
                               } else {
-                                message.error('保存失败: ' + result.error);
+                                // 更新现有记录
+                                const { error } = await supabase
+                                  .from('deals')
+                                  .update({
+                                    contractdate: record.contractdate,
+                                    community: record.community,
+                                    contractnumber: record.contractnumber,
+                                    roomnumber: record.roomnumber
+                                  })
+                                  .eq('id', record.id);
+                                if (error) {
+                                  message.error('更新签约记录失败: ' + error.message);
+                                  return;
+                                }
+                                setDealsList(prev => prev.map(item =>
+                                  item.id === record.id
+                                    ? { ...item, isEditing: false }
+                                    : item
+                                ));
+                                message.success('签约记录已更新');
                               }
-                            } catch {
-                              message.error('请完整填写所有必填项');
+                            } else {
+                              // 如果记录不在编辑状态，设置为编辑状态
+                              setDealsList(prev => prev.map(item =>
+                                item.id === record.id
+                                  ? { ...item, isEditing: true }
+                                  : item
+                              ));
                             }
                           }}
-                        >
-                          下一步
-                        </Button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </Form>
+                          onDelete={(record) => {
+                            if (record.isNew) {
+                              setDealsList(prev => prev.filter(item => item.id !== record.id));
+                            } else {
+                              setDealsList(prev => prev.map(item =>
+                                item.id === record.id
+                                  ? { ...item, isEditing: false }
+                                  : item
+                              ));
+                            }
+                          }}
+                          currentRecord={currentRecord}
+                          communityEnum={communityEnum}
+                          setDealsList={setDealsList}
+                        />
+                      </div>
+                    )}
+                </Form>
+              </div>
+              
+              {/* 固定底部按钮区域 */}
+              <div className="drawer-footer">
+                <div className="button-group">
+                  {/* 丢单阶段不显示上一步按钮 */}
+                  {currentStage !== '丢单' && (
+                    <Button
+                      disabled={currentStep === 0}
+                      onClick={async () => {
+                        // 上一步前自动保存
+                        try {
+                          await stageForm.validateFields();
+                          const result = await saveDrawerForm({ followupstage: followupStages[currentStep - 1] });
+                          
+                          if (result.success) {
+                            setCurrentStep(currentStep - 1);
+                            setCurrentStage(followupStages[currentStep - 1]);
+                          } else {
+                            message.error('保存失败: ' + result.error);
+                          }
+                        } catch {
+                          message.error('请完整填写所有必填项');
+                        }
+                      }}
+                    >上一步</Button>
+                  )}
+                  
+                  {/* 新增发放带看单按钮，仅在邀约到店阶段显示 */}
+                  {currentStage === '邀约到店' && (
+                    <Button
+                      type="primary"
+                      onClick={async () => {
+                        if (isFieldDisabled()) return;
+                        if (!currentRecord) return;
+                        const values = stageForm.getFieldsValue();
+                        const community = values.scheduledcommunity || null;
+                        if (!community) {
+                          message.error('请先选择预约社区');
+                          return;
+                        }
+                        // 1. 调用分配函数
+                        const { data: assignedUserId, error } = await supabase.rpc('assign_showings_user', { p_community: community });
+                        if (error || !assignedUserId) {
+                          message.error('分配带看人员失败: ' + (error?.message || '无可用人员'));
+                          return;
+                        }
+                        // 2. 查询成员昵称
+                        let nickname = '';
+                        if (assignedUserId) {
+                          const { data: userData } = await supabase
+                            .from('users_profile')
+                            .select('nickname')
+                            .eq('id', assignedUserId)
+                            .single();
+                          nickname = userData?.nickname || String(assignedUserId);
+                        }
+                        // 3. 新增showings记录
+                        const insertParams = {
+                          leadid: currentRecord.leadid,
+                          scheduletime: values.scheduletime ? dayjs(values.scheduletime).toISOString() : null,
+                          community,
+                          showingsales: assignedUserId,
+                        };
+                        const { error: insertError } = await supabase.from('showings').insert(insertParams).select();
+                        if (insertError) {
+                          message.error('发放带看单失败: ' + insertError.message);
+                          return;
+                        }
+                        // 4. 推进到"已到店"阶段
+                        const result = await saveDrawerForm({ followupstage: '已到店' });
+                        
+                        if (result.success) {
+                          setCurrentStep(currentStep + 1);
+                          setCurrentStage('已到店');
+                          message.success(`带看单已发放，分配给 ${nickname}`);
+                        } else {
+                          message.error('推进阶段失败: ' + result.error);
+                        }
+                      }}
+                    >
+                      发放带看单
+                    </Button>
+                  )}
+
+                  {/* 丢单阶段的特殊按钮 */}
+                  {currentStage === '丢单' && (
+                    <>
+                      <Button
+                        danger
+                        onClick={handleConfirmDropout}
+                        disabled={isFieldDisabled()}
+                      >
+                        确认丢单
+                      </Button>
+                      <Button
+                        onClick={handleRestoreStatus}
+                        disabled={isFieldDisabled()}
+                      >
+                        恢复状态
+                      </Button>
+                    </>
+                  )}
+                  
+                  {currentStep === followupStages.length - 1 ? (
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        message.success('跟进阶段管理完成');
+                        setDrawerOpen(false);
+                      }}
+                    >
+                      完成
+                    </Button>
+                  ) : currentStage === '已到店' || currentStage === '丢单' ? (
+                    // 已到店阶段和丢单阶段不显示下一步按钮
+                    null
+                  ) : (
+                    <Button
+                      type="primary"
+                      onClick={async () => {
+                        // 下一步前自动保存
+                        try {
+                          const values = await stageForm.validateFields();
+                          if (!currentRecord) return;
+                          
+                          const result = await saveDrawerForm({ followupstage: followupStages[currentStep + 1] });
+                          
+                          if (result.success) {
+                            setCurrentStep(currentStep + 1);
+                            setCurrentStage(followupStages[currentStep + 1]);
+                          } else {
+                            message.error('保存失败: ' + result.error);
+                          }
+                        } catch {
+                          message.error('请完整填写所有必填项');
+                        }
+                      }}
+                    >
+                      下一步
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </Drawer>
@@ -3748,6 +3976,14 @@ const FollowupsGroupList: React.FC = () => {
           visible={leadDetailDrawerOpen}
           leadid={leadDetailId || ''}
           onClose={() => setLeadDetailDrawerOpen(false)}
+        />
+        
+        {/* 庆祝动画 */}
+        <CelebrationAnimation
+          visible={showCelebration}
+          onClose={() => setShowCelebration(false)}
+          title="🎉 恭喜成交！"
+          message="您已成功完成一笔交易，继续保持！"
         />
       </div>
     </>
