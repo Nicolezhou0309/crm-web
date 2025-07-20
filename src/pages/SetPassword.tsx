@@ -167,6 +167,55 @@ const SetPassword: React.FC = () => {
         return;
       }
       
+      // 检查是否为自定义邀请token
+      const tokenType = urlParams.get('type') || fragmentParams.get('type');
+      console.log('🔍 [SetPassword] 令牌类型:', tokenType);
+      
+      if (tokenType === 'custom_invite') {
+        console.log('🔍 [SetPassword] 处理自定义邀请令牌...');
+        
+        try {
+          // 解码自定义token
+          const decodedToken = JSON.parse(atob(token));
+          console.log('🔍 [SetPassword] 解码的令牌:', decodedToken);
+          
+          // 验证token是否过期
+          const expiresAt = new Date(decodedToken.expires_at);
+          const now = new Date();
+          
+          if (now > expiresAt) {
+            console.error('❌ [SetPassword] 自定义令牌已过期');
+            message.error('邀请链接已过期，请联系管理员重新发送邀请。');
+            setTokenValid(false);
+            setVerifying(false);
+            return;
+          }
+          
+          // 设置用户信息
+          setUserInfo({
+            email: decodedToken.email,
+            name: decodedToken.email.split('@')[0],
+            organization_id: decodedToken.organization_id,
+            organization_name: decodedToken.organization_name
+          });
+          
+          // 保存自定义token用于后续处理
+          setAccessToken(token);
+          setTokenValid(true);
+          setVerifying(false);
+          
+          console.log('✅ [SetPassword] 自定义令牌验证成功');
+          return;
+          
+        } catch (decodeError) {
+          console.error('❌ [SetPassword] 自定义令牌解码失败:', decodeError);
+          message.error('邀请链接格式错误，请联系管理员重新发送邀请。');
+          setTokenValid(false);
+          setVerifying(false);
+          return;
+        }
+      }
+      
       // 保存 token 用于后续密码设置
       setAccessToken(token);
       
@@ -207,89 +256,99 @@ const SetPassword: React.FC = () => {
         return;
       }
       
-      // 使用Supabase的邀请验证流程
-      console.log('🔄 [SetPassword] 开始验证邀请令牌...');
+      // 检查是否为自定义邀请token
+      const urlParams = new URLSearchParams(window.location.search);
+      const tokenType = urlParams.get('type');
       
-      try {
-        // 方法1：直接使用setSession建立会话（适用于邀请流程）
-        console.log('🔄 [SetPassword] 尝试使用setSession方法...');
-        console.log('🔍 [SetPassword] 令牌详情:', {
-          token: accessToken.substring(0, 20) + '...',
-          length: accessToken.length,
-          hasToken: !!accessToken
-        });
+      if (tokenType === 'custom_invite') {
+        console.log('🔑 [SetPassword] 处理自定义邀请密码设置...');
         
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: ''
-        });
-
-        if (sessionError) {
-          console.warn('⚠️ [SetPassword] setSession失败，尝试其他方法:', sessionError);
-          throw sessionError;
-        }
-
-        console.log('✅ [SetPassword] 会话建立成功:', sessionData.user?.email);
-        console.log('🔍 [SetPassword] 会话详情:', {
-          userId: sessionData.user?.id,
-          email: sessionData.user?.email,
-          hasSession: !!sessionData.session
-        });
-        
-        // 设置密码
-        const { error: updateError } = await supabase.auth.updateUser({
-          password: password,
-          data: {
-            password_set: true,
-            password_set_at: new Date().toISOString()
-          }
-        });
-
-        if (updateError) {
-          console.error('❌ [SetPassword] 密码设置失败:', updateError);
-          message.error('密码设置失败: ' + updateError.message);
-          return;
-        }
-
-        console.log('✅ [SetPassword] 密码设置成功');
-        message.success('密码设置成功！正在登录...');
-        
-        setCompleted(true);
-        
-        // 等待一下再跳转
-        setTimeout(() => {
-          navigate('/');
-        }, 2000);
-        
-      } catch (sessionError: any) {
-        console.error('❌ [SetPassword] setSession失败:', sessionError);
-        
-        // 方法2：如果setSession失败，尝试使用verifyOtp
         try {
-          console.log('🔄 [SetPassword] 尝试使用verifyOtp方法...');
+          // 解码自定义token
+          const decodedToken = JSON.parse(atob(accessToken));
+          console.log('🔍 [SetPassword] 解码的令牌:', decodedToken);
           
-          const urlParams = new URLSearchParams(window.location.search);
-          const type = urlParams.get('type') || 'invite';
-          
-          console.log('🔍 [SetPassword] 验证参数:', { 
-            token: accessToken.substring(0, 20) + '...', 
-            type,
-            email: userInfo?.email 
+          // 创建用户账户
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: decodedToken.email,
+            password: password,
+            options: {
+              data: {
+                name: decodedToken.email.split('@')[0],
+                organization_id: decodedToken.organization_id,
+                organization_name: decodedToken.organization_name,
+                password_set: true,
+                password_set_at: new Date().toISOString()
+              }
+            }
           });
           
-          const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-            email: userInfo?.email || 'unknown@example.com',
-            token: accessToken,
-            type: 'invite'
-          });
-
-          if (verifyError) {
-            console.error('❌ [SetPassword] verifyOtp失败:', verifyError);
-            message.error('邀请验证失败: ' + verifyError.message);
+          if (signUpError) {
+            console.error('❌ [SetPassword] 用户注册失败:', signUpError);
+            message.error('账户创建失败: ' + signUpError.message);
             return;
           }
+          
+          console.log('✅ [SetPassword] 用户注册成功:', signUpData.user?.email);
+          
+          // 更新用户档案状态
+          const { error: updateError } = await supabase
+            .from('users_profile')
+            .update({ 
+              status: 'active',
+              user_id: signUpData.user?.id
+            })
+            .eq('email', decodedToken.email);
+          
+          if (updateError) {
+            console.error('❌ [SetPassword] 更新用户档案失败:', updateError);
+            // 不阻止流程，因为用户已创建成功
+          }
+          
+          console.log('✅ [SetPassword] 密码设置成功');
+          message.success('密码设置成功！正在登录...');
+          
+          setCompleted(true);
+          
+          // 等待一下再跳转
+          setTimeout(() => {
+            navigate('/');
+          }, 2000);
+          
+        } catch (error) {
+          console.error('❌ [SetPassword] 自定义邀请处理失败:', error);
+          message.error('密码设置失败，请重试');
+          return;
+        }
+      } else {
+        // 使用Supabase标准邀请流程
+        console.log('�� [SetPassword] 开始验证邀请令牌...');
+        
+        try {
+          // 方法1：直接使用setSession建立会话（适用于邀请流程）
+          console.log('🔄 [SetPassword] 尝试使用setSession方法...');
+          console.log('🔍 [SetPassword] 令牌详情:', {
+            token: accessToken.substring(0, 20) + '...',
+            length: accessToken.length,
+            hasToken: !!accessToken
+          });
+          
+          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: ''
+          });
 
-          console.log('✅ [SetPassword] 邀请验证成功:', verifyData.user?.email);
+          if (sessionError) {
+            console.warn('⚠️ [SetPassword] setSession失败，尝试其他方法:', sessionError);
+            throw sessionError;
+          }
+
+          console.log('✅ [SetPassword] 会话建立成功:', sessionData.user?.email);
+          console.log('🔍 [SetPassword] 会话详情:', {
+            userId: sessionData.user?.id,
+            email: sessionData.user?.email,
+            hasSession: !!sessionData.session
+          });
           
           // 设置密码
           const { error: updateError } = await supabase.auth.updateUser({
@@ -316,15 +375,72 @@ const SetPassword: React.FC = () => {
             navigate('/');
           }, 2000);
           
-        } catch (verifyError: any) {
-          console.error('❌ [SetPassword] verifyOtp异常:', verifyError);
-          message.error('邀请验证失败，请重新获取邀请链接: ' + verifyError.message);
+        } catch (sessionError) {
+          console.error('❌ [SetPassword] setSession失败:', sessionError);
+          
+          // 方法2：如果setSession失败，尝试使用verifyOtp
+          try {
+            console.log('🔄 [SetPassword] 尝试使用verifyOtp方法...');
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const type = urlParams.get('type') || 'invite';
+            
+            console.log('🔍 [SetPassword] 验证参数:', { 
+              token: accessToken.substring(0, 20) + '...', 
+              type,
+              email: userInfo?.email 
+            });
+            
+            const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+              email: userInfo?.email || 'unknown@example.com',
+              token: accessToken,
+              type: 'invite'
+            });
+
+            if (verifyError) {
+              console.error('❌ [SetPassword] verifyOtp失败:', verifyError);
+              message.error('邀请验证失败: ' + verifyError.message);
+              return;
+            }
+
+            console.log('✅ [SetPassword] 邀请验证成功:', verifyData.user?.email);
+            
+            // 设置密码
+            const { error: updateError } = await supabase.auth.updateUser({
+              password: password,
+              data: {
+                password_set: true,
+                password_set_at: new Date().toISOString()
+              }
+            });
+
+            if (updateError) {
+              console.error('❌ [SetPassword] 密码设置失败:', updateError);
+              message.error('密码设置失败: ' + updateError.message);
+              return;
+            }
+
+            console.log('✅ [SetPassword] 密码设置成功');
+            message.success('密码设置成功！正在登录...');
+            
+            setCompleted(true);
+            
+            // 等待一下再跳转
+            setTimeout(() => {
+              navigate('/');
+            }, 2000);
+            
+          } catch (verifyError) {
+            console.error('❌ [SetPassword] verifyOtp失败:', verifyError);
+            message.error('邀请验证失败，请重试');
+            return;
+          }
         }
       }
       
     } catch (error: any) {
-      console.error('❌ [SetPassword] 设置密码异常:', error);
-      message.error('设置密码失败: ' + error.message);
+      console.error('❌ [SetPassword] 密码设置异常:', error);
+      message.error('密码设置失败: ' + error.message);
     } finally {
       setLoading(false);
     }
