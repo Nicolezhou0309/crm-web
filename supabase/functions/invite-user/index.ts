@@ -51,8 +51,7 @@ Deno.serve(async (req)=>{
     // 解析请求体
     const body = await req.json();
     console.log('请求体:', body);
-    const { email, name, organizationId, redirectTo// 邀请链接重定向地址（可选）
-     } = body;
+    const { email, name, organizationId, redirectTo } = body; // 邀请链接重定向地址（可选）
     // 验证必要参数
     if (!email) {
       console.log('缺少邮箱地址');

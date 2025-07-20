@@ -5,6 +5,7 @@ export const useAuth = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     // 获取当前用户
@@ -14,11 +15,31 @@ export const useAuth = () => {
         
         if (error) {
           console.warn('获取用户信息失败:', error);
-          setSessionError(error.message);
-          setUser(null);
+          
+          // 如果是会话丢失错误，尝试刷新会话
+          if (error.message?.includes('Auth session missing') && retryCount < 2) {
+            console.log('检测到会话丢失，尝试刷新会话...');
+            setRetryCount(prev => prev + 1);
+            
+            // 尝试刷新会话
+            const { data: { session }, error: refreshError } = await supabase.auth.getSession();
+            if (!refreshError && session?.user) {
+              console.log('会话刷新成功');
+              setUser(session.user);
+              setSessionError(null);
+              setRetryCount(0);
+            } else {
+              setSessionError(error.message);
+              setUser(null);
+            }
+          } else {
+            setSessionError(error.message);
+            setUser(null);
+          }
         } else {
           setUser(user);
           setSessionError(null);
+          setRetryCount(0);
         }
       } catch (error: any) { 
         console.error('认证会话错误:', error);
@@ -39,9 +60,11 @@ export const useAuth = () => {
         if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
           setUser(null);
           setSessionError(null);
+          setRetryCount(0);
         } else if (session?.user) {
           setUser(session.user);
           setSessionError(null);
+          setRetryCount(0);
         } else {
           setUser(null);
           setSessionError('会话已过期，请重新登录');
@@ -52,12 +75,14 @@ export const useAuth = () => {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [retryCount]);
 
   // 手动刷新会话
   const refreshSession = async () => {
     try {
       setLoading(true);
+      setRetryCount(0);
+      
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
@@ -80,10 +105,24 @@ export const useAuth = () => {
     }
   };
 
+  // 强制登出
+  const forceSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSessionError(null);
+      setRetryCount(0);
+    } catch (error) {
+      console.error('强制登出失败:', error);
+    }
+  };
+
   return { 
     user, 
     loading, 
     sessionError,
-    refreshSession 
+    refreshSession,
+    forceSignOut,
+    retryCount
   };
 }; 

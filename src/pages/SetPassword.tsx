@@ -112,6 +112,10 @@ const SetPassword: React.FC = () => {
         // 如果是邀请相关的错误，提供更友好的错误信息
         if (error === 'server_error' || error === 'unexpected_failure') {
           message.error('邀请链接验证失败，可能是链接已过期或无效。请联系管理员重新发送邀请。');
+        } else if (error === 'access_denied' && errorDescription?.includes('expired')) {
+          message.error('邀请链接已过期，请联系管理员重新发送邀请。');
+        } else if (error === 'access_denied') {
+          message.error('邀请链接无效或已被使用，请联系管理员重新发送邀请。');
         } else {
           message.error(`邀请验证失败: ${errorDescription || error}`);
         }
