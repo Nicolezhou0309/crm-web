@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, message, Card, Typography, Spin, Alert } from 'antd';
-import { LockOutlined, MailOutlined, UserOutlined, CheckCircleOutlined, SafetyOutlined } from '@ant-design/icons';
+import { LockOutlined, MailOutlined, CheckCircleOutlined, SafetyOutlined } from '@ant-design/icons';
 import { supabase } from '../supaClient';
 import { useNavigate } from 'react-router-dom';
 
