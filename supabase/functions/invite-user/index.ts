@@ -486,7 +486,7 @@ Deno.serve(async (req) => {
         throw new Error('RESEND_API_KEY 未配置，无法发送邀请邮件');
       }
       
-      // 生成自定义邀请链接 - 使用UTF-8安全的base64编码
+      // 生成自定义邀请链接 - 使用URL安全的base64编码
       const inviteData = {
         email: email,
         organization_id: organizationId,
@@ -494,10 +494,17 @@ Deno.serve(async (req) => {
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7天后过期
       };
       
-      // 使用UTF-8安全的base64编码
-      const inviteToken = btoa(unescape(encodeURIComponent(JSON.stringify(inviteData))));
+      // 使用URL安全的base64编码，正确处理UTF-8
+      const jsonString = JSON.stringify(inviteData);
+      // 使用unescape(encodeURIComponent())确保UTF-8正确编码
+      const utf8String = unescape(encodeURIComponent(jsonString));
+      const base64String = btoa(utf8String);
+      const urlSafeToken = base64String
+        .replace(/\+/g, '-')  // + 替换为 -
+        .replace(/\//g, '_')  // / 替换为 _
+        .replace(/=/g, '');   // 移除padding
       
-      const inviteUrl = `${FRONTEND_URL}/set-password?token=${inviteToken}&type=custom_invite`;
+      const inviteUrl = `${FRONTEND_URL}/set-password?token=${urlSafeToken}&type=custom_invite`;
       
       const resendResult = await sendCustomInviteEmail(
         email,

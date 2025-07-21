@@ -92,22 +92,44 @@ const SetPassword: React.FC = () => {
       
       // 预处理token - 处理URL编码字符
       let processedToken = token;
-      if (token.includes('+') || token.includes('%')) {
-        console.log('🔍 [SetPassword] 检测到URL编码字符，进行预处理...');
-        // 将+替换为%2B，然后进行URL解码
-        processedToken = token.replace(/\+/g, '%2B');
-        processedToken = decodeURIComponent(processedToken);
-        console.log('🔍 [SetPassword] 预处理后的token长度:', processedToken.length);
+      
+      // 首先进行URL解码
+      try {
+        processedToken = decodeURIComponent(token);
+        console.log('🔍 [SetPassword] URL解码后的token长度:', processedToken.length);
+      } catch (urlDecodeError) {
+        console.log('🔍 [SetPassword] URL解码失败，使用原始token:', urlDecodeError);
+        processedToken = token;
       }
+      
+      // 处理base64编码中的特殊字符
+      processedToken = processedToken
+        .replace(/-/g, '+')  // URL安全的base64中的-替换为+
+        .replace(/_/g, '/')  // URL安全的base64中的_替换为/
+        .replace(/\s/g, ''); // 移除空格
+      
+      // 添加padding
+      while (processedToken.length % 4) {
+        processedToken += '=';
+      }
+      
+      console.log('🔍 [SetPassword] 处理后的token长度:', processedToken.length);
       
       try {
         // 首先尝试直接atob解码
         const base64Decoded = atob(processedToken);
         console.log('🔍 [SetPassword] base64解码成功，长度:', base64Decoded.length);
         
-        // 然后尝试JSON解析
-        decodedToken = JSON.parse(base64Decoded);
-        console.log('🔍 [SetPassword] JSON解析成功，使用直接解码方式');
+        // 优先使用UTF-8安全解码来正确处理中文字符
+        try {
+          const utf8Decoded = decodeURIComponent(escape(base64Decoded));
+          decodedToken = JSON.parse(utf8Decoded);
+          console.log('🔍 [SetPassword] UTF-8安全解码成功');
+        } catch (utf8Error) {
+          // 如果UTF-8安全解码失败，尝试直接JSON解析
+          decodedToken = JSON.parse(base64Decoded);
+          console.log('🔍 [SetPassword] JSON解析成功，使用直接解码方式');
+        }
       } catch (directError: any) {
         console.log('🔍 [SetPassword] 直接解码失败，尝试UTF-8安全解码...');
         console.log('🔍 [SetPassword] 直接解码错误:', directError);
@@ -120,7 +142,15 @@ const SetPassword: React.FC = () => {
           console.log('🔍 [SetPassword] UTF-8安全解码成功');
         } catch (utf8Error: any) {
           console.log('🔍 [SetPassword] UTF-8安全解码也失败:', utf8Error);
-          throw new Error(`Token解码失败: ${utf8Error.message}`);
+          
+          // 最后尝试：直接解析原始token（可能是JSON格式）
+          try {
+            decodedToken = JSON.parse(token);
+            console.log('🔍 [SetPassword] 直接JSON解析成功');
+          } catch (jsonError: any) {
+            console.log('🔍 [SetPassword] 所有解码方式都失败:', jsonError);
+            throw new Error(`Token解码失败: ${jsonError.message}`);
+          }
         }
       }
       
