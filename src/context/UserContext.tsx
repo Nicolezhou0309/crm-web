@@ -7,6 +7,7 @@ interface UserProfile {
   user_id: string;
   nickname?: string;
   avatar_url?: string;
+  password_set?: boolean;
 }
 
 interface UserContextType {
@@ -94,25 +95,36 @@ class UserCacheManager {
 
   // 更新最后活动时间
   updateLastActivity() {
-    localStorage.setItem(CACHE_KEYS.LAST_ACTIVITY, Date.now().toString());
+    const now = Date.now();
+    console.log('[DEBUG] updateLastActivity', { now, formatted: new Date(now).toISOString() });
+    localStorage.setItem(CACHE_KEYS.LAST_ACTIVITY, now.toString());
   }
 
   // 检查会话是否超时
   isSessionExpired(): boolean {
     const lastActivity = localStorage.getItem(CACHE_KEYS.LAST_ACTIVITY);
+    const now = Date.now();
+    console.log('[DEBUG] isSessionExpired', {
+      lastActivity,
+      now,
+      formattedNow: new Date(now).toISOString(),
+      SESSION_TIMEOUT
+    });
     if (!lastActivity) return true;
-
-    const timeSinceLastActivity = Date.now() - parseInt(lastActivity);
+    const timeSinceLastActivity = now - parseInt(lastActivity);
+    console.log('[DEBUG] timeSinceLastActivity', timeSinceLastActivity, 'ms');
     return timeSinceLastActivity > SESSION_TIMEOUT;
   }
 
   // 获取会话剩余时间（毫秒）
   getSessionTimeRemaining(): number {
     const lastActivity = localStorage.getItem(CACHE_KEYS.LAST_ACTIVITY);
+    const now = Date.now();
     if (!lastActivity) return 0;
-
-    const timeSinceLastActivity = Date.now() - parseInt(lastActivity);
-    return Math.max(0, SESSION_TIMEOUT - timeSinceLastActivity);
+    const timeSinceLastActivity = now - parseInt(lastActivity);
+    const remaining = Math.max(0, SESSION_TIMEOUT - timeSinceLastActivity);
+    console.log('[DEBUG] getSessionTimeRemaining', { remaining, timeSinceLastActivity, SESSION_TIMEOUT });
+    return remaining;
   }
 
   // 生成会话ID
@@ -142,14 +154,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkSessionTimeout = useCallback(() => {
     const timeRemaining = cacheManager.getSessionTimeRemaining();
     setSessionTimeRemaining(timeRemaining);
-
+    console.log('[DEBUG] checkSessionTimeout', { timeRemaining });
     // 如果会话已过期
     if (cacheManager.isSessionExpired()) {
       console.log('[SESSION] 会话已超时，自动登出');
       handleLogout();
       return;
     }
-
     // 如果剩余时间少于警告阈值，显示警告
     if (timeRemaining <= WARNING_THRESHOLD && timeRemaining > 0) {
       setShowSessionWarning(true);
@@ -161,6 +172,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // 处理登出
   const handleLogout = useCallback(async () => {
     try {
+      console.log('[DEBUG] handleLogout 调用');
       await supabase.auth.signOut();
       cacheManager.clearUserCache();
       setUser(null);
@@ -247,7 +259,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // 检查缓存
       const cachedData = cacheManager.getUserCache();
-      if (cachedData) {
+      // 获取当前session用户
+      let currentSessionUser = null;
+      try {
+        const { data: { user: sessionUser } } = await supabase.auth.getUser();
+        currentSessionUser = sessionUser;
+      } catch (e) {
+        currentSessionUser = null;
+      }
+      if (
+        cachedData &&
+        currentSessionUser &&
+        cachedData.user?.id === currentSessionUser.id
+      ) {
         console.log('[USER] 使用缓存用户信息');
         setUser(cachedData.user);
         setProfile(cachedData.profile);
@@ -255,6 +279,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 检查会话状态
         checkSessionTimeout();
         return;
+      } else if (cachedData) {
+        // 缓存和当前用户不一致，清空缓存
+        console.warn('[USER] 缓存用户与当前session用户不一致，清空缓存');
+        cacheManager.clearUserCache();
       }
 
       // 添加超时处理
