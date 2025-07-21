@@ -31,6 +31,13 @@ const Profile = () => {
   // 使用UserContext获取用户信息
   const { user, refreshUser } = useUser();
 
+  // 新增：user变化时自动同步email
+  useEffect(() => {
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user]);
+
   // 使用角色权限Hook
   const { 
     userRoles, 
@@ -473,7 +480,14 @@ const Profile = () => {
             <Form.Item
               name="password"
               label="新密码"
-              rules={[{ required: true, min: 6, message: '密码至少6位' }]}
+              rules={[
+                { required: true, message: '请输入密码' },
+                { min: 6, message: '密码至少6位' },
+                { 
+                  pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, 
+                  message: '密码必须包含大小写字母和数字' 
+                }
+              ]}
             >
               <Input.Password />
             </Form.Item>

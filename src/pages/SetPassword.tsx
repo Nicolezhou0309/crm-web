@@ -291,12 +291,10 @@ const SetPassword: React.FC = () => {
   const handleCustomInvitePassword = async (password: string) => {
     try {
       console.log('🔑 [SetPassword] 处理自定义邀请密码设置...');
-      
       if (!inviteData) {
         message.error('邀请数据无效');
         return;
       }
-      
       // 创建用户账户
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: inviteData.email,
@@ -311,15 +309,12 @@ const SetPassword: React.FC = () => {
           }
         }
       });
-      
       if (signUpError) {
         console.error('❌ [SetPassword] 用户注册失败:', signUpError);
         message.error('账户创建失败: ' + signUpError.message);
         return;
       }
-      
       console.log('✅ [SetPassword] 用户注册成功:', signUpData.user?.email);
-      
       // 更新用户档案状态
       const { error: updateError } = await supabase
         .from('users_profile')
@@ -328,22 +323,39 @@ const SetPassword: React.FC = () => {
           user_id: signUpData.user?.id
         })
         .eq('email', inviteData.email);
-      
       if (updateError) {
         console.error('❌ [SetPassword] 更新用户档案失败:', updateError);
         // 不阻止流程，因为用户已创建成功
       }
-      
-      console.log('✅ [SetPassword] 密码设置成功');
-      message.success('密码设置成功！正在登录...');
-      
+      // 自动调用activate-user函数
+      try {
+        console.log('🚀 [SetPassword] 即将调用activate-user函数...');
+        const res = await fetch('/functions/v1/activate-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: inviteData.email,
+            user_id: signUpData.user?.id,
+            template_type: 'welcome',
+            template_vars: { name: inviteData.email.split('@')[0] }
+          })
+        });
+        console.log('🚀 [SetPassword] activate-user响应状态:', res.status);
+        const result = await res.json();
+        console.log('🚀 [SetPassword] activate-user响应内容:', result);
+        if (result.success) {
+          message.success('账户已激活，可直接登录！');
+        } else {
+          message.warning(result.error || '账户已创建，但激活通知失败');
+        }
+      } catch (e) {
+        console.error('❌ [SetPassword] 调用activate-user异常:', e);
+        message.warning('账户已创建，但激活通知失败');
+      }
       setCompleted(true);
-      
-      // 等待一下再跳转
       setTimeout(() => {
         navigate('/');
       }, 2000);
-      
     } catch (error) {
       console.error('❌ [SetPassword] 自定义邀请处理失败:', error);
       message.error('密码设置失败，请重试');
@@ -480,10 +492,7 @@ const SetPassword: React.FC = () => {
           borderRadius: 8, 
           marginBottom: 24 
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-            <UserOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-            <Text strong>{userInfo?.name}</Text>
-          </div>
+          {/* 用户名行已移除 */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
             <MailOutlined style={{ marginRight: 8, color: '#1890ff' }} />
             <Text>{userInfo?.email}</Text>

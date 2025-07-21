@@ -224,7 +224,19 @@ const TodoCenter: React.FC = () => {
   };
 
   return (
-    <div style={{ width: '100%', background: '#fff', borderRadius: 18, boxShadow: '0 4px 16px rgba(255,107,53,0.08)', padding: 20, height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        background: '#fff',
+        borderRadius: 18,
+        boxShadow: '0 4px 16px rgba(255,107,53,0.08)',
+        padding: 20,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       <div style={{ fontSize: 16, fontWeight: 700, color: '#222', marginBottom: 8, textAlign: 'left' }}>待办中心</div>
       <Tabs
         activeKey={activeTab}
@@ -234,9 +246,9 @@ const TodoCenter: React.FC = () => {
             key: 'todo',
             label: `未开始 (${todoList.length})`,
             children: (
-              <div style={{ 
-                height: '300px',
-                overflow: 'auto', 
+              <div style={{
+                height: 200,
+                overflowY: 'auto',
                 scrollbarWidth: 'thin',
                 scrollbarColor: '#d9d9d9 #f5f5f5'
               }}>
@@ -250,9 +262,9 @@ const TodoCenter: React.FC = () => {
             key: 'done',
             label: `已完成 (${doneList.length})`,
             children: (
-              <div style={{ 
-                height: '300px',
-                overflow: 'auto', 
+              <div style={{
+                height: 200,
+                overflowY: 'auto',
                 scrollbarWidth: 'thin',
                 scrollbarColor: '#d9d9d9 #f5f5f5'
               }}>
@@ -264,7 +276,7 @@ const TodoCenter: React.FC = () => {
           },
         ]}
         size="small"
-        style={{ marginTop: 0, flex: 1 }}
+        style={{ marginTop: 0 }}
         tabBarStyle={{ marginBottom: 8 }}
       />
     </div>

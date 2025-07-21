@@ -200,6 +200,12 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '邮件测试',
           path: '/email-test',
         },
+        {
+          key: 'notification-templates',
+          icon: <BellOutlined />,
+          label: '通知模板管理',
+          path: '/notification-templates',
+        },
       ]
     },
   ];

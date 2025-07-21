@@ -5,6 +5,7 @@ import { fetchBanners } from '../api/bannersApi';
 import RankingBoard from '../components/RankingBoard';
 import TodoCenter from '../components/TodoCenter';
 import PerformanceDashboard from '../components/PerformanceDashboard';
+import { supabase } from '../supaClient';
 
 const Index: React.FC = () => {
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -15,6 +16,22 @@ const Index: React.FC = () => {
   // 全局开屏loading
   const [pageLoading, setPageLoading] = useState(true);
   const [enlargeModalOpen, setEnlargeModalOpen] = useState(false);
+
+  // 日志：组件挂载时打印session和用户信息
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[INDEX] 当前session', session);
+    });
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      console.log('[INDEX] 当前user', user);
+    });
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[INDEX][AuthStateChange]', event, session);
+    });
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   // 拉取 banners 数据
   useEffect(() => {
@@ -104,7 +121,7 @@ const Index: React.FC = () => {
       )}
       <div style={{ background: '#f5f6fa', width: '100%', minHeight: '100%' }}>
         {/* 三栏布局：左栏（banner+业绩进度）、中栏（销售组+待办事项）、右栏（排行榜） */}
-        <Row gutter={24} align="stretch" style={{ height: '80vh', padding: '16px' }}>
+        <Row gutter={24} style={{ height: '80vh', padding: '16px' }}>
           {/* 左栏：banner + 业绩进度 */}
           <Col span={12} style={{ height: '80vh', display: 'flex', flexDirection: 'column' }}>
             {/* banner */}

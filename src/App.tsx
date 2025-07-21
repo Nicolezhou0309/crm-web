@@ -52,6 +52,7 @@ import { Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import { UserProvider, useUser } from './context/UserContext';
 import LoadingScreen from './components/LoadingScreen';
+import NotificationTemplateManager from './pages/NotificationTemplateManager';
 
 
 const { Sider, Content, Header } = Layout;
@@ -710,6 +711,7 @@ const AppContent: React.FC = () => {
                   <Route path="/test-tools" element={<TestTools />} />
                   <Route path="/test-showings-data" element={<TestShowingsData />} />
                   <Route path="/email-test" element={<EmailTest />} />
+                  <Route path="/notification-templates" element={<NotificationTemplateManager />} />
                   <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>

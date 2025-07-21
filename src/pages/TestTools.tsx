@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import CelebrationAnimation from '../components/CelebrationAnimation';
+import { supabase } from '../supaClient';
 
 const { Title, Text } = Typography;
 
@@ -18,6 +19,11 @@ const TestTools: React.FC = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationTitle, setCelebrationTitle] = useState('🎉 恭喜成交！');
   const [celebrationMessage, setCelebrationMessage] = useState('您已成功完成一笔交易，继续保持！');
+  // 新增清空工具相关状态
+  const [showCleanupModal, setShowCleanupModal] = useState(false);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<any>(null);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
 
   const testTools = [
     {
@@ -43,6 +49,15 @@ const TestTools: React.FC = () => {
       description: '测试庆祝动画效果和置顶显示',
       icon: <TrophyOutlined />, 
       color: '#faad14',
+      isLocal: true
+    },
+    // 新增清空工具卡片
+    {
+      key: 'cleanup-users',
+      title: '清空未验证用户',
+      description: '一键清理所有未验证邮箱的用户（危险操作）',
+      icon: <ToolOutlined />, 
+      color: '#ff4d4f',
       isLocal: true
     }
   ];
@@ -70,6 +85,12 @@ const TestTools: React.FC = () => {
                   // 本地工具，不进行导航
                   if (tool.key === 'celebration-test') {
                     setShowConfigModal(true);
+                  }
+                  // 新增：清空工具
+                  if (tool.key === 'cleanup-users') {
+                    setCleanupResult(null);
+                    setCleanupError(null);
+                    setShowCleanupModal(true);
                   }
                 } else if (tool.path) {
                   navigate(tool.path);
@@ -111,9 +132,14 @@ const TestTools: React.FC = () => {
                 onClick={(e) => {
                   e.stopPropagation();
                   if (tool.isLocal) {
-                    // 本地工具，不进行导航
                     if (tool.key === 'celebration-test') {
                       setShowConfigModal(true);
+                    }
+                    // 新增：清空工具
+                    if (tool.key === 'cleanup-users') {
+                      setCleanupResult(null);
+                      setCleanupError(null);
+                      setShowCleanupModal(true);
                     }
                   } else if (tool.path) {
                     navigate(tool.path);
@@ -226,6 +252,79 @@ const TestTools: React.FC = () => {
         title={celebrationTitle}
         message={celebrationMessage}
       />
+
+      {/* 清空未验证用户工具的确认模态框 */}
+      <Modal
+        title="清空未验证邮箱用户"
+        open={showCleanupModal}
+        onCancel={() => setShowCleanupModal(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setShowCleanupModal(false)}>
+            取消
+          </Button>,
+          <Button 
+            key="cleanup" 
+            type="primary" 
+            danger
+            loading={cleanupLoading}
+            onClick={async () => {
+              setCleanupLoading(true);
+              setCleanupResult(null);
+              setCleanupError(null);
+              try {
+                const endpoint = 'https://wteqgprgiylmxzszcnws.functions.supabase.co/cleanup-auth-users';
+                // 获取当前 session 的 access_token
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(endpoint, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${session?.access_token || ''}`,
+                    'Content-Type': 'application/json'
+                  }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                  setCleanupResult(data);
+                } else {
+                  setCleanupError(data?.error || '未知错误');
+                }
+              } catch (err: any) {
+                setCleanupError(err.message || '请求失败');
+              } finally {
+                setCleanupLoading(false);
+              }
+            }}
+          >
+            确认清空
+          </Button>
+        ]}
+        width={600}
+      >
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Text type="danger">
+            此操作将永久删除所有未验证邮箱的用户及其相关信息，无法恢复！请谨慎操作。
+          </Text>
+          {cleanupResult && (
+            <div style={{ background: '#f6ffed', padding: 12, borderRadius: 6 }}>
+              <div>总用户数: {cleanupResult.totalUsers}</div>
+              <div>已删除未验证用户: {cleanupResult.deletedUsers}</div>
+              <div>错误数: {cleanupResult.errors?.length || 0}</div>
+              {cleanupResult.errors?.length > 0 && (
+                <details>
+                  <summary>错误详情</summary>
+                  <pre style={{ maxHeight: 200, overflow: 'auto' }}>{JSON.stringify(cleanupResult.errors, null, 2)}</pre>
+                </details>
+              )}
+            </div>
+          )}
+          {cleanupError && (
+            <div style={{ color: 'red' }}>操作失败: {cleanupError}</div>
+          )}
+          <Text>
+            建议仅在测试环境或有备份的情况下使用。生产环境请谨慎！
+          </Text>
+        </Space>
+      </Modal>
     </div>
   );
 };
