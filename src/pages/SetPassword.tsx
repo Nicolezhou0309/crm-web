@@ -89,9 +89,20 @@ const SetPassword: React.FC = () => {
       
       // 尝试解码token
       let decodedToken;
+      
+      // 预处理token - 处理URL编码字符
+      let processedToken = token;
+      if (token.includes('+') || token.includes('%')) {
+        console.log('🔍 [SetPassword] 检测到URL编码字符，进行预处理...');
+        // 将+替换为%2B，然后进行URL解码
+        processedToken = token.replace(/\+/g, '%2B');
+        processedToken = decodeURIComponent(processedToken);
+        console.log('🔍 [SetPassword] 预处理后的token长度:', processedToken.length);
+      }
+      
       try {
         // 首先尝试直接atob解码
-        const base64Decoded = atob(token);
+        const base64Decoded = atob(processedToken);
         console.log('🔍 [SetPassword] base64解码成功，长度:', base64Decoded.length);
         
         // 然后尝试JSON解析
@@ -103,7 +114,7 @@ const SetPassword: React.FC = () => {
         
         // 如果直接解码失败，尝试UTF-8安全的解码
         try {
-          const base64Decoded = atob(token);
+          const base64Decoded = atob(processedToken);
           const utf8Decoded = decodeURIComponent(escape(base64Decoded));
           decodedToken = JSON.parse(utf8Decoded);
           console.log('🔍 [SetPassword] UTF-8安全解码成功');
