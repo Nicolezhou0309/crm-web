@@ -518,6 +518,7 @@ const SetPassword: React.FC = () => {
               prefix={<LockOutlined />}
               placeholder="请输入密码"
               className="custom-placeholder"
+              autoComplete="new-password"
             />
           </Form.Item>
 
@@ -542,6 +543,7 @@ const SetPassword: React.FC = () => {
               prefix={<LockOutlined />}
               placeholder="请再次输入密码"
               className="custom-placeholder"
+              autoComplete="new-password"
             />
           </Form.Item>
 
