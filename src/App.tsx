@@ -117,8 +117,8 @@ const AppContent: React.FC = () => {
 
     if (isMagicLink) {
       supabase.auth.signOut().finally(() => {
-        const search = window.location.search || '';
-        const hash = window.location.hash || '';
+        const search = window.location.search ?? '';
+        const hash = window.location.hash ?? '';
         navigate(`/set-password${search}${hash}`, { replace: true });
       });
     }
