@@ -25,14 +25,7 @@ const SetPassword: React.FC = () => {
     }
     console.log('[SetPassword] 页面挂载时的hash:', window.location.hash);
     handleInviteFlow();
-    const onHashChange = () => {
-      console.log('[SetPassword] hashchange:', window.location.hash);
-      handleInviteFlow();
-    };
-    window.addEventListener('hashchange', onHashChange);
-    return () => {
-      window.removeEventListener('hashchange', onHashChange);
-    };
+    // 移除 hashchange 监听，避免重复消费 magic link
   }, []);
 
   // 处理邀请流程 - 前端拦截，阻止自动登录
