@@ -18,6 +18,11 @@ const SetPassword: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // 恢复hash兜底
+    if (!window.location.hash && localStorage.getItem('invite_token_hash')) {
+      window.location.hash = localStorage.getItem('invite_token_hash');
+      console.log('[SetPassword] React挂载时恢复hash:', window.location.hash);
+    }
     console.log('[SetPassword] 页面挂载时的hash:', window.location.hash);
     handleInviteFlow();
     const onHashChange = () => {
