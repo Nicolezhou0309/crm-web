@@ -24,25 +24,34 @@ const SetPassword: React.FC = () => {
     console.log('【SetPassword】页面初始 window.location.search:', window.location.search);
     console.log('【SetPassword】页面初始 document.referrer:', document.referrer);
     // hash 解析
-    if (window.location.hash) {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    let hash = window.location.hash;
+    if (!hash || hash === '#') {
+      // 兜底用localStorage
+      hash = localStorage.getItem('supabase_hash') || '';
+      if (hash) {
+        console.log('【SetPassword】从localStorage恢复hash:', hash);
+      }
+    }
+    if (hash) {
+      const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
       console.log('【SetPassword】页面初始 hashParams:', Object.fromEntries(hashParams.entries()));
     } else {
       console.log('【SetPassword】页面初始 hashParams: 无 hash');
     }
     // ====== 日志增强结束 ======
-    handleInviteFlow();
+    handleInviteFlow(hash);
   }, []);
 
-  // 处理邀请流程 - 前端拦截，阻止自动登录
-  const handleInviteFlow = async () => {
+  // 修改 handleInviteFlow 支持传入 hash
+  const handleInviteFlow = async (hashFromEffect?: string) => {
     try {
       setVerifying(true);
       console.log('🔍 [SetPassword] 开始处理邀请流程...');
       console.log('🔍 [SetPassword] 当前URL:', window.location.href);
       // 2. 从URL中提取token和参数（兼容search和hash）
       const urlParams = new URLSearchParams(window.location.search);
-      const fragmentParams = new URLSearchParams(window.location.hash.substring(1));
+      // 优先用传入的hash
+      const fragmentParams = new URLSearchParams((hashFromEffect ? hashFromEffect.replace(/^#/, '') : window.location.hash.substring(1)));
       console.log('🔍 [SetPassword] urlParams:', Object.fromEntries(urlParams.entries()));
       console.log('🔍 [SetPassword] fragmentParams:', Object.fromEntries(fragmentParams.entries()));
       console.log('🔍 [SetPassword] window.location.hash:', window.location.hash);
@@ -94,12 +103,16 @@ const SetPassword: React.FC = () => {
         setUserInfo(data.user);
         setTokenValid(true);
         setVerifying(false);
+        // token用完后清理localStorage
+        localStorage.removeItem('supabase_hash');
         return;
       }
       if (user) {
         setUserInfo(user);
         setTokenValid(true);
         setVerifying(false);
+        // token用完后清理localStorage
+        localStorage.removeItem('supabase_hash');
         return;
       }
       // 兜底
