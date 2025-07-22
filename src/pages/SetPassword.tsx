@@ -33,7 +33,7 @@ const SetPassword: React.FC = () => {
       console.log('🛡️ [SetPassword] 阻止自动登录...');
       await supabase.auth.signOut();
       
-      // 2. 从URL中提取token和参数
+      // 2. 从URL中提取token和参数（兼容search和hash）
       const urlParams = new URLSearchParams(window.location.search);
       const fragmentParams = new URLSearchParams(window.location.hash.substring(1));
       
@@ -47,13 +47,20 @@ const SetPassword: React.FC = () => {
         return;
       }
       
-      // 提取token
-      let token = urlParams.get('token') || urlParams.get('access_token');
-      if (!token) {
-        token = fragmentParams.get('access_token') || fragmentParams.get('token');
+      // 提取token和type，并加localStorage兜底
+      let token = urlParams.get('token') || urlParams.get('access_token') || fragmentParams.get('access_token') || fragmentParams.get('token');
+      let tokenType = urlParams.get('type') || fragmentParams.get('type');
+      
+      if (token) {
+        localStorage.setItem('invite_token', token);
+        localStorage.setItem('invite_token_type', tokenType || '');
+      } else {
+        token = localStorage.getItem('invite_token');
+        tokenType = localStorage.getItem('invite_token_type');
       }
       
       console.log('🔍 [SetPassword] 提取的令牌:', token ? `${token.substring(0, 20)}...` : null);
+      console.log('🔍 [SetPassword] 令牌类型:', tokenType);
       
       if (!token) {
         console.log('❌ [SetPassword] 未找到令牌');
@@ -63,9 +70,6 @@ const SetPassword: React.FC = () => {
       }
       
       // 3. 验证token类型并处理
-      const tokenType = urlParams.get('type') || fragmentParams.get('type');
-      console.log('🔍 [SetPassword] 令牌类型:', tokenType);
-      
       if (tokenType === 'custom_invite') {
         await handleCustomInvite(token);
       } else {
@@ -278,7 +282,9 @@ const SetPassword: React.FC = () => {
       } else {
         await handleSupabaseInvitePassword(password);
       }
-      
+      // 设置成功后清理localStorage
+      localStorage.removeItem('invite_token');
+      localStorage.removeItem('invite_token_type');
     } catch (error: any) {
       console.error('❌ [SetPassword] 密码设置异常:', error);
       message.error('密码设置失败: ' + error.message);
@@ -344,7 +350,20 @@ const SetPassword: React.FC = () => {
         const result = await res.json();
         console.log('🚀 [SetPassword] activate-user响应内容:', result);
         if (result.success) {
-          message.success('账户已激活，可直接登录！');
+          message.success('账户已激活，正在登录...');
+          // 自动登录
+          const { error: loginError } = await supabase.auth.signInWithPassword({
+            email: inviteData.email,
+            password
+          });
+          if (loginError) {
+            message.error('自动登录失败，请手动登录');
+            setCompleted(true);
+            setTimeout(() => navigate('/login'), 2000);
+            return;
+          }
+          setCompleted(true);
+          setTimeout(() => navigate('/'), 2000);
         } else {
           message.warning(result.error || '账户已创建，但激活通知失败');
         }
@@ -352,10 +371,10 @@ const SetPassword: React.FC = () => {
         console.error('❌ [SetPassword] 调用activate-user异常:', e);
         message.warning('账户已创建，但激活通知失败');
       }
-      setCompleted(true);
-      setTimeout(() => {
-        navigate('/');
-      }, 2000);
+      // setCompleted(true); // 移除原有跳转逻辑
+      // setTimeout(() => {
+      //   navigate('/');
+      // }, 2000);
     } catch (error) {
       console.error('❌ [SetPassword] 自定义邀请处理失败:', error);
       message.error('密码设置失败，请重试');
@@ -384,10 +403,18 @@ const SetPassword: React.FC = () => {
 
       console.log('✅ [SetPassword] 密码设置成功');
       message.success('密码设置成功！正在登录...');
-      
+      // 自动登录
+      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+        email: userInfo.email,
+        password
+      });
+      if (loginError) {
+        message.error('自动登录失败，请手动登录');
+        setCompleted(true);
+        setTimeout(() => navigate('/login'), 2000);
+        return;
+      }
       setCompleted(true);
-      
-      // 等待一下再跳转
       setTimeout(() => {
         navigate('/');
       }, 2000);
