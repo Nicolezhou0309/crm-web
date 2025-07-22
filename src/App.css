@@ -394,3 +394,8 @@ body {
   margin-bottom: 0 !important;
 }
 
+/* 多级菜单主菜单（有子菜单的一级菜单）增加8px下边距 */
+.ant-layout-sider .ant-menu .ant-menu-submenu {
+  margin-bottom: 8px !important;
+}
+
