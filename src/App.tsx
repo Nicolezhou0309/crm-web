@@ -104,25 +104,12 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // magic link 检测和拦截，防止token被提前消费
+  // 非set-password页面自动清除magic link hash，避免用户无法进入首页
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (location.pathname === '/set-password') return;
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const token = urlParams.get('token') || urlParams.get('access_token') || hashParams.get('access_token') || hashParams.get('token');
-    const type = urlParams.get('type') || hashParams.get('type') || '';
-    const isMagicLink = !!token || ['invite', 'recovery', 'custom_invite'].includes(type);
-
-    if (isMagicLink) {
-      supabase.auth.signOut().finally(() => {
-        const search: string = window.location.search ?? '';
-        const hash: string = window.location.hash ?? '';
-        navigate(`/set-password${search}${hash}`, { replace: true });
-      });
+    if (location.pathname !== '/set-password' && window.location.hash.includes('access_token')) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
     }
-  }, [location, navigate]);
+  }, [location]);
   
   // 头像状态管理
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined);
