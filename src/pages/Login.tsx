@@ -57,8 +57,10 @@ const Login: React.FC = () => {
       return;
     }
     setResetLoading(true);
+    const redirectTo = window.location.origin + '/set-password';
+    console.log('重置密码 redirectTo:', redirectTo); // 日志输出
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: window.location.origin + '/set-password',
+      redirectTo,
     });
     setResetLoading(false);
     if (error) {
