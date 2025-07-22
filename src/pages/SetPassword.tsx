@@ -18,11 +18,8 @@ const SetPassword: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let tokenFetched = false;
     function tryGetHashAndHandle() {
-      console.log('【SetPassword】页面初始 window.location.href:', window.location.href);
-      console.log('【SetPassword】页面初始 window.location.hash:', window.location.hash);
-      console.log('【SetPassword】页面初始 window.location.search:', window.location.search);
-      console.log('【SetPassword】页面初始 document.referrer:', document.referrer);
       let hash = window.location.hash;
       if (!hash || hash === '#') {
         hash = localStorage.getItem('supabase_hash') || '';
@@ -30,29 +27,31 @@ const SetPassword: React.FC = () => {
           console.log('【SetPassword】从localStorage恢复hash:', hash);
         }
       }
+      let token = '';
       if (hash) {
         const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+        token = hashParams.get('access_token') || hashParams.get('token') || '';
         console.log('【SetPassword】页面初始 hashParams:', Object.fromEntries(hashParams.entries()));
       } else {
         console.log('【SetPassword】页面初始 hashParams: 无 hash');
       }
-      handleInviteFlow(hash);
+      if (token) {
+        tokenFetched = true;
+        handleInviteFlow(hash);
+      }
+      return !!token;
     }
     // 第一次尝试
-    tryGetHashAndHandle();
+    const gotToken = tryGetHashAndHandle();
     // 如果第一次没拿到token，100ms后再试一次
-    setTimeout(() => {
-      let hash = window.location.hash;
-      if (!hash || hash === '#') {
-        hash = localStorage.getItem('supabase_hash') || '';
-      }
-      // 只有在token依然没拿到时才重试
-      const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
-      if (!hashParams.get('access_token') && !hashParams.get('token')) {
-        console.log('【SetPassword】延迟重试localStorage兜底hash...');
-        tryGetHashAndHandle();
-      }
-    }, 100);
+    if (!gotToken) {
+      setTimeout(() => {
+        if (!tokenFetched) {
+          console.log('【SetPassword】延迟重试localStorage兜底hash...');
+          tryGetHashAndHandle();
+        }
+      }, 100);
+    }
   }, []);
 
   // 修改 handleInviteFlow 支持传入 hash
@@ -421,7 +420,6 @@ const SetPassword: React.FC = () => {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <SafetyOutlined style={{ fontSize: 48, color: '#1890ff', marginBottom: 16 }} />
           <Title level={2}>设置密码</Title>
-          <Text type="secondary">完成账户激活，设置您的登录密码</Text>
         </div>
 
         {/* 用户信息展示 */}
@@ -503,14 +501,14 @@ const SetPassword: React.FC = () => {
               block
               size="large"
             >
-              设置密码并激活账户
+              设置密码并登录账户
             </Button>
           </Form.Item>
         </Form>
 
         <div style={{ textAlign: 'center', marginTop: 24 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            设置密码后，您将自动登录到系统
+            请牢记密码，并妥善保管
           </Text>
         </div>
       </Card>
