@@ -99,21 +99,11 @@ const App: React.FC = () => {
 const AppContent: React.FC = () => {
   const { user, profile, loading, isSessionExpired } = useUser();
   const [collapsed, setCollapsed] = React.useState(false);
-  const [siderWidth, setSiderWidth] = React.useState(220);
+  const [siderWidth] = React.useState(220);
   const minSiderWidth = 56;
-  const maxSiderWidth = 320;
   const navigate = useNavigate();
   const location = useLocation();
 
-<<<<<<< HEAD
-  // 非set-password页面自动清除magic link hash，避免用户无法进入首页
-  React.useEffect(() => {
-    if (location.pathname !== '/set-password' && window.location.hash.includes('access_token')) {
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-  }, [location]);
-  
-=======
   // 侧边栏 key-path 映射
   const keyPathMap: Record<string, string> = {
     index: '/',
@@ -152,7 +142,13 @@ const AppContent: React.FC = () => {
     if (path) navigate(path);
   };
 
->>>>>>> f761054 (feat: 优化侧边栏菜单样式（字体缩小、未选中项变灰等）)
+  // 非set-password页面自动清除magic link hash，避免用户无法进入首页
+  React.useEffect(() => {
+    if (location.pathname !== '/set-password' && window.location.hash.includes('access_token')) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [location]);
+  
   // 头像状态管理
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined);
   const [avatarLoading, setAvatarLoading] = React.useState(true);
@@ -251,25 +247,6 @@ const AppContent: React.FC = () => {
   //   }
   //   return match;
   // })();
-
-  // 拖动调整Sider宽度
-  const handleSiderResize = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    const startX = e.clientX;
-    const startWidth = siderWidth;
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const newWidth = Math.min(
-        Math.max(minSiderWidth, startWidth + moveEvent.clientX - startX),
-        maxSiderWidth
-      );
-      setSiderWidth(newWidth);
-    };
-    const onMouseUp = () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  };
 
   // 判断是否为公开页面（不需要登录）
   const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password';
@@ -647,13 +624,6 @@ const AppContent: React.FC = () => {
               collapsed={collapsed}
               onCollapse={setCollapsed}
             />
-            {/* 拖动条 */}
-            {!collapsed && (
-              <div
-                className="sider-resize-bar"
-                onMouseDown={handleSiderResize}
-              />
-            )}
           </Sider>
           <Layout style={{ marginLeft: collapsed ? minSiderWidth : siderWidth, background: 'transparent', transition: 'margin-left 0.2s', borderRadius: '12px 0 0 12px' }}>
             <Content className="content-main">
