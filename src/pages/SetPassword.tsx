@@ -13,7 +13,7 @@ const SetPassword: React.FC = () => {
   const [tokenValid, setTokenValid] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [completed, setCompleted] = useState(false);
-  const [accessToken] = useState<string>('');
+  const [] = useState<string>('');
   const [inviteData] = useState<any>(null);
   const navigate = useNavigate();
 
@@ -169,8 +169,10 @@ const SetPassword: React.FC = () => {
       
       console.log('🔑 [SetPassword] 开始设置密码...');
       
-      if (!accessToken) {
-        message.error('访问令牌无效，请重新获取邀请链接');
+      // 修正：直接用 userInfo.email，去除 accessToken 校验
+      if (!userInfo || !userInfo.email) {
+        message.error('用户信息无效，请刷新页面或重新获取邀请链接');
+        setLoading(false);
         return;
       }
       
@@ -427,7 +429,7 @@ const SetPassword: React.FC = () => {
           background: '#f9f9f9', 
           padding: 16, 
           borderRadius: 8, 
-          marginBottom: 24 
+          marginBottom: 16 
         }}>
           {/* 用户名行已移除 */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
