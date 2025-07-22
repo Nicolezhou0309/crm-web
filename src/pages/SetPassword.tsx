@@ -18,7 +18,16 @@ const SetPassword: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('[SetPassword] 页面挂载时的hash:', window.location.hash);
     handleInviteFlow();
+    const onHashChange = () => {
+      console.log('[SetPassword] hashchange:', window.location.hash);
+      handleInviteFlow();
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => {
+      window.removeEventListener('hashchange', onHashChange);
+    };
   }, []);
 
   // 处理邀请流程 - 前端拦截，阻止自动登录
