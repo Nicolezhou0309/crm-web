@@ -99,6 +99,22 @@ const SetPassword: React.FC = () => {
         return;
       }
       
+      // 先检查session
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserInfo({
+          email: user.email,
+          name: user.user_metadata?.name || user.email?.split('@')[0],
+          organization_id: user.user_metadata?.organization_id,
+          organization_name: user.user_metadata?.organization_name
+        });
+        setTokenValid(true);
+        setVerifying(false);
+        return;
+      }
+      // 没有session，才signOut并verifyOtp
+      await supabase.auth.signOut();
+      
       // 3. 验证token类型并处理
       if (tokenType === 'custom_invite') {
         await handleCustomInvite(token);
