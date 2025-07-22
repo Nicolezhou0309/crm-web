@@ -269,16 +269,6 @@ const AppContent: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // 新增：如果用户已登录但未设置密码，强制跳转到/set-password
-  if (
-    user &&
-    profile &&
-    !profile.user_id && // 只针对新注册/邀请用户
-    location.pathname !== '/set-password'
-  ) {
-    return <Navigate to="/set-password" replace />;
-  }
-
   // 悬浮卡片内容
   const userCardContent = (
     <div style={{ minWidth: 320, padding: '0', borderRadius: '12px', overflow: 'hidden' }}>
