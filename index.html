@@ -21,6 +21,16 @@
       if (typeof window !== 'undefined') {
         window.__TIMEZONE__ = 'Asia/Shanghai';
       }
+      // 兜底：页面加载时hash写入localStorage
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        localStorage.setItem('invite_token_hash', window.location.hash);
+        console.log('[index.html] 已将hash写入localStorage:', window.location.hash);
+      }
+      // 兜底：如果hash丢失但localStorage有token，自动恢复hash
+      if (!window.location.hash && localStorage.getItem('invite_token_hash')) {
+        window.location.hash = localStorage.getItem('invite_token_hash');
+        console.log('[index.html] 恢复hash:', window.location.hash);
+      }
       console.log('[index.html] 页面初始hash:', window.location.hash);
       window.addEventListener('hashchange', function() {
         console.log('[index.html] hashchange:', window.location.hash);
