@@ -302,3 +302,45 @@ body {
   border-radius: 6px;
 }
 
+/* 只影响侧边栏菜单的选中项无圆角、色块横向铺满 */
+.ant-layout-sider .ant-menu-item-selected,
+.ant-layout-sider .ant-menu-submenu-selected,
+.ant-layout-sider .ant-menu-item-active,
+.ant-layout-sider .ant-menu-item:hover {
+  border-radius: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* 让侧边栏所有菜单项（包括子菜单）选中时色块横向铺满，无缩进 */
+.ant-layout-sider .ant-menu .ant-menu-item,
+.ant-layout-sider .ant-menu .ant-menu-submenu-title {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+  margin: 0 !important;
+}
+
+.ant-layout-sider .ant-menu .ant-menu-item-selected,
+.ant-layout-sider .ant-menu .ant-menu-item-active,
+.ant-layout-sider .ant-menu-sub .ant-menu-item {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+  margin: 0 !important;
+}
+
+/* 主菜单（侧边栏一级菜单）字体缩小 */
+.ant-layout-sider .ant-menu .ant-menu-item,
+.ant-layout-sider .ant-menu .ant-menu-submenu-title {
+  font-size: 14px !important;
+}
+
+/* 未选中菜单项字体为灰色 */
+.ant-layout-sider .ant-menu .ant-menu-item:not(.ant-menu-item-selected),
+.ant-layout-sider .ant-menu .ant-menu-submenu-title:not(.ant-menu-item-selected) {
+  color: #2e2e2e !important;
+}
+

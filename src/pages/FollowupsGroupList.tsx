@@ -2946,18 +2946,13 @@ const FollowupsGroupList: React.FC = () => {
             {/* 关键词搜索使用filterDropdown */}
             <div style={{ position: 'relative' }}>
               <Input.Search
-                placeholder="编号、联系方式、管家..."
+                placeholder="编号、联系方式或管家..."
                 allowClear
                 value={keywordSearch}
                 onChange={(e) => setKeywordSearch(e.target.value)}
                 onSearch={handleGlobalSearch}
                 className="page-search"
                 style={{ width: 260 }}
-                enterButton={
-                  <Button icon={<ReloadOutlined />}>
-                    搜索
-                  </Button>
-                }
                 onClear={() => {
                   setKeywordSearch('');
                   resetFilter('keyword');

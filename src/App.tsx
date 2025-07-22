@@ -87,6 +87,7 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
   }
 }
 
+
 const App: React.FC = () => {
   return (
     <UserProvider>
@@ -104,6 +105,7 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+<<<<<<< HEAD
   // 非set-password页面自动清除magic link hash，避免用户无法进入首页
   React.useEffect(() => {
     if (location.pathname !== '/set-password' && window.location.hash.includes('access_token')) {
@@ -111,6 +113,46 @@ const AppContent: React.FC = () => {
     }
   }, [location]);
   
+=======
+  // 侧边栏 key-path 映射
+  const keyPathMap: Record<string, string> = {
+    index: '/',
+    leads: '/leads',
+    followups: '/followups',
+    showings: '/showings',
+    deals: '/deals',
+    allocation: '/allocation',
+    'showings-queue': '/showings-queue',
+    dashboard: '/dashboard',
+    'points-dashboard': '/points',
+    'points-exchange': '/points/exchange',
+    'points-rules': '/points/rules',
+    'honor-management': '/honor',
+    'achievement-management': '/achievement',
+    departments: '/departments',
+    'test-tools': '/test-tools',
+    roles: '/roles',
+    announcements: '/announcements',
+    test: '/test',
+    'banner-management': '/banner-management',
+    'load-demo': '/loading-demo',
+    'email-test': '/email-test',
+    'notification-templates': '/notification-templates',
+  };
+  // path-key 反查
+  const pathKeyMap: Record<string, string> = {};
+  Object.entries(keyPathMap).forEach(([k, v]) => { pathKeyMap[v] = k; });
+
+  // 计算 selectedKey
+  const selectedKey = pathKeyMap[location.pathname] || '';
+
+  // 侧边栏菜单点击跳转
+  const handleMenuClick = (key: string) => {
+    const path = keyPathMap[key];
+    if (path) navigate(path);
+  };
+
+>>>>>>> f761054 (feat: 优化侧边栏菜单样式（字体缩小、未选中项变灰等）)
   // 头像状态管理
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined);
   const [avatarLoading, setAvatarLoading] = React.useState(true);
@@ -129,10 +171,6 @@ const AppContent: React.FC = () => {
   const equippedFrame = getEquippedAvatarFrame();
   // 兼容icon_url字段和frame_data.icon_url
   const frameUrl = (equippedFrame && (equippedFrame as any).icon_url) || equippedFrame?.frame_data?.icon_url;
-
-  const onMenuClick: MenuProps['onClick'] = e => {
-    if (e.key === 'followups') navigate('/followups');
-  };
 
   // 获取头像URL的函数
   const fetchAvatar = React.useCallback(async () => {
@@ -194,25 +232,25 @@ const AppContent: React.FC = () => {
   }, [profileId, loadUserPoints]);
 
   // 修正高亮逻辑：只有严格等于'/'时高亮首页，其它优先匹配最长path
-  const selectedKey = (() => {
-    if (location.pathname === '/') return 'index';
-    let match = '';
-    let maxLen = 0;
-    for (const group of menuItems) {
-      if (group && 'children' in group && group.children) {
-        for (const item of group.children) {
-          if (item && 'path' in item && typeof item.path === 'string' && location.pathname.startsWith(item.path) && item.path.length > maxLen) {
-            match = String(item.key || '');
-            maxLen = item.path.length;
-          }
-        }
-      } else if (group && 'path' in group && typeof group.path === 'string' && location.pathname.startsWith(group.path) && group.path.length > maxLen) {
-        match = String(group.key || '');
-        maxLen = group.path.length;
-      }
-    }
-    return match;
-  })();
+  // const selectedKey = (() => {
+  //   if (location.pathname === '/') return 'index';
+  //   let match = '';
+  //   let maxLen = 0;
+  //   for (const group of menuItems) {
+  //     if (group && 'children' in group && group.children) {
+  //       for (const item of group.children) {
+  //         if (item && 'path' in item && typeof item.path === 'string' && location.pathname.startsWith(item.path) && item.path.length > maxLen) {
+  //           match = String(item.key || '');
+  //           maxLen = item.path.length;
+  //         }
+  //       }
+  //     } else if (group && 'path' in group && typeof group.path === 'string' && location.pathname.startsWith(group.path) && group.path.length > maxLen) {
+  //       match = String(group.key || '');
+  //       maxLen = group.path.length;
+  //     }
+  //   }
+  //   return match;
+  // })();
 
   // 拖动调整Sider宽度
   const handleSiderResize = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
@@ -291,7 +329,7 @@ const AppContent: React.FC = () => {
           shine.style.zIndex = '10';
           shine.style.transform = 'skewX(-20deg)';
           shine.style.animation = 'shine-move 0.9s linear 1';
-          shine.style.borderRadius = '12px';
+          shine.style.borderRadius = '0';
           e.currentTarget.appendChild(shine);
           shine.addEventListener('animationend', () => {
             if (shine.parentNode) shine.parentNode.removeChild(shine);
@@ -350,10 +388,9 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       {/* 操作按钮 - 左右并排 */}
-      <div style={{ padding: '16px', display: 'flex', gap: '8px', background: '#fff', borderRadius: '0px 0px 12px 12px' }}>
+      <div style={{ padding: '16px 16px 8px 16px', display: 'flex', gap: '8px', background: '#fff', borderRadius: 0 }}>
         {/* 个人中心按钮 */}
         <Button
-          type="text"
           size="small"
           icon={<UserOutlined />}
           onClick={() => {
@@ -363,26 +400,13 @@ const AppContent: React.FC = () => {
             flex: 1,
             height: '32px',
             fontSize: '14px',
-            color: '#666',
-            border: 'none',
-            borderRadius: '4px',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#1890ff';
-            e.currentTarget.style.backgroundColor = '#f0f8ff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = '#666';
-            e.currentTarget.style.backgroundColor = 'transparent';
+            borderRadius: 8,
           }}
         >
           个人中心
         </Button>
-        
         {/* 退出登录按钮 */}
         <Button
-          type="text"
           size="small"
           icon={<LogoutOutlined />}
           onClick={async () => {
@@ -393,18 +417,9 @@ const AppContent: React.FC = () => {
             flex: 1,
             height: '32px',
             fontSize: '14px',
-            color: '#666',
-            border: 'none',
-            borderRadius: '4px',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#ff4d4f';
-            e.currentTarget.style.backgroundColor = '#fff2f0';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = '#666';
-            e.currentTarget.style.backgroundColor = 'transparent';
+            borderRadius: 8,
+            color: '#ff4d4f',
+            borderColor: '#ff4d4f',
           }}
         >
           退出登录
@@ -436,7 +451,9 @@ const AppContent: React.FC = () => {
         <Header className="app-header" style={{ height: 60, padding: '0 16px', display: 'flex', alignItems: 'center', position: 'fixed', top: 0, left: 0, right: 0, width: '100%', zIndex: 1000, background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
           {/* 顶部导航菜单，仅跟进记录 */}
           <Menu
-            onClick={onMenuClick}
+            onClick={e => {
+              if (e.key === 'followups') navigate('/followups');
+            }}
             selectedKeys={location.pathname === '/followups' ? ['followups'] : []}
             mode="horizontal"
             items={menuItems}
@@ -626,7 +643,7 @@ const AppContent: React.FC = () => {
           >
             <NavigationMenu
               selectedKey={selectedKey}
-              onMenuClick={(path) => navigate(path)}
+              onMenuClick={handleMenuClick}
               collapsed={collapsed}
               onCollapse={setCollapsed}
             />

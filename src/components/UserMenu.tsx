@@ -2,6 +2,8 @@ import { Dropdown } from 'antd';
 import { useEffect } from 'react';
 import { supabase } from '../supaClient';
 import { useUser } from '../context/UserContext';
+import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
+import './user-menu.css';
 
 export function useUserMenuAvatarUrl() {
   const { profile } = useUser();
@@ -33,14 +35,24 @@ const UserMenu = () => {
   const menuItems = [
     {
       key: 'profile',
-      label: <a href="/profile">个人中心</a>,
+      label: (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <UserOutlined />
+          个人中心
+        </span>
+      ),
     },
     {
       type: 'divider' as const,
     },
     {
       key: 'logout',
-      label: '退出登录',
+      label: (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <LogoutOutlined />
+          退出登录
+        </span>
+      ),
     },
   ];
 

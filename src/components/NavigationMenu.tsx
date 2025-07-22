@@ -44,36 +44,42 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       key: 'index', 
       icon: <HomeOutlined />, 
       label: '首页', 
-      path: '/'
+      path: '/',
+      className: 'main-menu-item',
     },
     {
       key: 'clues',
       icon: <SolutionOutlined />,
       label: '线索管理',
+      className: 'main-menu-submenu-title',
       children: [
         { 
           key: 'leads', 
           icon: <FileTextOutlined />, 
           label: '线索列表', 
-          path: '/leads'
+          path: '/leads',
+          className: 'main-menu-item',
         },
         { 
           key: 'followups', 
           icon: <UserOutlined />, 
           label: '跟进记录', 
-          path: '/followups'
+          path: '/followups',
+          className: 'main-menu-item',
         },
         { 
           key: 'showings', 
           icon: <EyeOutlined />, 
           label: '带看记录', 
-          path: '/showings'
+          path: '/showings',
+          className: 'main-menu-item',
         },
         { 
           key: 'deals', 
           icon: <CheckCircleOutlined />, 
           label: '成交记录', 
-          path: '/deals'
+          path: '/deals',
+          className: 'main-menu-item',
         },
       ]
     },
@@ -82,18 +88,21 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       key: 'allocation-manage',
       icon: <BranchesOutlined />,
       label: '分配管理',
+      className: 'main-menu-submenu-title',
       children: [
         {
           key: 'allocation',
           icon: <BranchesOutlined />,
           label: '线索分配',
           path: '/allocation',
+          className: 'main-menu-item',
         },
         {
           key: 'showings-queue',
           icon: <EyeOutlined />,
           label: '带看分配',
           path: '/showings-queue',
+          className: 'main-menu-item',
         },
       ]
     },
@@ -101,30 +110,35 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       key: 'dashboard', 
       icon: <DashboardOutlined />, 
       label: '仪表盘', 
-      path: '/dashboard'
+      path: '/dashboard',
+      className: 'main-menu-item',
     },
     {
       key: 'points',
       icon: <TrophyOutlined />,
       label: '积分管理',
+      className: 'main-menu-submenu-title',
       children: [
         { 
           key: 'points-dashboard', 
           icon: <DashboardOutlined />, 
           label: '积分看板', 
-          path: '/points'
+          path: '/points',
+          className: 'main-menu-item',
         },
         { 
           key: 'points-exchange', 
           icon: <GiftOutlined />, 
           label: '积分兑换', 
-          path: '/points/exchange'
+          path: '/points/exchange',
+          className: 'main-menu-item',
         },
         { 
           key: 'points-rules', 
           icon: <KeyOutlined />, 
           label: '积分规则', 
-          path: '/points/rules'
+          path: '/points/rules',
+          className: 'main-menu-item',
         },
       ]
     },
@@ -132,18 +146,21 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       key: 'honor',
       icon: <CrownOutlined />,
       label: '荣誉系统',
+      className: 'main-menu-submenu-title',
       children: [
         { 
           key: 'honor-management', 
           icon: <TrophyOutlined />, 
           label: '荣誉管理', 
-          path: '/honor'
+          path: '/honor',
+          className: 'main-menu-item',
         },
         { 
           key: 'achievement-management', 
           icon: <CrownOutlined />, 
           label: '成就管理', 
-          path: '/achievement'
+          path: '/achievement',
+          className: 'main-menu-item',
         },
       ]
     },
@@ -151,60 +168,70 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       key: 'departments', 
       icon: <AppstoreOutlined />, 
       label: '部门管理', 
-      path: '/departments'
+      path: '/departments',
+      className: 'main-menu-item',
     },
     {
       key: 'system',
       icon: <SettingOutlined />,
       label: '系统管理',
+      className: 'main-menu-submenu-title',
       children: [
         {
           key: 'test-tools',
           icon: <ToolOutlined />,
           label: '测试工具集',
           path: '/test-tools',
+          className: 'main-menu-item',
         },
         { 
           key: 'roles', 
           icon: <KeyOutlined />, 
           label: '角色权限', 
-          path: '/roles'
+          path: '/roles',
+          className: 'main-menu-item',
         },
         { 
           key: 'announcements', 
           icon: <BellOutlined />, 
           label: '公告配置', 
-          path: '/announcements'
+          path: '/announcements',
+          className: 'main-menu-item',
         },
         { 
           key: 'test', 
           icon: <DatabaseOutlined />, 
           label: '数据库测试', 
-          path: '/test'
+          path: '/test',
+          className: 'main-menu-item',
         },
         {
           key: 'banner-management',
           icon: <HomeOutlined />,
           label: '首页管理',
           path: '/banner-management',
+          className: 'main-menu-item',
         },
         {
           key: 'load-demo',
           icon: <ExperimentOutlined />,
           label: '加载演示',
           path: '/loading-demo',
+          className: 'main-menu-item',
         },
         {
           key: 'email-test',
           icon: <MailOutlined />,
           label: '邮件测试',
           path: '/email-test',
+          className: 'main-menu-item',
         },
         {
           key: 'notification-templates',
           icon: <BellOutlined />,
           label: '通知模板管理',
           path: '/notification-templates',
+          className: 'main-menu-item',
         },
       ]
     },
@@ -228,26 +255,13 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           mode="inline"
           selectedKeys={[selectedKey]}
           onClick={e => {
-            // 支持分级菜单点击跳转
-            let item;
-            for (const group of menuItems) {
-              if (group.children) {
-                item = group.children.find((i: any) => i.key === e.key);
-                if (item) break;
-              } else if (group.key === e.key) {
-                item = group;
-                break;
-              }
-            }
-            if (item && item.path) {
-              onMenuClick(item.path);
-            }
+            onMenuClick(e.key); // 只传 key
           }}
           inlineCollapsed={collapsed}
           items={menuItems}
           style={{
-            border: 'none',
-            height: '100%'
+            height: '100%',
+            borderRadius: '0px'
           }}
         />
       </div>
@@ -275,7 +289,6 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: '6px'
             }}
           />
         )}
