@@ -51,7 +51,6 @@
   padding: 40px 32px 32px 32px;
   display: flex;
   flex-direction: column;
-  align-items: center;
   margin-bottom: 48px;
   z-index: 1;
 }
@@ -82,22 +81,17 @@
   text-align: center;
 }
 
-.login-btn {
-  background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%);
-  color: #fff;
+.login-btn,
+.login-btn:hover,
+.login-btn:focus,
+.login-btn:active {
+  background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%) !important;
   border-radius: 24px;
   font-weight: 600;
   height: 44px;
-  margin-top: 8px;
-  border: none;
-  margin-bottom: 32px;
-}
-
-.login-btn:hover, .login-btn:focus {
-  background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%);
-  color: #fff;
-  filter: none;
-  box-shadow: none;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  transition: background 0.2s, color 0.2s;
 }
 
 .divider {
@@ -133,6 +127,16 @@
   margin-top: -32px;
   margin-bottom: 16px;
   cursor: pointer;
+}
+
+.login-btn-forgot,
+.login-btn-forgot:focus,
+.login-btn-forgot:active,
+.login-btn-forgot:focus-visible,
+.login-btn-forgot:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 /* 输入框美化 */
