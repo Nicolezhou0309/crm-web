@@ -45,6 +45,8 @@ const SetPassword: React.FC = () => {
       const fragmentParams = new URLSearchParams(window.location.hash.substring(1));
       console.log('🔍 [SetPassword] urlParams:', Object.fromEntries(urlParams.entries()));
       console.log('🔍 [SetPassword] fragmentParams:', Object.fromEntries(fragmentParams.entries()));
+      console.log('🔍 [SetPassword] window.location.hash:', window.location.hash);
+      console.log('🔍 [SetPassword] window.location.search:', window.location.search);
       
       // 检查错误信息
       const error = urlParams.get('error') || fragmentParams.get('error');
@@ -63,15 +65,11 @@ const SetPassword: React.FC = () => {
       console.log('🔍 [SetPassword] 提取到的token:', token);
       console.log('🔍 [SetPassword] 提取到的tokenType:', tokenType);
       
-      // 只在URL中有token或type为邀请/重置时才允许localStorage兜底
+      // 只在URL中有token时才写入localStorage，不再从localStorage兜底读取token
       if (token) {
         localStorage.setItem('invite_token', token);
         localStorage.setItem('invite_token_type', tokenType || '');
         console.log('🔍 [SetPassword] 已写入localStorage:', { token, tokenType });
-      } else if (tokenType === 'invite' || tokenType === 'recovery' || tokenType === 'custom_invite') {
-        token = localStorage.getItem('invite_token');
-        tokenType = localStorage.getItem('invite_token_type');
-        console.log('🔍 [SetPassword] localStorage兜底token:', token, 'tokenType:', tokenType);
       }
       
       console.log('🔍 [SetPassword] 最终token:', token);
@@ -90,6 +88,7 @@ const SetPassword: React.FC = () => {
       
       // 先检查session
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('🔍 [SetPassword] supabase.auth.getUser() 返回:', user);
       if (user) {
         setUserInfo({
           email: user.email,
@@ -235,26 +234,23 @@ const SetPassword: React.FC = () => {
   const handleSupabaseInvite = async (token: string) => {
     try {
       console.log('🔍 [SetPassword] 处理Supabase标准邀请...');
-      
-             // 验证邀请token
-       const { data, error } = await supabase.auth.verifyOtp({
-         token_hash: token || '',
-         type: 'invite'
-       });
-
+      console.log('🔍 [SetPassword] handleSupabaseInvite 传入token:', token);
+      // 验证邀请token
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: token || '',
+        type: 'invite'
+      });
+      console.log('🔍 [SetPassword] verifyOtp 返回:', { data, error });
       if (error) {
-        console.error('❌ [SetPassword] 邀请验证失败:', error);
+        console.error('❌ [SetPassword] 邀请验证失败:', error, 'token:', token);
         message.error('邀请验证失败: ' + error.message);
         setTokenValid(false);
         setVerifying(false);
         return;
       }
-
       console.log('✅ [SetPassword] 邀请验证成功:', data.user?.email);
-      
       // 立即登出，阻止自动登录
       await supabase.auth.signOut();
-      
       // 设置用户信息
       setUserInfo({
         email: data.user?.email,
@@ -262,14 +258,12 @@ const SetPassword: React.FC = () => {
         organization_id: data.user?.user_metadata?.organization_id,
         organization_name: data.user?.user_metadata?.organization_name
       });
-      
       // 保存token用于后续密码设置
       setAccessToken(token);
       setTokenValid(true);
       setVerifying(false);
-      
     } catch (error) {
-      console.error('❌ [SetPassword] Supabase邀请处理失败:', error);
+      console.error('❌ [SetPassword] Supabase邀请处理失败:', error, 'token:', token);
       message.error('邀请处理失败，请重试');
       setTokenValid(false);
       setVerifying(false);

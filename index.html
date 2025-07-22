@@ -21,11 +21,6 @@
       if (typeof window !== 'undefined') {
         window.__TIMEZONE__ = 'Asia/Shanghai';
       }
-      // 保留初始hash日志和hashchange日志
-      console.log('[index.html] 页面初始hash:', window.location.hash);
-      window.addEventListener('hashchange', function() {
-        console.log('[index.html] hashchange:', window.location.hash);
-      });
     </script>
   </head>
   <body>
