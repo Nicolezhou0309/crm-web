@@ -142,12 +142,12 @@ const AppContent: React.FC = () => {
     if (path) navigate(path);
   };
 
-  // 非set-password页面自动清除magic link hash，避免用户无法进入首页
-  React.useEffect(() => {
-    if (location.pathname !== '/set-password' && window.location.hash.includes('access_token')) {
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-  }, [location]);
+  // 移除以下 useEffect：
+  // React.useEffect(() => {
+  //   if (location.pathname !== '/set-password' && window.location.hash.includes('access_token')) {
+  //     history.replaceState(null, '', window.location.pathname + window.location.search);
+  //   }
+  // }, [location]);
   
   // 头像状态管理
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined);
