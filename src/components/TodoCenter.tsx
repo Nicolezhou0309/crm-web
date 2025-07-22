@@ -247,7 +247,7 @@ const TodoCenter: React.FC = () => {
             label: `未开始 (${todoList.length})`,
             children: (
               <div style={{
-                height: 200,
+                height: 360,
                 overflowY: 'auto',
                 scrollbarWidth: 'thin',
                 scrollbarColor: '#d9d9d9 #f5f5f5'
@@ -263,7 +263,7 @@ const TodoCenter: React.FC = () => {
             label: `已完成 (${doneList.length})`,
             children: (
               <div style={{
-                height: 200,
+                height: 360,
                 overflowY: 'auto',
                 scrollbarWidth: 'thin',
                 scrollbarColor: '#d9d9d9 #f5f5f5'

@@ -96,7 +96,6 @@ class UserCacheManager {
   // 更新最后活动时间
   updateLastActivity() {
     const now = Date.now();
-    console.log('[DEBUG] updateLastActivity', { now, formatted: new Date(now).toISOString() });
     localStorage.setItem(CACHE_KEYS.LAST_ACTIVITY, now.toString());
   }
 
@@ -104,15 +103,8 @@ class UserCacheManager {
   isSessionExpired(): boolean {
     const lastActivity = localStorage.getItem(CACHE_KEYS.LAST_ACTIVITY);
     const now = Date.now();
-    console.log('[DEBUG] isSessionExpired', {
-      lastActivity,
-      now,
-      formattedNow: new Date(now).toISOString(),
-      SESSION_TIMEOUT
-    });
     if (!lastActivity) return true;
     const timeSinceLastActivity = now - parseInt(lastActivity);
-    console.log('[DEBUG] timeSinceLastActivity', timeSinceLastActivity, 'ms');
     return timeSinceLastActivity > SESSION_TIMEOUT;
   }
 
@@ -123,7 +115,6 @@ class UserCacheManager {
     if (!lastActivity) return 0;
     const timeSinceLastActivity = now - parseInt(lastActivity);
     const remaining = Math.max(0, SESSION_TIMEOUT - timeSinceLastActivity);
-    console.log('[DEBUG] getSessionTimeRemaining', { remaining, timeSinceLastActivity, SESSION_TIMEOUT });
     return remaining;
   }
 
@@ -154,7 +145,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkSessionTimeout = useCallback(() => {
     const timeRemaining = cacheManager.getSessionTimeRemaining();
     setSessionTimeRemaining(timeRemaining);
-    console.log('[DEBUG] checkSessionTimeout', { timeRemaining });
     // 如果会话已过期
     if (cacheManager.isSessionExpired()) {
       console.log('[SESSION] 会话已超时，自动登出');

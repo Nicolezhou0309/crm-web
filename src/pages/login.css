@@ -1,0 +1,156 @@
+.login-bg {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #eaf6ff 0%, #f7f8fa 100%);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-bg::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1200px;
+  height: 100vh;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: none;
+  z-index: 0;
+  /* 多条半透明弧线 */
+  background-image:
+    radial-gradient(circle at 50% 40%, rgba(255,255,255,0.5) 0, rgba(255,255,255,0.2) 60%, transparent 80%),
+    repeating-radial-gradient(circle at 50% 40%, rgba(255,255,255,0.18) 0, rgba(255,255,255,0.18) 1px, transparent 80px, transparent 100px);
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.login-bg::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 220px;
+  z-index: 0;
+  /* 云朵渐变 */
+  background: linear-gradient(180deg, rgba(255,255,255,0.7) 10%, #f7f8fa 80%);
+  /* 云朵SVG */
+  mask-image: url('data:image/svg+xml;utf8,<svg width="100%25" height="100%25" viewBox="0 0 1440 220" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 180C120 220 360 220 480 180C600 140 840 140 960 180C1080 220 1320 220 1440 180V220H0V180Z" fill="white"/></svg>');
+  mask-size: cover;
+  mask-repeat: no-repeat;
+}
+
+.login-card {
+  width: 320px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(60, 80, 120, 0.08);
+  padding: 40px 32px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 48px;
+  z-index: 1;
+}
+
+.login-icon-circle {
+  width: 56px;
+  height: 56px;
+  background: #f3f7fa;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -56px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px #e0e7ef;
+}
+
+.login-card h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.login-subtitle {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.login-btn {
+  background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%);
+  color: #fff;
+  border-radius: 24px;
+  font-weight: 600;
+  height: 44px;
+  margin-top: 8px;
+  border: none;
+  margin-bottom: 32px;
+}
+
+.login-btn:hover, .login-btn:focus {
+  background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%);
+  color: #fff;
+  filter: none;
+  box-shadow: none;
+}
+
+.divider {
+  width: 100%;
+  text-align: center;
+  color: #bbb;
+  margin: 24px 0 12px 0;
+  position: relative;
+  font-size: 13px;
+}
+.divider:before, .divider:after {
+  content: '';
+  display: inline-block;
+  width: 40%;
+  height: 1px;
+  background: #eee;
+  vertical-align: middle;
+  margin: 0 8px;
+}
+
+.oauth-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.forgot-link {
+  float: right;
+  font-size: 13px;
+  color: #1890ff;
+  margin-top: -32px;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+/* 输入框美化 */
+.login-card .ant-input-affix-wrapper, .login-card .ant-input {
+  border-radius: 12px;
+  background: #f7f8fa;
+  border: 1px solid #e6eaf0;
+}
+
+.login-card .ant-input-affix-wrapper-focused {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24,144,255,0.08);
+}
+
+/* 响应式 */
+@media (max-width: 480px) {
+  .login-card {
+    width: 98vw;
+    padding: 24px 8px 16px 8px;
+  }
+} 

@@ -341,7 +341,9 @@ Deno.serve(async (req) => {
     
     // 只用Supabase默认邀请
     try {
+      const redirectToUrl = `${FRONTEND_URL}/set-password`;
       console.log('🔄 使用Supabase默认邀请邮件...');
+      console.log('📢 实际使用的 redirectTo:', redirectToUrl);
       const supabaseInviteResult = await sendSupabaseInvite(
         email, 
         name || email.split('@')[0], 
@@ -355,7 +357,7 @@ Deno.serve(async (req) => {
         data: {
           email_id: supabaseInviteResult.id,
           invite_sent_at: new Date().toISOString(),
-          redirect_url: `${FRONTEND_URL}/set-password`
+          redirect_url: redirectToUrl
         }
       }), {
         status: 200,
@@ -366,6 +368,58 @@ Deno.serve(async (req) => {
       });
     } catch (supabaseError) {
       console.error('❌ Supabase邀请失败:', supabaseError);
+      // 新增：如果错误为已注册，自动发送重置密码邮件
+      if (supabaseError.message && supabaseError.message.includes('already been registered')) {
+        try {
+          const resetRedirectTo = `${FRONTEND_URL}/set-password`;
+          console.log('🔄 用户已注册，尝试发送重置密码邮件...');
+          console.log('📢 实际使用的 reset redirectTo:', resetRedirectTo);
+          const { data: resetData, error: resetError } = await adminClient.auth.admin.resetPasswordForEmail(email, {
+            redirectTo: resetRedirectTo
+          });
+          if (resetError) {
+            console.error('❌ 发送重置密码邮件失败:', resetError);
+            return new Response(JSON.stringify({
+              error: '发送重置密码邮件失败',
+              details: resetError.message
+            }), {
+              status: 500,
+              headers: {
+                ...corsHeaders,
+                'Content-Type': 'application/json'
+              }
+            });
+          }
+          console.log('✅ 重置密码邮件已发送:', resetData);
+          return new Response(JSON.stringify({
+            success: true,
+            method: 'reset_password',
+            data: {
+              reset_sent_at: new Date().toISOString(),
+              redirect_url: resetRedirectTo
+            }
+          }), {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          });
+        } catch (resetCatchError) {
+          console.error('❌ 发送重置密码邮件异常:', resetCatchError);
+          return new Response(JSON.stringify({
+            error: '发送重置密码邮件异常',
+            details: resetCatchError.message
+          }), {
+            status: 500,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          });
+        }
+      }
+      // 其它错误原样返回
       return new Response(JSON.stringify({
         error: '邀请发送失败',
         details: supabaseError.message
