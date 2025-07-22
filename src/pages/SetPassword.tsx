@@ -47,14 +47,15 @@ const SetPassword: React.FC = () => {
         return;
       }
       
-      // 提取token和type，并加localStorage兜底
+      // 提取token和type
       let token = urlParams.get('token') || urlParams.get('access_token') || fragmentParams.get('access_token') || fragmentParams.get('token');
       let tokenType = urlParams.get('type') || fragmentParams.get('type');
       
+      // 只在URL中有token或type为邀请/重置时才允许localStorage兜底
       if (token) {
         localStorage.setItem('invite_token', token);
         localStorage.setItem('invite_token_type', tokenType || '');
-      } else {
+      } else if (tokenType === 'invite' || tokenType === 'recovery' || tokenType === 'custom_invite') {
         token = localStorage.getItem('invite_token');
         tokenType = localStorage.getItem('invite_token_type');
       }
@@ -63,7 +64,10 @@ const SetPassword: React.FC = () => {
       console.log('🔍 [SetPassword] 令牌类型:', tokenType);
       
       if (!token) {
-        console.log('❌ [SetPassword] 未找到令牌');
+        message.error('未找到有效的邀请令牌，请重新获取邀请邮件或联系管理员。');
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
         setTokenValid(false);
         setVerifying(false);
         return;
@@ -404,7 +408,7 @@ const SetPassword: React.FC = () => {
       console.log('✅ [SetPassword] 密码设置成功');
       message.success('密码设置成功！正在登录...');
       // 自动登录
-      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+      const { error: loginError } = await supabase.auth.signInWithPassword({
         email: userInfo.email,
         password
       });
