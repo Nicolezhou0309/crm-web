@@ -18,6 +18,19 @@ const SetPassword: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // ====== 日志增强：页面初始信息 ======
+    console.log('【SetPassword】页面初始 window.location.href:', window.location.href);
+    console.log('【SetPassword】页面初始 window.location.hash:', window.location.hash);
+    console.log('【SetPassword】页面初始 window.location.search:', window.location.search);
+    console.log('【SetPassword】页面初始 document.referrer:', document.referrer);
+    // hash 解析
+    if (window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      console.log('【SetPassword】页面初始 hashParams:', Object.fromEntries(hashParams.entries()));
+    } else {
+      console.log('【SetPassword】页面初始 hashParams: 无 hash');
+    }
+    // ====== 日志增强结束 ======
     handleInviteFlow();
   }, []);
 
