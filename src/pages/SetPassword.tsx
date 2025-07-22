@@ -38,7 +38,7 @@ const SetPassword: React.FC = () => {
       
       // 1. 立即阻止任何自动登录
       console.log('🛡️ [SetPassword] 阻止自动登录...');
-      await supabase.auth.signOut();
+      // 已移除所有 supabase.auth.signOut() 自动登出相关代码
       
       // 2. 从URL中提取token和参数（兼容search和hash）
       const urlParams = new URLSearchParams(window.location.search);
@@ -102,7 +102,7 @@ const SetPassword: React.FC = () => {
         return;
       }
       // 没有session，才signOut并verifyOtp
-      await supabase.auth.signOut();
+      // 已移除所有 supabase.auth.signOut() 自动登出相关代码
       
       // 3. 验证token类型并处理
       if (tokenType === 'custom_invite') {
@@ -251,7 +251,7 @@ const SetPassword: React.FC = () => {
       }
       console.log('✅ [SetPassword] 邀请验证成功:', data.user?.email);
       // 立即登出，阻止自动登录
-      await supabase.auth.signOut();
+      // 已移除所有 supabase.auth.signOut() 自动登出相关代码
       // 设置用户信息
       setUserInfo({
         email: data.user?.email,
