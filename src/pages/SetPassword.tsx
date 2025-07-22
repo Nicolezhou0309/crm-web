@@ -28,6 +28,10 @@ const SetPassword: React.FC = () => {
       
       console.log('🔍 [SetPassword] 开始处理邀请流程...');
       console.log('🔍 [SetPassword] 当前URL:', window.location.href);
+      console.log('🔍 [SetPassword] 当前localStorage:', {
+        invite_token: localStorage.getItem('invite_token'),
+        invite_token_type: localStorage.getItem('invite_token_type')
+      });
       
       // 1. 立即阻止任何自动登录
       console.log('🛡️ [SetPassword] 阻止自动登录...');
@@ -36,6 +40,8 @@ const SetPassword: React.FC = () => {
       // 2. 从URL中提取token和参数（兼容search和hash）
       const urlParams = new URLSearchParams(window.location.search);
       const fragmentParams = new URLSearchParams(window.location.hash.substring(1));
+      console.log('🔍 [SetPassword] urlParams:', Object.fromEntries(urlParams.entries()));
+      console.log('🔍 [SetPassword] fragmentParams:', Object.fromEntries(fragmentParams.entries()));
       
       // 检查错误信息
       const error = urlParams.get('error') || fragmentParams.get('error');
@@ -51,17 +57,22 @@ const SetPassword: React.FC = () => {
       let token = urlParams.get('token') || urlParams.get('access_token') || fragmentParams.get('access_token') || fragmentParams.get('token');
       let tokenType = urlParams.get('type') || fragmentParams.get('type');
       
+      console.log('🔍 [SetPassword] 提取到的token:', token);
+      console.log('🔍 [SetPassword] 提取到的tokenType:', tokenType);
+      
       // 只在URL中有token或type为邀请/重置时才允许localStorage兜底
       if (token) {
         localStorage.setItem('invite_token', token);
         localStorage.setItem('invite_token_type', tokenType || '');
+        console.log('🔍 [SetPassword] 已写入localStorage:', { token, tokenType });
       } else if (tokenType === 'invite' || tokenType === 'recovery' || tokenType === 'custom_invite') {
         token = localStorage.getItem('invite_token');
         tokenType = localStorage.getItem('invite_token_type');
+        console.log('🔍 [SetPassword] localStorage兜底token:', token, 'tokenType:', tokenType);
       }
       
-      console.log('🔍 [SetPassword] 提取的令牌:', token ? `${token.substring(0, 20)}...` : null);
-      console.log('🔍 [SetPassword] 令牌类型:', tokenType);
+      console.log('🔍 [SetPassword] 最终token:', token);
+      console.log('🔍 [SetPassword] 最终tokenType:', tokenType);
       
       if (!token) {
         message.error('未找到有效的邀请令牌，请重新获取邀请邮件或联系管理员。');
@@ -389,7 +400,7 @@ const SetPassword: React.FC = () => {
   const handleSupabaseInvitePassword = async (password: string) => {
     try {
       console.log('🔑 [SetPassword] 处理Supabase邀请密码设置...');
-      
+      console.log('🔑 [SetPassword] 当前userInfo:', userInfo);
       // 使用管理员API更新用户密码
       const { error } = await supabase.auth.updateUser({
         password: password,
@@ -413,6 +424,7 @@ const SetPassword: React.FC = () => {
         password
       });
       if (loginError) {
+        console.error('❌ [SetPassword] 自动登录失败:', loginError);
         message.error('自动登录失败，请手动登录');
         setCompleted(true);
         setTimeout(() => navigate('/login'), 2000);
