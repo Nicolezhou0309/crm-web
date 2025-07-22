@@ -93,6 +93,7 @@ const SetPassword: React.FC = () => {
         setUserInfo({
           email: user.email,
           name: user.user_metadata?.name || user.email?.split('@')[0],
+          // 不再主动读取 profile，直接用 session 信息
           organization_id: user.user_metadata?.organization_id,
           organization_name: user.user_metadata?.organization_name
         });
