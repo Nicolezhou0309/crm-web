@@ -13,33 +13,20 @@ const SetPassword: React.FC = () => {
   const [tokenValid, setTokenValid] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [completed, setCompleted] = useState(false);
-  const [accessToken, setAccessToken] = useState<string>('');
-  const [inviteData, setInviteData] = useState<any>(null);
+  const [accessToken] = useState<string>('');
+  const [inviteData] = useState<any>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 只记录当前hash，不再保存到localStorage
-    console.log('[SetPassword] 页面挂载时的hash:', window.location.hash);
     handleInviteFlow();
-    // 移除 hashchange 监听，避免重复消费 magic link
   }, []);
 
   // 处理邀请流程 - 前端拦截，阻止自动登录
   const handleInviteFlow = async () => {
     try {
       setVerifying(true);
-      
       console.log('🔍 [SetPassword] 开始处理邀请流程...');
       console.log('🔍 [SetPassword] 当前URL:', window.location.href);
-      console.log('🔍 [SetPassword] 当前localStorage:', {
-        invite_token: localStorage.getItem('invite_token'),
-        invite_token_type: localStorage.getItem('invite_token_type')
-      });
-      
-      // 1. 立即阻止任何自动登录
-      console.log('🛡️ [SetPassword] 阻止自动登录...');
-      // 已移除所有 supabase.auth.signOut() 自动登出相关代码
-      
       // 2. 从URL中提取token和参数（兼容search和hash）
       const urlParams = new URLSearchParams(window.location.search);
       const fragmentParams = new URLSearchParams(window.location.hash.substring(1));
@@ -47,34 +34,22 @@ const SetPassword: React.FC = () => {
       console.log('🔍 [SetPassword] fragmentParams:', Object.fromEntries(fragmentParams.entries()));
       console.log('🔍 [SetPassword] window.location.hash:', window.location.hash);
       console.log('🔍 [SetPassword] window.location.search:', window.location.search);
-      
       // 检查错误信息
       const error = urlParams.get('error') || fragmentParams.get('error');
       const errorDescription = urlParams.get('error_description') || fragmentParams.get('error_description');
-      
       if (error) {
         console.error('❌ [SetPassword] URL中包含错误信息:', { error, errorDescription });
         handleInviteError(error, errorDescription || undefined);
         return;
       }
-      
-      // 提取token和type
+      // 提取token、type、email
       let token = urlParams.get('token') || urlParams.get('access_token') || fragmentParams.get('access_token') || fragmentParams.get('token');
       let tokenType = urlParams.get('type') || fragmentParams.get('type');
-      
+      let email = urlParams.get('email') || fragmentParams.get('email');
       console.log('🔍 [SetPassword] 提取到的token:', token);
       console.log('🔍 [SetPassword] 提取到的tokenType:', tokenType);
-      
-      // 只在URL中有token时才写入localStorage，不再从localStorage兜底读取token
-      if (token) {
-        localStorage.setItem('invite_token', token);
-        localStorage.setItem('invite_token_type', tokenType || '');
-        console.log('🔍 [SetPassword] 已写入localStorage:', { token, tokenType });
-      }
-      
-      console.log('🔍 [SetPassword] 最终token:', token);
-      console.log('🔍 [SetPassword] 最终tokenType:', tokenType);
-      
+      console.log('🔍 [SetPassword] 提取到的email:', email);
+      // 检查token
       if (!token) {
         message.error('未找到有效的邀请令牌，请重新获取邀请邮件或联系管理员。');
         setTimeout(() => {
@@ -85,190 +60,48 @@ const SetPassword: React.FC = () => {
         setVerifying(false);
         return;
       }
-      
-      // 先检查session
+      // 检查session
       const { data: { user } } = await supabase.auth.getUser();
       console.log('🔍 [SetPassword] supabase.auth.getUser() 返回:', user);
-      if (user) {
-        setUserInfo({
-          email: user.email,
-          name: user.user_metadata?.name || user.email?.split('@')[0],
-          // 不再主动读取 profile，直接用 session 信息
-          organization_id: user.user_metadata?.organization_id,
-          organization_name: user.user_metadata?.organization_name
+      if (!user && token && tokenType === 'recovery' && email) {
+        // 主动用 token 登录
+        console.log('🔍 [SetPassword] session 不存在，调用 verifyOtp 登录...');
+        const { data, error } = await supabase.auth.verifyOtp({
+          email,
+          type: 'recovery',
+          token,
         });
-        setTokenValid(true); // 只要 session 有效，允许设置密码
+        if (error) {
+          console.error('❌ [SetPassword] verifyOtp 错误:', error);
+          handleInviteError(error.message || '链接已失效或已被使用');
+          setTokenValid(false);
+          setVerifying(false);
+          return;
+        }
+        setUserInfo(data.user);
+        setTokenValid(true);
         setVerifying(false);
         return;
       }
-      // 没有 session 才走 token 校验
-      
-      // 3. 验证token类型并处理
-      if (tokenType === 'custom_invite') {
-        await handleCustomInvite(token);
-      } else {
-        await handleSupabaseInvite(token);
+      if (user) {
+        setUserInfo(user);
+        setTokenValid(true);
+        setVerifying(false);
+        return;
       }
-      
-    } catch (error) {
-      console.error('❌ [SetPassword] 邀请流程处理失败:', error);
-      message.error('邀请处理失败，请重试');
+      // 兜底
+      setTokenValid(false);
+      setVerifying(false);
+    } catch (e: any) {
+      console.error('❌ [SetPassword] handleInviteFlow 异常:', e);
       setTokenValid(false);
       setVerifying(false);
     }
   };
 
   // 处理自定义邀请
-  const handleCustomInvite = async (token: string) => {
-    try {
-      console.log('🔍 [SetPassword] 处理自定义邀请令牌...');
-      console.log('🔍 [SetPassword] 原始token长度:', token.length);
-      console.log('🔍 [SetPassword] 原始token前20字符:', token.substring(0, 20));
-      
-      // 尝试解码token
-      let decodedToken;
-      
-      // 预处理token - 处理URL编码字符
-      let processedToken = token;
-      
-      // 首先进行URL解码
-      try {
-        processedToken = decodeURIComponent(token);
-        console.log('🔍 [SetPassword] URL解码后的token长度:', processedToken.length);
-      } catch (urlDecodeError) {
-        console.log('🔍 [SetPassword] URL解码失败，使用原始token:', urlDecodeError);
-        processedToken = token;
-      }
-      
-      // 处理base64编码中的特殊字符
-      processedToken = processedToken
-        .replace(/-/g, '+')  // URL安全的base64中的-替换为+
-        .replace(/_/g, '/')  // URL安全的base64中的_替换为/
-        .replace(/\s/g, ''); // 移除空格
-      
-      // 添加padding
-      while (processedToken.length % 4) {
-        processedToken += '=';
-      }
-      
-      console.log('🔍 [SetPassword] 处理后的token长度:', processedToken.length);
-      
-      try {
-        // 首先尝试直接atob解码
-        const base64Decoded = atob(processedToken);
-        console.log('🔍 [SetPassword] base64解码成功，长度:', base64Decoded.length);
-        
-        // 优先使用UTF-8安全解码来正确处理中文字符
-        try {
-          const utf8Decoded = decodeURIComponent(escape(base64Decoded));
-          decodedToken = JSON.parse(utf8Decoded);
-          console.log('🔍 [SetPassword] UTF-8安全解码成功');
-        } catch (utf8Error) {
-          // 如果UTF-8安全解码失败，尝试直接JSON解析
-          decodedToken = JSON.parse(base64Decoded);
-          console.log('🔍 [SetPassword] JSON解析成功，使用直接解码方式');
-        }
-      } catch (directError: any) {
-        console.log('🔍 [SetPassword] 直接解码失败，尝试UTF-8安全解码...');
-        console.log('🔍 [SetPassword] 直接解码错误:', directError);
-        
-        // 如果直接解码失败，尝试UTF-8安全的解码
-        try {
-          const base64Decoded = atob(processedToken);
-          const utf8Decoded = decodeURIComponent(escape(base64Decoded));
-          decodedToken = JSON.parse(utf8Decoded);
-          console.log('🔍 [SetPassword] UTF-8安全解码成功');
-        } catch (utf8Error: any) {
-          console.log('🔍 [SetPassword] UTF-8安全解码也失败:', utf8Error);
-          
-          // 最后尝试：直接解析原始token（可能是JSON格式）
-          try {
-            decodedToken = JSON.parse(token);
-            console.log('🔍 [SetPassword] 直接JSON解析成功');
-          } catch (jsonError: any) {
-            console.log('🔍 [SetPassword] 所有解码方式都失败:', jsonError);
-            throw new Error(`Token解码失败: ${jsonError.message}`);
-          }
-        }
-      }
-      
-      console.log('🔍 [SetPassword] 解码的令牌:', decodedToken);
-      
-      // 验证token是否过期
-      const expiresAt = new Date(decodedToken.expires_at);
-      const now = new Date();
-      
-      if (now > expiresAt) {
-        console.error('❌ [SetPassword] 自定义令牌已过期');
-        message.error('邀请链接已过期，请联系管理员重新发送邀请。');
-        setTokenValid(false);
-        setVerifying(false);
-        return;
-      }
-      
-      // 设置用户信息
-      setUserInfo({
-        email: decodedToken.email,
-        name: decodedToken.email.split('@')[0],
-        organization_id: decodedToken.organization_id,
-        organization_name: decodedToken.organization_name
-      });
-      
-      // 保存邀请数据
-      setInviteData(decodedToken);
-      setAccessToken(token);
-      setTokenValid(true);
-      setVerifying(false);
-      
-      console.log('✅ [SetPassword] 自定义令牌验证成功');
-      
-    } catch (decodeError) {
-      console.error('❌ [SetPassword] 自定义令牌解码失败:', decodeError);
-      message.error('邀请链接格式错误，请联系管理员重新发送邀请。');
-      setTokenValid(false);
-      setVerifying(false);
-    }
-  };
 
   // 处理Supabase标准邀请
-  const handleSupabaseInvite = async (token: string) => {
-    try {
-      console.log('🔍 [SetPassword] 处理Supabase标准邀请...');
-      console.log('🔍 [SetPassword] handleSupabaseInvite 传入token:', token);
-      // 验证邀请token
-      const { data, error } = await supabase.auth.verifyOtp({
-        token_hash: token || '',
-        type: 'invite'
-      });
-      console.log('🔍 [SetPassword] verifyOtp 返回:', { data, error });
-      if (error) {
-        console.error('❌ [SetPassword] 邀请验证失败:', error, 'token:', token);
-        message.error('邀请验证失败: ' + error.message);
-        setTokenValid(false);
-        setVerifying(false);
-        return;
-      }
-      console.log('✅ [SetPassword] 邀请验证成功:', data.user?.email);
-      // 立即登出，阻止自动登录
-      // 已移除所有 supabase.auth.signOut() 自动登出相关代码
-      // 设置用户信息
-      setUserInfo({
-        email: data.user?.email,
-        name: data.user?.user_metadata?.name || data.user?.email?.split('@')[0],
-        organization_id: data.user?.user_metadata?.organization_id,
-        organization_name: data.user?.user_metadata?.organization_name
-      });
-      // 保存token用于后续密码设置
-      setAccessToken(token);
-      setTokenValid(true);
-      setVerifying(false);
-    } catch (error) {
-      console.error('❌ [SetPassword] Supabase邀请处理失败:', error, 'token:', token);
-      message.error('邀请处理失败，请重试');
-      setTokenValid(false);
-      setVerifying(false);
-    }
-  };
 
   // 处理邀请错误
   const handleInviteError = (error: string, errorDescription?: string) => {
@@ -312,8 +145,8 @@ const SetPassword: React.FC = () => {
         await handleSupabaseInvitePassword(password);
       }
       // 设置成功后清理localStorage
-      localStorage.removeItem('invite_token');
-      localStorage.removeItem('invite_token_type');
+      // localStorage.removeItem('invite_token'); // 移除
+      // localStorage.removeItem('invite_token_type'); // 移除
     } catch (error: any) {
       console.error('❌ [SetPassword] 密码设置异常:', error);
       message.error('密码设置失败: ' + error.message);
