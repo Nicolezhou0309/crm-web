@@ -18,28 +18,41 @@ const SetPassword: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // ====== 日志增强：页面初始信息 ======
-    console.log('【SetPassword】页面初始 window.location.href:', window.location.href);
-    console.log('【SetPassword】页面初始 window.location.hash:', window.location.hash);
-    console.log('【SetPassword】页面初始 window.location.search:', window.location.search);
-    console.log('【SetPassword】页面初始 document.referrer:', document.referrer);
-    // hash 解析
-    let hash = window.location.hash;
-    if (!hash || hash === '#') {
-      // 兜底用localStorage
-      hash = localStorage.getItem('supabase_hash') || '';
-      if (hash) {
-        console.log('【SetPassword】从localStorage恢复hash:', hash);
+    function tryGetHashAndHandle() {
+      console.log('【SetPassword】页面初始 window.location.href:', window.location.href);
+      console.log('【SetPassword】页面初始 window.location.hash:', window.location.hash);
+      console.log('【SetPassword】页面初始 window.location.search:', window.location.search);
+      console.log('【SetPassword】页面初始 document.referrer:', document.referrer);
+      let hash = window.location.hash;
+      if (!hash || hash === '#') {
+        hash = localStorage.getItem('supabase_hash') || '';
+        if (hash) {
+          console.log('【SetPassword】从localStorage恢复hash:', hash);
+        }
       }
+      if (hash) {
+        const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+        console.log('【SetPassword】页面初始 hashParams:', Object.fromEntries(hashParams.entries()));
+      } else {
+        console.log('【SetPassword】页面初始 hashParams: 无 hash');
+      }
+      handleInviteFlow(hash);
     }
-    if (hash) {
+    // 第一次尝试
+    tryGetHashAndHandle();
+    // 如果第一次没拿到token，100ms后再试一次
+    setTimeout(() => {
+      let hash = window.location.hash;
+      if (!hash || hash === '#') {
+        hash = localStorage.getItem('supabase_hash') || '';
+      }
+      // 只有在token依然没拿到时才重试
       const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
-      console.log('【SetPassword】页面初始 hashParams:', Object.fromEntries(hashParams.entries()));
-    } else {
-      console.log('【SetPassword】页面初始 hashParams: 无 hash');
-    }
-    // ====== 日志增强结束 ======
-    handleInviteFlow(hash);
+      if (!hashParams.get('access_token') && !hashParams.get('token')) {
+        console.log('【SetPassword】延迟重试localStorage兜底hash...');
+        tryGetHashAndHandle();
+      }
+    }, 100);
   }, []);
 
   // 修改 handleInviteFlow 支持传入 hash
