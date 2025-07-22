@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supaClient';
-import { Input, Button, message, Form } from 'antd';
+import { Input, Button, message, Form, Modal } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,9 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { user, loading: userLoading } = useUser();
   const navigate = useNavigate();
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange(() => {});
@@ -45,6 +48,24 @@ const Login: React.FC = () => {
     } catch (e) {
       setLoading(false);
       message.error('登录异常，请重试');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetEmail || !/^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(resetEmail)) {
+      message.error('请输入有效邮箱');
+      return;
+    }
+    setResetLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: window.location.origin + '/set-password',
+    });
+    setResetLoading(false);
+    if (error) {
+      message.error(error.message || '重置邮件发送失败');
+    } else {
+      message.success('重置密码邮件已发送，请查收邮箱！');
+      setResetModalVisible(false);
     }
   };
 
@@ -91,7 +112,7 @@ const Login: React.FC = () => {
         />
       </div>
       <div className="login-card">
-        <h2>邮箱登录</h2>
+        <h2 style={{ color: '#222' ,textAlign: 'left',paddingBottom: '16px'}}>欢迎回来👏</h2>
         <Form onFinish={handleLogin} layout="vertical" style={{ width: '100%' }}>
           <Form.Item
             name="email"
@@ -120,8 +141,28 @@ const Login: React.FC = () => {
             <Input.Password autoComplete="current-password" prefix={<LockOutlined />} placeholder="请输入密码" />
           </Form.Item>
           <Button type="primary" htmlType="submit" loading={loading} block className="login-btn">立即登录</Button>
+          <div style={{ textAlign: 'right', marginTop: 8 }}>
+            <Button type="link" size="small" onClick={() => setResetModalVisible(true)} style={{ padding: 0 }} className="login-btn-forgot">忘记密码？</Button>
+          </div>
         </Form>
       </div>
+      <Modal
+        title="重置密码"
+        open={resetModalVisible}
+        onCancel={() => setResetModalVisible(false)}
+        onOk={handleResetPassword}
+        confirmLoading={resetLoading}
+        okText="发送重置邮件"
+        cancelText="取消"
+      >
+        <Input
+          placeholder="请输入注册邮箱"
+          value={resetEmail}
+          onChange={e => setResetEmail(e.target.value)}
+          onPressEnter={handleResetPassword}
+          autoFocus
+        />
+      </Modal>
     </div>
   );
 };

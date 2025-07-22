@@ -97,12 +97,11 @@ const SetPassword: React.FC = () => {
           organization_id: user.user_metadata?.organization_id,
           organization_name: user.user_metadata?.organization_name
         });
-        setTokenValid(true);
+        setTokenValid(true); // 只要 session 有效，允许设置密码
         setVerifying(false);
         return;
       }
-      // 没有session，才signOut并verifyOtp
-      // 已移除所有 supabase.auth.signOut() 自动登出相关代码
+      // 没有 session 才走 token 校验
       
       // 3. 验证token类型并处理
       if (tokenType === 'custom_invite') {
