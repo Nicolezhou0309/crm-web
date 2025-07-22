@@ -77,6 +77,7 @@ const SetPassword: React.FC = () => {
       if (!token) {
         message.error('未找到有效的邀请令牌，请重新获取邀请邮件或联系管理员。');
         setTimeout(() => {
+          console.log('[SetPassword] 自动跳转到 /login（未找到token）');
           navigate('/login');
         }, 1500);
         setTokenValid(false);
@@ -427,11 +428,15 @@ const SetPassword: React.FC = () => {
         console.error('❌ [SetPassword] 自动登录失败:', loginError);
         message.error('自动登录失败，请手动登录');
         setCompleted(true);
-        setTimeout(() => navigate('/login'), 2000);
+        setTimeout(() => {
+          console.log('[SetPassword] 自动跳转到 /login（自动登录失败）');
+          navigate('/login');
+        }, 2000);
         return;
       }
       setCompleted(true);
       setTimeout(() => {
+        console.log('[SetPassword] 自动跳转到 /（设置密码成功）');
         navigate('/');
       }, 2000);
       
@@ -463,6 +468,7 @@ const SetPassword: React.FC = () => {
 
   // 令牌无效
   if (!tokenValid) {
+    console.log('[SetPassword] 跳转到 /login（令牌无效）');
     return (
       <div style={{ 
         minHeight: '100vh', 
@@ -481,7 +487,10 @@ const SetPassword: React.FC = () => {
           <Button 
             type="primary" 
             style={{ marginTop: 16 }}
-            onClick={() => navigate('/login')}
+            onClick={() => {
+              console.log('[SetPassword] 用户点击返回登录，跳转到 /login');
+              navigate('/login');
+            }}
           >
             返回登录
           </Button>
