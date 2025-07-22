@@ -104,7 +104,23 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // magic link 检测和拦截，防止token被提前消费
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (location.pathname === '/set-password') return;
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const token = urlParams.get('token') || urlParams.get('access_token') || hashParams.get('access_token') || hashParams.get('token');
+    const type = urlParams.get('type') || hashParams.get('type');
+    const isMagicLink = !!token || ['invite', 'recovery', 'custom_invite'].includes(type);
+
+    if (isMagicLink) {
+      supabase.auth.signOut().finally(() => {
+        navigate(`/set-password${window.location.search}${window.location.hash}`, { replace: true });
+      });
+    }
+  }, [location, navigate]);
   
   // 头像状态管理
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined);
