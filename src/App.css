@@ -344,3 +344,53 @@ body {
   color: #2e2e2e !important;
 }
 
+/* 彻底去除侧边栏所有菜单项（包括多级/子菜单）圆角 */
+.ant-layout-sider .ant-menu-item,
+.ant-layout-sider .ant-menu-submenu-title,
+.ant-layout-sider .ant-menu-item-selected,
+.ant-layout-sider .ant-menu-submenu-selected,
+.ant-layout-sider .ant-menu-item-active,
+.ant-layout-sider .ant-menu-item:hover,
+.ant-layout-sider .ant-menu-sub .ant-menu-item,
+.ant-layout-sider .ant-menu-sub .ant-menu-item-selected,
+.ant-layout-sider .ant-menu-sub .ant-menu-item-active,
+.ant-layout-sider .ant-menu-sub .ant-menu-item:hover {
+  border-radius: 0 !important;
+}
+
+/* 侧边栏菜单整体左右8px间距，圆角16px */
+.ant-layout-sider .ant-menu {
+  border-radius: 12px !important;
+  background: #fff;
+}
+
+/* 菜单项和子菜单项左右8px间距，圆角16px */
+.ant-layout-sider .ant-menu-item,
+.ant-layout-sider .ant-menu-submenu-title {
+  border-radius: 12px !important;
+}
+
+/* 选中、悬浮、激活时也有圆角16px */
+.ant-layout-sider .ant-menu-item-selected,
+.ant-layout-sider .ant-menu-submenu-selected,
+.ant-layout-sider .ant-menu-item-active,
+.ant-layout-sider .ant-menu-item:hover,
+.ant-layout-sider .ant-menu-sub .ant-menu-item,
+.ant-layout-sider .ant-menu-sub .ant-menu-item-selected,
+.ant-layout-sider .ant-menu-sub .ant-menu-item-active,
+.ant-layout-sider .ant-menu-sub .ant-menu-item:hover {
+  border-radius: 12px !important;
+}
+
+/* 侧边栏菜单项之间增加8px间距 */
+.ant-layout-sider .ant-menu .ant-menu-item,
+.ant-layout-sider .ant-menu .ant-menu-submenu-title {
+  margin-bottom: 8px !important;
+}
+
+/* 去除最后一个菜单项的下边距 */
+.ant-layout-sider .ant-menu .ant-menu-item:last-child,
+.ant-layout-sider .ant-menu .ant-menu-submenu-title:last-child {
+  margin-bottom: 0 !important;
+}
+

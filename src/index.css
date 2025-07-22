@@ -209,7 +209,6 @@ button:focus-visible {
   border-right: 1px solid #f0f0f0;
   padding-top: 32px;
   position: fixed;
-  left: 0px;
   top: 56px;
   bottom: 0;
   height: calc(100vh - 56px);

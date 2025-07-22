@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Button } from 'antd';
+import { Menu, Button, Input } from 'antd';
 import {
   FileTextOutlined,
   UserOutlined,
@@ -22,6 +22,7 @@ import {
   ExperimentOutlined,
   ToolOutlined,
   MailOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 
@@ -39,6 +40,8 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   collapsed = false,
   onCollapse
 }) => {
+  const [search, setSearch] = React.useState('');
+
   const menuItems = [
     { 
       key: 'index', 
@@ -237,19 +240,58 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
     },
   ];
 
+  // 递归过滤菜单项
+  function filterMenu(items: any[], keyword: string): any[] {
+    if (!keyword) return items;
+    const lower = keyword.toLowerCase();
+    return items
+      .map((item: any) => {
+        if (item.children) {
+          const filteredChildren = filterMenu(item.children, keyword);
+          if (filteredChildren.length > 0 || (item.label && String(item.label).toLowerCase().includes(lower))) {
+            return { ...item, children: filteredChildren };
+          }
+          return null;
+        }
+        if (item.label && String(item.label).toLowerCase().includes(lower)) {
+          return item;
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }
+
+  const filteredMenuItems = filterMenu(menuItems, search);
+
   return (
     <div style={{ 
       display: 'flex', 
       flexDirection: 'column', 
       height: '100%',
-      width: '100%'
+      width: '100%',
     }}>
-      {/* 上方容器：菜单区域（可滚动） */}
+      {/* 顶部搜索框 */}
+      {!collapsed && (
+        <div style={{ padding: '0px 12px 16px 12px', background: '#fff' }}>
+          <Input
+            placeholder="搜索菜单"
+            allowClear
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ borderRadius: 16, width: '100%'}}
+            size={collapsed ? 'small' : 'middle'}
+            prefix={<SearchOutlined style={{ color: '#bbb' }} />}
+          />
+        </div>
+      )}
+      {/* 菜单区域 */}
       <div style={{
         flex: 1,
         overflowY: 'auto',
         overflowX: 'hidden',
         minHeight: 0, // 确保flex子元素可以收缩
+        width: '100%',
+        padding: '0 8px', // 只在这里加左右间距
       }}>
         <Menu
           mode="inline"
@@ -258,24 +300,26 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
             onMenuClick(e.key); // 只传 key
           }}
           inlineCollapsed={collapsed}
-          items={menuItems}
+          items={filteredMenuItems}
           style={{
             height: '100%',
-            borderRadius: '0px'
+            width: '100%',
+            borderRadius: '0px',
+            boxShadow: 'none',
+            border: 'none',
           }}
         />
       </div>
-      
       {/* 下方容器：导航条区域 */}
       <div style={{
         flexShrink: 0, // 防止收缩
         borderTop: '1px solid #f0f0f0',
         backgroundColor: '#fafafa',
-        padding: '12px 16px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '8px'
+        gap: '8px',
+        padding: '16px',
       }}>
         {/* 伸缩按钮 */}
         {onCollapse && (
