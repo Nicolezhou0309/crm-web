@@ -112,7 +112,7 @@ const AppContent: React.FC = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const token = urlParams.get('token') || urlParams.get('access_token') || hashParams.get('access_token') || hashParams.get('token');
-    const type = urlParams.get('type') || hashParams.get('type');
+    const type = urlParams.get('type') || hashParams.get('type') || '';
     const isMagicLink = !!token || ['invite', 'recovery', 'custom_invite'].includes(type);
 
     if (isMagicLink) {
