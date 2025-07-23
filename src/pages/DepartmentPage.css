@@ -16,16 +16,18 @@
 /* 搜索框区域 */
 .dept-search-section {
   margin-bottom: 20px;
-  padding: 0 4px;
+  padding: 0 12px;
+  background: #fff;
 }
 
 .dept-search-input {
-  border-radius: 12px;
-  border: 2px solid #f0f0f0;
-  background: #fafafa;
+  border-radius: 16px;
+  border: 1px solid #f0f0f0;
+  background: #fff;
   transition: all 0.3s ease;
   font-size: 14px;
   height: 40px;
+  width: 100%;
 }
 
 .dept-search-input:hover {
@@ -41,8 +43,8 @@
 }
 
 .dept-search-input .ant-input-prefix {
-  color: #8c8c8c;
-  margin-right: 8px;
+  color: #bbb;
+  margin-right: 12px;
 }
 
 /* 树形结构容器 */
@@ -570,4 +572,13 @@
 
 .page-table {
   min-width: 1000px;
+} 
+
+.no-outline-btn,
+.no-outline-btn:focus,
+.no-outline-btn:active,
+.no-outline-btn:hover {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 } 

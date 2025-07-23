@@ -274,11 +274,11 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       {!collapsed && (
         <div style={{ padding: '0px 12px 16px 12px', background: '#fff' }}>
           <Input
+            className="custom-search-input"
             placeholder="搜索菜单"
             allowClear
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ borderRadius: 16, width: '100%'}}
             size={collapsed ? 'small' : 'middle'}
             prefix={<SearchOutlined style={{ color: '#bbb' }} />}
           />

@@ -57,17 +57,60 @@ const Login: React.FC = () => {
       return;
     }
     setResetLoading(true);
-    const redirectTo = window.location.origin + '/set-password';
-    console.log('重置密码 redirectTo:', redirectTo); // 日志输出
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo,
-    });
-    setResetLoading(false);
-    if (error) {
-      message.error(error.message || '重置邮件发送失败');
-    } else {
-      message.success('重置密码邮件已发送，请查收邮箱！');
-      setResetModalVisible(false);
+    
+    try {
+      // 先检查邮箱是否在 users_profile 表中存在
+      const { data: profileData, error: profileError } = await supabase
+        .from('users_profile')
+        .select('id, email, status, user_id')
+        .eq('email', resetEmail)
+        .single();
+      
+      if (profileError) {
+        if (profileError.code === 'PGRST116') {
+          // 没有找到记录
+          message.error('该邮箱未注册，请检查邮箱地址');
+          setResetLoading(false);
+          return;
+        } else {
+          console.error('查询用户档案失败:', profileError);
+          message.error('检查邮箱时出现错误，请重试');
+          setResetLoading(false);
+          return;
+        }
+      }
+      
+      // 检查用户状态
+      if (profileData.status === 'banned' || profileData.status === 'deleted') {
+        message.error('该账号已被禁用或删除，请联系管理员');
+        setResetLoading(false);
+        return;
+      }
+      
+      if (profileData.status === 'pending') {
+        message.error('该邮箱尚未激活，请先激活账号');
+        setResetLoading(false);
+        return;
+      }
+      
+      // 发送重置密码邮件
+      const redirectTo = window.location.origin + '/set-password';
+      console.log('重置密码 redirectTo:', redirectTo);
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo,
+      });
+      
+      if (error) {
+        message.error(error.message || '重置邮件发送失败');
+      } else {
+        message.success('重置密码邮件已发送，请查收邮箱！');
+        setResetModalVisible(false);
+      }
+    } catch (e) {
+      console.error('重置密码错误:', e);
+      message.error('操作失败，请重试');
+    } finally {
+      setResetLoading(false);
     }
   };
 

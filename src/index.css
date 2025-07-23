@@ -1377,3 +1377,25 @@ button:focus-visible {
   outline: none;
   box-shadow: none;
 }
+
+/* 统一搜索框样式 */
+.custom-search-input {
+  border-radius: 16px !important;
+  background: #fafafa !important;
+  border: 1px solid #ededed !important;
+  height: 30px !important;
+  font-size: 13px !important;
+  transition: background 0.2s, border-color 0.2s;
+  box-shadow: none !important;
+}
+.custom-search-input:hover,
+.custom-search-input:focus,
+.custom-search-input.ant-input-focused {
+  background: #fff !important;
+  border-color: #1677ff !important;
+  box-shadow: 0 0 0 1px rgba(22, 119, 255, 0.08) !important;
+}
+.custom-search-input .ant-input-prefix {
+  color: #bbb !important;
+  margin-right: 12px !important;
+}

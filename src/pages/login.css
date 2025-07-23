@@ -151,6 +151,29 @@
   box-shadow: 0 0 0 2px rgba(24,144,255,0.08);
 }
 
+/* 输入框图标间距 */
+.login-card .ant-input-affix-wrapper .ant-input-prefix {
+  margin-right: 12px;
+}
+
+.login-card .ant-input-affix-wrapper .ant-input-suffix {
+  margin-left: 12px;
+}
+
+/* 确保密码输入框的图标也有正确间距 */
+.login-card .ant-input-password .ant-input-prefix {
+  margin-right: 12px;
+}
+
+/* Modal中的输入框也应用相同样式 */
+.ant-modal .ant-input-affix-wrapper .ant-input-prefix {
+  margin-right: 12px;
+}
+
+.ant-modal .ant-input-affix-wrapper .ant-input-suffix {
+  margin-left: 12px;
+}
+
 /* 响应式 */
 @media (max-width: 480px) {
   .login-card {
