@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Space, Typography, Image } from 'antd';
+import { Table, Tag, Space, Image } from 'antd';
 import { supabase } from '../supaClient';
 
-const { Title } = Typography;
 
 const RollbackList: React.FC = () => {
   const [rollbackList, setRollbackList] = useState<any[]>([]);
