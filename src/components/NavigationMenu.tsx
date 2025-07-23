@@ -238,6 +238,14 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
         },
       ]
     },
+    // 新增审批管理一级菜单
+    {
+      key: 'approval-flows',
+      icon: <SolutionOutlined />,
+      label: '审批管理',
+      path: '/approval-flows',
+      className: 'main-menu-item',
+    },
   ];
 
   // 递归过滤菜单项

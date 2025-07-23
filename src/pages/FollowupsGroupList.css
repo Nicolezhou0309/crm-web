@@ -548,3 +548,17 @@
   opacity: 1 !important;
   display: flex !important;
 } 
+
+/* 左侧冻结列阴影（主表格） */
+.page-table .ant-table-cell-fix-left,
+.page-table .ant-table-cell-fix-left-last {
+  box-shadow: 2px 0 8px -2px rgba(0,0,0,0.08);
+  z-index: 2;
+  background: #fff;
+} 
+
+.no-outline-btn:focus, .no-outline-btn:active {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+} 

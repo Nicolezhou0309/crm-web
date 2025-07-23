@@ -2,8 +2,8 @@
 // ... existing code from FollowupsList.tsx ... 
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Table, Button, Form, Input, Select, Space, Tag, message, Typography, InputNumber, DatePicker, Alert, Tooltip, Spin, Checkbox, Cascader, Divider, Drawer, Steps } from 'antd';
-import { ReloadOutlined, CopyOutlined, UserOutlined } from '@ant-design/icons';
+import { Table, Button, Form, Input, Select, Space, Tag, message, Typography, InputNumber, DatePicker, Alert, Tooltip, Spin, Checkbox, Cascader, Divider, Drawer, Steps, Dropdown, Menu } from 'antd';
+import { ReloadOutlined, CopyOutlined, UserOutlined, UploadOutlined, MoreOutlined } from '@ant-design/icons';
 import { supabase, fetchEnumValues, fetchMetroStations } from '../supaClient';
 import dayjs from 'dayjs';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
@@ -18,6 +18,11 @@ import CelebrationAnimation from '../components/CelebrationAnimation';
 import { saveFieldWithFrequency } from '../components/Followups/followupApi';
 import { toBeijingTimeStr } from '../utils/timeUtils';
 import { useUser } from '../context/UserContext';
+import imageCompression from 'browser-image-compression';
+import { Upload, Modal } from 'antd';
+import type { UploadFile } from 'antd';
+import type { UploadFileStatus } from 'antd/es/upload/interface';
+import RollbackList from './RollbackList.tsx';
 
 const { Title, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
@@ -126,6 +131,14 @@ const FollowupsGroupList: React.FC = () => {
   const [shouldResetPagination, setShouldResetPagination] = useState(false); // 是否需要重置分页
   const [metroStationOptions, setMetroStationOptions] = useState<any[]>([]); // 地铁站多级选择选项
   const [showCelebration, setShowCelebration] = useState(false); // 庆祝动画状态
+  const [rollbackModalVisible, setRollbackModalVisible] = useState(false);
+  const [rollbackRecord, setRollbackRecord] = useState<any>(null);
+  const [rollbackReasonOptions, setRollbackReasonOptions] = useState<any[]>([]);
+  const [rollbackReason, setRollbackReason] = useState<string | undefined>();
+  const [rollbackEvidenceList, setRollbackEvidenceList] = useState<any[]>([]); // {file, preview, name, url?}
+  const [rollbackUploading, setRollbackUploading] = useState(false);
+  const [submittedEvidence, setSubmittedEvidence] = useState<string[]>([]);
+  const [rollbackListVisible, setRollbackListVisible] = useState(false);
 
   
   // 使用 useRef 跟踪 localData 引用，避免不必要的 setState
@@ -1956,6 +1969,15 @@ const FollowupsGroupList: React.FC = () => {
         </Tooltip>
       )
     },
+    {
+      title: '操作',
+      key: 'action',
+      fixed: 'right' as const,
+      width: 100,
+      render: (_: any, record: any) => (
+        <Button size="small" type="default" onClick={() => handleRollbackClick(record)}>回退</Button>
+      ),
+    },
   ], [followupstageFilters, sourceFilters, leadtypeFilters, remarkFilters, customerprofileFilters, worklocationFilters, userbudgetFilters, userratingFilters, followupresultFilters, majorcategoryFilters, scheduledcommunityFilters, communityEnum, followupstageEnum, customerprofileEnum, sourceEnum, userratingEnum, majorCategoryOptions, metroStationOptions, tableColumnFilters, forceUpdate]);
 
   const filterKeyMap: Record<string, string> = {
@@ -1968,7 +1990,6 @@ const FollowupsGroupList: React.FC = () => {
     userbudget: 'p_userbudget',
     userrating: 'p_userrating',
     majorcategory: 'p_majorcategory',
-    subcategory: 'p_subcategory',
     followupresult: 'p_followupresult',
     scheduledcommunity: 'p_scheduledcommunity',
     wechat: 'p_wechat',
@@ -1979,7 +2000,7 @@ const FollowupsGroupList: React.FC = () => {
   
   const multiSelectFields = [
     'leadid', 'leadtype', 'interviewsales_user', 'followupstage', 'customerprofile', 'worklocation', 'userbudget',
-    'userrating', 'majorcategory', 'subcategory', 'followupresult', 'scheduledcommunity', 'wechat', 'phone', 'source'
+    'userrating', 'majorcategory', 'followupresult', 'scheduledcommunity', 'wechat', 'phone', 'source'
   ];
 
   // Table onChange事件处理（支持分页+受控筛选）
@@ -2916,12 +2937,169 @@ const FollowupsGroupList: React.FC = () => {
     }
   };
 
+  // 加载回退理由选项
+  useEffect(() => {
+    async function fetchRollbackReasonOptions() {
+      const { data, error } = await supabase
+        .from('Selection')
+        .select('selection')
+        .eq('id', 3)
+        .single();
+      if (!error && data && data.selection) {
+        setRollbackReasonOptions(data.selection.map((item: any) => ({ value: item.value, label: item.label })));
+      }
+    }
+    fetchRollbackReasonOptions();
+  }, []);
+
+  // 回退按钮点击
+  const handleRollbackClick = (record: any) => {
+    setRollbackRecord(record);
+    setRollbackModalVisible(true);
+  };
+
+  // beforeUpload 只做本地预览
+  const handleBeforeUpload = async (file: File) => {
+    setRollbackEvidenceList(list => [
+      ...list,
+      {
+        file,
+        preview: URL.createObjectURL(file),
+        name: file.name,
+      },
+    ]);
+    return false; // 阻止自动上传
+  };
+
+  // 删除本地预览
+  const handleRemoveEvidence = (file: any) => {
+    setRollbackEvidenceList(list => list.filter(item => item.name !== file.name));
+  };
+
+  // 确认回退时统一上传所有图片
+  const handleRollbackConfirm = async () => {
+    if (!rollbackReason) {
+      message.error('请选择回退理由');
+      return;
+    }
+    if (rollbackEvidenceList.length === 0) {
+      message.error('请上传回退证据');
+      return;
+    }
+    setRollbackUploading(true);
+    try {
+      // 0. 检查同一线索是否已存在未完成的回退审批流实例
+      const { data: existList, error: existError } = await supabase
+        .from('approval_instances')
+        .select('id, status')
+        .eq('type', 'lead_rollback')
+        .eq('target_id', rollbackRecord?.leadid)
+        .in('status', ['pending', 'processing']);
+      if (existError) {
+        setRollbackUploading(false);
+        message.error('回退检查失败，请重试');
+        return;
+      }
+      if (existList && existList.length > 0) {
+        setRollbackUploading(false);
+        message.error('该线索已提交回退申请，请勿重复提交');
+        return;
+      }
+      // 1. 上传所有图片，获取url
+      const uploaded: any[] = [];
+      for (const item of rollbackEvidenceList) {
+        if (item.url) {
+          uploaded.push(item.url);
+          continue;
+        }
+        const options = {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1280,
+          useWebWorker: true,
+        };
+        const compressedFile = await imageCompression(item.file, options);
+        const fileExt = compressedFile.name.split('.').pop();
+        const fileName = `rollback-${Date.now()}-${Math.floor(Math.random()*10000)}.${fileExt}`;
+        const filePath = `rollback/${fileName}`;
+        const { error } = await supabase.storage.from('rollback').upload(filePath, compressedFile);
+        if (error) throw error;
+        const { data } = supabase.storage.from('rollback').getPublicUrl(filePath);
+        uploaded.push(data.publicUrl);
+      }
+      // 2. 查找审批流模板id
+      const { data: flowData, error: flowError } = await supabase
+        .from('approval_flows')
+        .select('id')
+        .eq('type', 'lead_rollback')
+        .maybeSingle();
+      if (flowError || !flowData) {
+        message.error('未找到回退审批流模板，请联系管理员配置');
+        setRollbackUploading(false);
+        return;
+      }
+      // 3. 插入审批流实例
+      const { error: approvalError } = await supabase.from('approval_instances').insert({
+        flow_id: flowData.id,
+        type: 'lead_rollback',
+        target_table: 'leads',
+        target_id: rollbackRecord?.leadid,
+        status: 'pending',
+        created_by: profile?.id,
+        config: {
+          reason: rollbackReason,
+          evidence: uploaded,
+        },
+      });
+      if (approvalError) throw approvalError;
+      setSubmittedEvidence(uploaded); // 新增：保存已提交图片url
+      message.success('回退申请已提交，等待审批');
+      setRollbackModalVisible(false);
+      setRollbackRecord(null);
+      setRollbackReason(undefined);
+      setRollbackEvidenceList([]);
+    } catch (e: any) {
+      message.error('回退提交失败: ' + (e.message || e.toString()));
+    }
+    setRollbackUploading(false);
+  };
+
+  // Upload组件fileList适配本地预览（修正类型）
+  const rollbackUploadFileList: UploadFile[] = rollbackEvidenceList.map((item, idx) => ({
+    uid: idx + '',
+    name: item.name,
+    status: 'done' as UploadFileStatus, // 立即显示缩略图
+    url: item.url || item.preview,
+    thumbUrl: item.preview,
+  }));
+
+  const rollbackMenu = (
+    <Menu
+      items={[
+        {
+          key: 'rollback-list',
+          label: '回退列表',
+          onClick: () => setRollbackListVisible(true),
+        },
+      ]}
+    />
+  );
+
 
 
 
 
   return (
     <>
+      <Modal
+        open={rollbackListVisible}
+        title="回退申请列表"
+        onCancel={() => setRollbackListVisible(false)}
+        footer={null}
+        width={900}
+        destroyOnClose
+      >
+        <RollbackList />
+      </Modal>
       {/* 优化：用Antd Alert展示冷却条，放在主内容card上方 */}
       {cooldown && (
         <Alert
@@ -2979,6 +3157,14 @@ const FollowupsGroupList: React.FC = () => {
             }} className="page-btn">
               刷新
             </Button>
+            <Dropdown overlay={rollbackMenu}>
+              <Button
+                icon={<MoreOutlined style={{ marginLeft: '0px', transform: 'rotate(90deg)' }} />}
+                className="page-btn no-outline-btn"
+                style={{ border: 'none', boxShadow: 'none', background: 'none', fontSize: '18px', outline: 'none' }}
+                tabIndex={0}
+              />
+            </Dropdown>
           </Space>
         </div>
 
@@ -3089,7 +3275,6 @@ const FollowupsGroupList: React.FC = () => {
                 p_userbudget: '用户预算',
                 p_userrating: '来访意向',
                 p_majorcategory: '跟进结果',
-                p_subcategory: '子类目',
                 p_followupresult: '跟进备注',
                 p_showingsales_user: '带看管家',
                 p_scheduledcommunity: '预约社区',
@@ -3949,6 +4134,62 @@ const FollowupsGroupList: React.FC = () => {
           title="🎉 恭喜成交！"
           message="您已成功完成一笔交易，继续保持！"
         />
+        <Modal
+          open={rollbackModalVisible}
+          title="回退操作"
+          onCancel={() => {
+            setRollbackModalVisible(false);
+            setSubmittedEvidence([]); // 关闭时清空
+          }}
+          onOk={handleRollbackConfirm}
+          okText="确认回退"
+          cancelText="取消"
+          confirmLoading={rollbackUploading}
+          destroyOnClose
+        >
+          <Form layout="vertical">
+            <Form.Item label="回退理由" required>
+              <Select
+                placeholder="请选择回退理由"
+                options={rollbackReasonOptions}
+                value={rollbackReason}
+                onChange={setRollbackReason}
+                allowClear
+              />
+            </Form.Item>
+            <Form.Item label="回退证据（图片，最多5张）" required>
+              <Upload
+                listType="picture-card"
+                fileList={rollbackUploadFileList}
+                customRequest={() => {}}
+                beforeUpload={handleBeforeUpload}
+                onRemove={handleRemoveEvidence}
+                showUploadList={{ showRemoveIcon: true }}
+                multiple
+                accept="image/*"
+                disabled={rollbackEvidenceList.length >= 5 || rollbackUploading}
+              >
+                {rollbackEvidenceList.length < 5 && !rollbackUploading && (
+                  <div>
+                    <UploadOutlined />
+                    <div style={{ marginTop: 8 }}>上传</div>
+                  </div>
+                )}
+              </Upload>
+            </Form.Item>
+          </Form>
+          {/* 新增：已提交证据缩略图展示 */}
+          {submittedEvidence.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div>已提交证据：</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {submittedEvidence.map(url => (
+                  <img key={url} src={url} alt="证据" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4, border: '1px solid #eee' }} />
+                ))}
+              </div>
+            </div>
+          )}
+        </Modal>
       </div>
     </>
   );

@@ -70,6 +70,18 @@ async function sendSupabaseInvite(email, name, organizationId, organizationName)
     organizationName,
     redirectUrl: `${FRONTEND_URL}/set-password`
   });
+  // 新增详细日志
+  console.log('[DEBUG] inviteUserByEmail 参数:', {
+    email,
+    name,
+    organization_id: organizationId,
+    organization_name: organizationName,
+    redirectTo: `${FRONTEND_URL}/set-password`,
+    typeof_email: typeof email,
+    typeof_name: typeof name,
+    typeof_organization_id: typeof organizationId,
+    typeof_organization_name: typeof organizationName
+  });
 
   // 使用Supabase内置邀请功能
   const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
@@ -80,6 +92,12 @@ async function sendSupabaseInvite(email, name, organizationId, organizationName)
     },
     redirectTo: `${FRONTEND_URL}/set-password`
   });
+  // 新增详细日志
+  if (error) {
+    console.error('[DEBUG] inviteUserByEmail 返回 error:', error);
+  } else {
+    console.log('[DEBUG] inviteUserByEmail 返回 data:', data);
+  }
 
   if (error) {
     console.error('❌ Supabase邀请失败:', error);
@@ -280,56 +298,29 @@ Deno.serve(async (req) => {
       });
     }
     
-    if (existingProfile) {
-      if (existingProfile.user_id) {
-        console.log('❌ 用户已注册:', email);
-        return new Response(
-          JSON.stringify({ error: '该邮箱已被注册，无法重复邀请' }),
-          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } else if (existingProfile.status === 'invited' || existingProfile.status === 'pending') {
-        console.log('📝 用户已被邀请但未注册，更新profile:', email);
-        const { error: updateError } = await adminClient
-          .from('users_profile')
-          .update({ 
-            nickname: name || existingProfile.nickname,
-            organization_id: organizationId,
-            status: 'pending'
-          })
-          .eq('email', email);
-          
-        if (updateError) {
-          console.error('❌ 更新用户档案失败:', updateError);
-          return new Response(JSON.stringify({
-            error: '更新用户信息失败',
-            details: updateError.message
-          }), {
-            status: 500,
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          });
-        }
-      }
-    } else {
-      // 创建新的用户档案（由触发器自动处理user_id关联）
-      console.log('📝 创建新的用户档案:', email);
-      const { error: insertError } = await adminClient
+    if (existingProfile && existingProfile.user_id) {
+      // 已注册
+      console.log('❌ 用户已注册:', email);
+      return new Response(
+        JSON.stringify({ error: '该邮箱已被注册，无法重复邀请' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else if (existingProfile && (existingProfile.status === 'invited' || existingProfile.status === 'pending')) {
+      // 已被邀请但未注册，可以更新部门/昵称
+      const { error: updateError } = await adminClient
         .from('users_profile')
-        .insert({
-          email: email,
-          nickname: name || email.split('@')[0],
+        .update({ 
+          nickname: name || existingProfile.nickname,
           organization_id: organizationId,
           status: 'pending'
-          // user_id 将由触发器在用户注册时自动设置
-        });
+        })
+        .eq('email', email);
         
-      if (insertError) {
-        console.error('❌ 创建用户档案失败:', insertError);
+      if (updateError) {
+        console.error('❌ 更新用户档案失败:', updateError);
         return new Response(JSON.stringify({
-          error: '创建用户信息失败',
-          details: insertError.message
+          error: '更新用户信息失败',
+          details: updateError.message
         }), {
           status: 500,
           headers: {
@@ -339,6 +330,7 @@ Deno.serve(async (req) => {
         });
       }
     }
+    // 不再主动 insert profile
     
     // 只用Supabase默认邀请
     try {

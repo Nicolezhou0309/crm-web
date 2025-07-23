@@ -53,6 +53,7 @@ import type { MenuProps } from 'antd';
 import { UserProvider, useUser } from './context/UserContext';
 import LoadingScreen from './components/LoadingScreen';
 import NotificationTemplateManager from './pages/NotificationTemplateManager';
+import ApprovalFlowManagement from './pages/ApprovalFlowManagement';
 
 
 const { Sider, Content, Header } = Layout;
@@ -128,6 +129,7 @@ const AppContent: React.FC = () => {
     'load-demo': '/loading-demo',
     'email-test': '/email-test',
     'notification-templates': '/notification-templates',
+    'approval-flows': '/approval-flows',
   };
   // path-key 反查
   const pathKeyMap: Record<string, string> = {};
@@ -704,6 +706,7 @@ const AppContent: React.FC = () => {
                   <Route path="/test-showings-data" element={<TestShowingsData />} />
                   <Route path="/email-test" element={<EmailTest />} />
                   <Route path="/notification-templates" element={<NotificationTemplateManager />} />
+                  <Route path="/approval-flows" element={<ApprovalFlowManagement />} />
                   <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>
