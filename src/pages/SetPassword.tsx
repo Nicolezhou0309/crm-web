@@ -97,12 +97,12 @@ const SetPassword: React.FC = () => {
       // 检查session
       const { data: { user } } = await supabase.auth.getUser();
       console.log('🔍 [SetPassword] supabase.auth.getUser() 返回:', user);
-      if (!user && token && tokenType === 'recovery' && email) {
+      if (!user && token && (tokenType === 'recovery' || tokenType === 'invite') && email) {
         // 主动用 token 登录
         console.log('🔍 [SetPassword] session 不存在，调用 verifyOtp 登录...');
         const { data, error } = await supabase.auth.verifyOtp({
           email,
-          type: 'recovery',
+          type: tokenType, // 支持 'invite' 和 'recovery'
           token,
         });
         if (error) {
