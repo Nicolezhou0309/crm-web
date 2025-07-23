@@ -482,14 +482,21 @@ const DepartmentPage = () => {
   const handleInviteMember = async () => {
     try {
       const values = await form.validateFields();
-      
       // 立即关闭弹窗，不等待邀请结果
       setShowInviteMember(false);
       form.resetFields();
-      
-      // 异步处理邀请
+      // 只做邮箱存在性检查，不新建 profile
+      const { data: existingProfile } = await supabase
+        .from('users_profile')
+        .select('user_id, status')
+        .eq('email', values.email)
+        .maybeSingle();
+      if (existingProfile && existingProfile.user_id) {
+        message.info('用户已注册，请使用“发送密码重置”功能');
+        return;
+      }
+      // 只调用后端 invite-user 函数
       handleInviteUser(values.email, values.name);
-      
     } catch (error: any) {
       message.error('邀请成员失败: ' + error.message);
     }
