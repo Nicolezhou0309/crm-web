@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      // 创建新的用户档案
+      // 创建新的用户档案（由触发器自动处理user_id关联）
       console.log('📝 创建新的用户档案:', email);
       const { error: insertError } = await adminClient
         .from('users_profile')
@@ -322,6 +322,7 @@ Deno.serve(async (req) => {
           nickname: name || email.split('@')[0],
           organization_id: organizationId,
           status: 'pending'
+          // user_id 将由触发器在用户注册时自动设置
         });
         
       if (insertError) {
