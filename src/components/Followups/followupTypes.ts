@@ -17,7 +17,6 @@ export interface Followup {
   moveintime: string;
   userrating: string;
   majorcategory: string;
-  subcategory: string;
   followupresult: string;
   scheduletime: string;
   scheduledcommunity: string;

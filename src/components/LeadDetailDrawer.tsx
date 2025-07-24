@@ -79,7 +79,6 @@ interface LeadData {
   moveintime?: string;
   userrating?: string;
   majorcategory?: string;
-  subcategory?: string;
   followupresult?: string;
   scheduletime?: string;
   scheduledcommunity?: string;
@@ -169,7 +168,6 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
           moveintime: followupData?.moveintime,
           userrating: followupData?.userrating,
           majorcategory: followupData?.majorcategory,
-          subcategory: followupData?.subcategory,
           followupresult: followupData?.followupresult,
           scheduletime: followupData?.scheduletime,
           scheduledcommunity: followupData?.scheduledcommunity,
@@ -531,10 +529,6 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
                     
                     <Descriptions.Item label="主要分类">
                       <Text>{leadData.majorcategory || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="子分类">
-                      <Text>{leadData.subcategory || '-'}</Text>
                     </Descriptions.Item>
                     
                     <Descriptions.Item label="预约时间">

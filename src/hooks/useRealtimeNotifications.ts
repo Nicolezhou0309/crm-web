@@ -82,16 +82,14 @@ export const useRealtimeNotifications = () => {
       }, (payload) => {
         const newNotification = payload.new as Notification;
         if (newNotification.user_id !== profileId) return;
+        console.log('[Realtime][INSERT]', { newNotification, profileId, payload });
         setNotifications(prev => {
           const exists = prev.some(n => n.id === newNotification.id);
           if (exists) return prev;
-          return [newNotification, ...prev];
-        });
-        setUnreadCount(prev => {
-          if (newNotification.status === 'unread') {
-            return prev + 1;
-          }
-          return prev;
+          const result = [newNotification, ...prev];
+          console.log('[Realtime][setNotifications][INSERT]', result);
+          debouncedUpdateUnreadCount(result);
+          return result;
         });
         setLastUpdate(Date.now());
         showDesktopNotification(newNotification.title, newNotification.content);
@@ -103,12 +101,13 @@ export const useRealtimeNotifications = () => {
       }, (payload) => {
         const updatedNotification = payload.new as Notification;
         if (updatedNotification.user_id !== profileId) return;
-        setNotifications(prev => 
-          prev.map(n => 
-            n.id === updatedNotification.id ? updatedNotification : n
-          )
-        );
-        debouncedUpdateUnreadCount();
+        console.log('[Realtime][UPDATE]', { updatedNotification, profileId, payload });
+        setNotifications(prev => {
+          const result = prev.map(n => n.id === updatedNotification.id ? updatedNotification : n);
+          console.log('[Realtime][setNotifications][UPDATE]', result);
+          debouncedUpdateUnreadCount(result);
+          return result;
+        });
         setLastUpdate(Date.now());
       })
       .on('postgres_changes', {
@@ -117,10 +116,16 @@ export const useRealtimeNotifications = () => {
         table: 'notifications'
       }, (payload) => {
         if (payload.old.user_id !== profileId) return;
-        setNotifications(prev => 
-          prev.filter(n => n.id !== payload.old.id)
-        );
-        debouncedUpdateUnreadCount();
+        console.log('[Realtime][DELETE]', { old: payload.old, profileId, payload });
+        setNotifications(prev => {
+          const result = prev.filter(n => n.id !== payload.old.id);
+          if (result.length === 0) {
+            console.warn('[Realtime][setNotifications][DELETE] 通知数组被清空！', { prev, payload });
+          }
+          console.log('[Realtime][setNotifications][DELETE]', result);
+          debouncedUpdateUnreadCount(result);
+          return result;
+        });
         setLastUpdate(Date.now());
       })
       .subscribe(() => {});
@@ -130,93 +135,100 @@ export const useRealtimeNotifications = () => {
     };
   }, [profileId]);
 
+  // 重新计算未读数 - 使用useMemo优化
+  const updateUnreadCount = useCallback((arr: Notification[]) => {
+    if (!arr || arr.length === 0) {
+      console.warn('[updateUnreadCount] arr is empty! 跳过未读数更新');
+      return;
+    }
+    const count = arr.filter(n => n.status === 'unread').length;
+    setUnreadCount(count);
+    console.log('[updateUnreadCount]', { count, arr });
+  }, []);
+
   // 防抖的未读数量更新
   const debouncedUpdateUnreadCount = useCallback(
-    debounce(() => {
-      updateUnreadCount();
+    debounce((arr: Notification[]) => {
+      updateUnreadCount(arr);
     }, 300),
-    []
+    [updateUnreadCount]
   );
 
   // 加载通知 - 添加缓存和错误重试
   const loadNotifications = useCallback(async (pid: number) => {
     setLoading(true);
-    
+    console.log('[loadNotifications] start', pid);
     try {
       const { data, error } = await supabase.rpc('get_user_notifications', {
         p_user_id: pid
       });
-      
       if (error) {
+        console.error('[loadNotifications] error', error);
         throw error;
       }
-      
       setNotifications(data || []);
+      console.log('[loadNotifications] setNotifications', data);
       updateUnreadCount(data || []);
-      
       // 缓存通知数据
       localStorage.setItem(`notifications_${pid}`, JSON.stringify(data || []));
       localStorage.setItem(`notifications_timestamp_${pid}`, Date.now().toString());
-      
     } catch (error) {
-      
       // 尝试从缓存加载
       const cachedData = localStorage.getItem(`notifications_${pid}`);
       if (cachedData) {
         const cachedNotifications = JSON.parse(cachedData);
         setNotifications(cachedNotifications);
+        console.log('[loadNotifications] setNotifications from cache', cachedNotifications);
         updateUnreadCount(cachedNotifications);
+      } else {
+        // 防御性日志：缓存也没有，避免直接清空
+        console.warn('[loadNotifications] No notifications from server or cache, skip setNotifications([])');
+        // setNotifications([]); // 不要直接清空，除非明确需要
       }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // 重新计算未读数 - 使用useMemo优化
-  const updateUnreadCount = useCallback((list?: Notification[]) => {
-    const arr = list || notifications;
-    const count = arr.filter(n => n.status === 'unread').length;
-    setUnreadCount(count);
-  }, [notifications]);
-
   // 标记为已读 - 优化本地状态更新
   const markAsRead = useCallback(async (notificationId: string) => {
     if (!profileId) return;
-    
+    console.log('[markAsRead] called', notificationId);
     // 立即更新本地状态，提升响应体验
-    setNotifications(prev => 
-      prev.map(n => 
-        n.id === notificationId 
-          ? { ...n, status: 'read' as const, read_at: new Date().toISOString() }
-          : n
-      )
-    );
-    
+    setNotifications(prev => {
+      const result = prev.map(n => n.id === notificationId ? { ...n, status: 'read' as const, read_at: new Date().toISOString() } : n);
+      console.log('[markAsRead][setNotifications]', result);
+      debouncedUpdateUnreadCount(result);
+      return result;
+    });
     // 更新未读数量
-    setUnreadCount(prev => Math.max(0, prev - 1));
-    
+    setUnreadCount(prev => {
+      const next = Math.max(0, prev - 1);
+      console.log('[markAsRead][setUnreadCount]', next);
+      return next;
+    });
     try {
       const { error } = await supabase.rpc('mark_notification_read', {
         p_notification_id: notificationId,
         p_user_id: profileId
       });
-      
       if (error) {
         throw error;
       }
-      
     } catch (error) {
       // 失败时回滚本地状态
-      setNotifications(prev => 
-        prev.map(n => 
-          n.id === notificationId 
-            ? { ...n, status: 'unread' as const, read_at: undefined }
-            : n
-        )
-      );
-      setUnreadCount(prev => prev + 1);
+      setNotifications(prev => {
+        const result = prev.map(n => n.id === notificationId ? { ...n, status: 'unread' as const, read_at: undefined } : n);
+        console.log('[markAsRead][rollback][setNotifications]', result);
+        return result;
+      });
+      setUnreadCount(prev => {
+        const next = prev + 1;
+        console.log('[markAsRead][rollback][setUnreadCount]', next);
+        return next;
+      });
     }
-  }, [profileId]);
+  }, [profileId, debouncedUpdateUnreadCount]);
 
   // 标记为已处理 - 优化本地状态更新
   const markAsHandled = useCallback(async (notificationId: string) => { 
@@ -250,7 +262,7 @@ export const useRealtimeNotifications = () => {
         )
       );
     }
-  }, [profileId, notifications]);
+  }, [profileId, notifications, debouncedUpdateUnreadCount]);
 
   // 删除通知 - 优化本地状态更新
   const deleteNotification = useCallback(async (notificationId: string) => {
@@ -278,7 +290,7 @@ export const useRealtimeNotifications = () => {
       }
       throw error;
     }
-  }, [notifications, profileId]);
+  }, [notifications, profileId, debouncedUpdateUnreadCount]);
 
   // 桌面通知
   const showDesktopNotification = useCallback((title: string, body: string) => {

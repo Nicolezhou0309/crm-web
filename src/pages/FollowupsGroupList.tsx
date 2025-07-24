@@ -3097,6 +3097,8 @@ const FollowupsGroupList: React.FC = () => {
         footer={null}
         width={900}
         destroyOnClose
+        centered
+        bodyStyle={{ minHeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}
       >
         <RollbackList />
       </Modal>

@@ -159,7 +159,15 @@ const AppContent: React.FC = () => {
   const [profileId, setProfileId] = React.useState<number | null>(null);
   
   // 自动连接通知系统
-  const { unreadCount } = useRealtimeNotifications();
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAsHandled,
+    deleteNotification,
+    loading: notificationsLoading,
+    loadNotifications,
+  } = useRealtimeNotifications();
   
   // 详细通知抽屉状态
   const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
@@ -357,15 +365,21 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       </div>
-              {/* 通知中心 */}
-        <div style={{ padding: '8px', borderBottom: '1px solid #f0f0f0', background: '#fff' }}>
-          <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-            <NotificationCenter 
-              simple={true} 
-              onViewAll={() => setNotificationDrawerVisible(true)}
-            />
-          </div>
+      {/* 通知中心 */}
+      <div style={{ padding: '8px', borderBottom: '1px solid #f0f0f0', background: '#fff' }}>
+        <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+          <NotificationCenter 
+            simple={true} 
+            notifications={notifications}
+            unreadCount={unreadCount}
+            markAsRead={markAsRead}
+            markAsHandled={markAsHandled}
+            deleteNotification={deleteNotification}
+            loading={notificationsLoading}
+            onViewAll={() => setNotificationDrawerVisible(true)}
+          />
         </div>
+      </div>
       {/* 操作按钮 - 左右并排 */}
       <div style={{ padding: '16px 16px 8px 16px', display: 'flex', gap: '8px', background: '#fff', borderRadius: 0 }}>
         {/* 个人中心按钮 */}
@@ -419,7 +433,15 @@ const AppContent: React.FC = () => {
         body: { padding: 0 }
       }}
     >
-      <NotificationCenter simple={false} />
+      <NotificationCenter 
+        simple={false} 
+        notifications={notifications}
+        unreadCount={unreadCount}
+        markAsRead={markAsRead}
+        markAsHandled={markAsHandled}
+        deleteNotification={deleteNotification}
+        loading={notificationsLoading}
+      />
     </Drawer>
   );
 

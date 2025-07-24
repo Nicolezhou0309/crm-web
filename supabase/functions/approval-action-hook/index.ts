@@ -3,12 +3,16 @@ import { createClient } from 'jsr:@supabase/supabase-js@^2';
 Deno.serve(async (req) => {
   try {
     const event = await req.json();
+    console.log('[Webhook Triggered] event:', JSON.stringify(event));
     if (!event || event.type !== 'UPDATE' || !event.record) {
+      console.log('[Skip] 非UPDATE事件或无record:', event);
       return new Response(JSON.stringify({ error: '无效事件' }), { status: 400 });
     }
     const newRow = event.record;
     const oldRow = event.old_record;
+    console.log('[Record] newRow:', JSON.stringify(newRow), 'oldRow:', JSON.stringify(oldRow));
     if (!newRow || newRow.status !== 'approved' || oldRow?.status === 'approved') {
+      console.log('[Skip] 状态无需处理:', { newRowStatus: newRow?.status, oldRowStatus: oldRow?.status });
       return new Response(JSON.stringify({ message: '无需处理' }), { status: 200 });
     }
 
@@ -24,23 +28,27 @@ Deno.serve(async (req) => {
       .eq('id', newRow.flow_id)
       .single();
     if (flowError || !flow) {
+      console.log('[Error] 审批流模板不存在:', flowError, flow);
       return new Response(JSON.stringify({ error: '审批流模板不存在' }), { status: 404 });
     }
+    console.log('[Flow Loaded]', flow.id, flow.type);
 
     // 获取所有审批节点
     const { data: steps } = await supabase
       .from('approval_steps')
       .select('*')
       .eq('instance_id', newRow.id);
+    console.log('[Steps Loaded]', steps?.length);
 
     // 业务联动：线索回退审批流
     if (flow.type === 'lead_rollback' || newRow.type === 'lead_rollback') {
       const leadid = newRow.target_id;
       const applicant_id = newRow.created_by;
       const config = newRow.config || {};
+      console.log('[Lead Rollback] leadid:', leadid, 'applicant_id:', applicant_id, 'config:', config);
       
       // 查询线索分配时的积分扣除记录
-      const { data: pointsRecord } = await supabase
+      const { data: pointsRecord, error: pointsError } = await supabase
         .from('user_points_transactions')
         .select('*')
         .eq('source_type', 'ALLOCATION_LEAD')
@@ -48,20 +56,23 @@ Deno.serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+      console.log('[Points Record]', pointsRecord, pointsError);
       
       if (pointsRecord && pointsRecord.points_change && pointsRecord.points_change < 0) {
         // 返还积分（取绝对值）
         const refundPoints = Math.abs(pointsRecord.points_change);
+        console.log('[Refund Points]', refundPoints);
         
         // 更新用户积分钱包
-        const { data: wallet } = await supabase
+        const { data: wallet, error: walletError } = await supabase
           .from('user_points_wallet')
           .select('*')
           .eq('user_id', applicant_id)
           .single();
+        console.log('[Wallet]', wallet, walletError);
         
         if (wallet) {
-          await supabase
+          const { error: updateWalletError } = await supabase
             .from('user_points_wallet')
             .update({
               total_points: wallet.total_points + refundPoints,
@@ -69,10 +80,11 @@ Deno.serve(async (req) => {
               updated_at: new Date().toISOString()
             })
             .eq('user_id', applicant_id);
+          console.log('[Wallet Updated]', updateWalletError);
         }
         
         // 插入积分返还交易记录
-        await supabase.from('user_points_transactions').insert({
+        const { error: insertRefundError } = await supabase.from('user_points_transactions').insert({
           user_id: applicant_id,
           points_change: refundPoints,
           balance_after: (wallet?.total_points || 0) + refundPoints,
@@ -81,13 +93,15 @@ Deno.serve(async (req) => {
           source_id: leadid,
           description: `线索回退返还积分：${leadid}`
         });
+        console.log('[Insert Refund Transaction]', insertRefundError);
       }
       
       // 标记线索为无效
-      await supabase.from('leads').update({ invalid: true }).eq('leadid', leadid);
+      const { error: updateFollowupError } = await supabase.from('followups').update({ invalid: true }).eq('leadid', leadid);
+      console.log('[Followup Invalid Updated]', updateFollowupError);
       
       // 发送通知
-      await supabase.from('notifications').insert({
+      const { error: notifyError } = await supabase.from('notifications').insert({
         user_id: applicant_id,
         type: 'lead_rollback_success',
         title: '线索回退成功',
@@ -95,11 +109,12 @@ Deno.serve(async (req) => {
         status: 'unread',
         priority: 1,
         related_table: 'leads',
-        related_id: leadid,
+        related_id: leadid, // 字段已为 text 类型，直接存储字符串主键
         created_at: new Date().toISOString(),
       });
+      console.log('[Notification Sent]', notifyError);
       
-      console.log('lead rollback approval processed', { leadid, applicant_id });
+      console.log('[Lead Rollback Approval Processed]', { leadid, applicant_id });
     }
 
     // 业务联动：积分审批流
@@ -109,13 +124,16 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('leadid', newRow.target_id)
         .single();
+      console.log('[Points Approval] lead:', lead, leadError);
       if (leadError || !lead) {
+        console.log('[Error] 业务对象不存在:', leadError);
         return new Response(JSON.stringify({ error: '业务对象不存在' }), { status: 404 });
       }
       const { error: updateError } = await supabase
         .from('leads')
         .update({ points_status: 'approved' })
         .eq('leadid', newRow.target_id);
+      console.log('[Points Status Updated]', updateError);
       if (updateError) {
         return new Response(JSON.stringify({ error: '业务操作失败', details: updateError.message }), { status: 500 });
       }
@@ -123,7 +141,7 @@ Deno.serve(async (req) => {
 
     // 记录操作日志（使用现有表或创建新表）
     try {
-      await supabase.from('simple_allocation_logs').insert({
+      const { error: logInsertError } = await supabase.from('simple_allocation_logs').insert({
         leadid: newRow.target_id,
         processing_details: {
           action: 'approval_business_action',
@@ -133,12 +151,15 @@ Deno.serve(async (req) => {
           created_at: new Date().toISOString()
         }
       });
+      console.log('[Log Inserted]', logInsertError);
     } catch (logError) {
-      console.log('操作日志记录失败:', logError);
+      console.log('[Log Insert Error]:', logError);
     }
 
+    console.log('[Done] 审批流业务动作已自动执行');
     return new Response(JSON.stringify({ success: true, message: '业务动作已自动执行' }), { status: 200 });
   } catch (e) {
+    console.log('[Catch Error]', e);
     return new Response(JSON.stringify({ error: e.message }), { status: 500 });
   }
 }); 

@@ -3,21 +3,24 @@ import {
   List, Button, Tag, Modal, Descriptions, Space, Typography,
   Tooltip, Empty, Tabs, notification, Avatar, Skeleton, message
 } from 'antd';
+const { TabPane } = Tabs;
 import {
   CheckOutlined, EyeOutlined, DeleteOutlined, CopyOutlined, ClockCircleOutlined, CheckCircleOutlined} from '@ant-design/icons';
-import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications';
-import { notificationApi, type Notification, type Announcement } from '../api/notificationApi';
+import { notificationApi, type Announcement } from '../api/notificationApi';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import dayjs from 'dayjs';
 import { useState as useReactState } from 'react';
 import { message as antdMessage } from 'antd';
 import { supabase } from '../supaClient';
-
-const { Text } = Typography;
-const { TabPane } = Tabs;
-
+// 保留 antd Typography.Text 的 import，删除自定义 Notification 类型的 import
 interface NotificationCenterProps {
+  notifications?: any[];
+  unreadCount?: number;
+  markAsRead?: (id: string) => Promise<void>;
+  markAsHandled?: (id: string) => Promise<void>;
+  deleteNotification?: (id: string) => Promise<void>;
+  loading?: boolean;
   onNotificationChange?: (count: number) => void;
   simple?: boolean; // 是否使用简化版显示
   onViewAll?: () => void; // 查看全部回调
@@ -46,25 +49,34 @@ const debounce = (func: Function, wait: number) => {
 // 移除阶段颜色映射
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({
+  notifications: propsNotifications,
+  unreadCount: propsUnreadCount,
+  markAsRead: propsMarkAsRead,
+  markAsHandled: propsMarkAsHandled,
+  deleteNotification: propsDeleteNotification,
+  loading: propsLoading,
   onNotificationChange,
   simple = false,
   onViewAll
 }) => {
   const { } = useAuth();
   usePermissions();
-  const {
-    notifications,
-    unreadCount,
-    markAsRead,
-    markAsHandled,
-    deleteNotification,
-    loading  } = useRealtimeNotifications();
+  // 如果 props 传递了 notifications/unreadCount 等，则优先用 props，否则用内部 hook
+  // 移除 useRealtimeNotifications 相关代码
+  const notifications = propsNotifications ?? [];
+  const unreadCount = propsUnreadCount ?? 0;
+  const markAsRead = propsMarkAsRead ?? (async (id: string) => {});
+  const markAsHandled = propsMarkAsHandled ?? (async (id: string) => {});
+  const deleteNotification = propsDeleteNotification ?? (async (id: string) => {});
+  const loading = propsLoading ?? false;
+
+  // props 传递日志
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [announcementModalVisible, setAnnouncementModalVisible] = useState(false);
 
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [selectedNotification, setSelectedNotification] = useState<any | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [showRaw, setShowRaw] = useReactState(false);
@@ -120,9 +132,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   // 统计所有类型 - 使用useMemo优化
   const allTypes = useMemo(() => {
     // 只统计通知类型，不含公告
-    const notificationTypes = Array.from(new Set(notifications.map(n => n.type)));
+    const notificationTypes = Array.from(new Set((notifications as any[]).map((n: any) => n.type)));
     // 固定顺序：全部、公告、其他类型
-    return ['all', 'announcement', ...notificationTypes];
+    const result = ['all', 'announcement', ...notificationTypes];
+    return result;
   }, [notifications]);
 
   // 只统计通知未读数 - 使用useMemo优化
@@ -132,12 +145,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   // 添加通知数据变化监听
   useEffect(() => {
-    // 强制更新简化版通知列表
     setForceUpdate(prev => prev + 1);
   }, [notifications]);
 
   // 通知点击处理 - 使用useCallback优化
-  const handleNotificationClick = useCallback((notification: Notification) => {
+  const handleNotificationClick = useCallback((notification: any) => {
     setSelectedNotification(notification);
     setDetailModalVisible(true);
     if (notification.status === 'unread') {
@@ -200,7 +212,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   }, []);
 
   // 渲染通知项 - 使用useCallback优化
-  const renderNotificationItem = useCallback((notification: Notification) => {
+  const renderNotificationItem = useCallback((notification: any) => {
     const iconInfo = getNotificationIcon(notification.type);
     const isUnread = notification.status === 'unread';
     return (
@@ -232,7 +244,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           }
           title={
             <Space>
-              <Text strong={isUnread}>{notification.title}</Text>
+              <Typography.Text strong={isUnread}>{notification.title}</Typography.Text>
               <Tag color={getStatusColor(notification.status)}>
                 {getStatusText(notification.status)}
               </Tag>
@@ -241,12 +253,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           description={
             <div>
               <div style={{ marginBottom: '4px' }}>
-                <Text type="secondary">{notification.content}</Text>
+                <Typography.Text type="secondary">{notification.content}</Typography.Text>
               </div>
               <div>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
+                <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
                   {dayjs(notification.created_at).format('YYYY-MM-DD HH:mm:ss')}
-                </Text>
+                </Typography.Text>
               </div>
             </div>
           }
@@ -296,8 +308,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         >
           <List.Item.Meta
             avatar={<Avatar style={{ backgroundColor: '#1890ff' }} icon={<span style={{ fontSize: '16px' }}>📢</span>} />}
-            title={<Space><Text strong>{item.title}</Text><Tag color="blue">公告</Tag></Space>}
-            description={<div><div style={{ marginBottom: '4px' }}><Text type="secondary">{item.content}</Text></div><div><Text type="secondary" style={{ fontSize: '12px' }}>{dayjs(item.created_at).format('YYYY-MM-DD HH:mm:ss')}</Text></div></div>}
+            title={<Space><Typography.Text strong>{item.title}</Typography.Text><Tag color="blue">公告</Tag></Space>}
+            description={<div><div style={{ marginBottom: '4px' }}><Typography.Text type="secondary">{item.content}</Typography.Text></div><div><Typography.Text type="secondary" style={{ fontSize: '12px' }}>{dayjs(item.created_at).format('YYYY-MM-DD HH:mm:ss')}</Typography.Text></div></div>}
           />
         </List.Item>
       );
@@ -308,9 +320,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   // 分类过滤 - 使用useMemo优化
   const filteredNotifications = useMemo(() => {
-    return activeTab === 'all'
+    const filtered = activeTab === 'all'
       ? notifications
-      : notifications.filter(n => n.type === activeTab);
+      : (notifications as any[]).filter((n: any) => n.type === activeTab);
+    return filtered;
   }, [activeTab, notifications]);
 
   // 渲染标签页 - 使用useCallback优化
@@ -350,7 +363,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   }, [activeTab, notifications, unreadCount, loading, filteredNotifications, renderNotificationItem]);
 
   // 渲染简化版通知项 - 用于悬浮卡片
-  const renderSimpleNotificationItem = useCallback((notification: Notification) => {
+  const renderSimpleNotificationItem = useCallback((notification: any) => {
     const iconInfo = getNotificationIcon(notification.type);
     const isUnread = notification.status === 'unread';
     
@@ -474,7 +487,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       <div style={{ padding: '0', maxHeight, overflow: 'auto' }}>
         <List
           dataSource={notifications}
-          renderItem={(item: Notification) => renderSimpleNotificationItem(item)}
+          renderItem={(item: any) => renderSimpleNotificationItem(item)}
           pagination={false}
           style={{ maxHeight }}
           key={`notification-list-${forceUpdate}`} // 强制重新渲染
@@ -574,31 +587,28 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={
-          selectedNotification ? (
-            selectedNotification.status !== 'handled' ? [
-              <Button
-                key="handled"
-                type="primary"
-                icon={<CheckOutlined />}
-                onClick={handleReceiveLead}
-              >
-                接收线索
-              </Button>
-            ] : null
-          ) : null
+          selectedNotification && selectedNotification.type === 'followup_assignment' && selectedNotification.status !== 'handled' ? [
+            <Button
+              key="handled"
+              type="primary"
+              icon={<CheckOutlined />}
+              onClick={handleReceiveLead}
+            >
+              接收线索
+            </Button>
+          ] : null
         }
-        width={500}
+        width={selectedNotification?.type === 'followup_assignment' ? 500 : 400}
       >
-        {selectedNotification && (
+        {selectedNotification && selectedNotification.type === 'followup_assignment' ? (
+          // 新线索专用弹窗
           <div>
-            {/* 主信息分组 */}
             <Descriptions
               column={1}
               bordered
               size="small"
               styles={{ label: { width: 100 }, content: { fontWeight: 500 } }}
             >
-              {/* 主信息分组 */}
               <Descriptions.Item label="线索ID">
                 <Space>
                   <Tag color="blue">{selectedNotification.metadata?.leadid}</Tag>
@@ -649,8 +659,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   </Space>
                 ) : '--'}
               </Descriptions.Item>
-
-              {/* 次要信息分组 */}
               {selectedNotification.metadata?.source && (
                 <Descriptions.Item label="来源">
                   <span>{selectedNotification.metadata?.source}</span>
@@ -687,7 +695,51 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               )}
             </div>
           </div>
-        )}
+        ) : selectedNotification ? (
+          // 普通通知弹窗
+          <div>
+            <Descriptions
+              column={1}
+              bordered
+              size="small"
+              styles={{ label: { width: 100 }, content: { fontWeight: 500 } }}
+            >
+              <Descriptions.Item label="标题">
+                {selectedNotification.title}
+              </Descriptions.Item>
+              <Descriptions.Item label="内容">
+                {selectedNotification.content}
+              </Descriptions.Item>
+              <Descriptions.Item label="类型">
+                {typeMap[selectedNotification.type] || selectedNotification.type}
+              </Descriptions.Item>
+              <Descriptions.Item label="创建时间">
+                {dayjs(selectedNotification.created_at).format('YYYY-MM-DD HH:mm:ss')}
+              </Descriptions.Item>
+              {selectedNotification.read_at && (
+                <Descriptions.Item label="已读时间">
+                  {dayjs(selectedNotification.read_at).format('YYYY-MM-DD HH:mm:ss')}
+                </Descriptions.Item>
+              )}
+              {selectedNotification.handled_at && (
+                <Descriptions.Item label="处理时间">
+                  {dayjs(selectedNotification.handled_at).format('YYYY-MM-DD HH:mm:ss')}
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+            {/* 可选：展开原始JSON */}
+            <div style={{ marginTop: 12 }}>
+              <Button type="link" onClick={() => setShowRaw(!showRaw)}>
+                {showRaw ? '隐藏原始数据' : '显示原始数据'}
+              </Button>
+              {showRaw && (
+                <pre style={{ fontSize: 12, background: '#f6f6f6', padding: 8, borderRadius: 4 }}>
+                  {JSON.stringify(selectedNotification.metadata, null, 2)}
+                </pre>
+              )}
+            </div>
+          </div>
+        ) : null}
       </Modal>
 
       {/* 公告详情弹窗 */}
