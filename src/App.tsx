@@ -247,6 +247,18 @@ const AppContent: React.FC = () => {
     }
   }, [profileId, loadUserPoints]);
 
+  // 自动解锁音频播放权限
+  React.useEffect(() => {
+    const unlockAudio = () => {
+      const audio = new Audio('/notification.wav');
+      audio.volume = 0;
+      audio.play().catch(() => {});
+      window.removeEventListener('click', unlockAudio);
+    };
+    window.addEventListener('click', unlockAudio);
+    return () => window.removeEventListener('click', unlockAudio);
+  }, []);
+
   // 修正高亮逻辑：只有严格等于'/'时高亮首页，其它优先匹配最长path
   // const selectedKey = (() => {
   //   if (location.pathname === '/') return 'index';
