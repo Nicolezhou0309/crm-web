@@ -167,6 +167,17 @@ const AppContent: React.FC = () => {
     deleteNotification,
     loading: notificationsLoading,
   } = useRealtimeNotifications();
+
+  // 新增：通知音效播放
+  const lastUnreadRef = React.useRef(unreadCount);
+  React.useEffect(() => {
+    if (unreadCount > (lastUnreadRef.current || 0)) {
+      // 新增未读，播放音效
+      const audio = new Audio('/notification.mp3');
+      audio.play().catch(() => {});
+    }
+    lastUnreadRef.current = unreadCount;
+  }, [unreadCount]);
   
   // 详细通知抽屉状态
   const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);

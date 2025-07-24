@@ -170,18 +170,18 @@ const AllocationManagement: React.FC = () => {
 
   // 新增：过滤后的销售组列表
   const filteredUserGroups = useMemo(() => {
-    if (!searchKeyword) return userGroups;
-    
-    return userGroups.filter(group => {
+    // 只展示community为空的销售组
+    const groups = userGroups.filter(group => !group.community);
+
+    if (!searchKeyword) return groups;
+    return groups.filter(group => {
       // 匹配组名
       const matchGroupName = group.groupname.toLowerCase().includes(searchKeyword.toLowerCase());
-      
       // 匹配成员昵称
       const members = groupMembersCache[group.id] || [];
       const matchMemberName = members.some(member => 
         member.nickname.toLowerCase().includes(searchKeyword.toLowerCase())
       );
-      
       return matchGroupName || matchMemberName;
     });
   }, [userGroups, searchKeyword, groupMembersCache]);
@@ -1210,26 +1210,6 @@ const AllocationManagement: React.FC = () => {
         </Space>
       }
     >
-      {/* 新增：使用统计信息 */}
-      <div style={{ marginBottom: 16 }}>
-        <Alert
-          message={
-            <Space>
-              <Text>销售组使用统计：</Text>
-              <Text strong>{userGroups.length}</Text>
-              <Text>个销售组，其中</Text>
-              <Text strong style={{ color: '#1890ff' }}>
-                {userGroups.filter(group => getGroupUsageInfo(group.id).isUsed).length}
-              </Text>
-              <Text>个正在被分配规则使用</Text>
-            </Space>
-          }
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
-      </div>
-      
       <Table
         columns={groupColumns}
         dataSource={filteredUserGroups}

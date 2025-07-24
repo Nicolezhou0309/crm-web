@@ -36,6 +36,7 @@ export interface UserGroup {
   enable_community_matching: boolean;
   created_at?: string;
   updated_at?: string;
+  community?: string | null; // 新增，允许为null
 }
 
 // 分配日志类型
