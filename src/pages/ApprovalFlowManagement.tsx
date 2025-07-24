@@ -279,9 +279,92 @@ const ApprovalFlowManagement: React.FC = () => {
 
   // 审批操作（同意/拒绝）
   async function onApproveStep(step: ApprovalStep, action: 'approved' | 'rejected') {
-    const { error } = await supabase.from('approval_steps').update({ status: action }).eq('id', step.id);
-    if (!error) message.success(`已${action === 'approved' ? '同意' : '拒绝'}该节点`);
-    fetchSteps(step.instance_id);
+    try {
+      // 获取当前用户信息
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('[审批操作] 当前用户信息:', { user, userError });
+      
+      // 获取当前用户profile信息
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users_profile')
+        .select('*')
+        .eq('user_id', user?.id)
+        .single();
+      console.log('[审批操作] 用户Profile信息:', { userProfile, profileError });
+      
+      // 检查审批步骤信息
+      console.log('[审批操作] 审批步骤信息:', {
+        stepId: step.id,
+        instanceId: step.instance_id,
+        approverId: step.approver_id,
+        currentStatus: step.status,
+        action: action,
+        currentUserId: userProfile?.id,
+        isApprover: userProfile?.id === step.approver_id
+      });
+      
+      // 检查审批步骤状态
+      if (step.status !== 'pending') {
+        console.error('[审批操作] 步骤状态不是pending，无法审批:', step.status);
+        message.error('该步骤已处理，无法重复审批');
+        return;
+      }
+      
+      // 检查是否为审批人
+      if (userProfile?.id !== step.approver_id) {
+        console.error('[审批操作] 当前用户不是审批人:', {
+          currentUserId: userProfile?.id,
+          approverId: step.approver_id
+        });
+        message.error('您不是该步骤的审批人');
+        return;
+      }
+      
+      // 准备更新数据
+      const updateData = {
+        status: action,
+        action_time: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      console.log('[审批操作] 准备更新的数据:', updateData);
+      
+      // 执行更新
+      const { data, error } = await supabase
+        .from('approval_steps')
+        .update(updateData)
+        .eq('id', step.id);
+      
+      console.log('[审批操作] 更新结果:', { data, error });
+      
+      if (error) {
+        console.error('[审批操作] 更新失败:', error);
+        message.error(`审批操作失败: ${error.message}`);
+        return;
+      }
+      
+      message.success(`已${action === 'approved' ? '同意' : '拒绝'}该节点`);
+      
+      // 重新获取步骤数据
+      await fetchSteps(step.instance_id);
+      
+      // 检查是否需要更新审批实例状态
+      const { data: steps } = await supabase
+        .from('approval_steps')
+        .select('*')
+        .eq('instance_id', step.instance_id);
+      
+      console.log('[审批操作] 所有步骤状态:', steps);
+      
+      // 检查是否所有步骤都已完成
+      const allCompleted = steps?.every(s => s.status === 'approved' || s.status === 'rejected');
+      if (allCompleted) {
+        console.log('[审批操作] 所有步骤已完成，可能需要更新审批实例状态');
+      }
+      
+    } catch (e) {
+      console.error('[审批操作] 异常:', e);
+      message.error(`审批操作异常: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   return (
