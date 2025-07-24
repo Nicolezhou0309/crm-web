@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import { Table, Button, Modal, Form, Input, Steps, Tag, message, Select, TreeSelect } from 'antd';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../supaClient'
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-
-// 初始化 Supabase 客户端（请根据实际环境变量配置）
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL!,
-  import.meta.env.VITE_SUPABASE_ANON_KEY!
-);
 
 // 审批流模板类型
 interface ApprovalFlowTemplate {

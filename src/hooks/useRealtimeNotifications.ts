@@ -78,65 +78,52 @@ export const useRealtimeNotifications = () => {
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${profileId}`
+        table: 'notifications'
       }, (payload) => {
         const newNotification = payload.new as Notification;
-        
-        // 使用函数式更新，避免闭包问题
+        if (newNotification.user_id !== profileId) return;
         setNotifications(prev => {
-          // 检查是否已存在相同ID的通知
           const exists = prev.some(n => n.id === newNotification.id);
           if (exists) return prev;
-          
-          const newList = [newNotification, ...prev];
-          return newList;
+          return [newNotification, ...prev];
         });
-        
-        // 优化未读数量更新
         setUnreadCount(prev => {
           if (newNotification.status === 'unread') {
-            const newCount = prev + 1;
-            return newCount;
+            return prev + 1;
           }
           return prev;
         });
-        
         setLastUpdate(Date.now());
         showDesktopNotification(newNotification.title, newNotification.content);
       })
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${profileId}`
+        table: 'notifications'
       }, (payload) => {
         const updatedNotification = payload.new as Notification;
-        
+        if (updatedNotification.user_id !== profileId) return;
         setNotifications(prev => 
           prev.map(n => 
             n.id === updatedNotification.id ? updatedNotification : n
           )
         );
-        
-        // 防抖更新未读数量
         debouncedUpdateUnreadCount();
         setLastUpdate(Date.now());
       })
       .on('postgres_changes', {
         event: 'DELETE',
         schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${profileId}`
+        table: 'notifications'
       }, (payload) => {
+        if (payload.old.user_id !== profileId) return;
         setNotifications(prev => 
           prev.filter(n => n.id !== payload.old.id)
         );
         debouncedUpdateUnreadCount();
         setLastUpdate(Date.now());
       })
-      .subscribe(() => { 
-      });
+      .subscribe(() => {});
     
     return () => {
       supabase.removeChannel(channel);
