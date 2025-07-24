@@ -1975,7 +1975,15 @@ const FollowupsGroupList: React.FC = () => {
       fixed: 'right' as const,
       width: 100,
       render: (_: any, record: any) => (
-        <Button size="small" type="default" onClick={() => handleRollbackClick(record)}>回退</Button>
+        <Button 
+          size="small" 
+          type="default" 
+          danger
+          onClick={() => handleRollbackClick(record)}
+          disabled={record.invalid}
+        >
+          {record.invalid ? '已回退' : '回退'}
+        </Button>
       ),
     },
   ], [followupstageFilters, sourceFilters, leadtypeFilters, remarkFilters, customerprofileFilters, worklocationFilters, userbudgetFilters, userratingFilters, followupresultFilters, majorcategoryFilters, scheduledcommunityFilters, communityEnum, followupstageEnum, customerprofileEnum, sourceEnum, userratingEnum, majorCategoryOptions, metroStationOptions, tableColumnFilters, forceUpdate]);
@@ -2772,19 +2780,13 @@ const FollowupsGroupList: React.FC = () => {
   const handleRestoreStatus = async () => {
     if (!currentRecord) return;
     
-    try {
-      await stageForm.validateFields();
-      const result = await saveDrawerForm({ followupstage: '确认需求' });
-      
-      if (result.success) {
-        setCurrentStep(2); // 确认需求是第3个阶段（索引2）
-        setCurrentStage('确认需求');
-        message.success('已恢复到确认需求阶段');
-      } else {
-        message.error('恢复状态失败: ' + result.error);
-      }
-    } catch {
-      message.error('请完整填写所有必填项');
+    const result = await saveDrawerForm({ followupstage: '确认需求' });
+    if (result.success) {
+      setCurrentStep(2); // 确认需求是第3个阶段（索引2）
+      setCurrentStage('确认需求');
+      message.success('已恢复到确认需求阶段');
+    } else {
+      message.error('恢复状态失败: ' + result.error);
     }
   };
 
@@ -3987,19 +3989,14 @@ const FollowupsGroupList: React.FC = () => {
                     <Button
                       disabled={currentStep === 0}
                       onClick={async () => {
-                        // 上一步前自动保存
-                        try {
-                          await stageForm.validateFields();
-                          const result = await saveDrawerForm({ followupstage: followupStages[currentStep - 1] });
-                          
-                          if (result.success) {
-                            setCurrentStep(currentStep - 1);
-                            setCurrentStage(followupStages[currentStep - 1]);
-                          } else {
-                            message.error('保存失败: ' + result.error);
-                          }
-                        } catch {
-                          message.error('请完整填写所有必填项');
+                        // 上一步前不再校验表单完整性，直接保存
+                        if (!currentRecord) return;
+                        const result = await saveDrawerForm({ followupstage: followupStages[currentStep - 1] });
+                        if (result.success) {
+                          setCurrentStep(currentStep - 1);
+                          setCurrentStage(followupStages[currentStep - 1]);
+                        } else {
+                          message.error('保存失败: ' + result.error);
                         }
                       }}
                     >上一步</Button>
@@ -4098,12 +4095,11 @@ const FollowupsGroupList: React.FC = () => {
                     <Button
                       type="primary"
                       onClick={async () => {
-                        // 下一步前自动保存
+                        // 下一步前自动保存并校验表单
                         try {
                           if (!currentRecord) return;
-                          
+                          await stageForm.validateFields(); // 新增：校验表单必填项
                           const result = await saveDrawerForm({ followupstage: followupStages[currentStep + 1] });
-                          
                           if (result.success) {
                             setCurrentStep(currentStep + 1);
                             setCurrentStage(followupStages[currentStep + 1]);
