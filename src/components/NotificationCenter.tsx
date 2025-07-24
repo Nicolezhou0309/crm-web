@@ -65,9 +65,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   // 移除 useRealtimeNotifications 相关代码
   const notifications = propsNotifications ?? [];
   const unreadCount = propsUnreadCount ?? 0;
-  const markAsRead = propsMarkAsRead ?? (async (id: string) => {});
-  const markAsHandled = propsMarkAsHandled ?? (async (id: string) => {});
-  const deleteNotification = propsDeleteNotification ?? (async (id: string) => {});
+  const markAsRead = propsMarkAsRead ?? (async () => {});
+  const markAsHandled = propsMarkAsHandled ?? (async () => {});
+  const deleteNotification = propsDeleteNotification ?? (async () => {});
   const loading = propsLoading ?? false;
 
   // props 传递日志

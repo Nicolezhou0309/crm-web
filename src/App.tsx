@@ -166,7 +166,6 @@ const AppContent: React.FC = () => {
     markAsHandled,
     deleteNotification,
     loading: notificationsLoading,
-    loadNotifications,
   } = useRealtimeNotifications();
   
   // 详细通知抽屉状态
