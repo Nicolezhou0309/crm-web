@@ -38,37 +38,67 @@ Deno.serve(async (req) => {
       const leadid = newRow.target_id;
       const applicant_id = newRow.created_by;
       const config = newRow.config || {};
-      // 查询最近一次积分发放
+      
+      // 查询线索分配时的积分扣除记录
       const { data: pointsRecord } = await supabase
-        .from('points_allocation_records')
+        .from('user_points_transactions')
         .select('*')
-        .eq('leadid', leadid)
-        .eq('assigned_user_id', applicant_id)
+        .eq('source_type', 'ALLOCATION_LEAD')
+        .eq('source_id', leadid)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (pointsRecord && pointsRecord.points) {
-        await supabase.rpc('add_points_to_wallet', {
+      
+      if (pointsRecord && pointsRecord.points_change && pointsRecord.points_change < 0) {
+        // 返还积分（取绝对值）
+        const refundPoints = Math.abs(pointsRecord.points_change);
+        
+        // 更新用户积分钱包
+        const { data: wallet } = await supabase
+          .from('user_points_wallet')
+          .select('*')
+          .eq('user_id', applicant_id)
+          .single();
+        
+        if (wallet) {
+          await supabase
+            .from('user_points_wallet')
+            .update({
+              total_points: wallet.total_points + refundPoints,
+              total_earned_points: wallet.total_earned_points + refundPoints,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', applicant_id);
+        }
+        
+        // 插入积分返还交易记录
+        await supabase.from('user_points_transactions').insert({
           user_id: applicant_id,
-          points: pointsRecord.points,
-          reason: '线索回退返还',
-          leadid,
-        });
-        await supabase.from('points_transactions').insert({
-          user_id: applicant_id,
-          type: 'rollback_refund',
-          points: pointsRecord.points,
-          leadid,
-          created_at: new Date().toISOString(),
+          points_change: refundPoints,
+          balance_after: (wallet?.total_points || 0) + refundPoints,
+          transaction_type: 'EARN',
+          source_type: 'ROLLBACK_REFUND',
+          source_id: leadid,
+          description: `线索回退返还积分：${leadid}`
         });
       }
-      await supabase.from('leads').update({ invalid: true }).eq('id', leadid);
+      
+      // 标记线索为无效
+      await supabase.from('leads').update({ invalid: true }).eq('leadid', leadid);
+      
+      // 发送通知
       await supabase.from('notifications').insert({
         user_id: applicant_id,
         type: 'lead_rollback_success',
+        title: '线索回退成功',
         content: `线索${leadid}回退成功，积分已返还`,
+        status: 'unread',
+        priority: 1,
+        related_table: 'leads',
+        related_id: leadid,
         created_at: new Date().toISOString(),
       });
+      
       console.log('lead rollback approval processed', { leadid, applicant_id });
     }
 
@@ -91,13 +121,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 记录操作日志
-    await supabase.from('approval_action_logs').insert({
-      approval_instance_id: newRow.id,
-      action: 'auto_business_action',
-      detail: `审批流类型: ${flow.type}, 业务ID: ${newRow.target_id}`,
-      created_at: new Date().toISOString()
-    });
+    // 记录操作日志（使用现有表或创建新表）
+    try {
+      await supabase.from('simple_allocation_logs').insert({
+        leadid: newRow.target_id,
+        processing_details: {
+          action: 'approval_business_action',
+          approval_instance_id: newRow.id,
+          flow_type: flow.type,
+          business_id: newRow.target_id,
+          created_at: new Date().toISOString()
+        }
+      });
+    } catch (logError) {
+      console.log('操作日志记录失败:', logError);
+    }
 
     return new Response(JSON.stringify({ success: true, message: '业务动作已自动执行' }), { status: 200 });
   } catch (e) {
