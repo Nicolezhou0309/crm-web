@@ -4119,11 +4119,16 @@ const FollowupsGroupList: React.FC = () => {
             </div>
           </div>
         </Drawer>
-        <LeadDetailDrawer
-          visible={leadDetailDrawerOpen}
-          leadid={leadDetailId || ''}
+        <Drawer
+          open={leadDetailDrawerOpen}
           onClose={() => setLeadDetailDrawerOpen(false)}
-        />
+          title="线索详情"
+          width={800}
+          destroyOnClose
+          placement="right"
+        >
+          {leadDetailId && <LeadDetailDrawer leadid={leadDetailId} />}
+        </Drawer>
         
         {/* 庆祝动画 */}
         <CelebrationAnimation

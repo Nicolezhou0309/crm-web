@@ -113,22 +113,19 @@ export default function PointsDashboard() {
     try {
       if (!profileId) return;
       setSigningIn(true);
-      const result = await awardPoints(profileId, 'SIGNIN', undefined, '每日签到');
-      if (result.success) {
-        // 使用现代化的通知方式
-        const notification = document.createElement('div');
-        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-pulse';
-        notification.textContent = `🎉 签到成功！获得 ${result.points_awarded} 积分`;
-        document.body.appendChild(notification);
-        setTimeout(() => notification.remove(), 3000);
-        
-        loadPointsInfo(profileId);
-        loadTransactions(profileId);
-      } else {
-        alert(`签到失败：${result.error}`);
-      }
+      await awardPoints(profileId, 5, 'SIGNIN', undefined, '每日签到');
+      // 使用现代化的通知方式
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-pulse';
+      notification.textContent = `🎉 签到成功！获得 5 积分`;
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
+      loadPointsInfo(profileId);
+      loadTransactions(profileId);
     } catch (err) {
-      alert('签到失败：' + (err instanceof Error ? err.message : '未知错误'));
+      // 添加详细日志
+      console.error('签到失败详细错误:', err, JSON.stringify(err));
+      alert('签到失败：' + (err instanceof Error ? err.message : JSON.stringify(err)));
     } finally {
       setSigningIn(false);
     }

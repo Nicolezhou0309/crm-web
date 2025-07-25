@@ -193,12 +193,12 @@ export async function allocateLeadWithPoints(params: {
 // 用户积分分配相关
 // =====================================
 
-// 获取用户积分分配历史
+// 获取用户积分分配历史（改为查询user_points_transactions）
 export async function getUserPointsAllocationHistory(userId: number, filters: Record<string, any> = {}) {
   let query = supabase
-    .from('points_allocation_records')
+    .from('user_points_transactions')
     .select('*')
-    .eq('assigned_user_id', userId);
+    .eq('user_id', userId);
 
   // 动态添加筛选条件
   Object.entries(filters).forEach(([key, value]) => {
@@ -227,24 +227,24 @@ export async function getUserPointsAllocationHistory(userId: number, filters: Re
   return data;
 }
 
-// 获取用户积分分配统计
+// 获取用户积分分配统计（改为统计user_points_transactions）
 export async function getUserPointsAllocationStats(userId: number) {
   // 获取所有记录
   const { data: allRecords, error } = await supabase
-    .from('points_allocation_records')
+    .from('user_points_transactions')
     .select('*')
-    .eq('assigned_user_id', userId);
+    .eq('user_id', userId);
   
   if (error) throw error;
   
   const records = allRecords || [];
   const total_allocations = records.length;
-  const successful_allocations = records.filter(r => r.allocation_status === 'success').length;
-  const insufficient_points_allocations = records.filter(r => r.allocation_status === 'insufficient_points').length;
-  const total_points_cost = records.reduce((sum, r) => sum + (r.points_cost || 0), 0);
+  const successful_allocations = records.filter(r => r.transaction_type === 'EARN').length;
+  const insufficient_points_allocations = records.filter(r => r.transaction_type === 'DEDUCT').length;
+  const total_points_cost = records.reduce((sum, r) => sum + (r.points_change < 0 ? Math.abs(r.points_change) : 0), 0);
   const successful_points_cost = records
-    .filter(r => r.allocation_status === 'success')
-    .reduce((sum, r) => sum + (r.points_cost || 0), 0);
+    .filter(r => r.transaction_type === 'EARN')
+    .reduce((sum, r) => sum + (r.points_change > 0 ? r.points_change : 0), 0);
   const avg_points_cost = total_allocations > 0 ? total_points_cost / total_allocations : 0;
   
   return {

@@ -13,7 +13,8 @@ import {
   Col,
   Card,
   Tooltip,
-  Form
+  Form,
+  Drawer
 } from 'antd';
 import { 
   ReloadOutlined, 
@@ -362,14 +363,19 @@ const DealsList: React.FC = () => {
       />
       
       {/* 线索详情抽屉 */}
-      <LeadDetailDrawer
-        visible={detailDrawerVisible}
-        leadid={selectedLeadId}
+      <Drawer
+        open={detailDrawerVisible}
         onClose={() => {
           setDetailDrawerVisible(false);
           setSelectedLeadId('');
         }}
-      />
+        title="线索详情"
+        width={800}
+        destroyOnClose
+        placement="right"
+      >
+        {selectedLeadId && <LeadDetailDrawer leadid={selectedLeadId} />}
+      </Drawer>
     </div>
   );
 };

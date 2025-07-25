@@ -15,7 +15,8 @@ import {
   Card,
   InputNumber,
   Tooltip,
-  Popconfirm
+  Popconfirm,
+  Drawer
 } from 'antd';
 import { 
   EditOutlined,
@@ -1468,14 +1469,19 @@ const ShowingsList: React.FC = () => {
       </Modal>
       
       {/* 线索详情抽屉 */}
-      <LeadDetailDrawer
-        visible={detailDrawerVisible}
-        leadid={selectedLeadId}
+      <Drawer
+        open={detailDrawerVisible}
         onClose={() => {
           setDetailDrawerVisible(false);
           setSelectedLeadId('');
         }}
-      />
+        title="线索详情"
+        width={800}
+        destroyOnClose
+        placement="right"
+      >
+        {selectedLeadId && <LeadDetailDrawer leadid={selectedLeadId} />}
+      </Drawer>
 
       {/* 直通/轮空卡明细弹窗 */}
       <Modal

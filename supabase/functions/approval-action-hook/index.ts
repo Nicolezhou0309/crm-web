@@ -117,26 +117,34 @@ Deno.serve(async (req) => {
       console.log('[Lead Rollback Approval Processed]', { leadid, applicant_id });
     }
 
-    // 业务联动：积分审批流
-    if (flow.type === 'points') {
-      const { data: lead, error: leadError } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('leadid', newRow.target_id)
-        .single();
-      console.log('[Points Approval] lead:', lead, leadError);
-      if (leadError || !lead) {
-        console.log('[Error] 业务对象不存在:', leadError);
-        return new Response(JSON.stringify({ error: '业务对象不存在' }), { status: 404 });
+    // 业务联动：积分调整审批流
+    if (flow.type === 'points_adjust' || newRow.type === 'points_adjust') {
+      // 1. 解析config字段，获取user_id、points、remark
+      const config = newRow.config || {};
+      const user_id = config.user_id;
+      const points = config.points;
+      const remark = config.remark || '';
+      if (!user_id || !points) {
+        console.log('[Points Adjust] 缺少必要参数', config);
+        return new Response(JSON.stringify({ error: '参数不完整' }), { status: 400 });
       }
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({ points_status: 'approved' })
-        .eq('leadid', newRow.target_id);
-      console.log('[Points Status Updated]', updateError);
-      if (updateError) {
-        return new Response(JSON.stringify({ error: '业务操作失败', details: updateError.message }), { status: 500 });
+
+      // 2. 调用数据库函数insert_user_points_transaction进行积分调整
+      const { data, error } = await supabase.rpc('insert_user_points_transaction', {
+        p_user_id: user_id,
+        p_points_change: points,
+        p_transaction_type: points > 0 ? 'EARN' : 'CONSUME',
+        p_source_type: 'POINTS_ADJUST',
+        p_source_id: newRow.id,
+        p_description: remark || '审批流积分调整',
+        p_created_by: newRow.created_by
+      });
+      if (error) {
+        console.log('[Points Adjust] insert_user_points_transaction失败', error);
+        return new Response(JSON.stringify({ error: '积分调整失败', details: error.message }), { status: 500 });
       }
+
+      console.log('[Points Adjust Approval Processed][DB func]', { user_id, points, remark });
     }
 
     // 记录操作日志（使用现有表或创建新表）

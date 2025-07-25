@@ -15,7 +15,8 @@ import {
   Tooltip,
   Checkbox,
   Row,
-  Col
+  Col,
+  Drawer
 } from 'antd';
 import { 
   PlusOutlined, 
@@ -872,14 +873,19 @@ const LeadsList: React.FC = () => {
       </Modal>
       
       {/* 线索详情抽屉 */}
-      <LeadDetailDrawer
-        visible={detailDrawerVisible}
-        leadid={selectedLeadId}
+      <Drawer
+        open={detailDrawerVisible}
         onClose={() => {
           setDetailDrawerVisible(false);
           setSelectedLeadId('');
         }}
-      />
+        title="线索详情"
+        width={800}
+        destroyOnClose
+        placement="right"
+      >
+        {selectedLeadId && <LeadDetailDrawer leadid={selectedLeadId} />}
+      </Drawer>
     </div>
   );
 };

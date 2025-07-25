@@ -20,13 +20,22 @@ export async function getUserPointsInfo(userId: number) {
   return data;
 }
 
-// 积分发放
-export async function awardPoints(userId: number, sourceType: string, sourceId?: number, description?: string) {
-  const { data, error } = await supabase.rpc('award_points', {
-    p_user_id: userId,
-    p_source_type: sourceType,
+// 积分发放（参数顺序和名称严格与数据库函数一致）
+export async function awardPoints(
+  userId: number,
+  pointsChange: number,
+  sourceType: string,
+  sourceId: string | number | null = null,
+  description?: string
+) {
+  const { data, error } = await supabase.rpc('insert_user_points_transaction', {
+    p_created_by: null,
+    p_description: description,
+    p_points_change: pointsChange,
     p_source_id: sourceId,
-    p_description: description
+    p_source_type: sourceType,
+    p_transaction_type: 'EARN',
+    p_user_id: userId
   });
   if (error) throw error;
   return data;
@@ -131,4 +140,36 @@ export async function getExchangeRecords(userId: number) {
     .order('exchange_time', { ascending: false });
   if (error) throw error;
   return data;
+} 
+
+// 批量获取所有用户积分钱包
+export async function getAllUserPointsWallets() {
+  const { data, error } = await supabase
+    .from('user_points_wallet')
+    .select('*');
+  if (error) throw error;
+  return data;
+} 
+
+// 发起积分调整审批流
+export async function submitPointsAdjustApproval({ user_id, points, remark, created_by }: { user_id: number; points: number; remark?: string; created_by: number }) {
+  // 1. 查找积分调整审批流模板
+  const { data: flowData, error: flowError } = await supabase
+    .from('approval_flows')
+    .select('id')
+    .eq('type', 'points_adjust')
+    .maybeSingle();
+  if (flowError || !flowData) throw new Error('未配置积分调整审批流');
+  // 2. 插入审批实例
+  const { error: approvalError } = await supabase.from('approval_instances').insert({
+    flow_id: flowData.id,
+    type: 'points_adjust',
+    target_table: 'user_points_wallet',
+    target_id: `${user_id}_${Date.now()}`,
+    status: 'pending',
+    created_by,
+    config: { user_id, points, remark },
+  });
+  if (approvalError) throw approvalError;
+  return true;
 } 

@@ -117,11 +117,7 @@ interface LeadData {
   dealsList?: any[];
 }
 
-const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
-  visible,
-  leadid,
-  onClose
-}) => {
+const LeadDetailDrawer: React.FC<{ leadid: string }> = ({ leadid }) => {
   const [loading, setLoading] = useState(false);
   const [leadData, setLeadData] = useState<LeadData | null>(null);
 
@@ -216,10 +212,10 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   };
 
   useEffect(() => {
-    if (visible && leadid) {
+    if (leadid) {
       fetchLeadDetail();
     }
-  }, [visible, leadid]);
+  }, [leadid]);
 
   // 复制文本到剪贴板
   const copyToClipboard = (text: string, label: string) => {
@@ -271,435 +267,402 @@ const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   };
 
   return (
-    <Drawer
-      title={
-        <Space>
-          <FileTextOutlined/>
-          <span>线索详情</span>
-          {leadData && (
-            <Badge 
-              status={getStatusColor(leadData.leadstatus) as any} 
-              text={leadData.leadstatus} 
-            />
-          )}
-        </Space>
-      }
-      placement="right"
-      width={800}
-      open={visible}
-      onClose={onClose}
-      extra={
-        <Space>
-          <Button 
-            icon={<ReloadOutlined />} 
-            onClick={fetchLeadDetail}
-            loading={loading}
+    <Spin spinning={loading}>
+      {leadData && (
+        <Tabs defaultActiveKey="basic" size="large">
+          {/* 基本信息 */}
+          <TabPane 
+            tab={
+              <span>
+                <UserOutlined />
+                基本信息
+              </span>
+            } 
+            key="basic"
           >
-            刷新
-          </Button>
-          <Button type="primary" icon={<EditOutlined />}>
-            编辑
-          </Button>
-        </Space>
-      }
-    >
-      <Spin spinning={loading}>
-        {leadData && (
-          <Tabs defaultActiveKey="basic" size="large">
-            {/* 基本信息 */}
-            <TabPane 
-              tab={
-                <span>
-                  <UserOutlined />
-                  基本信息
-                </span>
-              } 
-              key="basic"
-            >
-              <div>
-                <Card title="线索基础信息" size="small">
-                  <Descriptions column={2} bordered size="small">
-                    <Descriptions.Item label="线索编号" span={2}>
-                      <Space>
-                        <Text code>{leadData.leadid}</Text>
+            <div>
+              <Card title="线索基础信息" size="small">
+                <Descriptions column={2} bordered size="small">
+                  <Descriptions.Item label="线索编号" span={2}>
+                    <Space>
+                      <Text code>{leadData.leadid}</Text>
+                      <Button 
+                        type="link" 
+                        size="small" 
+                        icon={<CopyOutlined />}
+                        onClick={() => copyToClipboard(leadData.leadid, '线索编号')}
+                      >
+                        复制
+                      </Button>
+                    </Space>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="手机号">
+                    <Space>
+                      <PhoneOutlined />
+                      <Text>{maskPhone(leadData.phone)}</Text>
+                      {leadData.phone && (
                         <Button 
                           type="link" 
                           size="small" 
                           icon={<CopyOutlined />}
-                          onClick={() => copyToClipboard(leadData.leadid, '线索编号')}
+                          onClick={() => copyToClipboard(leadData.phone, '手机号')}
                         >
                           复制
                         </Button>
-                      </Space>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="手机号">
-                      <Space>
-                        <PhoneOutlined />
-                        <Text>{maskPhone(leadData.phone)}</Text>
-                        {leadData.phone && (
-                          <Button 
-                            type="link" 
-                            size="small" 
-                            icon={<CopyOutlined />}
-                            onClick={() => copyToClipboard(leadData.phone, '手机号')}
-                          >
-                            复制
-                          </Button>
+                      )}
+                    </Space>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="微信号">
+                    <Space>
+                      <WechatOutlined />
+                      <Text>{maskWechat(leadData.wechat)}</Text>
+                      {leadData.wechat && (
+                        <Button 
+                          type="link" 
+                          size="small" 
+                          icon={<CopyOutlined />}
+                          onClick={() => copyToClipboard(leadData.wechat, '微信号')}
+                        >
+                          复制
+                        </Button>
+                      )}
+                    </Space>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="QQ">
+                    <Text>{leadData.qq || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="位置">
+                    <Space>
+                      <EnvironmentOutlined />
+                      <Text>{leadData.location || '-'}</Text>
+                    </Space>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="预算">
+                    <Tag color="orange">{leadData.budget || '-'}</Tag>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="区域">
+                    <Text>{leadData.area || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="来源">
+                    <Tag color={getSourceColor(leadData.source)}>
+                      {leadData.source || '-'}
+                    </Tag>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="线索类型">
+                    <Tag color="green">{leadData.leadtype || '-'}</Tag>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="线索状态">
+                    <Tag color={getStatusColor(leadData.leadstatus)}>
+                      {leadData.leadstatus || '-'}
+                    </Tag>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="流量类型">
+                    <Text>{leadData.traffictype || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="互动类型">
+                    <Text>{leadData.interactiontype || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="创建时间">
+                    <Space>
+                      <CalendarOutlined />
+                      <Text>{dayjs(leadData.created_at).format('YYYY-MM-DD HH:mm:ss')}</Text>
+                    </Space>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="更新时间">
+                    <Space>
+                      <CalendarOutlined />
+                      <Text>{dayjs(leadData.updata_at).format('YYYY-MM-DD HH:mm:ss')}</Text>
+                    </Space>
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+
+              <Card title="广告信息" size="small">
+                <Descriptions column={2} bordered size="small">
+                  <Descriptions.Item label="抖音ID">
+                    <Text>{leadData.douyinid || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="抖音账号">
+                    <Text>{leadData.douyin_accountname || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="小红书ID">
+                    <Text>{leadData.redbookid || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="员工姓名">
+                    <Text>{leadData.staffname || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="广告系列ID">
+                    <Text code>{leadData.campaignid || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="广告系列名称">
+                    <Text>{leadData.campaignname || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="广告单元ID">
+                    <Text code>{leadData.unitid || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="广告单元名称">
+                    <Text>{leadData.unitname || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="创意ID">
+                    <Text code>{leadData.creativedid || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="创意名称">
+                    <Text>{leadData.creativename || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="抖音线索ID">
+                    <Text code>{leadData.douyinleadid || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="备注链接">
+                    <Text>{leadData.notelink || '-'}</Text>
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+
+              <Card title="备注信息" size="small">
+                <Paragraph>
+                  {leadData.remark || '暂无备注信息'}
+                </Paragraph>
+              </Card>
+            </div>
+          </TabPane>
+
+          {/* 跟进信息 */}
+          <TabPane 
+            tab={
+              <span>
+                <UserOutlined />
+                跟进信息
+              </span>
+            } 
+            key="followup"
+          >
+            <div>
+              <Card title="跟进记录" size="small">
+                <Descriptions column={2} bordered size="small">
+                  <Descriptions.Item label="跟进阶段">
+                    <Tag color={getStatusColor(leadData.followupstage || '')}>
+                      {leadData.followupstage || '待接收'}
+                    </Tag>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="客户画像">
+                    <Text>{leadData.customerprofile || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="工作地点">
+                    <Text>{leadData.worklocation || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="用户预算">
+                    <Tag color="orange">{leadData.userbudget || '-'}</Tag>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="入住时间">
+                    <Text>
+                      {leadData.moveintime ? dayjs(leadData.moveintime).format('YYYY-MM-DD') : '-'}
+                    </Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="用户评级">
+                    <Text>{leadData.userrating || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="主要分类">
+                    <Text>{leadData.majorcategory || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="预约时间">
+                    <Text>
+                      {leadData.scheduletime ? dayjs(leadData.scheduletime).format('YYYY-MM-DD HH:mm') : '-'}
+                    </Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="预约社区">
+                    <Tag color="blue">{leadData.scheduledcommunity || '-'}</Tag>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="面试销售">
+                    <Text>{leadData.interviewsales_user_name || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="跟进结果">
+                    <Text>{leadData.followupresult || '-'}</Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="跟进创建时间">
+                    <Text>
+                      {leadData.followup_created_at ? dayjs(leadData.followup_created_at).format('YYYY-MM-DD HH:mm:ss') : '-'}
+                    </Text>
+                  </Descriptions.Item>
+                  
+                  <Descriptions.Item label="跟进更新时间">
+                    <Text>
+                      {leadData.followup_updated_at ? dayjs(leadData.followup_updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}
+                    </Text>
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+            </div>
+          </TabPane>
+
+          {/* 带看信息 */}
+          <TabPane 
+            tab={
+              <span>
+                <EyeOutlined />
+                带看信息
+              </span>
+            } 
+            key="showing"
+          >
+            <div>
+              {/* 卡片列表展示所有带看记录 */}
+              {leadData?.showingsList && Array.isArray(leadData.showingsList) && leadData.showingsList.length > 0 ? (
+                <div>
+                  {(leadData.showingsList as any[]).map((showing, idx) => (
+                    <Card key={showing.id} title={`带看记录 #${leadData.showingsList!.length - idx}`} size="small">
+                      <Descriptions column={2} bordered size="small">
+                        <Descriptions.Item label="预约时间">
+                          <Text>{showing.scheduletime ? dayjs(showing.scheduletime).format('YYYY-MM-DD HH:mm') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="社区">
+                          <Tag color="blue">{showing.community || '-'}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="到达时间">
+                          <Text>{showing.arrivaltime ? dayjs(showing.arrivaltime).format('YYYY-MM-DD HH:mm') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="带看销售">
+                          <Text>{showing.showingsales_user?.nickname || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="真实带看销售">
+                          <Text>{showing.trueshowingsales_user?.nickname || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="看房结果">
+                          <Text>{showing.viewresult || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="预算">
+                          <Tag color="orange">{showing.budget ? `¥${showing.budget}` : '-'}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="入住时间">
+                          <Text>{showing.moveintime ? dayjs(showing.moveintime).format('YYYY-MM-DD') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="租期">
+                          <Text>{showing.renttime ? `${showing.renttime}个月` : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="备注">
+                          <Text>{showing.remark || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="创建时间">
+                          <Text>{showing.created_at ? dayjs(showing.created_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="更新时间">
+                          <Text>{showing.updated_at ? dayjs(showing.updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
+                        </Descriptions.Item>
+                        {showing.phone && (
+                          <Descriptions.Item label="手机号">
+                            <Text>{maskPhone(showing.phone)}</Text>
+                          </Descriptions.Item>
                         )}
-                      </Space>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="微信号">
-                      <Space>
-                        <WechatOutlined />
-                        <Text>{maskWechat(leadData.wechat)}</Text>
-                        {leadData.wechat && (
-                          <Button 
-                            type="link" 
-                            size="small" 
-                            icon={<CopyOutlined />}
-                            onClick={() => copyToClipboard(leadData.wechat, '微信号')}
-                          >
-                            复制
-                          </Button>
+                        {showing.wechat && (
+                          <Descriptions.Item label="微信号">
+                            <Text>{maskWechat(showing.wechat)}</Text>
+                          </Descriptions.Item>
                         )}
-                      </Space>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="QQ">
-                      <Text>{leadData.qq || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="位置">
-                      <Space>
-                        <EnvironmentOutlined />
-                        <Text>{leadData.location || '-'}</Text>
-                      </Space>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="预算">
-                      <Tag color="orange">{leadData.budget || '-'}</Tag>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="区域">
-                      <Text>{leadData.area || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="来源">
-                      <Tag color={getSourceColor(leadData.source)}>
-                        {leadData.source || '-'}
-                      </Tag>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="线索类型">
-                      <Tag color="green">{leadData.leadtype || '-'}</Tag>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="线索状态">
-                      <Tag color={getStatusColor(leadData.leadstatus)}>
-                        {leadData.leadstatus || '-'}
-                      </Tag>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="流量类型">
-                      <Text>{leadData.traffictype || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="互动类型">
-                      <Text>{leadData.interactiontype || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="创建时间">
-                      <Space>
-                        <CalendarOutlined />
-                        <Text>{dayjs(leadData.created_at).format('YYYY-MM-DD HH:mm:ss')}</Text>
-                      </Space>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="更新时间">
-                      <Space>
-                        <CalendarOutlined />
-                        <Text>{dayjs(leadData.updata_at).format('YYYY-MM-DD HH:mm:ss')}</Text>
-                      </Space>
-                    </Descriptions.Item>
-                  </Descriptions>
+                      </Descriptions>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card style={{ textAlign: 'center', color: '#999' }} size="small" bordered={false}>
+                  暂无带看记录
                 </Card>
+              )}
+            </div>
+          </TabPane>
 
-                <Card title="广告信息" size="small">
-                  <Descriptions column={2} bordered size="small">
-                    <Descriptions.Item label="抖音ID">
-                      <Text>{leadData.douyinid || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="抖音账号">
-                      <Text>{leadData.douyin_accountname || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="小红书ID">
-                      <Text>{leadData.redbookid || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="员工姓名">
-                      <Text>{leadData.staffname || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="广告系列ID">
-                      <Text code>{leadData.campaignid || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="广告系列名称">
-                      <Text>{leadData.campaignname || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="广告单元ID">
-                      <Text code>{leadData.unitid || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="广告单元名称">
-                      <Text>{leadData.unitname || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="创意ID">
-                      <Text code>{leadData.creativedid || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="创意名称">
-                      <Text>{leadData.creativename || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="抖音线索ID">
-                      <Text code>{leadData.douyinleadid || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="备注链接">
-                      <Text>{leadData.notelink || '-'}</Text>
-                    </Descriptions.Item>
-                  </Descriptions>
+          {/* 成交信息 */}
+          <TabPane 
+            tab={
+              <span>
+                <CheckCircleOutlined/>
+                成交信息
+              </span>
+            } 
+            key="deal"
+          >
+            <div>
+              {/* 卡片列表展示所有成交记录 */}
+              {leadData?.dealsList && Array.isArray(leadData.dealsList) && leadData.dealsList.length > 0 ? (
+                <div>
+                  {(leadData.dealsList as any[]).map((deal, idx) => (
+                    <Card key={deal.id} title={`成交记录 #${leadData.dealsList!.length - idx}`} size="small">
+                      <Descriptions column={2} bordered size="small">
+                        <Descriptions.Item label="合同日期">
+                          <Text >{deal.contractdate ? dayjs(deal.contractdate).format('YYYY-MM-DD') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="社区">
+                          <Tag color="green">{deal.community || '-'}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="合同编号">
+                          <Text code>{deal.contractnumber || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="房间编号">
+                          <Text>{deal.roomnumber || '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="创建时间">
+                          <Text>{deal.created_at ? dayjs(deal.created_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="更新时间">
+                          <Text>{deal.updated_at ? dayjs(deal.updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
+                        </Descriptions.Item>
+                        {deal.phone && (
+                          <Descriptions.Item label="手机号">
+                            <Text>{maskPhone(deal.phone)}</Text>
+                          </Descriptions.Item>
+                        )}
+                        {deal.wechat && (
+                          <Descriptions.Item label="微信号">
+                            <Text>{maskWechat(deal.wechat)}</Text>
+                          </Descriptions.Item>
+                        )}
+                      </Descriptions>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card style={{ textAlign: 'center', color: '#999' }} size="small" bordered={false} >
+                  暂无成交记录
                 </Card>
-
-                <Card title="备注信息" size="small">
-                  <Paragraph>
-                    {leadData.remark || '暂无备注信息'}
-                  </Paragraph>
-                </Card>
-              </div>
-            </TabPane>
-
-            {/* 跟进信息 */}
-            <TabPane 
-              tab={
-                <span>
-                  <UserOutlined />
-                  跟进信息
-                </span>
-              } 
-              key="followup"
-            >
-              <div>
-                <Card title="跟进记录" size="small">
-                  <Descriptions column={2} bordered size="small">
-                    <Descriptions.Item label="跟进阶段">
-                      <Tag color={getStatusColor(leadData.followupstage || '')}>
-                        {leadData.followupstage || '待接收'}
-                      </Tag>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="客户画像">
-                      <Text>{leadData.customerprofile || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="工作地点">
-                      <Text>{leadData.worklocation || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="用户预算">
-                      <Tag color="orange">{leadData.userbudget || '-'}</Tag>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="入住时间">
-                      <Text>
-                        {leadData.moveintime ? dayjs(leadData.moveintime).format('YYYY-MM-DD') : '-'}
-                      </Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="用户评级">
-                      <Text>{leadData.userrating || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="主要分类">
-                      <Text>{leadData.majorcategory || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="预约时间">
-                      <Text>
-                        {leadData.scheduletime ? dayjs(leadData.scheduletime).format('YYYY-MM-DD HH:mm') : '-'}
-                      </Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="预约社区">
-                      <Tag color="blue">{leadData.scheduledcommunity || '-'}</Tag>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="面试销售">
-                      <Text>{leadData.interviewsales_user_name || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="跟进结果">
-                      <Text>{leadData.followupresult || '-'}</Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="跟进创建时间">
-                      <Text>
-                        {leadData.followup_created_at ? dayjs(leadData.followup_created_at).format('YYYY-MM-DD HH:mm:ss') : '-'}
-                      </Text>
-                    </Descriptions.Item>
-                    
-                    <Descriptions.Item label="跟进更新时间">
-                      <Text>
-                        {leadData.followup_updated_at ? dayjs(leadData.followup_updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}
-                      </Text>
-                    </Descriptions.Item>
-                  </Descriptions>
-                </Card>
-              </div>
-            </TabPane>
-
-            {/* 带看信息 */}
-            <TabPane 
-              tab={
-                <span>
-                  <EyeOutlined />
-                  带看信息
-                </span>
-              } 
-              key="showing"
-            >
-              <div>
-                {/* 卡片列表展示所有带看记录 */}
-                {leadData?.showingsList && Array.isArray(leadData.showingsList) && leadData.showingsList.length > 0 ? (
-                  <div>
-                    {(leadData.showingsList as any[]).map((showing, idx) => (
-                      <Card key={showing.id} title={`带看记录 #${leadData.showingsList!.length - idx}`} size="small">
-                        <Descriptions column={2} bordered size="small">
-                          <Descriptions.Item label="预约时间">
-                            <Text>{showing.scheduletime ? dayjs(showing.scheduletime).format('YYYY-MM-DD HH:mm') : '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="社区">
-                            <Tag color="blue">{showing.community || '-'}</Tag>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="到达时间">
-                            <Text>{showing.arrivaltime ? dayjs(showing.arrivaltime).format('YYYY-MM-DD HH:mm') : '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="带看销售">
-                            <Text>{showing.showingsales_user?.nickname || '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="真实带看销售">
-                            <Text>{showing.trueshowingsales_user?.nickname || '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="看房结果">
-                            <Text>{showing.viewresult || '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="预算">
-                            <Tag color="orange">{showing.budget ? `¥${showing.budget}` : '-'}</Tag>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="入住时间">
-                            <Text>{showing.moveintime ? dayjs(showing.moveintime).format('YYYY-MM-DD') : '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="租期">
-                            <Text>{showing.renttime ? `${showing.renttime}个月` : '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="备注">
-                            <Text>{showing.remark || '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="创建时间">
-                            <Text>{showing.created_at ? dayjs(showing.created_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="更新时间">
-                            <Text>{showing.updated_at ? dayjs(showing.updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
-                          </Descriptions.Item>
-                          {showing.phone && (
-                            <Descriptions.Item label="手机号">
-                              <Text>{maskPhone(showing.phone)}</Text>
-                            </Descriptions.Item>
-                          )}
-                          {showing.wechat && (
-                            <Descriptions.Item label="微信号">
-                              <Text>{maskWechat(showing.wechat)}</Text>
-                            </Descriptions.Item>
-                          )}
-                        </Descriptions>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <Card style={{ textAlign: 'center', color: '#999' }} size="small" bordered={false}>
-                    暂无带看记录
-                  </Card>
-                )}
-              </div>
-            </TabPane>
-
-            {/* 成交信息 */}
-            <TabPane 
-              tab={
-                <span>
-                  <CheckCircleOutlined/>
-                  成交信息
-                </span>
-              } 
-              key="deal"
-            >
-              <div>
-                {/* 卡片列表展示所有成交记录 */}
-                {leadData?.dealsList && Array.isArray(leadData.dealsList) && leadData.dealsList.length > 0 ? (
-                  <div>
-                    {(leadData.dealsList as any[]).map((deal, idx) => (
-                      <Card key={deal.id} title={`成交记录 #${leadData.dealsList!.length - idx}`} size="small">
-                        <Descriptions column={2} bordered size="small">
-                          <Descriptions.Item label="合同日期">
-                            <Text >{deal.contractdate ? dayjs(deal.contractdate).format('YYYY-MM-DD') : '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="社区">
-                            <Tag color="green">{deal.community || '-'}</Tag>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="合同编号">
-                            <Text code>{deal.contractnumber || '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="房间编号">
-                            <Text>{deal.roomnumber || '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="创建时间">
-                            <Text>{deal.created_at ? dayjs(deal.created_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="更新时间">
-                            <Text>{deal.updated_at ? dayjs(deal.updated_at).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
-                          </Descriptions.Item>
-                          {deal.phone && (
-                            <Descriptions.Item label="手机号">
-                              <Text>{maskPhone(deal.phone)}</Text>
-                            </Descriptions.Item>
-                          )}
-                          {deal.wechat && (
-                            <Descriptions.Item label="微信号">
-                              <Text>{maskWechat(deal.wechat)}</Text>
-                            </Descriptions.Item>
-                          )}
-                        </Descriptions>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <Card style={{ textAlign: 'center', color: '#999' }} size="small" bordered={false} >
-                    暂无成交记录
-                  </Card>
-                )}
-              </div>
-            </TabPane>
-          </Tabs>
-        )}
-      </Spin>
-    </Drawer>
+              )}
+            </div>
+          </TabPane>
+        </Tabs>
+      )}
+    </Spin>
   );
 };
 

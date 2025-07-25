@@ -23,8 +23,11 @@ import {
   ToolOutlined,
   MailOutlined,
   SearchOutlined,
+  WalletOutlined,
+  FileDoneOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
+import { Link } from 'react-router-dom';
 
 
 interface NavigationMenuProps {
@@ -127,6 +130,13 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           icon: <DashboardOutlined />, 
           label: '积分看板', 
           path: '/points',
+          className: 'main-menu-item',
+        },
+        { 
+          key: 'points-summary', 
+          icon: <WalletOutlined />, 
+          label: '积分汇总', 
+          path: '/points-summary',
           className: 'main-menu-item',
         },
         { 
@@ -243,8 +253,23 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       key: 'approval-flows',
       icon: <SolutionOutlined />,
       label: '审批管理',
-      path: '/approval-flows',
-      className: 'main-menu-item',
+      className: 'main-menu-submenu-title',
+      children: [
+        {
+          key: 'approval-flows-list', // 唯一key，避免与父级重复
+          icon: <SolutionOutlined />,
+          label: '审批流管理',
+          path: '/approval-flows',
+          className: 'main-menu-item',
+        },
+        {
+          key: 'approval-details',
+          icon: <FileDoneOutlined />,
+          label: '审批明细',
+          path: '/approval-details',
+          className: 'main-menu-item',
+        },
+      ]
     },
   ];
 

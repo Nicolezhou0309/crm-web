@@ -27,8 +27,6 @@ import RolePermissionManagement from './pages/RolePermissionManagement';
 import AllocationManagement from './pages/AllocationManagement';
 import ResetPassword from './pages/ResetPassword';
 import PointsDashboard from './pages/PointsDashboard';
-import PointsExchange from './pages/PointsExchange';
-import PointsRules from './pages/PointsRules';
 import AnnouncementManagement from './pages/AnnouncementManagement';
 import { HonorManagement } from './pages/HonorManagement';
 import { AchievementManagement } from './pages/AchievementManagement';
@@ -54,6 +52,8 @@ import { UserProvider, useUser } from './context/UserContext';
 import LoadingScreen from './components/LoadingScreen';
 import NotificationTemplateManager from './pages/NotificationTemplateManager';
 import ApprovalFlowManagement from './pages/ApprovalFlowManagement';
+import PointsSummary from './pages/PointsSummary';
+import ApprovalDetails from './pages/ApprovalDetails';
 
 
 const { Sider, Content, Header } = Layout;
@@ -129,7 +129,8 @@ const AppContent: React.FC = () => {
     'load-demo': '/loading-demo',
     'email-test': '/email-test',
     'notification-templates': '/notification-templates',
-    'approval-flows': '/approval-flows',
+    'approval-flows-list': '/approval-flows',
+    'approval-details': '/approval-details',
   };
   // path-key 反查
   const pathKeyMap: Record<string, string> = {};
@@ -719,9 +720,8 @@ const AppContent: React.FC = () => {
                   <Route path="/showings-queue" element={<ShowingsQueueManagement />} />
 
                   {/* 积分系统路由 */}
-                          <Route path="/points" element={<PointsDashboard />} />
-        <Route path="/points/exchange" element={<PointsExchange />} />
-        <Route path="/points/rules" element={<PointsRules />} />
+                  <Route path="/points" element={<PointsDashboard />} />
+                  <Route path="/points-summary" element={<PointsSummary />} />
 
                   <Route path="/test" element={<TestSupabase />} />
                   <Route path="/profile" element={<Profile />} />
@@ -751,6 +751,7 @@ const AppContent: React.FC = () => {
                   <Route path="/email-test" element={<EmailTest />} />
                   <Route path="/notification-templates" element={<NotificationTemplateManager />} />
                   <Route path="/approval-flows" element={<ApprovalFlowManagement />} />
+                  <Route path="/approval-details" element={<ApprovalDetails />} />
                   <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>
