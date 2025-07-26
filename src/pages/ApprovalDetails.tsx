@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Tabs, Table, Tag, Badge, Button, message, Modal, Drawer, Steps, Input } from 'antd';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Tabs, Table, Tag,Button, message, Modal, Drawer, Steps, Input } from 'antd';
 import { supabase } from '../supaClient';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
+import { useSearchParams } from 'react-router-dom';
 
 function formatToBeijingTime(isoString?: string) {
   if (!isoString) return '-';
@@ -14,12 +15,11 @@ const ApprovalDetails: React.FC = () => {
   const [pendingList, setPendingList] = useState<any[]>([]);
   const [approvedList, setApprovedList] = useState<any[]>([]);
   const [initiatedList, setInitiatedList] = useState<any[]>([]);
-  const [notifiedList, setNotifiedList] = useState<any[]>([]);
   const [allList, setAllList] = useState<any[]>([]);
-  const [notifiedUnreadCount, setNotifiedUnreadCount] = useState(0);
   const [profileId, setProfileId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [userMap, setUserMap] = useState<Map<number, string>>(new Map());
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const [drawerRecord, setDrawerRecord] = useState<any>(null);
   const [leadDrawerVisible, setLeadDrawerVisible] = useState(false);
@@ -148,8 +148,8 @@ const ApprovalDetails: React.FC = () => {
         message.error('审批操作失败: ' + error.message);
       } else {
         message.success(`已${action === 'approved' ? '同意' : '拒绝'}该节点`);
-        // 刷新数据
-        window.location.reload();
+        // 触发数据重新获取
+        setRefreshTrigger(prev => prev + 1);
       }
     } catch (e: any) {
       message.error('审批操作异常: ' + (e.message || e));
@@ -178,10 +178,14 @@ const ApprovalDetails: React.FC = () => {
   };
 
   const columns = [
-    { title: '业务类型', dataIndex: 'name', key: 'name' },
-    { title: '状态', dataIndex: 'status', key: 'status', render: renderStatusTag },
-    { title: '发起人昵称', dataIndex: 'initiator_nickname', key: 'initiator_nickname' },
-    { title: '发起时间', dataIndex: 'created_at', key: 'created_at', render: (t: string) => formatToBeijingTime(t) },
+    { title: '业务类型', dataIndex: 'name', key: 'name', sorter: true, filters: [], },
+    { title: '状态', dataIndex: 'status', key: 'status', render: renderStatusTag, sorter: true, filters: [
+      { text: '待审批', value: 'pending' },
+      { text: '已同意', value: 'approved' },
+      { text: '已拒绝', value: 'rejected' },
+    ] },
+    { title: '发起人昵称', dataIndex: 'initiator_nickname', key: 'initiator_nickname', sorter: true, filters: [], },
+    { title: '发起时间', dataIndex: 'created_at', key: 'created_at', render: (t: string) => formatToBeijingTime(t), sorter: true },
     // 修改“完成时间”为“等待时长”
     { 
       title: '等待时长', 
@@ -199,10 +203,11 @@ const ApprovalDetails: React.FC = () => {
         } else {
           return diffMin + '分钟';
         }
-      }
+      },
+      sorter: true,
     },
-    { title: '操作编号', dataIndex: 'target_id', key: 'target_id' },
-    { title: '流程配置', dataIndex: 'config', key: 'config', render: renderConfig },
+    { title: '操作编号', dataIndex: 'target_id', key: 'target_id', sorter: true, filters: [], },
+    { title: '流程配置', dataIndex: 'config', key: 'config', render: renderConfig, sorter: true, filters: [], },
     {
       title: '批注',
       dataIndex: 'comment',
@@ -222,6 +227,7 @@ const ApprovalDetails: React.FC = () => {
     {
       title: '操作',
       key: 'action',
+      fixed: 'right' as const,
       render: (_: unknown, record: any) => (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
           <Button size="small" type="primary" style={{ width: 60 }} onClick={() => onApproveStep(record.id, 'approved', record.comment)}>同意</Button>
@@ -248,14 +254,19 @@ const ApprovalDetails: React.FC = () => {
 
   // 优化实例视图columns，操作列调用 onViewDetail，并增加“详情”按钮
   const instanceColumns = [
-    { title: '业务类型', dataIndex: 'name', key: 'name' },
-    { title: '操作编号', dataIndex: 'target_id', key: 'target_id' },
-    { title: '当前状态', dataIndex: 'status', key: 'status', render: (status: string) => renderStatusTag(status) },
+    { title: '业务类型', dataIndex: 'name', key: 'name', sorter: true, filters: [], },
+    { title: '操作编号', dataIndex: 'target_id', key: 'target_id', sorter: true, filters: [], },
+    { title: '当前状态', dataIndex: 'status', key: 'status', render: (status: string) => renderStatusTag(status), sorter: true, filters: [
+      { text: '待审批', value: 'pending' },
+      { text: '已同意', value: 'approved' },
+      { text: '已拒绝', value: 'rejected' },
+    ] },
     // 去除“当前步骤”列
     // 新增“审批时长”列，位于发起时间前
     {
       title: '审批时长',
       key: 'duration',
+      sorter: true,
       render: (_: unknown, record: any) => {
         const start = record.created_at ? new Date(record.created_at) : null;
         const end = record.action_time ? new Date(record.action_time) : null;
@@ -270,11 +281,13 @@ const ApprovalDetails: React.FC = () => {
         }
       }
     },
-    { title: '发起时间', dataIndex: 'created_at', key: 'created_at', render: (t: string) => formatToBeijingTime(t) },
-    { title: '完成时间', dataIndex: 'action_time', key: 'action_time', render: (t: string, record: any) => record.status === 'pending' ? '-' : formatToBeijingTime(t) },
+    { title: '发起时间', dataIndex: 'created_at', key: 'created_at', render: (t: string) => formatToBeijingTime(t), sorter: true },
+    { title: '完成时间', dataIndex: 'action_time', key: 'action_time', render: (t: string, record: any) => record.status === 'pending' ? '-' : formatToBeijingTime(t), sorter: true },
+    { title: '发起人昵称', dataIndex: 'initiator_nickname', key: 'initiator_nickname', sorter: true, filters: [], },
     {
       title: '操作',
       key: 'action',
+      fixed: 'right' as const,
       render: (_: unknown, record: any) => (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
           <Button size="small"style={{ width: 60 }} onClick={() => onViewLeadAndFlowDetail(record)}>详情</Button>
@@ -399,7 +412,7 @@ const ApprovalDetails: React.FC = () => {
         // 3. 已发起
         const { data: initiated } = await supabase
           .from('approval_instances')
-          .select('*, approval_steps(id, step_index, approver_id)')
+          .select('*, approval_steps(id, step_index, approver_id), users_profile:created_by(nickname)')
           .eq('created_by', profile.id);
         const initiatedList = (initiated || []).map(item => ({
           ...item,
@@ -407,62 +420,72 @@ const ApprovalDetails: React.FC = () => {
           config: typeof item.config === 'string' ? ( (() => { try { return JSON.parse(item.config); } catch { return {}; } })() ) : item.config,
           action_time: item.updated_at,
           approval_steps: item.approval_steps || [],
+          initiator_nickname: item.users_profile?.nickname || '未知用户',
         }));
         setInitiatedList(initiatedList);
 
-        // 4. 知会
-        let notified = null;
-        let notifiedError = null;
-        try {
-          // 优先用 contains 查询
-          const res = await supabase
-            .from('approval_instances')
-            .select('*, approval_steps(id, step_index, approver_id)')
-            .contains('notifiers', [profile.id]);
-          notified = res.data;
-          notifiedError = res.error;
-          console.log('[知会] contains 查询结果:', res);
-        } catch (e) {
-          notifiedError = e;
-        }
-        // fallback 用 filter 适配 int[]
-        if (notifiedError || !Array.isArray(notified)) {
-          try {
-            const res2 = await supabase
-              .from('approval_instances')
-              .select('*, approval_steps(id, step_index, approver_id)')
-              .filter('notifiers', 'cs', `{${profile.id}}`);
-            notified = res2.data;
-            notifiedError = res2.error;
-            console.log('[知会] filter cs 查询结果:', res2);
-          } catch (e2) {
-            notifiedError = e2;
-          }
-        }
-        const notifiedList = (notified || []).map((item: any, idx: number) => ({
-          ...item,
-          name: flowNameMap.get(item.flow_id) || '',
-          config: typeof item.config === 'string' ? ( (() => { try { return JSON.parse(item.config); } catch { return {}; } })() ) : item.config,
-          action_time: item.updated_at,
-          approval_steps: item.approval_steps || [],
-          notified_unread: idx < 2
-        }));
-        setNotifiedList(notifiedList);
-        setNotifiedUnreadCount(notifiedList.filter(i => i.notified_unread).length);
-
-        // 5. 全部（合并去重，保留字段）
+        // 4. 全部（合并去重，统一操作编号字段）
         const allMap = new Map();
-        [...pendingList, ...approvedList, ...initiatedList, ...notifiedList].forEach((item: any) => {
-          allMap.set(item.id, item);
+        [...pendingList, ...approvedList, ...initiatedList].forEach((item: any) => {
+          // 确保每个item都有统一的target_id字段
+          const normalizedItem = {
+            ...item,
+            target_id: item.target_id || item.id || '', // 统一使用target_id作为操作编号
+            operation_id: item.target_id || item.id || '', // 添加operation_id别名
+          };
+          allMap.set(item.id, normalizedItem);
         });
-        setAllList(Array.from(allMap.values()));
+        const allListData = Array.from(allMap.values());
+        console.log('🔍 合并后的全部数据:', allListData);
+        setAllList(allListData);
       } finally {
         setLoading(false);
       }
     }
     fetchProfileIdAndData();
-  }, []);
+  }, [refreshTrigger]);
 
+  // 处理URL参数变化
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'pending';
+  const filterTargetId = searchParams.get('filter_target_id');
+
+  // 统一操作编号筛选逻辑
+  const filteredAllList = useMemo(() => {
+    if (filterTargetId) {
+      console.log('🔍 操作编号筛选条件:', filterTargetId);
+      console.log('🔍 全部数据长度:', allList.length);
+      
+      const filtered = allList.filter(item => {
+        // 统一使用target_id作为操作编号
+        const operationId = item.target_id || item.operation_id || item.id;
+        
+        if (!operationId) {
+          console.log('❌ 项目无操作编号:', item);
+          return false;
+        }
+        
+        // 精确匹配
+        if (operationId === filterTargetId) {
+          console.log('✅ 精确匹配:', operationId);
+          return true;
+        }
+        
+        // 包含匹配（不区分大小写）
+        if (operationId.toLowerCase().includes(filterTargetId.toLowerCase())) {
+          console.log('✅ 包含匹配:', operationId);
+          return true;
+        }
+        
+        console.log('❌ 不匹配:', operationId);
+        return false;
+      });
+      
+      console.log('🔍 筛选结果数量:', filtered.length);
+      return filtered;
+    }
+    return allList;
+  }, [allList, filterTargetId]);
 
 
   // 表格单元格多行换行样式
@@ -474,13 +497,17 @@ const ApprovalDetails: React.FC = () => {
 
   // 已审批 columns：批注只读，操作只保留详情
   const approvedColumns = [
-    { title: '业务类型', dataIndex: 'name', key: 'name' },
-    { title: '状态', dataIndex: 'status', key: 'status', render: renderStatusTag },
-    { title: '发起人昵称', dataIndex: 'initiator_nickname', key: 'initiator_nickname' },
-    { title: '发起时间', dataIndex: 'created_at', key: 'created_at', render: (t: string) => formatToBeijingTime(t) },
-    { title: '完成时间', dataIndex: 'action_time', key: 'action_time', render: (t: string) => formatToBeijingTime(t) },
-    { title: '操作编号', dataIndex: 'target_id', key: 'target_id' },
-    { title: '流程配置', dataIndex: 'config', key: 'config', render: renderConfig },
+    { title: '业务类型', dataIndex: 'name', key: 'name', sorter: true, filters: [], },
+    { title: '状态', dataIndex: 'status', key: 'status', render: renderStatusTag, sorter: true, filters: [
+      { text: '待审批', value: 'pending' },
+      { text: '已同意', value: 'approved' },
+      { text: '已拒绝', value: 'rejected' },
+    ] },
+    { title: '发起人昵称', dataIndex: 'initiator_nickname', key: 'initiator_nickname', sorter: true, filters: [], },
+    { title: '发起时间', dataIndex: 'created_at', key: 'created_at', render: (t: string) => formatToBeijingTime(t), sorter: true },
+    { title: '完成时间', dataIndex: 'action_time', key: 'action_time', render: (t: string) => formatToBeijingTime(t), sorter: true },
+    { title: '操作编号', dataIndex: 'target_id', key: 'target_id', sorter: true, filters: [], },
+    { title: '流程配置', dataIndex: 'config', key: 'config', render: renderConfig, sorter: true, filters: [], },
     {
       title: '批注',
       dataIndex: 'comment',
@@ -490,6 +517,7 @@ const ApprovalDetails: React.FC = () => {
     {
       title: '操作',
       key: 'action',
+      fixed: 'right' as const,
       render: (_: unknown, record: any) => (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
           <Button size="small" style={{ width: 60 }} onClick={() => onViewLeadAndFlowDetail(record)}>详情</Button>
@@ -502,56 +530,43 @@ const ApprovalDetails: React.FC = () => {
     <div style={{ padding: 24 }}>
       <h2>审批明细</h2>
       <Tabs
-        defaultActiveKey="pending"
+        activeKey={activeTab}
+        onChange={(key) => {
+          const newSearchParams = new URLSearchParams(searchParams);
+          newSearchParams.set('tab', key);
+          setSearchParams(newSearchParams);
+        }}
         items={[
           {
             key: 'pending',
             label: '未审批',
-            children: <Table rowKey="id" columns={columns} dataSource={pendingListState} loading={loading} pagination={false} />, // 未审批用原columns
+            children: <Table rowKey="id" columns={columns} dataSource={pendingListState} loading={loading} pagination={false} scroll={{ x: 'max-content' }} />, // 未审批用原columns
           },
           {
             key: 'approved',
             label: '已审批',
-            children: <Table rowKey="id" columns={approvedColumns} dataSource={approvedList} loading={loading} pagination={false} />, // 已审批用只读columns
+            children: <Table rowKey="id" columns={approvedColumns} dataSource={approvedList} loading={loading} pagination={false} scroll={{ x: 'max-content' }} />, // 已审批用只读columns
           },
           {
             key: 'initiated',
             label: '已发起',
-            children: <Table rowKey="id" columns={instanceColumns} dataSource={initiatedList} loading={loading} pagination={false} />,
-          },
-          {
-            key: 'notified',
-            label: (
-              <span>
-                知会
-                {notifiedUnreadCount > 0 && (
-                  <Badge count={notifiedUnreadCount} style={{ marginLeft: 8 }} />
-                )}
-              </span>
-            ),
-            children: (
-              <Table
-                rowKey="id"
-                columns={[
-                  ...instanceColumns,
-                  {
-                    title: '未读',
-                    dataIndex: 'notified_unread',
-                    key: 'notified_unread',
-                    render: (val: boolean) => val ? <Tag color="orange">未读</Tag> : null,
-                  },
-                ]}
-                dataSource={notifiedList}
-                loading={loading}
-                pagination={false}
-                rowClassName={record => record.notified_unread ? 'notified-unread-row' : ''}
-              />
-            ),
+            children: <Table rowKey="id" columns={instanceColumns} dataSource={initiatedList} loading={loading} pagination={false} scroll={{ x: 'max-content' }} />,
           },
           {
             key: 'all',
             label: '全部',
-            children: <Table rowKey="id" columns={instanceColumns} dataSource={allList} loading={loading} pagination={false} />,
+            children: <Table
+              rowKey="id"
+              columns={instanceColumns}
+              dataSource={filteredAllList}
+              loading={loading}
+              pagination={false}
+              scroll={{ x: 'max-content' }}
+              onChange={(pagination, filters, sorter) => {
+                // 这里可以根据filters和sorter做本地排序和筛选，或触发后端请求
+                // 示例：console.log('Table change:', filters, sorter);
+              }}
+            />,
           },
         ]}
       />

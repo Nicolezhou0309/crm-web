@@ -19,15 +19,15 @@ const RollbackList: React.FC = () => {
       setLoading(true);
       let query = supabase
         .from('approval_instances')
-        .select('id, target_id, status, created_at, config')
-        .eq('type', 'lead_rollback');
+        .select('id, target_id, status, created_at, config, type')
+        .in('type', ['lead_rollback', 'showing_rollback']);
       if (status !== 'all') query = query.eq('status', status);
       if (searchLeadId) query = query.ilike('target_id', `%${searchLeadId}%`);
       // 获取总数
       let countQuery = supabase
         .from('approval_instances')
         .select('id', { count: 'exact', head: true })
-        .eq('type', 'lead_rollback');
+        .in('type', ['lead_rollback', 'showing_rollback']);
       if (status !== 'all') countQuery = countQuery.eq('status', status);
       if (searchLeadId) countQuery = countQuery.ilike('target_id', `%${searchLeadId}%`);
       const { count } = await countQuery;
@@ -88,6 +88,13 @@ const RollbackList: React.FC = () => {
         }}
         columns={[
           { title: '线索编号', dataIndex: 'target_id', key: 'target_id', width: 120 },
+          { title: '回退类型', dataIndex: 'type', key: 'type', width: 100, render: (type: string) => {
+            const typeMap: { [key: string]: string } = {
+              'lead_rollback': '线索回退',
+              'showing_rollback': '带看回退'
+            };
+            return typeMap[type] || type;
+          }},
           { title: '回退理由', dataIndex: ['config', 'reason'], key: 'reason', width: 180, render: (_, record) => record.config?.reason || '-' },
           { title: '证据', key: 'evidence', width: 160, render: (_, record) => (
             <Space>

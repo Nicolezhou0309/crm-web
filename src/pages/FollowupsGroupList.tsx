@@ -2973,9 +2973,25 @@ const FollowupsGroupList: React.FC = () => {
     return false; // 阻止自动上传
   };
 
+  // 清理预览URL的函数
+  const clearPreviewUrls = (evidenceList: any[]) => {
+    evidenceList.forEach(item => {
+      if (item.preview && item.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(item.preview);
+      }
+    });
+  };
+
   // 删除本地预览
   const handleRemoveEvidence = (file: any) => {
-    setRollbackEvidenceList(list => list.filter(item => item.name !== file.name));
+    setRollbackEvidenceList(list => {
+      // 清理被删除项的预览URL
+      const removedItem = list.find(item => item.name === file.name);
+      if (removedItem?.preview && removedItem.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(removedItem.preview);
+      }
+      return list.filter(item => item.name !== file.name);
+    });
   };
 
   // 确认回退时统一上传所有图片
@@ -3044,18 +3060,20 @@ const FollowupsGroupList: React.FC = () => {
         flow_id: flowData.id,
         type: 'lead_rollback',
         target_table: 'leads',
-        target_id: rollbackRecord?.leadid,
+        target_id: rollbackRecord?.leadid, // 保持target_id为线索编号，但也在config中保存
         status: 'pending',
         created_by: profile?.id,
         config: {
           reason: rollbackReason,
           evidence: uploaded,
+          leadid: rollbackRecord?.leadid, // 在config中也保存线索编号
         },
       });
       if (approvalError) throw approvalError;
       setSubmittedEvidence(uploaded); // 新增：保存已提交图片url
       message.success('回退申请已提交，等待审批');
       setRollbackModalVisible(false);
+      clearPreviewUrls(rollbackEvidenceList); // 清理预览URL
       setRollbackRecord(null);
       setRollbackReason(undefined);
       setRollbackEvidenceList([]);
@@ -4142,7 +4160,13 @@ const FollowupsGroupList: React.FC = () => {
           title="回退操作"
           onCancel={() => {
             setRollbackModalVisible(false);
-            setSubmittedEvidence([]); // 关闭时清空
+            // 关闭时清空所有相关状态
+            clearPreviewUrls(rollbackEvidenceList); // 清理预览URL
+            setRollbackRecord(null);
+            setRollbackReason(undefined);
+            setRollbackEvidenceList([]);
+            setSubmittedEvidence([]);
+            setRollbackUploading(false);
           }}
           onOk={handleRollbackConfirm}
           okText="确认回退"

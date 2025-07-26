@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Table, Button, Modal, Form, Input, Steps, Tag, message, Select, TreeSelect, Card, Row, Col, Statistic } from 'antd';
 import { supabase } from '../supaClient'
-import { PlusOutlined, DeleteOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, FileTextOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, ClockCircleOutlined, CheckCircleOutlined, FileTextOutlined } from '@ant-design/icons';
 import { getApprovalInstances, getApprovalStatistics, type ApprovalInstancesParams } from '../api/approvalApi';
 
 // 格式化北京时间
@@ -139,12 +139,10 @@ const ApprovalFlowManagement: React.FC = () => {
     try {
       const { data, error } = await getApprovalStatistics();
       if (error) {
-        console.error('获取统计数据失败:', error);
         return;
       }
       setStatistics(data);
     } catch (e) {
-      console.error('获取统计数据异常:', e);
     }
   }
 
@@ -207,8 +205,6 @@ const ApprovalFlowManagement: React.FC = () => {
       setOrgTreeData(tree);
     } catch (e: any) {
       message.error('加载组织成员树失败');
-      // 可选：控制台输出错误信息，便于调试
-      // console.error(e);
     }
   }
 
@@ -245,14 +241,12 @@ const ApprovalFlowManagement: React.FC = () => {
         form.setFieldsValue({ name: '', type: '', config: {} });
       }
       // 日志：弹窗打开时表单值
-      // eslint-disable-next-line no-console
-      console.log('[Modal Open] form.getFieldsValue:', form.getFieldsValue());
     }
   }, [templateModalVisible, editingTemplate, form]);
 
-  // 添加节点
+  // 添加节点（只支持审批节点）
   function addStep() {
-    setFlowSteps([...flowSteps, { type: 'approval', permission: '', mode: 'any', default_approver_id: [], notifiers: [] }]);
+    setFlowSteps([...flowSteps, { type: 'approval', permission: '', mode: 'any', default_approver_id: [] }]);
   }
   // 删除节点
   function removeStep(idx: number) {
@@ -389,13 +383,6 @@ const ApprovalFlowManagement: React.FC = () => {
   }
   // 保存模板时，将流程节点同步到 config 字段
   async function onSaveTemplate(values: any) {
-    // 日志：提交时表单值
-    // eslint-disable-next-line no-console
-    console.log('[onSaveTemplate] values:', values);
-    // eslint-disable-next-line no-console
-    console.log('[onSaveTemplate] flowSteps:', flowSteps);
-    // eslint-disable-next-line no-console
-    console.log('[onSaveTemplate] form.getFieldsValue:', form.getFieldsValue());
     const config = { steps: flowSteps };
     if (editingTemplate) {
       const { error } = await supabase.from('approval_flows').update({ ...values, config }).eq('id', editingTemplate.id);
@@ -415,93 +402,55 @@ const ApprovalFlowManagement: React.FC = () => {
     setStepModalVisible(true);
   }
 
-  // 审批操作（同意/拒绝）
+  // onApproveStep函数修复
   async function onApproveStep(step: ApprovalStep, action: 'approved' | 'rejected') {
     try {
       // 获取当前用户信息
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('[审批操作] 当前用户信息:', { user, userError });
-      
+      const { data: { user } } = await supabase.auth.getUser();
       // 获取当前用户profile信息
-      const { data: userProfile, error: profileError } = await supabase
+      const { data: userProfile } = await supabase
         .from('users_profile')
         .select('*')
         .eq('user_id', user?.id)
         .single();
-      console.log('[审批操作] 用户Profile信息:', { userProfile, profileError });
-      
-      // 检查审批步骤信息
-      console.log('[审批操作] 审批步骤信息:', {
-        stepId: step.id,
-        instanceId: step.instance_id,
-        approverId: step.approver_id,
-        currentStatus: step.status,
-        action: action,
-        currentUserId: userProfile?.id,
-        isApprover: userProfile?.id === step.approver_id
-      });
-      
       // 检查审批步骤状态
       if (step.status !== 'pending') {
-        console.error('[审批操作] 步骤状态不是pending，无法审批:', step.status);
         message.error('该步骤已处理，无法重复审批');
         return;
       }
-      
       // 检查是否为审批人
       if (userProfile?.id !== step.approver_id) {
-        console.error('[审批操作] 当前用户不是审批人:', {
-          currentUserId: userProfile?.id,
-          approverId: step.approver_id
-        });
         message.error('您不是该步骤的审批人');
         return;
       }
-      
       // 准备更新数据
       const updateData = {
         status: action,
         action_time: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      console.log('[审批操作] 准备更新的数据:', updateData);
-      
       // 执行更新
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('approval_steps')
         .update(updateData)
         .eq('id', step.id);
-      
-      console.log('[审批操作] 更新结果:', { data, error });
-      
       if (error) {
-        console.error('[审批操作] 更新失败:', error);
         message.error(`审批操作失败: ${error.message}`);
         return;
       }
       
       message.success(`已${action === 'approved' ? '同意' : '拒绝'}该节点`);
-      
       // 重新获取步骤数据
       await fetchSteps(step.instance_id);
-      
-      // 检查是否需要更新审批实例状态
-      const { data: steps } = await supabase
+      // 检查是否所有步骤都已完成
+      const { data: allSteps } = await supabase
         .from('approval_steps')
         .select('*')
         .eq('instance_id', step.instance_id);
-      
-      console.log('[审批操作] 所有步骤状态:', steps);
-      
-      // 检查是否所有步骤都已完成
-      const allCompleted = steps?.every(s => s.status === 'approved' || s.status === 'rejected');
-      if (allCompleted) {
-        console.log('[审批操作] 所有步骤已完成，可能需要更新审批实例状态');
-      }
-      
-    } catch (e) {
-      console.error('[审批操作] 异常:', e);
-      message.error(`审批操作异常: ${e instanceof Error ? e.message : String(e)}`);
+      const allCompleted = allSteps?.every((s: any) => s.status === 'approved' || s.status === 'rejected');
+      // 可根据allCompleted做后续处理
+    } catch (e: any) {
+      message.error(`审批操作异常: ${e.message || e}`);
     }
   }
 
@@ -586,19 +535,11 @@ const ApprovalFlowManagement: React.FC = () => {
             validateStatus={form.getFieldValue('name') ? undefined : 'error'}
             help={!form.getFieldValue('name') ? '请输入名称' : undefined}
           >
-            <Input onChange={e => {
-              // eslint-disable-next-line no-console
-              console.log('[Input name] value:', e.target.value);
-            }} />
           </Form.Item>
           <Form.Item label="类型" name="type" rules={[{ required: true, message: '请输入类型' }]}
             validateStatus={form.getFieldValue('type') ? undefined : 'error'}
             help={!form.getFieldValue('type') ? '请输入类型' : undefined}
           >
-            <Input onChange={e => {
-              // eslint-disable-next-line no-console
-              console.log('[Input type] value:', e.target.value);
-            }} />
           </Form.Item>
 
           {/* 可视化流程设计区 */}
@@ -611,54 +552,33 @@ const ApprovalFlowManagement: React.FC = () => {
                   style={{ width: 100 }}
                   onChange={v => updateStep(idx, 'type', v)}
                   options={[
-                    { label: '审批', value: 'approval' },
-                    { label: '知会', value: 'notify' },
+                    { label: '审批', value: 'approval' }
                   ]}
                 />
-                {step.type === 'approval' && (
-                  <>
-                    <Input placeholder="权限/角色标识" value={step.permission} style={{ width: 120 }} onChange={e => updateStep(idx, 'permission', e.target.value)} />
-                    <Select
-                      value={step.mode}
-                      style={{ width: 100 }}
-                      onChange={v => updateStep(idx, 'mode', v)}
-                      options={[
-                        { label: '任一同意', value: 'any' },
-                        { label: '全部同意', value: 'all' },
-                      ]}
-                    />
-                    <TreeSelect
-                      style={{ width: 220 }}
-                      value={step.default_approver_id || []}
-                      treeData={orgTreeData}
-                      placeholder="选择默认审批人"
-                      allowClear
-                      treeDefaultExpandAll
-                      showSearch
-                      multiple
-                      treeCheckable
-                      filterTreeNode={(input, node) => (node.title as string).toLowerCase().includes(input.toLowerCase())}
-                      onChange={v => updateStep(idx, 'default_approver_id', Array.isArray(v) ? v : [v])}
-                      maxTagCount="responsive"
-                    />
-                  </>
-                )}
-                {step.type === 'notify' && (
-                  <TreeSelect
-                    style={{ width: 220 }}
-                    value={step.notifiers || []}
-                    treeData={orgTreeData}
-                    placeholder="选择知会人"
-                    allowClear
-                    treeDefaultExpandAll
-                    showSearch
-                    multiple
-                    treeCheckable
-                    filterTreeNode={(input, node) => (node.title as string).toLowerCase().includes(input.toLowerCase())}
-                    onChange={v => updateStep(idx, 'notifiers', Array.isArray(v) ? v : [v])}
-                    maxTagCount="responsive"
-                  />
-                )}
+                <Input placeholder="权限/角色标识" value={step.permission} style={{ width: 120 }} onChange={e => updateStep(idx, 'permission', e.target.value)} />
+                <Select
+                  value={step.mode}
+                  style={{ width: 100 }}
+                  onChange={v => updateStep(idx, 'mode', v)}
+                  options={[
+                    { label: '任一同意', value: 'any' },
+                    { label: '全部同意', value: 'all' },
+                  ]}
+                />
+                <TreeSelect
+                  style={{ width: 220 }}
+                  value={step.default_approver_id || []}
+                  treeData={orgTreeData}
+                  placeholder="选择默认审批人"
+                  allowClear
+                  treeDefaultExpandAll
+                  showSearch
+                  multiple
+                  treeCheckable
+                  filterTreeNode={(input, node) => (node.title as string).toLowerCase().includes(input.toLowerCase())}
+                  onChange={v => updateStep(idx, 'default_approver_id', Array.isArray(v) ? v : [v])}
+                  maxTagCount="responsive"
+                />
                 <Button icon={<DeleteOutlined />} danger size="small" onClick={() => removeStep(idx)} />
               </div>
             ))}

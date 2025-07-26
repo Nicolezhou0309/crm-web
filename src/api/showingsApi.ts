@@ -15,6 +15,7 @@ export interface Showing {
   renttime: number;
   created_at: string;
   updated_at: string;
+  invalid?: boolean; // 是否无效（回退/作废）
 }
 
 export interface ShowingFilters {

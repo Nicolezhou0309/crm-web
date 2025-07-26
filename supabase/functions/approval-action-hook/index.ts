@@ -100,19 +100,8 @@ Deno.serve(async (req) => {
       const { error: updateFollowupError } = await supabase.from('followups').update({ invalid: true }).eq('leadid', leadid);
       console.log('[Followup Invalid Updated]', updateFollowupError);
       
-      // 发送通知
-      const { error: notifyError } = await supabase.from('notifications').insert({
-        user_id: applicant_id,
-        type: 'lead_rollback_success',
-        title: '线索回退成功',
-        content: `线索${leadid}回退成功，积分已返还`,
-        status: 'unread',
-        priority: 1,
-        related_table: 'leads',
-        related_id: leadid, // 字段已为 text 类型，直接存储字符串主键
-        created_at: new Date().toISOString(),
-      });
-      console.log('[Notification Sent]', notifyError);
+      // 通知联动将由统一的通知系统处理
+      console.log('[Lead Rollback] 业务处理完成，通知将由统一系统处理');
       
       console.log('[Lead Rollback Approval Processed]', { leadid, applicant_id });
     }
@@ -145,6 +134,57 @@ Deno.serve(async (req) => {
       }
 
       console.log('[Points Adjust Approval Processed][DB func]', { user_id, points, remark });
+    }
+
+    // 业务联动：带看回退审批流
+    if (flow.type === 'showing_rollback' || newRow.type === 'showing_rollback') {
+      const showing_id = newRow.target_id; // target_id现在是带看单编号
+      const applicant_id = newRow.created_by;
+      const config = newRow.config || {};
+      const leadid = config.leadid; // 线索编号在config中
+      console.log('[Showing Rollback] showing_id:', showing_id, 'leadid:', leadid, 'applicant_id:', applicant_id, 'config:', config);
+      
+      if (!showing_id) {
+        console.error('[Showing Rollback] 带看记录ID未找到');
+        return new Response(JSON.stringify({ error: '带看记录ID未找到' }), { status: 400 });
+      }
+      
+      // 获取带看记录信息
+      const { data: showingData, error: showingError } = await supabase
+        .from('showings')
+        .select('id, leadid, community')
+        .eq('id', showing_id)
+        .single();
+      
+      if (showingError || !showingData) {
+        console.log('[Showing Rollback] 带看记录不存在:', showingError);
+        return new Response(JSON.stringify({ error: '带看记录不存在' }), { status: 404 });
+      }
+      
+      // 调用带看回退处理函数
+      const { data: rollbackResult, error: rollbackError } = await supabase.rpc('process_showing_rollback', {
+        p_showing_id: showing_id,
+        p_applicant_id: applicant_id,
+        p_community: showingData.community,
+        p_reason: config.reason || '带看回退',
+        p_leadid: leadid || showingData.leadid // 优先使用config中的leadid，否则使用数据库中的
+      });
+      
+      if (rollbackError) {
+        console.log('[Showing Rollback] 处理失败:', rollbackError);
+        return new Response(JSON.stringify({ error: '带看回退处理失败', details: rollbackError.message }), { status: 500 });
+      }
+      
+      // 检查处理结果
+      if (!rollbackResult || !rollbackResult.success) {
+        console.log('[Showing Rollback] 处理结果异常:', rollbackResult);
+        return new Response(JSON.stringify({ 
+          error: '带看回退处理失败', 
+          details: rollbackResult?.message || '未知错误' 
+        }), { status: 500 });
+      }
+      
+      console.log('[Showing Rollback Approval Processed]', { showing_id, applicant_id, result: rollbackResult });
     }
 
     // 记录操作日志（使用现有表或创建新表）

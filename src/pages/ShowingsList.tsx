@@ -15,15 +15,16 @@ import {
   Card,
   InputNumber,
   Tooltip,
-  Popconfirm,
-  Drawer
+  Drawer,
+  Upload,
 } from 'antd';
 import { 
   EditOutlined,
-  DeleteOutlined,
+  RollbackOutlined,
   UserOutlined,
   ZoomInOutlined,
-  SearchOutlined
+  SearchOutlined,
+  UploadOutlined
 } from '@ant-design/icons';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import ShowingConversionRate from '../components/ShowingConversionRate';
@@ -34,7 +35,6 @@ import {
   getSalesOptions,
   createShowing,
   updateShowing,
-  deleteShowing,
   type Showing,
   type ShowingFilters
 } from '../api/showingsApi';
@@ -42,6 +42,8 @@ import dayjs from 'dayjs';
 import { supabase } from '../supaClient';
 import type { Key } from 'react';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
+import { useUser } from '../context/UserContext';
+import imageCompression from 'browser-image-compression';
 import './compact-table.css';
 
 const { TextArea } = Input;
@@ -63,6 +65,7 @@ interface ShowingWithRelations {
   renttime: number;
   created_at: string;
   updated_at: string;
+  invalid?: boolean; // 是否无效（回退/作废）
   showingsales_nickname?: string;
   trueshowingsales_nickname?: string;
   interviewsales_nickname?: string;
@@ -80,6 +83,7 @@ interface QueueCardDetail {
   created_at: string;
   consumed: boolean;
   consumed_at: string | null;
+  remark?: string;
 }
 
 // 在顶部添加脱敏函数
@@ -94,6 +98,7 @@ const maskWechat = (wechat: string) => {
 };
 
 const ShowingsList: React.FC = () => {
+  const { profile } = useUser();
   const [data, setData] = useState<ShowingWithRelations[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -103,6 +108,13 @@ const ShowingsList: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<Showing | null>(null);
   const [form] = Form.useForm();
   const [filters, setFilters] = useState<ShowingFilters>({});
+  
+  // 回退相关状态
+  const [rollbackModalVisible, setRollbackModalVisible] = useState(false);
+  const [rollbackRecord, setRollbackRecord] = useState<ShowingWithRelations | null>(null);
+  const [rollbackReason, setRollbackReason] = useState<string>();
+  const [rollbackEvidenceList, setRollbackEvidenceList] = useState<any[]>([]);
+  const [rollbackUploading, setRollbackUploading] = useState(false);
   
   // 线索详情抽屉状态
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
@@ -148,38 +160,43 @@ const ShowingsList: React.FC = () => {
       p_offset: 0
     });
     
-    // 统计带看量
-    const showingsCount = showingsData?.length || 0;
+    // 过滤掉无效的带看记录（invalid = true）
+    const validShowingsData = showingsData?.filter((item: any) => !item.invalid) || [];
     
-    // 统计直签量
-    const directDealsCount = showingsData?.filter((item: any) => item.viewresult === '直签').length || 0;
+    // 统计带看量（只统计有效的）
+    const showingsCount = validShowingsData.length;
     
-    // 统计预定量
-    const reservedCount = showingsData?.filter((item: any) => item.viewresult === '预定').length || 0;
+    // 统计直签量（只统计有效的）
+    const directDealsCount = validShowingsData.filter((item: any) => item.viewresult === '直签').length;
+    
+    // 统计预定量（只统计有效的）
+    const reservedCount = validShowingsData.filter((item: any) => item.viewresult === '预定').length;
+    
     // 直通卡数量
     const { count: directCount } = await supabase
       .from('showings_queue_record')
       .select('id', { count: 'exact', head: true })
       .eq('queue_type', 'direct')
       .eq('consumed', false);
+    
     // 轮空卡数量
     const { count: skipCount } = await supabase
       .from('showings_queue_record')
       .select('id', { count: 'exact', head: true })
       .eq('queue_type', 'skip')
       .eq('consumed', false);
-    // 未填写表单数量（看房结果为空或未填写）
-    const { count: incompleteCount } = await supabase
-      .from('showings')
-      .select('id', { count: 'exact', head: true })
-      .or('viewresult.is.null,viewresult.eq.');
+    
+    // 未填写表单数量（看房结果为空或未填写，只统计有效的）
+    const incompleteCount = validShowingsData.filter((item: any) => 
+      !item.viewresult || item.viewresult === ''
+    ).length;
     
     // 转化率 = (直签量 + 预定量) / 带看量
-    const totalDeals = (directDealsCount || 0) + (reservedCount || 0);
+    const totalDeals = directDealsCount + reservedCount;
     const conversionRate = showingsCount && totalDeals ? (totalDeals / showingsCount) * 100 : 0;
     
     setStats({
-      monthShowings: showingsCount || 0,
+      monthShowings: showingsCount,
       monthDeals: totalDeals,
       conversionRate: Number(conversionRate.toFixed(2)),
       directCount: directCount || 0,
@@ -210,7 +227,6 @@ const ShowingsList: React.FC = () => {
         ]);
       }
     } catch (error) {
-      console.error('获取看房结果选项失败:', error);
       // 使用默认选项
       setViewResultOptions([
         { value: '直签', label: '直签' },
@@ -247,7 +263,6 @@ const ShowingsList: React.FC = () => {
       const sales = await getSalesOptions();
       setSalesOptions(sales.map((s: any) => ({ value: s.id, label: s.nickname })));
     } catch (error) {
-      console.error('获取选项失败:', error);
     }
   };
 
@@ -319,14 +334,150 @@ const ShowingsList: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteShowing(id);
-      message.success('删除带看记录成功！');
-      fetchData();
-    } catch (error) {
-      message.error('删除失败: ' + (error as Error).message);
+  // 回退相关函数
+  const handleRollbackClick = (record: ShowingWithRelations) => {
+    setRollbackRecord(record);
+    setRollbackModalVisible(true);
+  };
+
+  // 回退理由选项
+  const rollbackReasonOptions = [
+    { value: '临时取消', label: '临时取消' },
+    { value: '无效客户', label: '无效客户' },
+    { value: '重复带看', label: '重复带看' },
+    { value: '其他原因', label: '其他原因' }
+  ];
+
+  // 处理回退证据上传
+  const handleRollbackEvidenceUpload = async (file: File) => {
+    const options = {
+      maxSizeMB: 0.5,
+      maxWidthOrHeight: 1280,
+      useWebWorker: true,
+    };
+    const compressedFile = await imageCompression(file, options);
+    const preview = URL.createObjectURL(compressedFile);
+    setRollbackEvidenceList(prev => [...prev, { file: compressedFile, preview, name: file.name }]);
+    return false; // 阻止默认上传行为
+  };
+
+  // 清理预览URL的函数
+  const clearPreviewUrls = (evidenceList: any[]) => {
+    evidenceList.forEach(item => {
+      if (item.preview && item.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(item.preview);
+      }
+    });
+  };
+
+  // 移除回退证据
+  const handleRemoveRollbackEvidence = (index: number) => {
+    setRollbackEvidenceList(prev => {
+      // 清理被删除项的预览URL
+      const removedItem = prev[index];
+      if (removedItem?.preview && removedItem.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(removedItem.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  // 确认回退
+  const handleRollbackConfirm = async () => {
+    // 表单验证
+    let hasError = false;
+    
+    if (!rollbackReason) {
+      message.error('请选择回退理由');
+      hasError = true;
     }
+    if (rollbackEvidenceList.length === 0) {
+      message.error('请上传回退证据');
+      hasError = true;
+    }
+    if (!profile?.id) {
+      message.error('用户信息获取失败');
+      hasError = true;
+    }
+    
+    if (hasError) {
+      return;
+    }
+
+    setRollbackUploading(true);
+    try {
+      // 0. 检查同一带看记录是否已存在未完成的回退审批流实例
+      const { data: existList, error: existError } = await supabase
+        .from('approval_instances')
+        .select('id, status')
+        .eq('type', 'showing_rollback')
+        .eq('target_id', rollbackRecord?.id)
+        .in('status', ['pending', 'processing']);
+      if (existError) {
+        setRollbackUploading(false);
+        message.error('回退检查失败，请重试');
+        return;
+      }
+      if (existList && existList.length > 0) {
+        setRollbackUploading(false);
+        message.error('该带看记录已提交回退申请，请勿重复提交');
+        return;
+      }
+
+      // 1. 上传所有图片，获取url
+      const uploaded: any[] = [];
+      for (const item of rollbackEvidenceList) {
+        if (item.url) {
+          uploaded.push(item.url);
+          continue;
+        }
+        const fileExt = item.file.name.split('.').pop();
+        const fileName = `rollback-${Date.now()}-${Math.floor(Math.random()*10000)}.${fileExt}`;
+        const filePath = `rollback/${fileName}`;
+        const { error } = await supabase.storage.from('rollback').upload(filePath, item.file);
+        if (error) throw error;
+        const { data } = supabase.storage.from('rollback').getPublicUrl(filePath);
+        uploaded.push(data.publicUrl);
+      }
+
+      // 2. 查找审批流模板id
+      const { data: flowData, error: flowError } = await supabase
+        .from('approval_flows')
+        .select('id')
+        .eq('type', 'showing_rollback')
+        .maybeSingle();
+      if (flowError || !flowData) {
+        message.error('未找到带看回退审批流模板，请联系管理员配置');
+        setRollbackUploading(false);
+        return;
+      }
+
+      // 3. 插入审批流实例，使用带看单编号作为target_id
+      const { error: approvalError } = await supabase.from('approval_instances').insert({
+        flow_id: flowData.id,
+        type: 'showing_rollback',
+        target_table: 'showings',
+        target_id: rollbackRecord?.id, // 使用带看单编号作为target_id
+        status: 'pending',
+        created_by: profile!.id,
+        config: {
+          reason: rollbackReason,
+          evidence: uploaded,
+          leadid: rollbackRecord?.leadid, // 将线索编号放在config中
+        },
+      });
+      if (approvalError) throw approvalError;
+
+      message.success('带看回退申请已提交，等待审批');
+      setRollbackModalVisible(false);
+      clearPreviewUrls(rollbackEvidenceList); // 清理预览URL
+      setRollbackRecord(null);
+      setRollbackReason(undefined);
+      setRollbackEvidenceList([]);
+    } catch (e: any) {
+      message.error('回退提交失败: ' + (e.message || e.toString()));
+    }
+    setRollbackUploading(false);
   };
 
 
@@ -568,9 +719,13 @@ const ShowingsList: React.FC = () => {
       filters: viewResultOptions.map(opt => ({ text: opt.label, value: opt.value })),
       onFilter: (value: boolean | Key, record: ShowingWithRelations) => record.viewresult === value,
       width: 100,
-      render: (text: string) => (
-        <Tag color={getViewResultColor(text)}>{text}</Tag>
-      ),
+      render: (text: string, record: ShowingWithRelations) => {
+        // 如果记录被标记为无效，显示"无效"标签
+        if (record.invalid) {
+          return <Tag color="error">无效</Tag>;
+        }
+        return <Tag color={getViewResultColor(text)}>{text}</Tag>;
+      },
     },
     {
       title: '预算',
@@ -739,33 +894,29 @@ const ShowingsList: React.FC = () => {
             >
               编辑
             </Button>
-            <Popconfirm
-              title="确定要删除这条带看记录吗？"
-              onConfirm={() => handleDelete(record.id)}
-              okText="确定"
-              cancelText="取消"
+            <Button 
+              type="link" 
+              size="small" 
+              danger 
+              icon={<RollbackOutlined />}
+              onClick={() => handleRollbackClick(record)}
+              disabled={record.invalid}
+              style={{ 
+                padding: '4px 8px', 
+                fontSize: '14px',
+                borderRadius: '4px',
+                border: 'none',
+                background: 'transparent',
+                color: record.invalid ? '#bfbfbf' : '#ff4d4f',
+                width: '100%',
+                textAlign: 'center',
+                height: '28px',
+                lineHeight: '1',
+                cursor: record.invalid ? 'not-allowed' : 'pointer'
+              }}
             >
-              <Button 
-                type="link" 
-                size="small" 
-                danger 
-                icon={<DeleteOutlined />}
-                style={{ 
-                  padding: '4px 8px', 
-                  fontSize: '14px',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#ff4d4f',
-                  width: '100%',
-                  textAlign: 'center',
-                  height: '28px',
-                  lineHeight: '1'
-                }}
-              >
-                删除
-              </Button>
-            </Popconfirm>
+              {record.invalid ? '已回退' : '回退'}
+            </Button>
         </div>
       ),
     },
@@ -1474,6 +1625,13 @@ const ShowingsList: React.FC = () => {
             { title: '创建时间', dataIndex: 'created_at', width: 180, render: (v: string) => v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' },
             { title: '已消耗', dataIndex: 'consumed', width: 80, render: (v: boolean) => v ? '是' : '否' },
             { title: '消耗时间', dataIndex: 'consumed_at', width: 180, render: (v: string | null) => v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' },
+            { 
+              title: '操作理由', 
+              dataIndex: 'remark', 
+              width: 200, 
+              render: (v: string) => v || '-',
+              ellipsis: true
+            },
           ]}
           pagination={{ pageSize: 10 }}
         />
@@ -1511,6 +1669,89 @@ const ShowingsList: React.FC = () => {
         }}
       >
         <ShowingConversionRate />
+      </Modal>
+
+      {/* 回退弹窗 */}
+      <Modal
+        title="带看回退操作"
+        open={rollbackModalVisible}
+        onCancel={() => {
+          setRollbackModalVisible(false);
+          clearPreviewUrls(rollbackEvidenceList); // 清理预览URL
+          setRollbackRecord(null);
+          setRollbackReason(undefined);
+          setRollbackEvidenceList([]);
+        }}
+        onOk={handleRollbackConfirm}
+        okText="确认回退"
+        cancelText="取消"
+        confirmLoading={rollbackUploading}
+        destroyOnClose
+        width={600}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8, fontWeight: 600 }}>带看信息</div>
+          <div style={{ padding: 12, background: '#f5f5f5', borderRadius: 6 }}>
+            <div>线索ID: {rollbackRecord?.leadid}</div>
+            <div>社区: {rollbackRecord?.community || '-'}</div>
+            <div>带看时间: {rollbackRecord?.arrivaltime ? dayjs(rollbackRecord.arrivaltime).format('YYYY-MM-DD HH:mm') : '-'}</div>
+            <div>看房结果: {rollbackRecord?.viewresult || '-'}</div>
+            <div>带看管家: {rollbackRecord?.showingsales_nickname || '-'}</div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8, fontWeight: 400 }}>
+            <span style={{ color: '#ff4d4f' }}>*</span> 回退理由
+          </div>
+          <Select
+            placeholder="请选择回退理由"
+            value={rollbackReason}
+            onChange={setRollbackReason}
+            style={{ width: '100%' }}
+            options={rollbackReasonOptions}
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8, fontWeight: 400 }}>
+            <span style={{ color: '#ff4d4f' }}>*</span> 回退证据
+          </div>
+          <Upload
+            listType="picture-card"
+            fileList={rollbackEvidenceList.map((item, idx) => ({
+              uid: idx.toString(),
+              name: item.name,
+              status: 'done' as any,
+              url: item.preview,
+              thumbUrl: item.preview,
+            }))}
+            beforeUpload={handleRollbackEvidenceUpload}
+            onRemove={(file) => {
+              const index = parseInt(file.uid);
+              handleRemoveRollbackEvidence(index);
+            }}
+            maxCount={5}
+          >
+            <div>
+              <UploadOutlined />
+              <div style={{ marginTop: 8 }}>上传</div>
+            </div>
+          </Upload>
+          <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
+            支持jpg、png格式，最多5张，每张不超过500KB
+          </div>
+        </div>
+        
+        <div style={{ padding: 12, background: '#fff7e6', borderRadius: 6, border: '1px solid #ffd591' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#d46b08', marginBottom: 4 }}>
+            <span style={{ marginRight: 4 }}>💡</span>
+            回退说明
+          </div>
+          <div style={{ fontSize: 12, color: '#666' }}>
+            审批通过后，该带看记录将被标记为无效，同时为您发放一张直通卡作为补偿。
+          </div>
+        </div>
       </Modal>
     </div>
   );

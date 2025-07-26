@@ -193,8 +193,8 @@ const ShowingConversionRate: React.FC = () => {
       
       const salesNode = salesMap.get(salesId)!;
       
-      // 如果是实际销售数据（is_actual_sales为true），添加到子级
-      if (item.is_actual_sales && item.actual_sales_id && item.actual_sales_id !== item.sales_id) {
+      // 如果有实际销售数据，创建子级记录
+      if (item.actual_sales_id !== null) {
         console.log(`添加子级数据: ${item.actual_sales_name} (实际销售)`);
         const childNode: ConversionData = {
           key: `actual_${item.actual_sales_id}`,
@@ -239,54 +239,8 @@ const ShowingConversionRate: React.FC = () => {
         salesNode.previous_lost_count += item.previous_lost_count;
         salesNode.previous_unfilled_count += item.previous_unfilled_count;
         console.log(`汇总后 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
-      } else if (item.is_actual_sales && item.actual_sales_id && item.actual_sales_id === item.sales_id) {
-        // 如果分配管家等于实际带看管家，创建子记录显示为正常姓名
-        console.log(`添加自己带看子级数据: ${item.sales_name} (正常姓名)`);
-        const childNode: ConversionData = {
-          key: `self_actual_${item.actual_sales_id}`,
-          showingsales_id: item.actual_sales_id,
-          showingsales_name: item.actual_sales_name || item.sales_name,
-          showings_count: item.showings_count,
-          direct_deal_count: item.direct_deal_count,
-          reserved_count: item.reserved_count,
-          intention_count: item.intention_count,
-          considering_count: item.considering_count,
-          lost_count: item.lost_count,
-          unfilled_count: item.unfilled_count,
-          direct_rate: item.direct_rate,
-          conversion_rate: item.conversion_rate,
-          previous_showings_count: item.previous_showings_count,
-          previous_direct_deal_count: item.previous_direct_deal_count,
-          previous_reserved_count: item.previous_reserved_count,
-          previous_intention_count: item.previous_intention_count,
-          previous_considering_count: item.previous_considering_count,
-          previous_lost_count: item.previous_lost_count,
-          previous_unfilled_count: item.previous_unfilled_count,
-          previous_direct_rate: item.previous_direct_rate,
-          previous_conversion_rate: item.previous_conversion_rate
-        };
-        salesNode.children!.push(childNode);
-        
-        // 将子级数据汇总到父级
-        console.log(`汇总自己带看子级数据到父级: ${item.sales_name}`);
-        console.log(`汇总前 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
-        salesNode.showings_count += item.showings_count;
-        salesNode.direct_deal_count += item.direct_deal_count;
-        salesNode.reserved_count += item.reserved_count;
-        salesNode.intention_count += item.intention_count;
-        salesNode.considering_count += item.considering_count;
-        salesNode.lost_count += item.lost_count;
-        salesNode.unfilled_count += item.unfilled_count;
-        salesNode.previous_showings_count += item.previous_showings_count;
-        salesNode.previous_direct_deal_count += item.previous_direct_deal_count;
-        salesNode.previous_reserved_count += item.previous_reserved_count;
-        salesNode.previous_intention_count += item.previous_intention_count;
-        salesNode.previous_considering_count += item.previous_considering_count;
-        salesNode.previous_lost_count += item.previous_lost_count;
-        salesNode.previous_unfilled_count += item.previous_unfilled_count;
-        console.log(`汇总后 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
-      } else if (!item.is_actual_sales && item.actual_sales_id === null) {
-        // 如果是带看销售本身的数据且实际销售为空，创建"未分配"子记录
+      } else {
+        // 如果没有实际销售数据，创建"未分配"子记录
         console.log(`添加未分配子级数据: ${item.sales_name} (未分配)`);
         const childNode: ConversionData = {
           key: `no_actual_${salesId}`,
@@ -331,25 +285,6 @@ const ShowingConversionRate: React.FC = () => {
         salesNode.previous_lost_count += item.previous_lost_count;
         salesNode.previous_unfilled_count += item.previous_unfilled_count;
         console.log(`汇总后 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
-      } else {
-        // 如果是带看销售本身的数据，累加到父级节点（而不是重置）
-        console.log(`累加父级节点数据: ${item.sales_name} (带看销售)`);
-        console.log(`累加前 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
-        salesNode.showings_count += item.showings_count;
-        salesNode.direct_deal_count += item.direct_deal_count;
-        salesNode.reserved_count += item.reserved_count;
-        salesNode.intention_count += item.intention_count;
-        salesNode.considering_count += item.considering_count;
-        salesNode.lost_count += item.lost_count;
-        salesNode.unfilled_count += item.unfilled_count;
-        salesNode.previous_showings_count += item.previous_showings_count;
-        salesNode.previous_direct_deal_count += item.previous_direct_deal_count;
-        salesNode.previous_reserved_count += item.previous_reserved_count;
-        salesNode.previous_intention_count += item.previous_intention_count;
-        salesNode.previous_considering_count += item.previous_considering_count;
-        salesNode.previous_lost_count += item.previous_lost_count;
-        salesNode.previous_unfilled_count += item.previous_unfilled_count;
-        console.log(`累加后 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
       }
     });
     
@@ -398,8 +333,8 @@ const ShowingConversionRate: React.FC = () => {
       width: 120,
       fixed: 'left' as const,
       render: (text: string, record: ConversionData) => {
-        // 判断是否为子级（实际销售、未分配、自己带看）
-        const isChild = record.key.startsWith('actual_') || record.key.startsWith('no_actual_') || record.key.startsWith('self_actual_');
+        // 判断是否为子级（实际销售、未分配）
+        const isChild = record.key.startsWith('actual_') || record.key.startsWith('no_actual_');
         const isNoActualSales = record.key.startsWith('no_actual_');
         return (
           <span style={{ 
@@ -619,93 +554,7 @@ const ShowingConversionRate: React.FC = () => {
     }
   };
 
-  // 测试后端函数
-  const testBackendFunction = async () => {
-    try {
-      console.log('开始测试后端函数...');
-      
-      // 首先测试函数是否存在
-      const testParams = {
-        p_date_start: dayjs().startOf('month').toISOString(),
-        p_date_end: dayjs().endOf('month').toISOString(),
-        p_previous_date_start: dayjs().subtract(1, 'month').startOf('month').toISOString(),
-        p_previous_date_end: dayjs().subtract(1, 'month').endOf('month').toISOString()
-      };
-      
-      console.log('测试参数:', testParams);
-      
-      // 测试基础版本
-      console.log('测试基础版本函数...');
-      const basicResult = await supabase.rpc('get_conversion_rate_stats', testParams);
-      
-      console.log('基础版本测试结果:', basicResult);
-      console.log('基础版本错误:', basicResult.error);
-      console.log('基础版本数据:', basicResult.data);
-      
-      if (basicResult.data && basicResult.data.length > 0) {
-        console.log('基础版本第一条数据:', basicResult.data[0]);
-        console.log('基础版本数据字段:', Object.keys(basicResult.data[0]));
-        console.log('基础版本第一条数据详情:');
-        console.log('  sales_id:', basicResult.data[0].sales_id);
-        console.log('  sales_name:', basicResult.data[0].sales_name);
-        console.log('  showings_count:', basicResult.data[0].showings_count);
-        console.log('  direct_deal_count:', basicResult.data[0].direct_deal_count);
-        console.log('  reserved_count:', basicResult.data[0].reserved_count);
-        console.log('  intention_count:', basicResult.data[0].intention_count);
-        console.log('  considering_count:', basicResult.data[0].considering_count);
-        console.log('  lost_count:', basicResult.data[0].lost_count);
-        console.log('  unfilled_count:', basicResult.data[0].unfilled_count);
-        console.log('  direct_rate:', basicResult.data[0].direct_rate);
-        console.log('  conversion_rate:', basicResult.data[0].conversion_rate);
-      }
-      
-      // 测试带实际销售版本
-      console.log('测试带实际销售版本函数...');
-      const actualSalesResult = await supabase.rpc('get_conversion_rate_stats_with_actual_sales', testParams);
-      
-      console.log('带实际销售版本测试结果:', actualSalesResult);
-      console.log('带实际销售版本错误:', actualSalesResult.error);
-      console.log('带实际销售版本数据:', actualSalesResult.data);
-      
-      if (actualSalesResult.data && actualSalesResult.data.length > 0) {
-        console.log('带实际销售版本第一条数据:', actualSalesResult.data[0]);
-        console.log('带实际销售版本数据字段:', Object.keys(actualSalesResult.data[0]));
-        console.log('带实际销售版本第一条数据详情:');
-        console.log('  sales_id:', actualSalesResult.data[0].sales_id);
-        console.log('  sales_name:', actualSalesResult.data[0].sales_name);
-        console.log('  actual_sales_id:', actualSalesResult.data[0].actual_sales_id);
-        console.log('  actual_sales_name:', actualSalesResult.data[0].actual_sales_name);
-        console.log('  showings_count:', actualSalesResult.data[0].showings_count);
-        console.log('  direct_deal_count:', actualSalesResult.data[0].direct_deal_count);
-        console.log('  reserved_count:', actualSalesResult.data[0].reserved_count);
-        console.log('  intention_count:', actualSalesResult.data[0].intention_count);
-        console.log('  considering_count:', actualSalesResult.data[0].considering_count);
-        console.log('  lost_count:', actualSalesResult.data[0].lost_count);
-        console.log('  unfilled_count:', actualSalesResult.data[0].unfilled_count);
-        console.log('  direct_rate:', actualSalesResult.data[0].direct_rate);
-        console.log('  conversion_rate:', actualSalesResult.data[0].conversion_rate);
-        console.log('  is_actual_sales:', actualSalesResult.data[0].is_actual_sales);
-      }
-      
-      // 如果函数不存在，尝试列出所有函数
-      if (basicResult.error || actualSalesResult.error) {
-        console.log('函数可能不存在，尝试查询数据库中的函数列表...');
-        
-        // 尝试查询函数列表
-        const { data: functions, error: functionsError } = await supabase
-          .from('information_schema.routines')
-          .select('routine_name')
-          .eq('routine_schema', 'public')
-          .like('routine_name', '%conversion%');
-        
-        console.log('数据库中的转化率相关函数:', functions);
-        console.log('查询函数列表错误:', functionsError);
-      }
-      
-    } catch (error) {
-      console.error('测试后端函数失败:', error);
-    }
-  };
+
 
     return (
     <div>
@@ -745,25 +594,17 @@ const ShowingConversionRate: React.FC = () => {
             />
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <Button 
-              type="primary" 
-              size="small" 
-              onClick={testBackendFunction}
-              style={{ fontSize: '12px' }}
+            <Radio.Group 
+              value={dateRange} 
+              onChange={(e) => setDateRange(e.target.value)}
+              size="small"
+              buttonStyle="solid"
             >
-              测试后端函数
-            </Button>
-          <Radio.Group 
-            value={dateRange} 
-            onChange={(e) => setDateRange(e.target.value)}
-            size="small"
-            buttonStyle="solid"
-          >
-            <Radio.Button value="thisWeek">本周</Radio.Button>
-            <Radio.Button value="lastWeek">上周</Radio.Button>
-            <Radio.Button value="thisMonth">本月</Radio.Button>
-            <Radio.Button value="lastMonth">上月</Radio.Button>
-          </Radio.Group>
+              <Radio.Button value="thisWeek">本周</Radio.Button>
+              <Radio.Button value="lastWeek">上周</Radio.Button>
+              <Radio.Button value="thisMonth">本月</Radio.Button>
+              <Radio.Button value="lastMonth">上月</Radio.Button>
+            </Radio.Group>
           </div>
         </div>
       </div>

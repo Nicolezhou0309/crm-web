@@ -16,6 +16,7 @@ interface QueueCard {
   created_at: string;
   consumed: boolean;
   consumed_at: string | null;
+  remark?: string;
 }
 
 interface EditModalState {
@@ -231,6 +232,13 @@ export default function ShowingsQueueManagement() {
     { title: '创建时间', dataIndex: 'created_at', render: (v: string) => v ? new Date(v).toLocaleString('zh-CN', { hour12: false }) : '-' },
     { title: '已消耗', dataIndex: 'consumed', render: (v: any) => (v ? '是' : '否') },
     { title: '消耗时间', dataIndex: 'consumed_at', render: (v: string) => v ? new Date(v).toLocaleString('zh-CN', { hour12: false }) : '-' },
+    { 
+      title: '操作理由', 
+      dataIndex: 'remark', 
+      width: 200,
+      render: (v: string) => v || '-',
+      ellipsis: true
+    },
     {
       title: '操作',
       render: (_: any, row: QueueCard) => (
@@ -337,7 +345,12 @@ export default function ShowingsQueueManagement() {
                 const addCount = Number(values.add_count) || 1;
                 // 剔除add_count字段，仅用于循环
                 const { add_count, ...restValues } = values;
-                const submit = { ...restValues, community: values.community || community, queue_type: type };
+                const submit = { 
+                  ...restValues, 
+                  community: values.community || community, 
+                  queue_type: type,
+                  remark: values.remark || null
+                };
                 const records = Array.from({ length: addCount }).map(() => ({ ...submit, consumed: false }));
                 await supabase.from('showings_queue_record').insert(records);
               }
@@ -558,6 +571,14 @@ export default function ShowingsQueueManagement() {
               <InputNumber min={1} step={1} placeholder="请输入要添加的数量" style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item label="社区" name="community"><Select options={communityOptions} /></Form.Item>
+            <Form.Item label="操作理由" name="remark">
+              <Input.TextArea 
+                placeholder="请输入发放该卡片的理由，如：带看回退补偿、手动发放等" 
+                rows={3}
+                maxLength={500}
+                showCount
+              />
+            </Form.Item>
           </>}
           <Button type="primary" htmlType="submit" loading={loading}>保存</Button>
         </Form>

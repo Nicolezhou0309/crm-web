@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import { useState as useReactState } from 'react';
 import { message as antdMessage } from 'antd';
 import { supabase } from '../supaClient';
+import { useNavigate } from 'react-router-dom';
 // 保留 antd Typography.Text 的 import，删除自定义 Notification 类型的 import
 interface NotificationCenterProps {
   notifications?: any[];
@@ -528,6 +529,69 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     await handleNotificationAction(selectedNotification.id, 'handled');
   };
 
+  // 统一操作编号提取逻辑
+  const extractOperationId = useCallback((notification: any) => {
+    if (notification.type === 'approval') {
+      console.log('🔍 提取操作编号，通知:', notification);
+      
+      // 1. 优先使用related_id（最可靠）
+      if (notification.related_id) {
+        console.log('✅ 使用related_id:', notification.related_id);
+        return notification.related_id;
+      }
+      
+      // 2. 从metadata中获取operation_id
+      if (notification.metadata?.operation_id) {
+        console.log('✅ 使用metadata.operation_id:', notification.metadata.operation_id);
+        return notification.metadata.operation_id;
+      }
+      
+      // 3. 从内容中提取"操作编号：" 后面的UUID
+      const operationIdMatch = notification.content?.match(/操作编号：\s*([a-f0-9-]+)/i);
+      if (operationIdMatch) {
+        console.log('✅ 从内容提取操作编号:', operationIdMatch[1]);
+        return operationIdMatch[1];
+      }
+      
+      // 4. 从内容中提取"实例 ID:" 后面的UUID（兼容旧格式）
+      const instanceIdMatch = notification.content?.match(/实例\s*ID:\s*([a-f0-9-]+)/i);
+      if (instanceIdMatch) {
+        console.log('✅ 从内容提取实例ID:', instanceIdMatch[1]);
+        return instanceIdMatch[1];
+      }
+      
+      // 5. 从内容中提取任意UUID格式的操作编号
+      const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+      const match = notification.content?.match(uuidRegex);
+      if (match) {
+        console.log('✅ 从内容提取UUID:', match[0]);
+        return match[0];
+      }
+      
+      console.log('❌ 无法提取操作编号');
+    }
+    return null;
+  }, []);
+
+  // 新增：跳转到审批详情
+  const navigate = useNavigate();
+  const handleGoToApprovalDetails = useCallback(() => {
+    console.log('🔍 跳转到审批详情，通知:', selectedNotification);
+    
+    const operationId = extractOperationId(selectedNotification);
+    console.log('🔍 提取的操作编号:', operationId);
+    
+    if (operationId) {
+      const targetUrl = `/approval-details?tab=all&filter_target_id=${operationId}`;
+      console.log('🔍 跳转URL:', targetUrl);
+      navigate(targetUrl);
+      setDetailModalVisible(false);
+    } else {
+      console.log('❌ 无法获取操作编号');
+      message.warning('无法获取操作编号，无法跳转到审批详情');
+    }
+  }, [selectedNotification, extractOperationId, navigate]);
+
   return (
     <div className="notification-center-main">
       {simple ? (
@@ -587,16 +651,35 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={
-          selectedNotification && selectedNotification.type === 'followup_assignment' && selectedNotification.status !== 'handled' ? [
-            <Button
-              key="handled"
-              type="primary"
-              icon={<CheckOutlined />}
-              onClick={handleReceiveLead}
-            >
-              接收线索
-            </Button>
-          ] : null
+          selectedNotification ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                {selectedNotification.type === 'followup_assignment' && selectedNotification.status !== 'handled' && (
+                  <Button
+                    type="primary"
+                    icon={<CheckOutlined />}
+                    onClick={handleReceiveLead}
+                  >
+                    接收线索
+                  </Button>
+                )}
+              </div>
+              <div>
+                {selectedNotification.type === 'approval' && (
+                  <Button
+                    type="primary"
+                    icon={<EyeOutlined />}
+                    onClick={handleGoToApprovalDetails}
+                  >
+                    查看审批详情
+                  </Button>
+                )}
+                <Button onClick={() => setDetailModalVisible(false)} style={{ marginLeft: 8 }}>
+                  关闭
+                </Button>
+              </div>
+            </div>
+          ) : null
         }
         width={selectedNotification?.type === 'followup_assignment' ? 500 : 400}
       >
