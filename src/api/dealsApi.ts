@@ -14,6 +14,10 @@ export interface Deal {
   lead_source?: string;
   lead_status?: string;
   lead_type?: string;
+  invalid?: boolean; // 是否无效（回退/作废）
+  interviewsales?: string; // 面试销售
+  interviewsales_user_id?: number; // 面试销售用户ID
+  channel?: string; // 渠道
 }
 
 export interface DealFilters {
@@ -24,6 +28,8 @@ export interface DealFilters {
   community?: string[];
   contractnumber?: string[];
   roomnumber?: string[];
+  interviewsales?: string[];
+  channel?: string[];
   created_at_start?: string;
   created_at_end?: string;
   source?: string[];
@@ -77,14 +83,18 @@ export async function getDealsCount(filters: DealFilters = {}) {
 
 // 获取社区枚举值
 export async function getDealsCommunityOptions() {
-  const { data, error } = await supabase.rpc('get_deals_community_options');
+  const { data, error } = await supabase.rpc('get_enum_values', {
+    enum_name: 'community'
+  });
   if (error) throw error;
   return data || [];
 }
 
-// 获取来源枚举值
+// 获取来源枚举值（渠道）
 export async function getDealsSourceOptions() {
-  const { data, error } = await supabase.rpc('get_deals_source_options');
+  const { data, error } = await supabase.rpc('get_enum_values', {
+    enum_name: 'source'
+  });
   if (error) throw error;
   return data || [];
 }

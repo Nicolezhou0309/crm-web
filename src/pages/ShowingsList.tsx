@@ -124,6 +124,8 @@ const ShowingsList: React.FC = () => {
   const [communityOptions, setCommunityOptions] = useState<{ value: string; label: string }[]>([]);
   const [viewResultOptions, setViewResultOptions] = useState<any[]>([]);
   const [salesOptions, setSalesOptions] = useState<{ value: number; label: string }[]>([]);
+  const [interviewsalesOptions, setInterviewsalesOptions] = useState<{ value: string; label: string }[]>([]);
+  const [trueshowingsalesOptions, setTrueshowingsalesOptions] = useState<{ value: string; label: string }[]>([]);
 
   // 统计卡片相关状态
   const [stats, setStats] = useState({
@@ -266,6 +268,27 @@ const ShowingsList: React.FC = () => {
     }
   };
 
+  // 从数据中提取选项的函数
+  const updateOptionsFromData = (showingsData: ShowingWithRelations[]) => {
+    // 获取约访管家选项（从现有数据中提取）
+    const interviewsalesSet = new Set<string>();
+    showingsData.forEach(item => {
+      if (item.interviewsales_nickname) {
+        interviewsalesSet.add(item.interviewsales_nickname);
+      }
+    });
+    setInterviewsalesOptions(Array.from(interviewsalesSet).map(name => ({ value: name, label: name })));
+
+    // 获取实际带看管家选项（从现有数据中提取）
+    const trueshowingsalesSet = new Set<string>();
+    showingsData.forEach(item => {
+      if (item.trueshowingsales_nickname) {
+        trueshowingsalesSet.add(item.trueshowingsales_nickname);
+      }
+    });
+    setTrueshowingsalesOptions(Array.from(trueshowingsalesSet).map(name => ({ value: name, label: name })));
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -283,6 +306,8 @@ const ShowingsList: React.FC = () => {
       setData(showings || []);
       setTotal(count);
       
+      // 数据加载完成后更新选项
+      updateOptionsFromData(showings || []);
 
     } catch (error) {
       message.error('获取带看记录失败: ' + (error as Error).message);
@@ -679,6 +704,9 @@ const ShowingsList: React.FC = () => {
       dataIndex: 'interviewsales_nickname',
       key: 'interviewsales',
       width: 120,
+      filters: interviewsalesOptions.map(option => ({ text: option.label, value: option.value })),
+      onFilter: (value: boolean | Key, record: ShowingWithRelations) => record.interviewsales_nickname === value,
+      filterSearch: true,
       render: (text: string) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', color: '#000' }}>
           <UserOutlined style={{ color: '#bfbfbf', marginRight: 6, fontSize: 18 }} />
@@ -692,6 +720,7 @@ const ShowingsList: React.FC = () => {
       key: 'showingsales',
       filters: salesOptions.map(opt => ({ text: opt.label, value: opt.label })),
       onFilter: (value: boolean | Key, record: ShowingWithRelations) => record.showingsales_nickname === value,
+      filterSearch: true,
       width: 120,
       render: (text: string) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', color: '#000' }}>
@@ -705,6 +734,9 @@ const ShowingsList: React.FC = () => {
       dataIndex: 'trueshowingsales_nickname',
       key: 'trueshowingsales',
       width: 120,
+      filters: trueshowingsalesOptions.map(option => ({ text: option.label, value: option.value })),
+      onFilter: (value: boolean | Key, record: ShowingWithRelations) => record.trueshowingsales_nickname === value,
+      filterSearch: true,
       render: (text: string) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', color: '#000' }}>
           <UserOutlined style={{ color: '#bfbfbf', marginRight: 6, fontSize: 18 }} />

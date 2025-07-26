@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Spin, Radio, Typography, DatePicker, Button } from 'antd';
-import { supabase } from '../supaClient';
+import { Table, Spin, Radio, Typography, DatePicker } from 'antd';
 import dayjs from 'dayjs';
 import { 
   getConversionRateStatsWithActualSales, 
@@ -113,28 +112,16 @@ const ShowingConversionRate: React.FC = () => {
         previous_date_end: dateRangeConfig.previousEnd
       };
 
-      console.log('转化率查询参数:', params);
 
       // 使用后端函数获取数据
       const backendData = await getConversionRateStatsWithActualSales(params);
       
-      console.log('后端返回的原始数据:', backendData);
-      console.log('数据条数:', backendData?.length || 0);
-      
-      if (backendData && backendData.length > 0) {
-        console.log('第一条数据示例:', backendData[0]);
-      }
-
       // 将后端数据转换为前端需要的格式
       const processedData = processBackendData(backendData);
       
-      console.log('处理后的数据:', processedData);
-      console.log('处理后数据条数:', processedData?.length || 0);
       
       setData(processedData);
     } catch (error) {
-      console.error('获取转化率数据失败:', error);
-      console.error('错误详情:', error);
     } finally {
       setLoading(false);
     }
@@ -145,22 +132,12 @@ const ShowingConversionRate: React.FC = () => {
     // 按带看销售分组
     const salesMap = new Map<number, ConversionData>();
     
-    console.log('开始处理后端数据，数据条数:', backendData.length);
     
     // 首先处理所有数据，按带看销售分组
-    backendData.forEach((item, index) => {
+    backendData.forEach((item) => {
       const salesId = item.sales_id;
       
-      console.log(`处理第${index + 1}条数据:`, {
-        sales_id: item.sales_id,
-        sales_name: item.sales_name,
-        actual_sales_id: item.actual_sales_id,
-        actual_sales_name: item.actual_sales_name,
-        is_actual_sales: item.is_actual_sales,
-        showings_count: item.showings_count,
-        direct_deal_count: item.direct_deal_count,
-        reserved_count: item.reserved_count
-      });
+
       
       if (!salesMap.has(salesId)) {
         // 创建带看销售节点
@@ -188,14 +165,14 @@ const ShowingConversionRate: React.FC = () => {
           previous_conversion_rate: 0,
           children: []
         });
-        console.log(`创建新的销售节点: ${item.sales_name} (ID: ${salesId})`);
+
       }
       
       const salesNode = salesMap.get(salesId)!;
       
       // 如果有实际销售数据，创建子级记录
       if (item.actual_sales_id !== null) {
-        console.log(`添加子级数据: ${item.actual_sales_name} (实际销售)`);
+
         const childNode: ConversionData = {
           key: `actual_${item.actual_sales_id}`,
           showingsales_id: item.actual_sales_id,
@@ -222,8 +199,7 @@ const ShowingConversionRate: React.FC = () => {
         salesNode.children!.push(childNode);
         
         // 将子级数据汇总到父级
-        console.log(`汇总子级数据到父级: ${item.actual_sales_name}`);
-        console.log(`汇总前 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+
         salesNode.showings_count += item.showings_count;
         salesNode.direct_deal_count += item.direct_deal_count;
         salesNode.reserved_count += item.reserved_count;
@@ -238,10 +214,10 @@ const ShowingConversionRate: React.FC = () => {
         salesNode.previous_considering_count += item.previous_considering_count;
         salesNode.previous_lost_count += item.previous_lost_count;
         salesNode.previous_unfilled_count += item.previous_unfilled_count;
-        console.log(`汇总后 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+
       } else {
         // 如果没有实际销售数据，创建"未分配"子记录
-        console.log(`添加未分配子级数据: ${item.sales_name} (未分配)`);
+
         const childNode: ConversionData = {
           key: `no_actual_${salesId}`,
           showingsales_id: salesId,
@@ -268,8 +244,7 @@ const ShowingConversionRate: React.FC = () => {
         salesNode.children!.push(childNode);
         
         // 将子级数据汇总到父级
-        console.log(`汇总未分配子级数据到父级: ${item.sales_name}`);
-        console.log(`汇总前 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+
         salesNode.showings_count += item.showings_count;
         salesNode.direct_deal_count += item.direct_deal_count;
         salesNode.reserved_count += item.reserved_count;
@@ -284,7 +259,6 @@ const ShowingConversionRate: React.FC = () => {
         salesNode.previous_considering_count += item.previous_considering_count;
         salesNode.previous_lost_count += item.previous_lost_count;
         salesNode.previous_unfilled_count += item.previous_unfilled_count;
-        console.log(`汇总后 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
       }
     });
     
@@ -311,12 +285,7 @@ const ShowingConversionRate: React.FC = () => {
       })
       .sort((a, b) => b.showings_count - a.showings_count);
     
-    console.log('处理完成，最终结果:', result.map(item => ({
-      name: item.showingsales_name,
-      showings_count: item.showings_count,
-      direct_deal_count: item.direct_deal_count,
-      reserved_count: item.reserved_count
-    })));
+
     
     return result;
   };

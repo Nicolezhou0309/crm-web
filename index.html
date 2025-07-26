@@ -21,14 +21,10 @@
       if (typeof window !== 'undefined') {
         window.__TIMEZONE__ = 'Asia/Shanghai';
       }
-      // ====== hash日志 ======
-      console.log('【index.html】初始 window.location.href:', window.location.href);
-      console.log('【index.html】初始 window.location.hash:', window.location.hash);
       // ====== hash日志结束 ======
       // ====== hash写入localStorage兜底 ======
       if (window.location.hash && window.location.hash.includes('access_token')) {
         localStorage.setItem('supabase_hash', window.location.hash);
-        console.log('【index.html】已写入localStorage.supabase_hash:', window.location.hash);
       }
       // ====== hash写入localStorage兜底结束 ======
     </script>

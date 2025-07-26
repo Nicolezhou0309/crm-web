@@ -6,8 +6,7 @@ import {
   CloseCircleOutlined, 
   FileTextOutlined,
   DashboardOutlined,
-  UserOutlined,
-  TrophyOutlined
+  UserOutlined
 } from '@ant-design/icons';
 import { getApprovalStatistics, getApprovalPerformanceMetrics, getUserApprovalStatistics } from '../api/approvalApi';
 import { useUser } from '../context/UserContext';

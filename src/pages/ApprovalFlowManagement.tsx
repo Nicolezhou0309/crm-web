@@ -443,12 +443,7 @@ const ApprovalFlowManagement: React.FC = () => {
       // 重新获取步骤数据
       await fetchSteps(step.instance_id);
       // 检查是否所有步骤都已完成
-      const { data: allSteps } = await supabase
-        .from('approval_steps')
-        .select('*')
-        .eq('instance_id', step.instance_id);
-      const allCompleted = allSteps?.every((s: any) => s.status === 'approved' || s.status === 'rejected');
-      // 可根据allCompleted做后续处理
+      // const allCompleted = allSteps?.every((s: any) => s.status === 'approved' || s.status === 'rejected');
     } catch (e: any) {
       message.error(`审批操作异常: ${e.message || e}`);
     }
