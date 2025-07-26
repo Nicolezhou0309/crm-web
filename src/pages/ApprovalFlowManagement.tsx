@@ -3,6 +3,14 @@ import { Table, Button, Modal, Form, Input, Steps, Tag, message, Select, TreeSel
 import { supabase } from '../supaClient'
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 
+// 格式化北京时间
+function formatToBeijingTime(isoString?: string) {
+  if (!isoString) return '-';
+  const date = new Date(isoString);
+  const bjDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  return bjDate.toISOString().replace('T', ' ').substring(0, 19);
+}
+
 // 审批流模板类型
 interface ApprovalFlowTemplate {
   id: string;
@@ -49,6 +57,15 @@ const ApprovalFlowManagement: React.FC = () => {
   const [selectedInstance, setSelectedInstance] = useState<ApprovalInstance | null>(null);
   const [steps, setSteps] = useState<ApprovalStep[]>([]); // 当前审批实例的节点
   const [stepModalVisible, setStepModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+    showSizeChanger: true,
+    showQuickJumper: true,
+    showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+  });
 
   // 可视化流程设计器用到的本地 state
   const [flowSteps, setFlowSteps] = useState<any[]>([]); // 当前流程节点
@@ -64,14 +81,48 @@ const ApprovalFlowManagement: React.FC = () => {
     setTemplates(data || []);
   }
 
-  // 拉取审批实例
-  async function fetchInstances() {
-    const { data, error } = await supabase.from('approval_instances').select('*');
-    if (error) {
-      message.error('获取审批实例失败');
-      return;
+  // 拉取审批实例（带分页）
+  async function fetchInstances(page = 1, pageSize = 10) {
+    setLoading(true);
+    try {
+      // 获取总数
+      const { count, error: countError } = await supabase
+        .from('approval_instances')
+        .select('*', { count: 'exact', head: true });
+      
+      if (countError) {
+        message.error('获取审批实例总数失败');
+        return;
+      }
+
+      // 获取分页数据
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      
+      const { data, error } = await supabase
+        .from('approval_instances')
+        .select(`
+          *,
+          approval_flows!inner(name, type),
+          users_profile!inner(nickname)
+        `)
+        .range(from, to)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        message.error('获取审批实例失败');
+        return;
+      }
+
+      setInstances(data || []);
+      setPagination(prev => ({
+        ...prev,
+        current: page,
+        total: count || 0,
+      }));
+    } finally {
+      setLoading(false);
     }
-    setInstances(data || []);
   }
 
   // 拉取审批节点
@@ -141,7 +192,7 @@ const ApprovalFlowManagement: React.FC = () => {
   // 页面加载时自动拉取数据
   React.useEffect(() => {
     fetchTemplates();
-    fetchInstances();
+    fetchInstances(1, pagination.pageSize);
     fetchOrgTreeData();
   }, []);
 
@@ -206,18 +257,54 @@ const ApprovalFlowManagement: React.FC = () => {
     },
   ];
 
-  // 审批实例表格列
+  // 状态中文化标签
+  function renderStatusTag(status: string) {
+    let color = 'default';
+    let text = status;
+    if (status === 'pending') {
+      color = 'blue'; text = '待审批';
+    } else if (status === 'approved') {
+      color = 'green'; text = '已同意';
+    } else if (status === 'rejected') {
+      color = 'red'; text = '已拒绝';
+    } else {
+      color = 'default'; text = status;
+    }
+    return <Tag color={color}>{text}</Tag>;
+  }
+
+  // 审批实例表格列（参考审批明细视图）
   const instanceColumns = [
-    { title: 'ID', dataIndex: 'id' },
-    { title: '类型', dataIndex: 'target_table' },
-    { title: '业务ID', dataIndex: 'target_id' },
-    { title: '状态', dataIndex: 'status', render: (status: string) => <Tag color={status === 'approved' ? 'green' : status === 'rejected' ? 'red' : 'blue'}>{status}</Tag> },
-    { title: '发起人', dataIndex: 'created_by' },
-    { title: '发起时间', dataIndex: 'created_at' },
+    { title: '业务类型', dataIndex: ['approval_flows', 'name'], key: 'name' },
+    { title: '操作编号', dataIndex: 'target_id', key: 'target_id' },
+    { title: '当前状态', dataIndex: 'status', key: 'status', render: (status: string) => renderStatusTag(status) },
+    {
+      title: '审批时长',
+      key: 'duration',
+      render: (_: unknown, record: any) => {
+        const start = record.created_at ? new Date(record.created_at) : null;
+        const end = record.action_time ? new Date(record.action_time) : null;
+        if (!start || !end) return '-';
+        const diffMs = end.getTime() - start.getTime();
+        const diffMin = Math.floor(diffMs / 60000);
+        if (diffMin >= 1440) {
+          const days = Math.floor(diffMin / 1440);
+          return days + '天';
+        } else {
+          return diffMin + '分钟';
+        }
+      }
+    },
+    { title: '发起时间', dataIndex: 'created_at', key: 'created_at', render: (t: string) => formatToBeijingTime(t) },
+    { title: '完成时间', dataIndex: 'action_time', key: 'action_time', render: (t: string, record: any) => record.status === 'pending' ? '-' : formatToBeijingTime(t) },
+    { title: '发起人', dataIndex: ['users_profile', 'nickname'], key: 'created_by' },
     {
       title: '操作',
-      render: (_: any, record: ApprovalInstance) => (
-        <Button size="small" onClick={() => onViewInstance(record)}>查看</Button>
+      key: 'action',
+      render: (_: unknown, record: any) => (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <Button size="small" style={{ width: 60 }} onClick={() => onViewInstance(record)}>详情</Button>
+        </div>
       ),
     },
   ];
@@ -368,7 +455,19 @@ const ApprovalFlowManagement: React.FC = () => {
       <Table rowKey="id" columns={templateColumns} dataSource={templates} pagination={false} style={{ marginBottom: 32 }} />
 
       <h2>审批实例管理</h2>
-      <Table rowKey="id" columns={instanceColumns} dataSource={instances} pagination={false} />
+      <Table 
+        rowKey="id" 
+        columns={instanceColumns} 
+        dataSource={instances} 
+        loading={loading}
+        pagination={pagination}
+        onChange={(paginationInfo) => {
+          const { current, pageSize } = paginationInfo;
+          if (current && pageSize) {
+            fetchInstances(current, pageSize);
+          }
+        }}
+      />
 
       {/* 模板编辑弹窗 */}
       <Modal
