@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Tabs, Table, Tag, Badge, Button, message, List, Modal, Drawer, Steps, Input } from 'antd';
+import { Tabs, Table, Tag, Badge, Button, message, Modal, Drawer, Steps, Input } from 'antd';
 import { supabase } from '../supaClient';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 
@@ -20,7 +20,7 @@ const ApprovalDetails: React.FC = () => {
   const [profileId, setProfileId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [userMap, setUserMap] = useState<Map<number, string>>(new Map());
-  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const [drawerRecord, setDrawerRecord] = useState<any>(null);
   const [leadDrawerVisible, setLeadDrawerVisible] = useState(false);
   const [leadDrawerId, setLeadDrawerId] = useState<string | null>(null);
@@ -232,14 +232,7 @@ const ApprovalDetails: React.FC = () => {
     },
   ];
   // 优化“查看详情”按钮，动态拉取审批步骤
-  const onViewDetail = async (record: any) => {
-    const { data: steps } = await supabase
-      .from('approval_steps')
-      .select('*')
-      .eq('instance_id', record.id);
-    setDrawerRecord({ ...record, approval_steps: steps || [] });
-    setDrawerOpen(true);
-  };
+
 
   // 联动抽屉：线索详情+审批详情
   const onViewLeadAndFlowDetail = async (record: any) => {
@@ -470,11 +463,7 @@ const ApprovalDetails: React.FC = () => {
     fetchProfileIdAndData();
   }, []);
 
-  const markAllNotifiedAsRead = async () => {
-    setNotifiedList(notifiedList.map(item => ({ ...item, notified_unread: false })));
-    setNotifiedUnreadCount(0);
-    message.success('全部知会已标为已读（本地演示）');
-  };
+
 
   // 表格单元格多行换行样式
   if (typeof window !== 'undefined') {

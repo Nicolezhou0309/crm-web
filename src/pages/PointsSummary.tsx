@@ -137,13 +137,7 @@ export default function PointsSummary() {
     return true;
   }).map(p => p.id);
 
-  // 负责人名称
-  function getAdminName(org: Organization | undefined): string {
-    if (!org || !org.admin) return '-';
-    // 查找负责人用户
-    const adminProfile = profiles.find(p => p.organization_id === org.id && p.id === org.admin);
-    return adminProfile?.nickname || '-';
-  }
+
 
   // 工具函数：将UTC时间转为北京时间字符串
   function formatToBeijingTime(isoString?: string) {

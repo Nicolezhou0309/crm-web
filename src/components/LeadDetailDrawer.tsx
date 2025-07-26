@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Drawer,
   Descriptions,
   Tag,
   Typography,
@@ -9,8 +8,7 @@ import {
   Card,
   Space,
   Button,
-  message,
-  Badge
+  message
 } from 'antd';
 import {
   UserOutlined,
@@ -18,12 +16,9 @@ import {
   WechatOutlined,
   EnvironmentOutlined,
   CalendarOutlined,
-  FileTextOutlined,
   EyeOutlined,
   CheckCircleOutlined,
-  CopyOutlined,
-  EditOutlined,
-  ReloadOutlined
+  CopyOutlined
 } from '@ant-design/icons';
 import { supabase } from '../supaClient';
 import dayjs from 'dayjs';
@@ -32,11 +27,7 @@ import './LeadDetailDrawer.css';
 const { Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 
-interface LeadDetailDrawerProps {
-  visible: boolean;
-  leadid: string;
-  onClose: () => void;
-}
+
 
 interface LeadData {
   // leads表字段
@@ -205,7 +196,6 @@ const LeadDetailDrawer: React.FC<{ leadid: string }> = ({ leadid }) => {
       }
     } catch (error) {
       message.error('获取线索详情失败');
-      console.error('获取线索详情失败:', error);
     } finally {
       setLoading(false);
     }
