@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Spin, Radio, Typography, DatePicker } from 'antd';
+import { Table, Spin, Radio, Typography, DatePicker, Button } from 'antd';
 import { supabase } from '../supaClient';
 import dayjs from 'dayjs';
+import { 
+  getConversionRateStatsWithActualSales, 
+  type ConversionRateStatsWithActualSales,
+  type ConversionRateParams 
+} from '../api/showingsApi';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -20,6 +25,16 @@ interface ConversionData {
   direct_rate: number;
   conversion_rate: number;
   children?: ConversionData[]; // 子级数据
+  // 环比数据
+  previous_showings_count: number;
+  previous_direct_deal_count: number;
+  previous_reserved_count: number;
+  previous_intention_count: number;
+  previous_considering_count: number;
+  previous_lost_count: number;
+  previous_unfilled_count: number;
+  previous_direct_rate: number;
+  previous_conversion_rate: number;
 }
 
 type DateRange = 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'custom';
@@ -29,7 +44,6 @@ const ShowingConversionRate: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>('thisMonth');
   const [customDateRange, setCustomDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
-  const [previousData, setPreviousData] = useState<ConversionData[]>([]);
 
   // 获取日期范围
   const getDateRange = (range: DateRange) => {
@@ -86,325 +100,290 @@ const ShowingConversionRate: React.FC = () => {
     }
   };
 
-  // 获取转化率数据
+  // 获取转化率数据（使用后端函数）
   const fetchConversionData = async () => {
     setLoading(true);
     try {
       const dateRangeConfig = getDateRange(dateRange);
 
-      // 查询当前期间数据
-      const { data: showingsData, error } = await supabase
-        .from('showings')
-        .select(`
-          showingsales,
-          trueshowingsales,
-          viewresult
-        `)
-        .gte('created_at', dateRangeConfig.start)
-        .lte('created_at', dateRangeConfig.end)
-        .not('showingsales', 'is', null);
+      const params: ConversionRateParams = {
+        date_start: dateRangeConfig.start,
+        date_end: dateRangeConfig.end,
+        previous_date_start: dateRangeConfig.previousStart,
+        previous_date_end: dateRangeConfig.previousEnd
+      };
 
-      if (error) throw error;
+      console.log('转化率查询参数:', params);
 
-      // 查询对比期间数据
-      const { data: previousShowingsData, error: previousError } = await supabase
-        .from('showings')
-        .select(`
-          showingsales,
-          trueshowingsales,
-          viewresult
-        `)
-        .gte('created_at', dateRangeConfig.previousStart)
-        .lte('created_at', dateRangeConfig.previousEnd)
-        .not('showingsales', 'is', null);
+      // 使用后端函数获取数据
+      const backendData = await getConversionRateStatsWithActualSales(params);
+      
+      console.log('后端返回的原始数据:', backendData);
+      console.log('数据条数:', backendData?.length || 0);
+      
+      if (backendData && backendData.length > 0) {
+        console.log('第一条数据示例:', backendData[0]);
+      }
 
-      if (previousError) throw previousError;
-
-      // 获取销售员信息
-      const salesIds = [...new Set(showingsData?.map(s => s.showingsales).filter(Boolean))];
-      const { data: salesData, error: salesError } = await supabase
-        .from('users_profile')
-        .select('id, nickname')
-        .in('id', salesIds);
-
-      if (salesError) throw salesError;
-
-      // 创建销售员映射
-      const salesNameMap = new Map<number, string>();
-      salesData?.forEach(sales => {
-        salesNameMap.set(sales.id, sales.nickname);
-      });
-
-      // 处理当前期间数据
-      const conversionMap = new Map<number, ConversionData>();
-
-      showingsData?.forEach((showing: any) => {
-        const salesId = showing.showingsales;
-        const salesName = salesNameMap.get(salesId) || '未知销售';
-        
-        if (!conversionMap.has(salesId)) {
-          conversionMap.set(salesId, {
-            key: `showing_${salesId}`,
-            showingsales_id: salesId,
-            showingsales_name: salesName,
-            showings_count: 0,
-            direct_deal_count: 0,
-            reserved_count: 0,
-            intention_count: 0,
-            considering_count: 0,
-            lost_count: 0,
-            unfilled_count: 0,
-            direct_rate: 0,
-            conversion_rate: 0,
-          });
-        }
-
-        const salesData = conversionMap.get(salesId)!;
-        salesData.showings_count++;
-
-        // 统计直签（成交）
-        if (showing.viewresult === '直签') {
-          salesData.direct_deal_count++;
-        }
-        // 统计预定
-        else if (showing.viewresult === '预定') {
-          salesData.reserved_count++;
-        }
-        // 统计意向金
-        else if (showing.viewresult === '意向金') {
-          salesData.intention_count++;
-        }
-        // 统计考虑中
-        else if (showing.viewresult === '考虑中') {
-          salesData.considering_count++;
-        }
-        // 统计已流失
-        else if (showing.viewresult === '已流失') {
-          salesData.lost_count++;
-        }
-        // 统计未填写（空值或null）
-        else if (!showing.viewresult || showing.viewresult === '') {
-          salesData.unfilled_count++;
-        }
-      });
-
-      // 处理对比期间数据
-      const previousConversionMap = new Map<number, ConversionData>();
-
-      previousShowingsData?.forEach((showing: any) => {
-        const salesId = showing.showingsales;
-        const salesName = salesNameMap.get(salesId) || '未知销售';
-        
-        if (!previousConversionMap.has(salesId)) {
-          previousConversionMap.set(salesId, {
-            key: `previous_showing_${salesId}`,
-            showingsales_id: salesId,
-            showingsales_name: salesName,
-            showings_count: 0,
-            direct_deal_count: 0,
-            reserved_count: 0,
-            intention_count: 0,
-            considering_count: 0,
-            lost_count: 0,
-            unfilled_count: 0,
-            direct_rate: 0,
-            conversion_rate: 0,
-          });
-        }
-
-        const salesData = previousConversionMap.get(salesId)!;
-        salesData.showings_count++;
-
-        // 统计直签（成交）
-        if (showing.viewresult === '直签') {
-          salesData.direct_deal_count++;
-        }
-        // 统计预定
-        else if (showing.viewresult === '预定') {
-          salesData.reserved_count++;
-        }
-        // 统计意向金
-        else if (showing.viewresult === '意向金') {
-          salesData.intention_count++;
-        }
-        // 统计考虑中
-        else if (showing.viewresult === '考虑中') {
-          salesData.considering_count++;
-        }
-        // 统计已流失
-        else if (showing.viewresult === '已流失') {
-          salesData.lost_count++;
-        }
-        // 统计未填写（空值或null）
-        else if (!showing.viewresult || showing.viewresult === '') {
-          salesData.unfilled_count++;
-        }
-      });
-
-      // 计算当前期间转化率
-      const processedData = Array.from(conversionMap.values()).map((item) => ({
-        ...item,
-        direct_rate: item.showings_count > 0 ? (item.direct_deal_count / item.showings_count) * 100 : 0,
-        conversion_rate: item.showings_count > 0 ? ((item.direct_deal_count + item.reserved_count) / item.showings_count) * 100 : 0,
-      }));
-
-      // 计算对比期间转化率
-      const processedPreviousData = Array.from(previousConversionMap.values()).map((item) => ({
-        ...item,
-        direct_rate: item.showings_count > 0 ? (item.direct_deal_count / item.showings_count) * 100 : 0,
-        conversion_rate: item.showings_count > 0 ? ((item.direct_deal_count + item.reserved_count) / item.showings_count) * 100 : 0,
-      }));
-
-      // 按带看量排序
-      processedData.sort((a, b) => b.showings_count - a.showings_count);
-      processedPreviousData.sort((a, b) => b.showings_count - a.showings_count);
-
-      // 构建树形结构：带看销售 -> 实际销售
-      const treeData = processedData.map(showingSales => {
-        // 获取该带看销售下的所有数据
-        const allSalesData = showingsData?.filter(showing => 
-          showing.showingsales === showingSales.showingsales_id
-        ) || [];
-
-        // 按实际销售分组统计
-        const actualSalesMap = new Map<number, ConversionData>();
-        
-        allSalesData.forEach(showing => {
-          // 如果有实际销售且与带看销售不同，则按实际销售分组
-          if (showing.trueshowingsales && showing.trueshowingsales !== showing.showingsales) {
-            const actualSalesId = showing.trueshowingsales;
-            const actualSalesName = salesNameMap.get(actualSalesId) || '未知销售';
-            
-            if (!actualSalesMap.has(actualSalesId)) {
-              actualSalesMap.set(actualSalesId, {
-                key: `actual_${actualSalesId}`,
-                showingsales_id: actualSalesId,
-                showingsales_name: actualSalesName,
-                showings_count: 0,
-                direct_deal_count: 0,
-                reserved_count: 0,
-                intention_count: 0,
-                considering_count: 0,
-                lost_count: 0,
-                unfilled_count: 0,
-                direct_rate: 0,
-                conversion_rate: 0,
-              });
-            }
-
-            const actualSalesData = actualSalesMap.get(actualSalesId)!;
-            actualSalesData.showings_count++;
-
-            // 统计各种结果
-            if (showing.viewresult === '直签') {
-              actualSalesData.direct_deal_count++;
-            } else if (showing.viewresult === '预定') {
-              actualSalesData.reserved_count++;
-            } else if (showing.viewresult === '意向金') {
-              actualSalesData.intention_count++;
-            } else if (showing.viewresult === '考虑中') {
-              actualSalesData.considering_count++;
-            } else if (showing.viewresult === '已流失') {
-              actualSalesData.lost_count++;
-            } else if (!showing.viewresult || showing.viewresult === '') {
-              actualSalesData.unfilled_count++;
-            }
-          } else {
-            // 如果没有实际销售或实际销售与带看销售相同，创建一个"无实际销售"的子级
-            const noActualSalesKey = `no_actual_${showingSales.showingsales_id}`;
-            if (!actualSalesMap.has(-1)) { // 使用-1作为特殊ID
-              actualSalesMap.set(-1, {
-                key: noActualSalesKey,
-                showingsales_id: -1,
-                showingsales_name: '未分配',
-                showings_count: 0,
-                direct_deal_count: 0,
-                reserved_count: 0,
-                intention_count: 0,
-                considering_count: 0,
-                lost_count: 0,
-                unfilled_count: 0,
-                direct_rate: 0,
-                conversion_rate: 0,
-              });
-            }
-
-            const noActualSalesData = actualSalesMap.get(-1)!;
-            noActualSalesData.showings_count++;
-
-            // 统计各种结果
-            if (showing.viewresult === '直签') {
-              noActualSalesData.direct_deal_count++;
-            } else if (showing.viewresult === '预定') {
-              noActualSalesData.reserved_count++;
-            } else if (showing.viewresult === '意向金') {
-              noActualSalesData.intention_count++;
-            } else if (showing.viewresult === '考虑中') {
-              noActualSalesData.considering_count++;
-            } else if (showing.viewresult === '已流失') {
-              noActualSalesData.lost_count++;
-            } else if (!showing.viewresult || showing.viewresult === '') {
-              noActualSalesData.unfilled_count++;
-            }
-          }
-        });
-
-        // 计算实际销售的转化率
-        const actualSalesList = Array.from(actualSalesMap.values()).map(item => ({
-          ...item,
-          direct_rate: item.showings_count > 0 ? (item.direct_deal_count / item.showings_count) * 100 : 0,
-          conversion_rate: item.showings_count > 0 ? ((item.direct_deal_count + item.reserved_count) / item.showings_count) * 100 : 0,
-        }));
-
-        // 按带看量排序实际销售
-        actualSalesList.sort((a, b) => b.showings_count - a.showings_count);
-
-        // 验证子级数据总和是否等于父级数据
-        const childTotal = actualSalesList.reduce((acc, item) => ({
-          showings_count: acc.showings_count + item.showings_count,
-          direct_deal_count: acc.direct_deal_count + item.direct_deal_count,
-          reserved_count: acc.reserved_count + item.reserved_count,
-          intention_count: acc.intention_count + item.intention_count,
-          considering_count: acc.considering_count + item.considering_count,
-          lost_count: acc.lost_count + item.lost_count,
-          unfilled_count: acc.unfilled_count + item.unfilled_count,
-        }), { showings_count: 0, direct_deal_count: 0, reserved_count: 0, intention_count: 0, considering_count: 0, lost_count: 0, unfilled_count: 0 });
-
-        console.log(`带看销售: ${showingSales.showingsales_name}`);
-        console.log(`父级数据:`, {
-          showings_count: showingSales.showings_count,
-          direct_deal_count: showingSales.direct_deal_count,
-          reserved_count: showingSales.reserved_count,
-          intention_count: showingSales.intention_count,
-          considering_count: showingSales.considering_count,
-          lost_count: showingSales.lost_count,
-          unfilled_count: showingSales.unfilled_count,
-        });
-        console.log(`子级总和:`, childTotal);
-        console.log(`是否一致:`, 
-          childTotal.showings_count === showingSales.showings_count &&
-          childTotal.direct_deal_count === showingSales.direct_deal_count &&
-          childTotal.reserved_count === showingSales.reserved_count &&
-          childTotal.intention_count === showingSales.intention_count &&
-          childTotal.considering_count === showingSales.considering_count &&
-          childTotal.lost_count === showingSales.lost_count &&
-          childTotal.unfilled_count === showingSales.unfilled_count
-        );
-
-        return {
-          ...showingSales,
-          children: actualSalesList.length > 0 ? actualSalesList : undefined
-        };
-      });
-
-      console.log('树形数据结构:', treeData);
-      setData(treeData);
-      setPreviousData(processedPreviousData);
+      // 将后端数据转换为前端需要的格式
+      const processedData = processBackendData(backendData);
+      
+      console.log('处理后的数据:', processedData);
+      console.log('处理后数据条数:', processedData?.length || 0);
+      
+      setData(processedData);
     } catch (error) {
       console.error('获取转化率数据失败:', error);
+      console.error('错误详情:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // 处理后端数据，转换为前端需要的树形结构
+  const processBackendData = (backendData: ConversionRateStatsWithActualSales[]): ConversionData[] => {
+    // 按带看销售分组
+    const salesMap = new Map<number, ConversionData>();
+    
+    console.log('开始处理后端数据，数据条数:', backendData.length);
+    
+    // 首先处理所有数据，按带看销售分组
+    backendData.forEach((item, index) => {
+      const salesId = item.sales_id;
+      
+      console.log(`处理第${index + 1}条数据:`, {
+        sales_id: item.sales_id,
+        sales_name: item.sales_name,
+        actual_sales_id: item.actual_sales_id,
+        actual_sales_name: item.actual_sales_name,
+        is_actual_sales: item.is_actual_sales,
+        showings_count: item.showings_count,
+        direct_deal_count: item.direct_deal_count,
+        reserved_count: item.reserved_count
+      });
+      
+      if (!salesMap.has(salesId)) {
+        // 创建带看销售节点
+        salesMap.set(salesId, {
+            key: `showing_${salesId}`,
+            showingsales_id: salesId,
+          showingsales_name: item.sales_name,
+            showings_count: 0,
+            direct_deal_count: 0,
+            reserved_count: 0,
+            intention_count: 0,
+            considering_count: 0,
+            lost_count: 0,
+            unfilled_count: 0,
+            direct_rate: 0,
+            conversion_rate: 0,
+          previous_showings_count: 0,
+          previous_direct_deal_count: 0,
+          previous_reserved_count: 0,
+          previous_intention_count: 0,
+          previous_considering_count: 0,
+          previous_lost_count: 0,
+          previous_unfilled_count: 0,
+          previous_direct_rate: 0,
+          previous_conversion_rate: 0,
+          children: []
+        });
+        console.log(`创建新的销售节点: ${item.sales_name} (ID: ${salesId})`);
+      }
+      
+      const salesNode = salesMap.get(salesId)!;
+      
+      // 如果是实际销售数据（is_actual_sales为true），添加到子级
+      if (item.is_actual_sales && item.actual_sales_id && item.actual_sales_id !== item.sales_id) {
+        console.log(`添加子级数据: ${item.actual_sales_name} (实际销售)`);
+        const childNode: ConversionData = {
+          key: `actual_${item.actual_sales_id}`,
+          showingsales_id: item.actual_sales_id,
+          showingsales_name: item.actual_sales_name || '未知销售',
+          showings_count: item.showings_count,
+          direct_deal_count: item.direct_deal_count,
+          reserved_count: item.reserved_count,
+          intention_count: item.intention_count,
+          considering_count: item.considering_count,
+          lost_count: item.lost_count,
+          unfilled_count: item.unfilled_count,
+          direct_rate: item.direct_rate,
+          conversion_rate: item.conversion_rate,
+          previous_showings_count: item.previous_showings_count,
+          previous_direct_deal_count: item.previous_direct_deal_count,
+          previous_reserved_count: item.previous_reserved_count,
+          previous_intention_count: item.previous_intention_count,
+          previous_considering_count: item.previous_considering_count,
+          previous_lost_count: item.previous_lost_count,
+          previous_unfilled_count: item.previous_unfilled_count,
+          previous_direct_rate: item.previous_direct_rate,
+          previous_conversion_rate: item.previous_conversion_rate
+        };
+        salesNode.children!.push(childNode);
+        
+        // 将子级数据汇总到父级
+        console.log(`汇总子级数据到父级: ${item.actual_sales_name}`);
+        console.log(`汇总前 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+        salesNode.showings_count += item.showings_count;
+        salesNode.direct_deal_count += item.direct_deal_count;
+        salesNode.reserved_count += item.reserved_count;
+        salesNode.intention_count += item.intention_count;
+        salesNode.considering_count += item.considering_count;
+        salesNode.lost_count += item.lost_count;
+        salesNode.unfilled_count += item.unfilled_count;
+        salesNode.previous_showings_count += item.previous_showings_count;
+        salesNode.previous_direct_deal_count += item.previous_direct_deal_count;
+        salesNode.previous_reserved_count += item.previous_reserved_count;
+        salesNode.previous_intention_count += item.previous_intention_count;
+        salesNode.previous_considering_count += item.previous_considering_count;
+        salesNode.previous_lost_count += item.previous_lost_count;
+        salesNode.previous_unfilled_count += item.previous_unfilled_count;
+        console.log(`汇总后 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+      } else if (item.is_actual_sales && item.actual_sales_id && item.actual_sales_id === item.sales_id) {
+        // 如果分配管家等于实际带看管家，创建子记录显示为正常姓名
+        console.log(`添加自己带看子级数据: ${item.sales_name} (正常姓名)`);
+        const childNode: ConversionData = {
+          key: `self_actual_${item.actual_sales_id}`,
+          showingsales_id: item.actual_sales_id,
+          showingsales_name: item.actual_sales_name || item.sales_name,
+          showings_count: item.showings_count,
+          direct_deal_count: item.direct_deal_count,
+          reserved_count: item.reserved_count,
+          intention_count: item.intention_count,
+          considering_count: item.considering_count,
+          lost_count: item.lost_count,
+          unfilled_count: item.unfilled_count,
+          direct_rate: item.direct_rate,
+          conversion_rate: item.conversion_rate,
+          previous_showings_count: item.previous_showings_count,
+          previous_direct_deal_count: item.previous_direct_deal_count,
+          previous_reserved_count: item.previous_reserved_count,
+          previous_intention_count: item.previous_intention_count,
+          previous_considering_count: item.previous_considering_count,
+          previous_lost_count: item.previous_lost_count,
+          previous_unfilled_count: item.previous_unfilled_count,
+          previous_direct_rate: item.previous_direct_rate,
+          previous_conversion_rate: item.previous_conversion_rate
+        };
+        salesNode.children!.push(childNode);
+        
+        // 将子级数据汇总到父级
+        console.log(`汇总自己带看子级数据到父级: ${item.sales_name}`);
+        console.log(`汇总前 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+        salesNode.showings_count += item.showings_count;
+        salesNode.direct_deal_count += item.direct_deal_count;
+        salesNode.reserved_count += item.reserved_count;
+        salesNode.intention_count += item.intention_count;
+        salesNode.considering_count += item.considering_count;
+        salesNode.lost_count += item.lost_count;
+        salesNode.unfilled_count += item.unfilled_count;
+        salesNode.previous_showings_count += item.previous_showings_count;
+        salesNode.previous_direct_deal_count += item.previous_direct_deal_count;
+        salesNode.previous_reserved_count += item.previous_reserved_count;
+        salesNode.previous_intention_count += item.previous_intention_count;
+        salesNode.previous_considering_count += item.previous_considering_count;
+        salesNode.previous_lost_count += item.previous_lost_count;
+        salesNode.previous_unfilled_count += item.previous_unfilled_count;
+        console.log(`汇总后 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+      } else if (!item.is_actual_sales && item.actual_sales_id === null) {
+        // 如果是带看销售本身的数据且实际销售为空，创建"未分配"子记录
+        console.log(`添加未分配子级数据: ${item.sales_name} (未分配)`);
+        const childNode: ConversionData = {
+          key: `no_actual_${salesId}`,
+          showingsales_id: salesId,
+          showingsales_name: '未分配',
+          showings_count: item.showings_count,
+          direct_deal_count: item.direct_deal_count,
+          reserved_count: item.reserved_count,
+          intention_count: item.intention_count,
+          considering_count: item.considering_count,
+          lost_count: item.lost_count,
+          unfilled_count: item.unfilled_count,
+          direct_rate: item.direct_rate,
+          conversion_rate: item.conversion_rate,
+          previous_showings_count: item.previous_showings_count,
+          previous_direct_deal_count: item.previous_direct_deal_count,
+          previous_reserved_count: item.previous_reserved_count,
+          previous_intention_count: item.previous_intention_count,
+          previous_considering_count: item.previous_considering_count,
+          previous_lost_count: item.previous_lost_count,
+          previous_unfilled_count: item.previous_unfilled_count,
+          previous_direct_rate: item.previous_direct_rate,
+          previous_conversion_rate: item.previous_conversion_rate
+        };
+        salesNode.children!.push(childNode);
+        
+        // 将子级数据汇总到父级
+        console.log(`汇总未分配子级数据到父级: ${item.sales_name}`);
+        console.log(`汇总前 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+        salesNode.showings_count += item.showings_count;
+        salesNode.direct_deal_count += item.direct_deal_count;
+        salesNode.reserved_count += item.reserved_count;
+        salesNode.intention_count += item.intention_count;
+        salesNode.considering_count += item.considering_count;
+        salesNode.lost_count += item.lost_count;
+        salesNode.unfilled_count += item.unfilled_count;
+        salesNode.previous_showings_count += item.previous_showings_count;
+        salesNode.previous_direct_deal_count += item.previous_direct_deal_count;
+        salesNode.previous_reserved_count += item.previous_reserved_count;
+        salesNode.previous_intention_count += item.previous_intention_count;
+        salesNode.previous_considering_count += item.previous_considering_count;
+        salesNode.previous_lost_count += item.previous_lost_count;
+        salesNode.previous_unfilled_count += item.previous_unfilled_count;
+        console.log(`汇总后 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+      } else {
+        // 如果是带看销售本身的数据，累加到父级节点（而不是重置）
+        console.log(`累加父级节点数据: ${item.sales_name} (带看销售)`);
+        console.log(`累加前 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+        salesNode.showings_count += item.showings_count;
+        salesNode.direct_deal_count += item.direct_deal_count;
+        salesNode.reserved_count += item.reserved_count;
+        salesNode.intention_count += item.intention_count;
+        salesNode.considering_count += item.considering_count;
+        salesNode.lost_count += item.lost_count;
+        salesNode.unfilled_count += item.unfilled_count;
+        salesNode.previous_showings_count += item.previous_showings_count;
+        salesNode.previous_direct_deal_count += item.previous_direct_deal_count;
+        salesNode.previous_reserved_count += item.previous_reserved_count;
+        salesNode.previous_intention_count += item.previous_intention_count;
+        salesNode.previous_considering_count += item.previous_considering_count;
+        salesNode.previous_lost_count += item.previous_lost_count;
+        salesNode.previous_unfilled_count += item.previous_unfilled_count;
+        console.log(`累加后 - 带看量: ${salesNode.showings_count}, 直签量: ${salesNode.direct_deal_count}`);
+      }
+    });
+    
+    // 重新计算父级的比率
+    salesMap.forEach((salesNode) => {
+      if (salesNode.showings_count > 0) {
+        salesNode.direct_rate = (salesNode.direct_deal_count / salesNode.showings_count) * 100;
+        salesNode.conversion_rate = ((salesNode.direct_deal_count + salesNode.reserved_count) / salesNode.showings_count) * 100;
+      }
+      if (salesNode.previous_showings_count > 0) {
+        salesNode.previous_direct_rate = (salesNode.previous_direct_deal_count / salesNode.previous_showings_count) * 100;
+        salesNode.previous_conversion_rate = ((salesNode.previous_direct_deal_count + salesNode.previous_reserved_count) / salesNode.previous_showings_count) * 100;
+      }
+    });
+    
+    // 转换为数组并排序
+    const result = Array.from(salesMap.values())
+      .map(salesNode => {
+        // 按带看量排序子级
+        if (salesNode.children && salesNode.children.length > 0) {
+          salesNode.children.sort((a, b) => b.showings_count - a.showings_count);
+        }
+        return salesNode;
+      })
+      .sort((a, b) => b.showings_count - a.showings_count);
+    
+    console.log('处理完成，最终结果:', result.map(item => ({
+      name: item.showingsales_name,
+      showings_count: item.showings_count,
+      direct_deal_count: item.direct_deal_count,
+      reserved_count: item.reserved_count
+    })));
+    
+    return result;
   };
 
   useEffect(() => {
@@ -419,8 +398,8 @@ const ShowingConversionRate: React.FC = () => {
       width: 120,
       fixed: 'left' as const,
       render: (text: string, record: ConversionData) => {
-        // 判断是否为子级（实际销售）
-        const isChild = record.key.startsWith('actual_') || record.key.startsWith('no_actual_');
+        // 判断是否为子级（实际销售、未分配、自己带看）
+        const isChild = record.key.startsWith('actual_') || record.key.startsWith('no_actual_') || record.key.startsWith('self_actual_');
         const isNoActualSales = record.key.startsWith('no_actual_');
         return (
           <span style={{ 
@@ -552,15 +531,15 @@ const ShowingConversionRate: React.FC = () => {
   );
 
   // 计算对比期间总计
-  const previousTotals = previousData.reduce(
+  const previousTotals = data.reduce(
     (acc, item) => ({
-      showings_count: acc.showings_count + item.showings_count,
-      direct_deal_count: acc.direct_deal_count + item.direct_deal_count,
-      reserved_count: acc.reserved_count + item.reserved_count,
-      intention_count: acc.intention_count + item.intention_count,
-      considering_count: acc.considering_count + item.considering_count,
-      lost_count: acc.lost_count + item.lost_count,
-      unfilled_count: acc.unfilled_count + item.unfilled_count,
+      showings_count: acc.showings_count + item.previous_showings_count,
+      direct_deal_count: acc.direct_deal_count + item.previous_direct_deal_count,
+      reserved_count: acc.reserved_count + item.previous_reserved_count,
+      intention_count: acc.intention_count + item.previous_intention_count,
+      considering_count: acc.considering_count + item.previous_considering_count,
+      lost_count: acc.lost_count + item.previous_lost_count,
+      unfilled_count: acc.unfilled_count + item.previous_unfilled_count,
     }),
     { showings_count: 0, direct_deal_count: 0, reserved_count: 0, intention_count: 0, considering_count: 0, lost_count: 0, unfilled_count: 0 }
   );
@@ -610,9 +589,8 @@ const ShowingConversionRate: React.FC = () => {
   // 获取环比数据
   const getComparisonData = (salesId: number, field: keyof ConversionData) => {
     const current = data.find(item => item.showingsales_id === salesId)?.[field] || 0;
-    const previous = previousData.find(item => item.showingsales_id === salesId)?.[field] || 0;
+    const previous = data.find(item => item.showingsales_id === salesId)?.[`previous_${field}` as keyof ConversionData] || 0;
     const change = getComparisonChange(current as number, previous as number);
-    console.log(`环比数据 - 销售ID: ${salesId}, 字段: ${field}, 当前: ${current}, 上期: ${previous}, 变化: ${change}`);
     return { current, previous, change };
   };
 
@@ -638,6 +616,94 @@ const ShowingConversionRate: React.FC = () => {
           return `自定义 (${start.format('MM/DD')} - ${end.format('MM/DD')})`;
         }
         return `本月 (${now.startOf('month').format('YYYY/MM')})`;
+    }
+  };
+
+  // 测试后端函数
+  const testBackendFunction = async () => {
+    try {
+      console.log('开始测试后端函数...');
+      
+      // 首先测试函数是否存在
+      const testParams = {
+        p_date_start: dayjs().startOf('month').toISOString(),
+        p_date_end: dayjs().endOf('month').toISOString(),
+        p_previous_date_start: dayjs().subtract(1, 'month').startOf('month').toISOString(),
+        p_previous_date_end: dayjs().subtract(1, 'month').endOf('month').toISOString()
+      };
+      
+      console.log('测试参数:', testParams);
+      
+      // 测试基础版本
+      console.log('测试基础版本函数...');
+      const basicResult = await supabase.rpc('get_conversion_rate_stats', testParams);
+      
+      console.log('基础版本测试结果:', basicResult);
+      console.log('基础版本错误:', basicResult.error);
+      console.log('基础版本数据:', basicResult.data);
+      
+      if (basicResult.data && basicResult.data.length > 0) {
+        console.log('基础版本第一条数据:', basicResult.data[0]);
+        console.log('基础版本数据字段:', Object.keys(basicResult.data[0]));
+        console.log('基础版本第一条数据详情:');
+        console.log('  sales_id:', basicResult.data[0].sales_id);
+        console.log('  sales_name:', basicResult.data[0].sales_name);
+        console.log('  showings_count:', basicResult.data[0].showings_count);
+        console.log('  direct_deal_count:', basicResult.data[0].direct_deal_count);
+        console.log('  reserved_count:', basicResult.data[0].reserved_count);
+        console.log('  intention_count:', basicResult.data[0].intention_count);
+        console.log('  considering_count:', basicResult.data[0].considering_count);
+        console.log('  lost_count:', basicResult.data[0].lost_count);
+        console.log('  unfilled_count:', basicResult.data[0].unfilled_count);
+        console.log('  direct_rate:', basicResult.data[0].direct_rate);
+        console.log('  conversion_rate:', basicResult.data[0].conversion_rate);
+      }
+      
+      // 测试带实际销售版本
+      console.log('测试带实际销售版本函数...');
+      const actualSalesResult = await supabase.rpc('get_conversion_rate_stats_with_actual_sales', testParams);
+      
+      console.log('带实际销售版本测试结果:', actualSalesResult);
+      console.log('带实际销售版本错误:', actualSalesResult.error);
+      console.log('带实际销售版本数据:', actualSalesResult.data);
+      
+      if (actualSalesResult.data && actualSalesResult.data.length > 0) {
+        console.log('带实际销售版本第一条数据:', actualSalesResult.data[0]);
+        console.log('带实际销售版本数据字段:', Object.keys(actualSalesResult.data[0]));
+        console.log('带实际销售版本第一条数据详情:');
+        console.log('  sales_id:', actualSalesResult.data[0].sales_id);
+        console.log('  sales_name:', actualSalesResult.data[0].sales_name);
+        console.log('  actual_sales_id:', actualSalesResult.data[0].actual_sales_id);
+        console.log('  actual_sales_name:', actualSalesResult.data[0].actual_sales_name);
+        console.log('  showings_count:', actualSalesResult.data[0].showings_count);
+        console.log('  direct_deal_count:', actualSalesResult.data[0].direct_deal_count);
+        console.log('  reserved_count:', actualSalesResult.data[0].reserved_count);
+        console.log('  intention_count:', actualSalesResult.data[0].intention_count);
+        console.log('  considering_count:', actualSalesResult.data[0].considering_count);
+        console.log('  lost_count:', actualSalesResult.data[0].lost_count);
+        console.log('  unfilled_count:', actualSalesResult.data[0].unfilled_count);
+        console.log('  direct_rate:', actualSalesResult.data[0].direct_rate);
+        console.log('  conversion_rate:', actualSalesResult.data[0].conversion_rate);
+        console.log('  is_actual_sales:', actualSalesResult.data[0].is_actual_sales);
+      }
+      
+      // 如果函数不存在，尝试列出所有函数
+      if (basicResult.error || actualSalesResult.error) {
+        console.log('函数可能不存在，尝试查询数据库中的函数列表...');
+        
+        // 尝试查询函数列表
+        const { data: functions, error: functionsError } = await supabase
+          .from('information_schema.routines')
+          .select('routine_name')
+          .eq('routine_schema', 'public')
+          .like('routine_name', '%conversion%');
+        
+        console.log('数据库中的转化率相关函数:', functions);
+        console.log('查询函数列表错误:', functionsError);
+      }
+      
+    } catch (error) {
+      console.error('测试后端函数失败:', error);
     }
   };
 
@@ -678,6 +744,15 @@ const ShowingConversionRate: React.FC = () => {
               allowClear
             />
           </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <Button 
+              type="primary" 
+              size="small" 
+              onClick={testBackendFunction}
+              style={{ fontSize: '12px' }}
+            >
+              测试后端函数
+            </Button>
           <Radio.Group 
             value={dateRange} 
             onChange={(e) => setDateRange(e.target.value)}
@@ -689,6 +764,7 @@ const ShowingConversionRate: React.FC = () => {
             <Radio.Button value="thisMonth">本月</Radio.Button>
             <Radio.Button value="lastMonth">上月</Radio.Button>
           </Radio.Group>
+          </div>
         </div>
       </div>
       

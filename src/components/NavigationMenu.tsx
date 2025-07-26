@@ -268,6 +268,13 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           path: '/approval-details',
           className: 'main-menu-item',
         },
+        {
+          key: 'approval-performance',
+          icon: <DashboardOutlined />,
+          label: '性能监控',
+          path: '/approval-performance',
+          className: 'main-menu-item',
+        },
       ]
     },
   ];

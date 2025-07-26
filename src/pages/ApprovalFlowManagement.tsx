@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Table, Button, Modal, Form, Input, Steps, Tag, message, Select, TreeSelect } from 'antd';
+import { Table, Button, Modal, Form, Input, Steps, Tag, message, Select, TreeSelect, Card, Row, Col, Statistic } from 'antd';
 import { supabase } from '../supaClient'
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, FileTextOutlined } from '@ant-design/icons';
+import { getApprovalInstances, getApprovalStatistics, type ApprovalInstancesParams } from '../api/approvalApi';
 
 // 格式化北京时间
 function formatToBeijingTime(isoString?: string) {
@@ -29,6 +30,13 @@ interface ApprovalInstance {
   current_step: number;
   created_by: number;
   created_at: string;
+  flow_name?: string;
+  flow_type?: string;
+  creator_nickname?: string;
+  latest_action_time?: string | null;
+  approval_duration_minutes?: number | null;
+  pending_steps_count?: number;
+  total_steps_count?: number;
 }
 
 // 审批节点类型
@@ -67,6 +75,15 @@ const ApprovalFlowManagement: React.FC = () => {
     showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
   });
 
+  // 统计数据
+  const [statistics, setStatistics] = useState<{
+    total_instances: number;
+    pending_instances: number;
+    approved_instances: number;
+    rejected_instances: number;
+    avg_approval_duration_minutes: number | null;
+  } | null>(null);
+
 
   // 可视化流程设计器用到的本地 state
   const [flowSteps, setFlowSteps] = useState<any[]>([]); // 当前流程节点
@@ -82,37 +99,27 @@ const ApprovalFlowManagement: React.FC = () => {
     setTemplates(data || []);
   }
 
-  // 拉取审批实例（带分页）
-  async function fetchInstances(page = 1, pageSize = 10) {
+  // 拉取审批实例（后端排序）
+  async function fetchInstances(page = 1, pageSize = 10, filters?: any, sorter?: any) {
     setLoading(true);
     try {
-      // 获取总数
-      const { count, error: countError } = await supabase
-        .from('approval_instances')
-        .select('*', { count: 'exact', head: true });
-      
-      if (countError) {
-        message.error('获取审批实例总数失败');
-        return;
-      }
+      const params: ApprovalInstancesParams = {
+        page,
+        pageSize,
+        sortField: sorter?.field || 'created_at',
+        sortOrder: sorter?.order === 'ascend' ? 'ASC' : 'DESC',
+        statusFilter: filters?.status,
+        targetIdFilter: filters?.target_id,
+        flowNameFilter: filters?.flow_name,
+        creatorNameFilter: filters?.creator_name,
+        dateFrom: filters?.date_from,
+        dateTo: filters?.date_to
+      };
 
-      // 获取分页数据
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-      
-      const { data, error } = await supabase
-        .from('approval_instances')
-        .select(`
-          *,
-          approval_flows!inner(name, type),
-          users_profile!inner(nickname),
-          approval_steps!inner(id, action_time, status)
-        `)
-        .range(from, to)
-        .order('created_at', { ascending: false });
+      const { data, total, error } = await getApprovalInstances(params);
 
       if (error) {
-        message.error('获取审批实例失败');
+        message.error(`获取审批实例失败: ${error}`);
         return;
       }
 
@@ -120,10 +127,24 @@ const ApprovalFlowManagement: React.FC = () => {
       setPagination(prev => ({
         ...prev,
         current: page,
-        total: count || 0,
+        total: total || 0,
       }));
     } finally {
       setLoading(false);
+    }
+  }
+
+  // 拉取统计数据
+  async function fetchStatistics() {
+    try {
+      const { data, error } = await getApprovalStatistics();
+      if (error) {
+        console.error('获取统计数据失败:', error);
+        return;
+      }
+      setStatistics(data);
+    } catch (e) {
+      console.error('获取统计数据异常:', e);
     }
   }
 
@@ -196,6 +217,7 @@ const ApprovalFlowManagement: React.FC = () => {
     fetchTemplates();
     fetchInstances(1, pagination.pageSize);
     fetchOrgTreeData();
+    fetchStatistics();
   }, []);
 
   // 编辑/新建模板时，初始化流程节点
@@ -275,12 +297,12 @@ const ApprovalFlowManagement: React.FC = () => {
     return <Tag color={color}>{text}</Tag>;
   }
 
-  // 审批实例表格列（参考审批明细视图）
+    // 审批实例表格列（后端排序）
   const instanceColumns = [
     { 
       title: '业务类型', 
-      dataIndex: ['approval_flows', 'name'], 
-      key: 'name',
+      dataIndex: 'flow_name', 
+      key: 'flow_name',
       sorter: true,
     },
     { 
@@ -298,32 +320,16 @@ const ApprovalFlowManagement: React.FC = () => {
     },
     {
       title: '审批时长',
-      key: 'duration',
+      dataIndex: 'approval_duration_minutes',
+      key: 'approval_duration_minutes',
       sorter: true,
-      render: (_: unknown, record: any) => {
-        const start = record.created_at ? new Date(record.created_at) : null;
-        if (!start) return '-';
-        
-        // 从关联的 approval_steps 中获取最新的 action_time
-        const steps = record.approval_steps || [];
-        const lastActionTime = steps.length > 0 ? 
-          steps.reduce((latest: string, step: any) => {
-            if (step.action_time && (!latest || new Date(step.action_time) > new Date(latest))) {
-              return step.action_time;
-            }
-            return latest;
-          }, '') : null;
-        
-        const end = lastActionTime ? new Date(lastActionTime) : null;
-        if (!end) return '-';
-        
-        const diffMs = end.getTime() - start.getTime();
-        const diffMin = Math.floor(diffMs / 60000);
-        if (diffMin >= 1440) {
-          const days = Math.floor(diffMin / 1440);
+      render: (duration: number | null) => {
+        if (!duration) return '-';
+        if (duration >= 1440) {
+          const days = Math.floor(duration / 1440);
           return days + '天';
         } else {
-          return diffMin + '分钟';
+          return Math.floor(duration) + '分钟';
         }
       }
     },
@@ -336,26 +342,17 @@ const ApprovalFlowManagement: React.FC = () => {
     },
     { 
       title: '完成时间', 
-      key: 'action_time', 
+      dataIndex: 'latest_action_time', 
+      key: 'latest_action_time',
       sorter: true,
-      render: (_: unknown, record: any) => {
-        // 从关联的 approval_steps 中获取最新的 action_time
-        const steps = record.approval_steps || [];
-        const lastActionTime = steps.length > 0 ? 
-          steps.reduce((latest: string, step: any) => {
-            if (step.action_time && (!latest || new Date(step.action_time) > new Date(latest))) {
-              return step.action_time;
-            }
-            return latest;
-          }, '') : null;
-        
-        return record.status === 'pending' ? '-' : formatToBeijingTime(lastActionTime);
+      render: (time: string | null, record: any) => {
+        return record.status === 'pending' ? '-' : formatToBeijingTime(time || undefined);
       }
     },
     { 
       title: '发起人', 
-      dataIndex: ['users_profile', 'nickname'], 
-      key: 'created_by',
+      dataIndex: 'creator_nickname', 
+      key: 'creator_nickname', 
       sorter: true,
     },
     {
@@ -515,16 +512,59 @@ const ApprovalFlowManagement: React.FC = () => {
       <Table rowKey="id" columns={templateColumns} dataSource={templates} pagination={false} style={{ marginBottom: 32 }} />
 
       <h2>审批实例管理</h2>
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={6}>
+          <Card bordered={false}>
+            <Statistic
+              title="总审批实例"
+              value={statistics?.total_instances || 0}
+              prefix={<FileTextOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card bordered={false}>
+            <Statistic
+              title="待审批实例"
+              value={statistics?.pending_instances || 0}
+              prefix={<ClockCircleOutlined />}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card bordered={false}>
+            <Statistic
+              title="已完成审批"
+              value={(statistics?.approved_instances || 0) + (statistics?.rejected_instances || 0)}
+              prefix={<CheckCircleOutlined />}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card bordered={false}>
+            <Statistic
+              title="平均审批时长"
+              value={statistics?.avg_approval_duration_minutes ? (statistics.avg_approval_duration_minutes / 60).toFixed(1) : 0}
+              suffix="小时"
+              prefix={<ClockCircleOutlined />}
+              valueStyle={{ color: '#722ed1' }}
+            />
+          </Card>
+        </Col>
+      </Row>
       <Table 
         rowKey="id" 
         columns={instanceColumns} 
         dataSource={instances} 
         loading={loading}
         pagination={pagination}
-        onChange={(paginationInfo) => {
+        onChange={(paginationInfo, filtersInfo, sorterInfo) => {
           const { current, pageSize } = paginationInfo;
+          const newSorter: any = Array.isArray(sorterInfo) ? sorterInfo[0] : sorterInfo;
           if (current && pageSize) {
-            fetchInstances(current, pageSize);
+            fetchInstances(current, pageSize, filtersInfo, newSorter);
           }
         }}
       />

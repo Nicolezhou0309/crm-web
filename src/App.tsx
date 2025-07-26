@@ -54,6 +54,7 @@ import NotificationTemplateManager from './pages/NotificationTemplateManager';
 import ApprovalFlowManagement from './pages/ApprovalFlowManagement';
 import PointsSummary from './pages/PointsSummary';
 import ApprovalDetails from './pages/ApprovalDetails';
+import ApprovalPerformance from './pages/ApprovalPerformance';
 
 
 const { Sider, Content, Header } = Layout;
@@ -106,31 +107,30 @@ const AppContent: React.FC = () => {
   const location = useLocation();
 
   // 侧边栏 key-path 映射
-  const keyPathMap: Record<string, string> = {
-    index: '/',
-    leads: '/leads',
-    followups: '/followups',
-    showings: '/showings',
-    deals: '/deals',
-    allocation: '/allocation',
-    'showings-queue': '/showings-queue',
-    dashboard: '/dashboard',
-    'points-dashboard': '/points',
+  const keyPathMap: { [key: string]: string } = {
+    'index': '/',
+    'leads': '/leads',
+    'followups': '/followups',
+    'showings': '/showings',
+    'deals': '/deals',
+    'allocation': '/allocation',
+    'points': '/points',
     'points-exchange': '/points/exchange',
     'points-rules': '/points/rules',
     'honor-management': '/honor',
     'achievement-management': '/achievement',
-    departments: '/departments',
+    'departments': '/departments',
     'test-tools': '/test-tools',
-    roles: '/roles',
-    announcements: '/announcements',
-    test: '/test',
+    'roles': '/roles',
+    'announcements': '/announcements',
+    'test': '/test',
     'banner-management': '/banner-management',
     'load-demo': '/loading-demo',
     'email-test': '/email-test',
     'notification-templates': '/notification-templates',
     'approval-flows-list': '/approval-flows',
     'approval-details': '/approval-details',
+    'approval-performance': '/approval-performance',
   };
   // path-key 反查
   const pathKeyMap: Record<string, string> = {};
@@ -752,6 +752,7 @@ const AppContent: React.FC = () => {
                   <Route path="/notification-templates" element={<NotificationTemplateManager />} />
                   <Route path="/approval-flows" element={<ApprovalFlowManagement />} />
                   <Route path="/approval-details" element={<ApprovalDetails />} />
+                  <Route path="/approval-performance" element={<ApprovalPerformance />} />
                   <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>

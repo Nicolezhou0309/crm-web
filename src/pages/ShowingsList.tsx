@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Table, 
   Button, 
@@ -44,33 +44,6 @@ import type { Key } from 'react';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
 import './compact-table.css';
 
-// 添加悬浮动画样式
-const floatAnimation = `
-  @keyframes float {
-    0% {
-      transform: translate(0, 0) scale(1);
-    }
-    25% {
-      transform: translate(-4px, -4px) scale(1.1);
-    }
-    50% {
-      transform: translate(4px, -2px) scale(1.2);
-    }
-    75% {
-      transform: translate(-2px, 3px) scale(1.1);
-    }
-    100% {
-      transform: translate(0, 0) scale(1);
-    }
-  }
-  
-  .card-hover:hover .zoom-icon {
-    animation: float 2s ease-in-out infinite;
-    opacity: 1 !important;
-    color: #1677ff !important;
-  }
-`;
-
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
 
@@ -96,9 +69,6 @@ interface ShowingWithRelations {
   interviewsales_user_id?: number | null; // 约访销售ID
   lead_phone?: string;
   lead_wechat?: string;
-  lead_source?: string;
-  lead_status?: string;
-  lead_type?: string;
 }
 
 // 直通/轮空卡明细类型
@@ -230,22 +200,24 @@ const ShowingsList: React.FC = () => {
       if (data && data.selection) {
         setViewResultOptions(data.selection);
       } else {
-        // 如果获取失败，使用默认选项
+        // 使用默认选项
         setViewResultOptions([
-          { value: '满意', label: '满意' },
-          { value: '不满意', label: '不满意' },
-          { value: '待定', label: '待定' },
-          { value: '成交', label: '成交' }
+          { value: '直签', label: '直签' },
+          { value: '预定', label: '预定' },
+          { value: '意向金', label: '意向金' },
+          { value: '考虑中', label: '考虑中' },
+          { value: '已流失', label: '已流失' }
         ]);
       }
     } catch (error) {
       console.error('获取看房结果选项失败:', error);
       // 使用默认选项
       setViewResultOptions([
-        { value: '满意', label: '满意' },
-        { value: '不满意', label: '不满意' },
-        { value: '待定', label: '待定' },
-        { value: '成交', label: '成交' }
+        { value: '直签', label: '直签' },
+        { value: '预定', label: '预定' },
+        { value: '意向金', label: '意向金' },
+        { value: '考虑中', label: '考虑中' },
+        { value: '已流失', label: '已流失' }
       ]);
     }
   };
@@ -361,16 +333,17 @@ const ShowingsList: React.FC = () => {
 
   const getViewResultColor = (result: string) => {
     const colorMap: { [key: string]: string } = {
-      '满意': 'success',
-      '不满意': 'error',
-      '待定': 'warning',
-      '成交': 'processing',
+      '直签': 'success',
+      '预定': 'processing',
+      '意向金': 'processing',
+      '考虑中': 'warning',
+      '已流失': 'error',
     };
     return colorMap[result] || 'default';
   };
 
   // 2. 表格字段适配
-  const columns = useMemo(() => [
+  const columns = [
     {
       title: '线索编号',
       dataIndex: 'leadid',
@@ -796,7 +769,7 @@ const ShowingsList: React.FC = () => {
         </div>
       ),
     },
-  ], [communityOptions, salesOptions, viewResultOptions]);
+  ];
 
   // 拉取卡片明细
   const fetchCardDetails = async (type: 'direct' | 'skip') => {
@@ -1059,7 +1032,6 @@ const ShowingsList: React.FC = () => {
 
   return (
     <div style={{ padding: '24px' }}>
-      <style>{floatAnimation}</style>
       {statsCards}
       
       {/* 筛选状态提示 */}

@@ -161,3 +161,66 @@ export async function deleteShowing(id: string) {
   
   if (error) throw error;
 } 
+
+// 转化率统计相关接口
+export interface ConversionRateStats {
+  sales_id: number;
+  sales_name: string;
+  showings_count: number;
+  direct_deal_count: number;
+  reserved_count: number;
+  intention_count: number;
+  considering_count: number;
+  lost_count: number;
+  unfilled_count: number;
+  direct_rate: number;
+  conversion_rate: number;
+  previous_showings_count: number;
+  previous_direct_deal_count: number;
+  previous_reserved_count: number;
+  previous_intention_count: number;
+  previous_considering_count: number;
+  previous_lost_count: number;
+  previous_unfilled_count: number;
+  previous_direct_rate: number;
+  previous_conversion_rate: number;
+}
+
+export interface ConversionRateStatsWithActualSales extends ConversionRateStats {
+  actual_sales_id: number | null;
+  actual_sales_name: string | null;
+  is_actual_sales: boolean;
+}
+
+export interface ConversionRateParams {
+  date_start?: string;
+  date_end?: string;
+  previous_date_start?: string;
+  previous_date_end?: string;
+}
+
+// 获取转化率统计数据（基础版本）
+export async function getConversionRateStats(params: ConversionRateParams = {}) {
+  const { data, error } = await supabase.rpc('get_conversion_rate_stats', {
+    p_date_start: params.date_start || null,
+    p_date_end: params.date_end || null,
+    p_previous_date_start: params.previous_date_start || null,
+    p_previous_date_end: params.previous_date_end || null
+  });
+  
+  if (error) throw error;
+  return data as ConversionRateStats[];
+}
+
+// 获取转化率统计数据（包含实际销售分组）
+export async function getConversionRateStatsWithActualSales(params: ConversionRateParams = {}) {
+  const { data, error } = await supabase.rpc('get_conversion_rate_stats_with_actual_sales', {
+    p_date_start: params.date_start || null,
+    p_date_end: params.date_end || null,
+    p_previous_date_start: params.previous_date_start || null,
+    p_previous_date_end: params.previous_date_end || null
+  });
+  
+  if (error) throw error;
+  return data as ConversionRateStatsWithActualSales[];
+} 
