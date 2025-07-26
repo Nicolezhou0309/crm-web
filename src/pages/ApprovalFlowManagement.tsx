@@ -67,6 +67,7 @@ const ApprovalFlowManagement: React.FC = () => {
     showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
   });
 
+
   // 可视化流程设计器用到的本地 state
   const [flowSteps, setFlowSteps] = useState<any[]>([]); // 当前流程节点
   const [orgTreeData, setOrgTreeData] = useState<any[]>([]); // 部门-成员树
@@ -276,16 +277,46 @@ const ApprovalFlowManagement: React.FC = () => {
 
   // 审批实例表格列（参考审批明细视图）
   const instanceColumns = [
-    { title: '业务类型', dataIndex: ['approval_flows', 'name'], key: 'name' },
-    { title: '操作编号', dataIndex: 'target_id', key: 'target_id' },
-    { title: '当前状态', dataIndex: 'status', key: 'status', render: (status: string) => renderStatusTag(status) },
+    { 
+      title: '业务类型', 
+      dataIndex: ['approval_flows', 'name'], 
+      key: 'name',
+      sorter: true,
+    },
+    { 
+      title: '操作编号', 
+      dataIndex: 'target_id', 
+      key: 'target_id',
+      sorter: true,
+    },
+    { 
+      title: '当前状态', 
+      dataIndex: 'status', 
+      key: 'status', 
+      render: (status: string) => renderStatusTag(status),
+      sorter: true,
+    },
     {
       title: '审批时长',
       key: 'duration',
+      sorter: true,
       render: (_: unknown, record: any) => {
         const start = record.created_at ? new Date(record.created_at) : null;
-        const end = record.action_time ? new Date(record.action_time) : null;
-        if (!start || !end) return '-';
+        if (!start) return '-';
+        
+        // 从关联的 approval_steps 中获取最新的 action_time
+        const steps = record.approval_steps || [];
+        const lastActionTime = steps.length > 0 ? 
+          steps.reduce((latest: string, step: any) => {
+            if (step.action_time && (!latest || new Date(step.action_time) > new Date(latest))) {
+              return step.action_time;
+            }
+            return latest;
+          }, '') : null;
+        
+        const end = lastActionTime ? new Date(lastActionTime) : null;
+        if (!end) return '-';
+        
         const diffMs = end.getTime() - start.getTime();
         const diffMin = Math.floor(diffMs / 60000);
         if (diffMin >= 1440) {
@@ -296,10 +327,17 @@ const ApprovalFlowManagement: React.FC = () => {
         }
       }
     },
-    { title: '发起时间', dataIndex: 'created_at', key: 'created_at', render: (t: string) => formatToBeijingTime(t) },
+    { 
+      title: '发起时间', 
+      dataIndex: 'created_at', 
+      key: 'created_at', 
+      render: (t: string) => formatToBeijingTime(t),
+      sorter: true,
+    },
     { 
       title: '完成时间', 
       key: 'action_time', 
+      sorter: true,
       render: (_: unknown, record: any) => {
         // 从关联的 approval_steps 中获取最新的 action_time
         const steps = record.approval_steps || [];
@@ -314,7 +352,12 @@ const ApprovalFlowManagement: React.FC = () => {
         return record.status === 'pending' ? '-' : formatToBeijingTime(lastActionTime);
       }
     },
-    { title: '发起人', dataIndex: ['users_profile', 'nickname'], key: 'created_by' },
+    { 
+      title: '发起人', 
+      dataIndex: ['users_profile', 'nickname'], 
+      key: 'created_by',
+      sorter: true,
+    },
     {
       title: '操作',
       key: 'action',
