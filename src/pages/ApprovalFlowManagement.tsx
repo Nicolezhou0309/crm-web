@@ -104,7 +104,8 @@ const ApprovalFlowManagement: React.FC = () => {
         .select(`
           *,
           approval_flows!inner(name, type),
-          users_profile!inner(nickname)
+          users_profile!inner(nickname),
+          approval_steps!inner(id, action_time, status)
         `)
         .range(from, to)
         .order('created_at', { ascending: false });
@@ -296,7 +297,23 @@ const ApprovalFlowManagement: React.FC = () => {
       }
     },
     { title: '发起时间', dataIndex: 'created_at', key: 'created_at', render: (t: string) => formatToBeijingTime(t) },
-    { title: '完成时间', dataIndex: 'action_time', key: 'action_time', render: (t: string, record: any) => record.status === 'pending' ? '-' : formatToBeijingTime(t) },
+    { 
+      title: '完成时间', 
+      key: 'action_time', 
+      render: (_: unknown, record: any) => {
+        // 从关联的 approval_steps 中获取最新的 action_time
+        const steps = record.approval_steps || [];
+        const lastActionTime = steps.length > 0 ? 
+          steps.reduce((latest: string, step: any) => {
+            if (step.action_time && (!latest || new Date(step.action_time) > new Date(latest))) {
+              return step.action_time;
+            }
+            return latest;
+          }, '') : null;
+        
+        return record.status === 'pending' ? '-' : formatToBeijingTime(lastActionTime);
+      }
+    },
     { title: '发起人', dataIndex: ['users_profile', 'nickname'], key: 'created_by' },
     {
       title: '操作',
