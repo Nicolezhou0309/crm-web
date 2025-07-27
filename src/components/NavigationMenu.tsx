@@ -25,6 +25,7 @@ import {
   SearchOutlined,
   WalletOutlined,
   FileDoneOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 
@@ -87,6 +88,14 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           className: 'main-menu-item',
         },
       ]
+    },
+    // 新增数据分析菜单
+    {
+      key: 'data-analysis',
+      icon: <BarChartOutlined />,
+      label: '数据分析',
+      path: '/data-analysis',
+      className: 'main-menu-item',
     },
     // 新增分配管理一级菜单
     {

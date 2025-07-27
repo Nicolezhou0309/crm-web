@@ -55,6 +55,9 @@ import ApprovalFlowManagement from './pages/ApprovalFlowManagement';
 import PointsSummary from './pages/PointsSummary';
 import ApprovalDetails from './pages/ApprovalDetails';
 import ApprovalPerformance from './pages/ApprovalPerformance';
+import DataAnalysis from './pages/DataAnalysis';
+import PivotTableDemo from './pages/PivotTableDemo';
+import PivotDemo from './pages/PivotDemo';
 
 
 const { Sider, Content, Header } = Layout;
@@ -134,6 +137,7 @@ const AppContent: React.FC = () => {
     'approval-flows-list': '/approval-flows',
     'approval-details': '/approval-details',
     'approval-performance': '/approval-performance',
+    'data-analysis': '/data-analysis',
   };
   // path-key 反查
   const pathKeyMap: Record<string, string> = {};
@@ -756,7 +760,10 @@ const AppContent: React.FC = () => {
                   <Route path="/approval-flows" element={<ApprovalFlowManagement />} />
                   <Route path="/approval-details" element={<ApprovalDetails />} />
                   <Route path="/approval-performance" element={<ApprovalPerformance />} />
-                  <Route path="*" element={<Error404 />} />
+                          <Route path="/data-analysis" element={<DataAnalysis />} />
+                          <Route path="/pivot-demo" element={<PivotTableDemo />} />
+                          <Route path="/pivot-demo-new" element={<PivotDemo />} />
+        <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>
             </Content>

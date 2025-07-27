@@ -229,7 +229,7 @@ BEGIN
   -- 删除超过指定天数的已完成审批实例
   DELETE FROM approval_instances 
   WHERE status IN ('approved', 'rejected') 
-    AND created_at < NOW() - INTERVAL '1 day' * p_days_old;
+    AND created_at < NOW() - INTERVAL '90 day' * p_days_old;
   
   GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
   
