@@ -46,40 +46,6 @@ export const useRolePermissions = () => {
   }, []);
 
   // 安全解析JWT token
-  const parseJwtToken = (token: string) => {
-    try {
-      if (!token || typeof token !== 'string') {
-        return null;
-      }
-      
-      const tokenParts = token.split('.');
-      if (tokenParts.length !== 3) {
-        return null;
-      }
-      
-      const payload = tokenParts[1];
-      if (!payload) {
-        return null;
-      }
-      
-      const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
-      const paddedPayload = normalizedPayload + '='.repeat((4 - normalizedPayload.length % 4) % 4);
-      
-      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(paddedPayload)) {
-        return null;
-      }
-      
-      const decodedPayload = atob(paddedPayload);
-      const parsedPayload = JSON.parse(decodedPayload);
-      
-      return parsedPayload;
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Token解析失败，跳过权限检查');
-      }
-      return null;
-    }
-  };
 
   const fetchUserData = async () => {
     try {
@@ -101,17 +67,37 @@ export const useRolePermissions = () => {
       }));
       setUserRoles(userRoles);
 
-      // 获取用户权限
-      const { data: permissions, error: permissionsError } = await supabase.rpc('get_user_permissions', { p_user_id: userId });
-      if (permissionsError) throw permissionsError;
-      const userPermissions = (permissions || []).map((p: any) => ({
-        permission_name: p.permission_name,
-        permission_display_name: p.permission_description || p.permission_name,
-        category: p.resource,
-        resource: p.resource,
-        action: p.action
-      }));
-      setUserPermissions(userPermissions);
+      // 获取用户权限 - 使用数据库函数绕过RLS限制
+      console.log('开始获取用户权限，用户ID:', userId);
+      
+      const { data: permissions, error: permissionsError } = await supabase.rpc('get_user_permissions', { 
+        p_user_id: userId 
+      });
+      
+      if (permissionsError) {
+        console.error('获取用户权限失败:', permissionsError);
+        setUserPermissions([]);
+      } else {
+        console.log('用户权限数据:', permissions);
+        console.log('权限数据长度:', permissions?.length || 0);
+        
+        // 检查每个权限项的详细信息
+        permissions?.forEach((p: any, index: number) => {
+          console.log(`权限项 ${index}:`, p);
+        });
+        
+        // 格式化权限数据
+        const userPermissions = (permissions || []).map((p: any) => ({
+          permission_name: p.permission_name,
+          permission_display_name: p.permission_description || p.permission_name,
+          category: p.resource,
+          resource: p.resource,
+          action: p.action
+        }));
+        
+        console.log('最终权限列表:', userPermissions);
+        setUserPermissions(userPermissions);
+      }
 
       // 获取所有角色（可选，若roles表有display_name字段可补充）
       const { data: allRolesData, error: allRolesError } = await supabase
@@ -134,18 +120,9 @@ export const useRolePermissions = () => {
       // 获取组织管理权限
       await fetchManageableOrganizations(userId, isSuperAdmin, roleNames.includes('admin'));
 
-      // 打印权限调试信息
-      console.log('🔐 [权限调试] 用户权限信息:', {
-        userId,
-        roles: userRoles.map((r: any) => r.role_name),
-        permissions: userPermissions.map((p: any) => p.permission_name),
-        isSuperAdmin,
-        isSystemAdmin,
-        hasApprovalManage: userPermissions.some((p: any) => p.permission_name === 'approval_manage')
-      });
+
 
     } catch (error) {
-      console.error('获取用户权限数据失败:', error);
       setUserRoles([]);
       setUserPermissions([]);
       setManageableOrganizations([]);
@@ -201,7 +178,6 @@ export const useRolePermissions = () => {
       
       setManageableOrganizations(manageableOrgs);
     } catch (error) {
-      console.error('获取可管理组织失败:', error);
       setManageableOrganizations([]);
       setIsDepartmentAdmin(false);
     }
@@ -209,33 +185,26 @@ export const useRolePermissions = () => {
 
   // 检查是否有特定权限
   const hasPermission = useCallback((permission: string): boolean => {
-    console.log(`🔐 [权限检查详情] 检查权限: ${permission}`);
-    console.log(`🔐 [权限检查详情] 用户权限列表:`, userPermissions.map((p: any) => p.permission_name));
-    console.log(`🔐 [权限检查详情] 超级管理员状态: ${isSuperAdmin}`);
     
     const hasPerm = isSuperAdmin || userPermissions.some((p: any) => p.permission_name === permission);
-    console.log(`🔐 [权限检查] ${permission}: ${hasPerm} (超级管理员: ${isSuperAdmin})`);
     return hasPerm;
   }, [userPermissions, isSuperAdmin]);
 
   // 检查是否有多个权限中的任意一个
   const hasAnyPermission = useCallback((permissions: string[]): boolean => {
     const hasAny = isSuperAdmin || permissions.some(permission => hasPermission(permission));
-    console.log(`🔐 [权限检查] 任意权限 ${permissions.join(', ')}: ${hasAny}`);
     return hasAny;
   }, [hasPermission, isSuperAdmin]);
 
   // 检查是否有所有权限
   const hasAllPermissions = useCallback((permissions: string[]): boolean => {
     const hasAll = isSuperAdmin || permissions.every(permission => hasPermission(permission));
-    console.log(`🔐 [权限检查] 所有权限 ${permissions.join(', ')}: ${hasAll}`);
     return hasAll;
   }, [hasPermission, isSuperAdmin]);
 
   // 检查是否有特定角色
   const hasRole = useCallback((roleName: string): boolean => {
     const hasRolePerm = userRoles.some(role => role.role_name === roleName);
-    console.log(`🔐 [角色检查] ${roleName}: ${hasRolePerm}`);
     return hasRolePerm;
   }, [userRoles]);
 

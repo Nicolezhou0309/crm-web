@@ -29,7 +29,6 @@ import {
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 import { useRolePermissions } from '../hooks/useRolePermissions';
-import { PermissionGate } from './PermissionGate';
 
 
 interface NavigationMenuProps {
@@ -307,54 +306,39 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
 
   // 递归过滤菜单项，包含权限检查
   function filterMenu(items: any[], keyword: string): any[] {
-    console.log(`🔍 [菜单过滤] 开始过滤菜单项，关键词: "${keyword}"`);
-    console.log(`🔍 [菜单过滤] 输入菜单项数量: ${items.length}`);
     
     if (!keyword) {
       const filtered = items.filter(item => {
-        console.log(`🔍 [菜单过滤] 检查菜单项: ${item.label} (${item.key})`);
         
         // 检查权限或角色
         if (item.permission) {
-          console.log(`🔍 [菜单过滤] ${item.label} 需要权限: ${item.permission}`);
           if (item.permission === 'admin') {
             const hasAdminRole = hasRole('admin');
-            console.log(`🔍 [菜单过滤] ${item.label} admin角色检查: ${hasAdminRole}`);
             if (!hasAdminRole) {
-              console.log(`🚫 [菜单过滤] ${item.label} (${item.key}): 需要admin角色，用户无权限`);
               return false;
             }
           } else {
             const hasPerm = hasPermission(item.permission);
-            console.log(`🔍 [菜单过滤] ${item.label} 权限检查 ${item.permission}: ${hasPerm}`);
             if (!hasPerm) {
-              console.log(`🚫 [菜单过滤] ${item.label} (${item.key}): 需要${item.permission}权限，用户无权限`);
               return false;
             }
           }
         } else {
-          console.log(`🔍 [菜单过滤] ${item.label} 无权限要求`);
         }
         
         // 检查子菜单
         if (item.children) {
-          console.log(`🔍 [菜单过滤] ${item.label} 有子菜单，开始过滤子菜单`);
           const filteredChildren = filterMenu(item.children, keyword);
-          console.log(`🔍 [菜单过滤] ${item.label} 子菜单过滤结果: ${filteredChildren.length} 个`);
           if (filteredChildren.length === 0) {
-            console.log(`🚫 [菜单过滤] ${item.label} (${item.key}): 所有子菜单都被过滤，隐藏父菜单`);
             return false;
           }
           // 更新子菜单
           item.children = filteredChildren;
-          console.log(`✅ [菜单过滤] ${item.label} (${item.key}): 显示父菜单，保留 ${filteredChildren.length} 个子菜单`);
           return true;
         }
-        console.log(`✅ [菜单过滤] ${item.label} (${item.key}): 显示菜单项`);
         return true;
       });
       
-      console.log(`🔍 [菜单过滤] 过滤后菜单项数量: ${filtered.length}`);
       return filtered;
     }
     
@@ -366,11 +350,9 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
         if (item.permission) {
           if (item.permission === 'admin') {
             if (!hasRole('admin')) {
-              console.log(`🚫 [菜单搜索过滤] ${item.label} (${item.key}): 需要admin角色，用户无权限`);
               return null;
             }
           } else if (!hasPermission(item.permission)) {
-            console.log(`🚫 [菜单搜索过滤] ${item.label} (${item.key}): 需要${item.permission}权限，用户无权限`);
             return null;
           }
         }

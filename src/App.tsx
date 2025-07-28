@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Layout, Typography, Button, ConfigProvider } from 'antd';
 import {
   UserOutlined,
@@ -60,11 +60,7 @@ import DataAnalysis from './pages/DataAnalysis';
 import PivotTableDemo from './pages/PivotTableDemo';
 import PivotDemo from './pages/PivotDemo';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
-import { useRolePermissions } from './hooks/useRolePermissions';
-
-
 const { Sider, Content, Header } = Layout;
-const { Title } = Typography;
 
 // 彻底删除旧的menuItems相关children/path等所有无用代码块，只保留如下：
 const menuItems: MenuProps['items'] = [
@@ -84,8 +80,6 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
     return { hasError: true };
   }
   componentDidCatch(_error: any, _errorInfo: any) {
-    // 可以上报错误
-    // console.error('ErrorBoundary caught an error', error, errorInfo);
   }
   render() {
     if (this.state.hasError) {
@@ -108,27 +102,7 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading } = useUser();
-  const { hasPermission, hasRole } = useRolePermissions();
-
-  // 添加路由渲染调试日志
-  useEffect(() => {
-    console.log(`🛣️ [路由渲染] 当前路径: ${location.pathname}`);
-    console.log(`🛣️ [路由渲染] 用户状态: ${user ? '已登录' : '未登录'}`);
-    console.log(`🛣️ [路由渲染] 加载状态: ${loading}`);
-  }, [location.pathname, user, loading]);
-
-  // 添加权限检查调试日志
-  useEffect(() => {
-    if (user) {
-      console.log(`🔐 [路由权限] 用户权限检查:`, {
-        hasApprovalManage: hasPermission('approval_manage'),
-        hasAdminRole: hasRole('admin'),
-        currentPath: location.pathname
-      });
-    }
-  }, [user, hasPermission, hasRole, location.pathname]);
-
-  const { profile, loading: profileLoading, isSessionExpired } = useUser();
+  const { profile, isSessionExpired } = useUser();
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth] = React.useState(220);
   const minSiderWidth = 56;
@@ -240,7 +214,6 @@ const AppContent: React.FC = () => {
       const data = await getUserPointsInfo(id);
       setUserPoints(data.wallet.total_points || 0);
     } catch (err) {
-      console.error('获取用户积分失败:', err);
     }
   }, []);
 
@@ -542,7 +515,6 @@ const AppContent: React.FC = () => {
                   alt="VLINKER" 
                   style={{ height: 36, marginLeft: 4, verticalAlign: 'middle' }}
                   onError={(e) => {
-                    console.warn('VLINKER.svg加载失败，使用备用文本');
                     e.currentTarget.style.display = 'none';
                   }}
                 />
@@ -751,7 +723,7 @@ const AppContent: React.FC = () => {
                   <Route path="/403" element={<Error403 />} />
                   <Route path="/departments" element={<DepartmentPage />} />
                   <Route path="/roles" element={
-                    <PermissionGate role="admin" fallback={<Error403 />}>
+                    <PermissionGate roles={['admin', 'super_admin', 'system_admin']} fallback={<Error403 />}>
                       <RolePermissionManagement />
                     </PermissionGate>
                   } />

@@ -363,7 +363,7 @@ DECLARE
   role_id UUID;
 BEGIN
   -- 检查调用者是否有权限
-  IF NOT has_permission('user_roles', 'manage') THEN
+  IF NOT has_permission('user', 'manage') THEN
     RAISE EXCEPTION '没有权限分配角色';
   END IF;
   -- 获取角色 ID
