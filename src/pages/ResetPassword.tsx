@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Card, Typography, Form, Input, Button, message, Spin } from 'antd';
+import { Card, Typography, Form, Input, Button, message } from 'antd';
+import LoadingScreen from '../components/LoadingScreen';
 import { LockOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { supabase } from '../supaClient';
 import { useNavigate } from 'react-router-dom';
@@ -42,7 +43,7 @@ const ResetPassword: React.FC = () => {
           <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 16 }} />
           <Title level={3}>密码重置成功！</Title>
           <Text>即将跳转到登录页面...</Text>
-          <div style={{ marginTop: 24 }}><Spin /></div>
+          <div style={{ marginTop: 24 }}><LoadingScreen type="auth" /></div>
         </Card>
       </div>
     );

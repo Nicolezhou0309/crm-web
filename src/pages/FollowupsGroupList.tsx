@@ -1269,7 +1269,7 @@ const FollowupsGroupList: React.FC = () => {
           <div style={{ padding: 8 }}>
             {interviewsalesUserLoading && (
               <div style={{ textAlign: 'center', padding: '8px 0', color: '#999' }}>
-                <Spin size="small" /> 加载中...
+                <Spin size="small" />
               </div>
             )}
             <Input.Search
@@ -3456,31 +3456,32 @@ const FollowupsGroupList: React.FC = () => {
           </div>
           {/* 右侧明细区 */}
           <div className={`main-content-area ${groupPanelOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-            <Spin spinning={loading}>
-              <Table
-                columns={columns}
-                dataSource={localData}
-                loading={loading}
-                pagination={{
-                  current: pagination.current,
-                  pageSize: pagination.pageSize,
-                  total: pagination.total,
-                  showSizeChanger: true,
-                  pageSizeOptions: ['10', '20', '50'],
-                  showQuickJumper: true,
-                  showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
-                }}
-                rowKey="id"
-                size="small"
-                bordered={false}
-                className="page-table compact-table"
-                onChange={handleTableChange}
-                scroll={{ x: 'max-content', y: 600 }}
-                rowClassName={() => 'compact-table-row'}
-                sticky
-                tableLayout="fixed"
-              />
-            </Spin>
+            <Table
+              columns={columns}
+              dataSource={localData}
+              loading={{
+                spinning: loading,
+                tip: ''
+              }}
+              pagination={{
+                current: pagination.current,
+                pageSize: pagination.pageSize,
+                total: pagination.total,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50'],
+                showQuickJumper: true,
+                showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+              }}
+              rowKey="id"
+              size="small"
+              bordered={false}
+              className="page-table compact-table"
+              onChange={handleTableChange}
+              scroll={{ x: 'max-content', y: 600 }}
+              rowClassName={() => 'compact-table-row'}
+              sticky
+              tableLayout="fixed"
+            />
           </div>
         </div>
         {/* Drawer 组件（放在 return 的最外层） */}

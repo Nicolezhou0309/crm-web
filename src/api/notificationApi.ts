@@ -92,7 +92,9 @@ class NotificationApi {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        throw new Error('用户未登录');
+        // 静默处理未登录状态，返回空数据而不是抛出错误
+        console.log('用户未登录，跳过通知请求');
+        return { data: [], total: 0 };
       }
 
       const response = await fetch(`${this.baseUrl}?action=${endpoint}`, {
@@ -105,8 +107,13 @@ class NotificationApi {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        console.error('API错误详情:', error);
+        // 对于401错误，静默处理而不是抛出异常
+        if (response.status === 401) {
+          console.log('认证失败，跳过通知请求');
+          return { data: [], total: 0 };
+        }
+        
+        const error = await response.json(); 
         throw new Error(error.error || error.details || '请求失败');
       }
 
@@ -130,7 +137,6 @@ class NotificationApi {
     if (useCache) {
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        console.log('📋 使用缓存的通知数据');
         return cached;
       }
     }
@@ -167,7 +173,6 @@ class NotificationApi {
     if (useCache) {
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        console.log('📋 使用缓存的公告数据');
         return cached;
       }
     }
@@ -200,7 +205,6 @@ class NotificationApi {
     if (useCache) {
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        console.log('📋 使用缓存的管理员公告数据');
         return cached;
       }
     }
@@ -227,7 +231,6 @@ class NotificationApi {
     if (useCache) {
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        console.log('📋 使用缓存的通知统计');
         return cached;
       }
     }
@@ -457,7 +460,6 @@ export const duplicateNotificationApi = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('获取重复客户通知失败:', error);
       throw error;
     }
   },
@@ -475,7 +477,6 @@ export const duplicateNotificationApi = {
 
       if (error) throw error;
     } catch (error) {
-      console.error('标记通知为已读失败:', error);
       throw error;
     }
   },
@@ -493,7 +494,6 @@ export const duplicateNotificationApi = {
 
       if (error) throw error;
     } catch (error) {
-      console.error('标记通知为已处理失败:', error);
       throw error;
     }
   },
@@ -508,7 +508,6 @@ export const duplicateNotificationApi = {
 
       if (error) throw error;
     } catch (error) {
-      console.error('删除通知失败:', error);
       throw error;
     }
   }

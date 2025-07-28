@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Table, 
-  Spin, 
   Typography, 
   Button, 
   Space, 
@@ -122,14 +121,9 @@ const LeadsList: React.FC = () => {
   const handleAdd = async (values: any) => {
     // 防重复提交
     if (submitting) {
-      console.log('正在提交中，忽略重复请求');
       return;
     }
-    
-    console.log('=== 开始提交线索 ===');
-    console.log('提交时间:', new Date().toISOString());
-    console.log('表单数据:', values);
-    
+
     setSubmitting(true);
     try {
       // 验证至少填写了手机号或微信号
@@ -139,9 +133,7 @@ const LeadsList: React.FC = () => {
       }
       
       // 1. 生成并发安全的leadid
-      console.log('开始生成leadid...');
       const leadid = await generateLeadId();
-      console.log('生成的leadid:', leadid);
       
       // 2. 使用工具函数格式化社区信息
       const { community, remark, ...newLead } = values;
@@ -154,21 +146,14 @@ const LeadsList: React.FC = () => {
         created_at: new Date().toISOString(),
       };
       
-      console.log('准备插入的数据:', leadToInsert);
-      console.log('community值:', values.community);
-      console.log('community值类型:', typeof values.community);
-
-      console.log('开始插入数据库...');
       const { data, error } = await supabase
         .from('leads')
         .insert([leadToInsert])
         .select();
       
       if (error) {
-        console.error('数据库插入失败:', error);
         message.error('添加线索失败: ' + error.message);
       } else {
-        console.log('数据库插入成功:', data);
         // 判断返回的leadstatus
         const inserted = data && data[0];
         if (inserted && inserted.leadstatus === '重复') {
@@ -186,7 +171,6 @@ const LeadsList: React.FC = () => {
         fetchLeads();
       }
     } catch (error) {
-      console.error('添加线索失败:', error);
       message.error(`添加线索失败: ${(error as Error).message}`);
     } finally {
       setSubmitting(false);
@@ -655,25 +639,27 @@ const LeadsList: React.FC = () => {
         </Space>
       </div>
       <div className="page-table-wrap">
-        <Spin spinning={loading}>
-          <Table
-            rowKey="id"
-            columns={columns}
-            dataSource={data}
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) =>
-                `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
-            }}
-            bordered={false}
-            className="page-table compact-table"
-            rowClassName={() => 'compact-table-row'}
-            scroll={{ x: 1400, y: 520 }}
-            onChange={handleTableChange}
-          />
-        </Spin>
+        <Table
+          rowKey="id"
+          columns={columns}
+          dataSource={data}
+          loading={{
+            spinning: loading,
+            tip: ''
+          }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) =>
+              `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+          }}
+          bordered={false}
+          className="page-table compact-table"
+          rowClassName={() => 'compact-table-row'}
+          scroll={{ x: 1400, y: 520 }}
+          onChange={handleTableChange}
+        />
       </div>
       {/* 新建线索弹窗 */}
       <Modal

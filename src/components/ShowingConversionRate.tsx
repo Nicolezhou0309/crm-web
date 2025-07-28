@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Spin, Radio, Typography, DatePicker } from 'antd';
+import { Table, Radio, Typography, DatePicker } from 'antd';
+import LoadingScreen from './LoadingScreen';
 import dayjs from 'dayjs';
 import { 
   getConversionRateStatsWithActualSales, 
@@ -578,7 +579,9 @@ const ShowingConversionRate: React.FC = () => {
         </div>
       </div>
       
-      <Spin spinning={loading}>
+      {loading ? (
+        <LoadingScreen type="data" />
+      ) : (
         <Table
           columns={columns}
           dataSource={data}
@@ -648,7 +651,7 @@ const ShowingConversionRate: React.FC = () => {
             </Table.Summary.Row>
           )}
         />
-      </Spin>
+      )}
     </div>
   );
 };

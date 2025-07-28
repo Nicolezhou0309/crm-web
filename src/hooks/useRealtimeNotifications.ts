@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../supaClient';
-import { useAuth } from './useAuth';
+import { useUser } from '../context/UserContext';
 import { notificationApi } from '../api/notificationApi';
 
 interface Notification {
@@ -28,7 +28,7 @@ const debounce = (func: Function, wait: number) => {
 };
 
 export const useRealtimeNotifications = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [profileId, setProfileId] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -132,7 +132,10 @@ export const useRealtimeNotifications = () => {
   // 重新计算未读数 - 使用useMemo优化
   const updateUnreadCount = useCallback((arr: Notification[]) => {
     if (!arr || arr.length === 0) {
-      console.warn('[updateUnreadCount] arr is empty! 跳过未读数更新');
+      // 只在调试模式下显示警告
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[updateUnreadCount] 通知数组为空，跳过未读数更新');
+      }
       return;
     }
     const count = arr.filter(n => n.status === 'unread').length;
@@ -171,9 +174,10 @@ export const useRealtimeNotifications = () => {
         setNotifications(cachedNotifications);
         updateUnreadCount(cachedNotifications);
       } else {
-        // 防御性日志：缓存也没有，避免直接清空
-        console.warn('[loadNotifications] No notifications from server or cache, skip setNotifications([])');
-        // setNotifications([]); // 不要直接清空，除非明确需要
+        // 静默处理，不显示警告
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[loadNotifications] 服务器和缓存都没有通知数据');
+        }
       }
     } finally {
       setLoading(false);

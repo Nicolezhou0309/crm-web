@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getAllUserPointsWallets, submitPointsAdjustApproval } from '../api/pointsApi';
 import { Table, Spin, Alert, Select, Modal, Form, Input, InputNumber, message, Button } from 'antd';
 import { supabase } from '../supaClient';
-import { useAuth } from '../hooks/useAuth';
+import { useUser } from '../context/UserContext';
 
 interface UserProfile {
   id: number;
@@ -41,23 +41,15 @@ export default function PointsSummary() {
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [adjustForm] = Form.useForm();
   const [adjustLoading, setAdjustLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, profile } = useUser();
   const [profileId, setProfileId] = useState<number | null>(null);
 
   useEffect(() => {
-    async function fetchProfileId() {
-      if (!user) return;
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-      const { data, error } = await supabase
-        .from('users_profile')
-        .select('id')
-        .eq('user_id', authUser.id)
-        .single();
-      if (!error && data?.id) setProfileId(data.id);
+    // 直接使用profile中的id，避免重复查询
+    if (profile?.id) {
+      setProfileId(profile.id);
     }
-    fetchProfileId();
-  }, [user]);
+  }, [profile]);
 
   // 积分调整提交
   const handleAdjust = async (values: { user_id: number; points: number; remark?: string }) => {

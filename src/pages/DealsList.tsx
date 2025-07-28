@@ -113,9 +113,12 @@ const DealsList: React.FC = () => {
       };
       
       
+      // 为计数函数创建不包含分页参数的筛选条件
+      const countFilters = { ...filters };
+      
       const [deals, count] = await Promise.all([
         getDeals(combinedFilters),
-        getDealsCount(filters)
+        getDealsCount(countFilters)
       ]);
       
       setData(deals || []);
@@ -127,10 +130,19 @@ const DealsList: React.FC = () => {
     }
   };
 
-  // handleTableChange 处理合同日期筛选
-  const handleTableChange = (_pagination: any, filters: any, sorter: any) => {
+  // handleTableChange 处理筛选、排序和分页
+  const handleTableChange = (pagination: any, filters: any, sorter: any) => {
     setSortedInfo(sorter);
     setFilteredInfo(filters);
+
+    // 处理分页变化
+    if (pagination && pagination.current !== currentPage) {
+      setCurrentPage(pagination.current);
+    }
+    if (pagination && pagination.pageSize !== pageSize) {
+      setPageSize(pagination.pageSize);
+      setCurrentPage(1); // 改变页面大小时重置到第一页
+    }
 
     // 将表头筛选值转换为后端API格式
     const newFilters: DealFilters = {};
@@ -171,8 +183,13 @@ const DealsList: React.FC = () => {
       newFilters.roomnumber = [filters.roomnumber[0]];
     }
 
+    // 只有在筛选条件真正改变时才重置页码
+    const hasFilterChanges = Object.keys(newFilters).length > 0;
+    if (hasFilterChanges) {
+      setCurrentPage(1);
+    }
+    
     setFilters(newFilters);
-    setCurrentPage(1);
   };
 
 

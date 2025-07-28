@@ -21,7 +21,6 @@ import {
   BarChartOutlined,
   TableOutlined,
   FilterOutlined,
-  SaveOutlined,
   EyeOutlined,
   EditOutlined,
   DeleteOutlined,
@@ -29,6 +28,8 @@ import {
   DownloadOutlined
 } from '@ant-design/icons';
 import { supabase } from '../supaClient';
+import { useUser } from '../context/UserContext';
+import LoadingScreen from '../components/LoadingScreen';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -78,30 +79,7 @@ const pivotTableStyles = `
     background-color: #fafafa;
   }
   
-  .multi-level-headers table {
-    width: 100%;
-    border-collapse: collapse;
-    border: 1px solid #d9d9d9;
-    margin-bottom: 16px;
-  }
-  
-  .multi-level-headers th {
-    border: 1px solid #d9d9d9;
-    padding: 8px 12px;
-    background-color: #fafafa;
-    font-weight: bold;
-    text-align: center;
-    font-size: 12px;
-    vertical-align: middle;
-  }
-  
-  .multi-level-headers th:first-child {
-    border-left: 1px solid #d9d9d9;
-  }
-  
-  .multi-level-headers th:last-child {
-    border-right: 1px solid #d9d9d9;
-  }
+
   
   .pivot-table .ant-table-thead > tr > th {
     background-color: #fafafa;
@@ -119,30 +97,6 @@ const pivotTableStyles = `
     background-color: #f0f8ff;
     font-weight: bold;
   }
-  
-  /* 透视表行字段列样式 */
-  .pivot-table .ant-table-thead > tr > th.ant-table-cell-fix-left {
-    background-color: #f0f8ff;
-    font-weight: bold;
-    border-right: 2px solid #d9d9d9;
-  }
-  
-  .pivot-table .ant-table-tbody > tr > td.ant-table-cell-fix-left {
-    background-color: #fafafa;
-    border-right: 2px solid #d9d9d9;
-  }
-  
-  /* 透视表值字段列样式 */
-  .pivot-table .ant-table-thead > tr > th:not(.ant-table-cell-fix-left) {
-    background-color: #f5f5f5;
-    text-align: center;
-  }
-  
-  .pivot-table .ant-table-tbody > tr > td:not(.ant-table-cell-fix-left) {
-    text-align: center;
-  }
-  
-
 `;
 
 const { Title, Text } = Typography;
@@ -214,6 +168,7 @@ interface FieldItem {
 }
 
 const DataAnalysis: React.FC<DataAnalysisProps> = () => {
+  const { user } = useUser();
   // 状态管理
   const [loading, setLoading] = useState(false);
 
@@ -390,15 +345,12 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
                  
                  message.success('透视表计算完成');
         } else {
-          console.warn('⚠️ 透视表数据为空');
           message.error('透视表计算失败: 无效的返回数据');
         }
       } else {
-        console.warn('⚠️ 透视表响应为空');
         message.error('透视表计算失败: 无效的返回数据');
       }
     } catch (error) {
-      console.error('❌ 透视表计算异常:', error);
       message.error('透视表计算失败');
     } finally {
       setLoading(false);
@@ -409,7 +361,6 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
   const parseMultiLevelPivotResult = (pivotData: any, config: PivotConfig): PivotResult => {
     
     if (!pivotData || !pivotData.result) {
-      console.warn('⚠️ 多层级透视表结果无效');
       return {
         headers: [],
         rows: [],
@@ -421,7 +372,6 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     const backendResult = pivotData.result;
     
     if (backendResult.length === 0) {
-      console.warn('⚠️ 多层级透视表结果为空数组');
       return {
         headers: [],
         rows: [],
@@ -430,35 +380,52 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       };
     }
 
-    
-    // 检查是否有列维度配置
+
+
     const hasColumnDimension = config && config.columnFields && config.columnFields.length > 0;
-    const hasMultiLevelHeaders = config && config.columnFields && config.columnFields.length > 1;
     
-    if (hasMultiLevelHeaders) {
-      // 构建多层级透视表格式
+    
+    
+    if (hasColumnDimension) {
+      // 统一使用多层级透视表格式
       return buildMultiLevelPivotTable(backendResult, config);
-    } else if (hasColumnDimension) {
-      // 构建单层级透视表格式
-      return buildSingleLevelPivotTable(backendResult, config);
     } else {
       // 使用简单的列表格式
-      return buildSimpleTableFormat(backendResult);
+      return buildSimpleTableFormat(backendResult, config);
     }
   };
 
 
 
   // 构建简单表格格式
-  const buildSimpleTableFormat = (backendResult: any[]): PivotResult => {
+  const buildSimpleTableFormat = (backendResult: any[], config?: PivotConfig): PivotResult => {
     const allFields = Object.keys(backendResult[0]);
     const headers = allFields;
+    const valueFields = config?.valueFields || [];
     
     
-    const rows = backendResult.map((row: any, index: number) => ({
-      key: index.toString(),
-      ...row
-    }));
+    
+    const rows = backendResult.map((row: any, index) => {
+      // 对敏感字段进行脱敏处理
+      const maskedRow: any = {};
+      allFields.forEach(field => {
+        const value = row[field];
+        maskedRow[field] = maskSensitiveData(value, field);
+      });
+      // 计算该行所有 value 字段之和
+      let rowTotal = 0;
+      valueFields.forEach(vf => {
+        // 修正：从后端结果中获取值字段时，使用 field_aggregation 格式的键
+        const valueKey = `${vf.field}_${vf.aggregation}`;
+        const v = Number(row[valueKey]);
+        if (!isNaN(v)) rowTotal += v;
+      });
+      maskedRow['总计'] = rowTotal;
+      return {
+        key: index.toString(),
+        ...maskedRow
+      };
+    });
 
     const summary = {
       totalRows: rows.length,
@@ -469,17 +436,72 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     const totals: any = {};
     if (rows.length > 0) {
       headers.forEach(header => {
-        const values = rows.map(row => row[header]).filter(val => val !== null && val !== undefined);
-        if (values.length > 0) {
-          const numericValues = values.filter(val => !isNaN(Number(val)));
+        // 检查是否为值字段（根据配置）
+        // 修正：后端返回的值字段名称是 field_aggregation 格式
+        const valueField = valueFields.find(vf => {
+          return header === `${vf.field}_${vf.aggregation}`;
+        });
+        
+        if (valueField) {
+          // 如果是值字段，根据聚合方式计算总计
+          
+          const originalValues = backendResult.map(row => row[header]).filter(val => val !== null && val !== undefined);
+          const numericValues = originalValues.filter(val => !isNaN(Number(val)));
+          
           if (numericValues.length > 0) {
-            const sum = numericValues.reduce((sum, val) => sum + Number(val), 0);
-            totals[header] = sum;
+            let result: number;
+            switch (valueField.aggregation) {
+              case 'sum':
+                result = numericValues.reduce((sum, val) => sum + Number(val), 0);
+                break;
+              case 'avg':
+                result = numericValues.reduce((sum, val) => sum + Number(val), 0) / numericValues.length;
+                break;
+              case 'max':
+                result = Math.max(...numericValues.map(val => Number(val)));
+                break;
+              case 'min':
+                result = Math.min(...numericValues.map(val => Number(val)));
+                break;
+              case 'count':
+                // 对于count聚合，应该对数值进行求和，而不是计算行数
+                result = numericValues.reduce((sum, val) => sum + Number(val), 0);
+                break;
+              case 'count_distinct':
+                result = new Set(originalValues).size;
+                break;
+              default:
+                result = numericValues.reduce((sum, val) => sum + Number(val), 0);
+            }
+            totals[header] = result;
+            
           } else {
-            totals[header] = values.length;
+            totals[header] = 0;
+            
           }
+        } else {
+          // 如果不是值字段，计算非空值的数量
+          const originalValues = backendResult.map(row => row[header]).filter(val => val !== null && val !== undefined);
+          const nonNullValues = originalValues.filter(val => val !== null && val !== undefined && val !== '');
+          totals[header] = nonNullValues.length;
+          
         }
       });
+      
+      // 计算总计列的总计
+      let grandTotal = 0;
+      valueFields.forEach(valueField => {
+        // 修正：从 totals 中获取值字段时，使用 field_aggregation 格式的键
+        const valueKey = `${valueField.field}_${valueField.aggregation}`;
+        const value = totals[valueKey];
+        if (value !== undefined && value !== null) {
+          grandTotal += Number(value);
+        }
+      });
+      totals['总计'] = grandTotal;
+      
+      
+
     }
 
     return { headers, rows, totals, summary };
@@ -487,176 +509,89 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
 
 
 
-  // 构建单层级透视表（原有逻辑）
-  const buildSingleLevelPivotTable = (backendResult: any[], config: PivotConfig): PivotResult => {
-    const rowFields = config.rowFields || [];
-    const columnFields = config.columnFields || [];
-    const valueFields = config.valueFields || [];
-    
-    // 获取所有唯一的列维度值
-    const columnValues = new Set<string>();
-    backendResult.forEach(row => {
-      columnFields.forEach(field => {
-        if (row[field] !== null && row[field] !== undefined) {
-          let value = row[field];
-          
-          // 处理时间字段，统一为北京时间日期格式
-          if (TIME_FIELDS.includes(field)) {
-            value = formatTimeField(value);
-          } else {
-            value = String(value);
-          }
-          
-          columnValues.add(value);
-        }
-      });
-    });
-    
-    const uniqueColumnValues = Array.from(columnValues).sort();
-    
-    // 构建表头
-    const headers = [...rowFields, ...uniqueColumnValues, '总计'];
-    
-    // 按行维度分组
-    const groupedData = new Map<string, any>();
-    
-    backendResult.forEach(row => {
-      const rowKey = rowFields.map(field => {
-        let value = row[field] || '';
-        
-        // 处理时间字段，统一为北京时间日期格式
-        if (TIME_FIELDS.includes(field)) {
-          value = formatTimeField(value);
-        } else {
-          value = String(value);
-        }
-        
-        return value;
-      }).join('|');
-    
-      if (!groupedData.has(rowKey)) {
-        groupedData.set(rowKey, {
-          key: rowKey,
-          ...rowFields.reduce((acc, field) => {
-            let value = row[field];
-            
-            // 处理时间字段，统一为北京时间日期格式
-            if (TIME_FIELDS.includes(field)) {
-              value = formatTimeField(value);
-            }
-            
-            acc[field] = value;
-            return acc;
-          }, {} as any)
-        });
-      }
-      
-      const groupRow = groupedData.get(rowKey);
-      
-      // 为每个列维度值设置值
-      columnFields.forEach(colField => {
-        let colValue = row[colField] || '';
-        
-        // 处理时间字段，统一为北京时间日期格式
-        if (TIME_FIELDS.includes(colField)) {
-          colValue = formatTimeField(colValue);
-        } else {
-          colValue = String(colValue);
-        }
-        
-        valueFields.forEach(valueField => {
-          const valueKey = `${valueField.field}_${valueField.aggregation}`;
-          if (!groupRow[colValue]) {
-            groupRow[colValue] = 0;
-          }
-          groupRow[colValue] += Number(row[valueKey] || 0);
-        });
-      });
-    });
-    
-    // 转换为数组并计算总计
-    const rows = Array.from(groupedData.values()).map((row, index) => {
-      const newRow = { ...row, key: `row-${index}` };
-      
-      // 计算行总计
-      let rowTotal = 0;
-      uniqueColumnValues.forEach(colValue => {
-        rowTotal += Number(newRow[colValue] || 0);
-      });
-      newRow['总计'] = rowTotal;
-      
-      return newRow;
-    });
-    
-    // 计算列总计
-    const totals: any = {};
-    rowFields.forEach(field => {
-      totals[field] = '总计';
-    });
-    
-    uniqueColumnValues.forEach(colValue => {
-      let colTotal = 0;
-      rows.forEach(row => {
-        colTotal += Number(row[colValue] || 0);
-      });
-      totals[colValue] = colTotal;
-    });
-    
-    // 计算总计
-    let grandTotal = 0;
-    rows.forEach(row => {
-      grandTotal += Number(row['总计'] || 0);
-    });
-    totals['总计'] = grandTotal;
-    
-    const summary = {
-      totalRows: rows.length,
-      totalColumns: headers.length,
-      totalValue: grandTotal
-    };
-    
-    return { headers, rows, totals, summary };
-  };
-
-  // 构建多层级透视表（多行表头）
+  // 构建统一的多层级透视表（支持单列和多列字段）
   const buildMultiLevelPivotTable = (backendResult: any[], config: PivotConfig): PivotResult => {
+    
+    
+    
     const rowFields = config.rowFields || [];
     const columnFields = config.columnFields || [];
     const valueFields = config.valueFields || [];
-    // 检查是否有足够的列字段
-    if (columnFields.length < 2) {
-      console.warn('⚠️ 多层级透视表需要至少2个列字段');
-      return buildSimpleTableFormat(backendResult);
+    
+    
+    
+    
+    // 检查是否有列字段
+    if (columnFields.length === 0) {
+      return buildSimpleTableFormat(backendResult, config);
     }
     
     // 构建多层级列结构
     const columnStructure = new Map<string, Map<string, Set<string>>>();
     
-    backendResult.forEach(row => {
-      const level1Value = formatFieldValue(row[columnFields[0]]);
-      const level2Value = formatFieldValue(row[columnFields[1]]);
+    
+    backendResult.forEach((row, rowIndex) => {
       
-      if (!columnStructure.has(level1Value)) {
-        columnStructure.set(level1Value, new Map());
+      
+      if (columnFields.length === 1) {
+        // 单列字段情况
+        const level1Value = formatFieldValue(row[columnFields[0]]);
+        const maskedLevel1Value = maskSensitiveData(level1Value, columnFields[0]);
+        
+        
+        if (!columnStructure.has(maskedLevel1Value)) {
+          columnStructure.set(maskedLevel1Value, new Map());
+          
+        }
+        
+        // 为单列字段创建一个虚拟的二级列
+        const level1Map = columnStructure.get(maskedLevel1Value)!;
+        if (!level1Map.has(maskedLevel1Value)) {
+          level1Map.set(maskedLevel1Value, new Set());
+          
+        }
+        
+        level1Map.get(maskedLevel1Value)!.add(maskedLevel1Value);
+      } else {
+        // 多列字段情况
+        const level1Value = formatFieldValue(row[columnFields[0]]);
+        const level2Value = formatFieldValue(row[columnFields[1]]);
+        
+        // 对敏感字段进行脱敏处理
+        const maskedLevel1Value = maskSensitiveData(level1Value, columnFields[0]);
+        const maskedLevel2Value = maskSensitiveData(level2Value, columnFields[1]);
+        
+        
+        
+        if (!columnStructure.has(maskedLevel1Value)) {
+          columnStructure.set(maskedLevel1Value, new Map());
+          
+        }
+        
+        const level1Map = columnStructure.get(maskedLevel1Value)!;
+        if (!level1Map.has(maskedLevel2Value)) {
+          level1Map.set(maskedLevel2Value, new Set());
+          
+        }
+        
+        level1Map.get(maskedLevel2Value)!.add(maskedLevel2Value);
       }
-      
-      const level1Map = columnStructure.get(level1Value)!;
-      if (!level1Map.has(level2Value)) {
-        level1Map.set(level2Value, new Set());
-      }
-      
-      level1Map.get(level2Value)!.add(level2Value);
     });
+    
+    
     
     // 构建多行表头
     const headerRows: string[][] = [];
     const uniqueLevel1Values = Array.from(columnStructure.keys()).sort();
     const uniqueLevel2Values = new Set<string>();
     
+    
+    
     // 第一行表头：第一层级
     const firstRow = [...rowFields];
     uniqueLevel1Values.forEach(level1Value => {
       const level2Count = columnStructure.get(level1Value)!.size;
+      
       // 合并单元格，跨度为第二层级的数量
       for (let i = 0; i < level2Count; i++) {
         firstRow.push(level1Value);
@@ -665,11 +600,14 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     firstRow.push('总计');
     headerRows.push(firstRow);
     
+    
+    
     // 第二行表头：第二层级
     const secondRow = rowFields.map(() => ''); // 行字段部分留空
     uniqueLevel1Values.forEach(level1Value => {
       const level2Map = columnStructure.get(level1Value)!;
       const level2Values = Array.from(level2Map.keys()).sort();
+      
       level2Values.forEach(level2Value => {
         secondRow.push(level2Value);
         uniqueLevel2Values.add(level2Value);
@@ -678,54 +616,103 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     secondRow.push(''); // 总计列留空
     headerRows.push(secondRow);
     
+    
     // 构建数据行
     const groupedData = new Map<string, any>();
     
-    backendResult.forEach(row => {
-      const rowKey = rowFields.map(field => formatFieldValue(row[field])).join('|');
-      const level1Value = formatFieldValue(row[columnFields[0]]);
-      const level2Value = formatFieldValue(row[columnFields[1]]);
+    backendResult.forEach((row, rowIndex) => {
+      
+      const rowKey = rowFields.map(field => {
+        const value = formatFieldValue(row[field]);
+        return maskSensitiveData(value, field);
+      }).join('|');
+      
+      let maskedLevel1Value: string;
+      let maskedLevel2Value: string;
+      
+      if (columnFields.length === 1) {
+        // 单列字段情况
+        const level1Value = formatFieldValue(row[columnFields[0]]);
+        maskedLevel1Value = maskSensitiveData(level1Value, columnFields[0]);
+        maskedLevel2Value = maskedLevel1Value; // 虚拟二级列
+      } else {
+        // 多列字段情况
+        const level1Value = formatFieldValue(row[columnFields[0]]);
+        const level2Value = formatFieldValue(row[columnFields[1]]);
+        
+        // 对敏感字段进行脱敏处理
+        maskedLevel1Value = maskSensitiveData(level1Value, columnFields[0]);
+        maskedLevel2Value = maskSensitiveData(level2Value, columnFields[1]);
+      }
+      
       
       if (!groupedData.has(rowKey)) {
         groupedData.set(rowKey, {
           key: rowKey,
           ...rowFields.reduce((acc, field) => {
-            acc[field] = formatFieldValue(row[field]);
+            const value = formatFieldValue(row[field]);
+            acc[field] = maskSensitiveData(value, field);
             return acc;
           }, {} as any)
         });
       }
       
       const groupRow = groupedData.get(rowKey);
-      const columnKey = `${level1Value}_${level2Value}`;
+      
+      // 对于单列字段，直接使用列值作为键；对于多列字段，使用组合键
+      let columnKey: string;
+      if (columnFields.length === 1) {
+        columnKey = maskedLevel1Value; // 单列字段直接使用列值
+      } else {
+        columnKey = `${maskedLevel1Value}_${maskedLevel2Value}`; // 多列字段使用组合键
+      }
+      
       
       valueFields.forEach(valueField => {
         const valueKey = `${valueField.field}_${valueField.aggregation}`;
+        
         if (!groupRow[columnKey]) {
           groupRow[columnKey] = 0;
         }
+        const oldValue = groupRow[columnKey];
         groupRow[columnKey] += Number(row[valueKey] || 0);
       });
     });
     
+    
     // 转换为数组并计算总计
     const rows = Array.from(groupedData.values()).map((row, index) => {
       const newRow = { ...row, key: `row-${index}` };
-      
-      // 计算行总计
-      let rowTotal = 0;
-      uniqueLevel1Values.forEach(level1Value => {
-        const level2Map = columnStructure.get(level1Value)!;
-        const level2Values = Array.from(level2Map.keys()).sort();
-        level2Values.forEach(level2Value => {
-          const columnKey = `${level1Value}_${level2Value}`;
-          rowTotal += Number(newRow[columnKey] || 0);
-        });
-      });
-      newRow['总计'] = rowTotal;
-      
       return newRow;
     });
+
+    // === 修复：补齐所有列键并重新计算每行总计 ===
+    const allColumnKeys: string[] = [];
+    uniqueLevel1Values.forEach(level1Value => {
+      const level2Map = columnStructure.get(level1Value)!;
+      const level2Values = Array.from(level2Map.keys()).sort();
+      level2Values.forEach(level2Value => {
+        let columnKey: string;
+        if (columnFields.length === 1) {
+          columnKey = level1Value;
+        } else {
+          columnKey = `${level1Value}_${level2Value}`;
+        }
+        allColumnKeys.push(columnKey);
+      });
+    });
+    rows.forEach(row => {
+      // 补齐所有列键
+      allColumnKeys.forEach(key => {
+        if (!(key in row)) {
+          row[key] = 0;
+        }
+      });
+      // 重新计算行总计
+      row['总计'] = allColumnKeys.reduce((sum, key) => sum + Number(row[key] || 0), 0);
+    });
+    // === END 修复 ===
+    
     
     // 计算列总计
     const totals: any = {};
@@ -733,19 +720,51 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       totals[field] = '总计';
     });
     
-    uniqueLevel1Values.forEach(level1Value => {
-      const level2Map = columnStructure.get(level1Value)!;
-      const level2Values = Array.from(level2Map.keys()).sort();
-      level2Values.forEach(level2Value => {
-        const columnKey = `${level1Value}_${level2Value}`;
-        let colTotal = 0;
-        rows.forEach(row => {
-          colTotal += Number(row[columnKey] || 0);
+    // 为每个值字段计算列总计
+    valueFields.forEach(valueField => {
+      uniqueLevel1Values.forEach(level1Value => {
+        const level2Map = columnStructure.get(level1Value)!;
+        const level2Values = Array.from(level2Map.keys()).sort();
+        level2Values.forEach(level2Value => {
+          let columnKey: string;
+          if (columnFields.length === 1) {
+            columnKey = level1Value;
+          } else {
+            columnKey = `${level1Value}_${level2Value}`;
+          }
+          const columnValues = rows.map(row => row[columnKey]).filter(val => val !== null && val !== undefined);
+          const numericValues = columnValues.filter(val => !isNaN(Number(val)));
+          let colTotal: number;
+          if (numericValues.length > 0) {
+            switch (valueField.aggregation) {
+              case 'sum':
+                colTotal = numericValues.reduce((sum, val) => sum + Number(val), 0);
+                break;
+              case 'avg':
+                colTotal = numericValues.reduce((sum, val) => sum + Number(val), 0) / numericValues.length;
+                break;
+              case 'max':
+                colTotal = Math.max(...numericValues.map(val => Number(val)));
+                break;
+              case 'min':
+                colTotal = Math.min(...numericValues.map(val => Number(val)));
+                break;
+              case 'count':
+                colTotal = numericValues.reduce((sum, val) => sum + Number(val), 0);
+                break;
+              case 'count_distinct':
+                colTotal = new Set(columnValues).size;
+                break;
+              default:
+                colTotal = numericValues.reduce((sum, val) => sum + Number(val), 0);
+            }
+          } else {
+            colTotal = 0;
+          }
+          totals[columnKey] = colTotal;
         });
-        totals[columnKey] = colTotal;
       });
     });
-    
     // 计算总计
     let grandTotal = 0;
     rows.forEach(row => {
@@ -760,19 +779,21 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     };
     
     
-    return { 
+    const result = { 
       headers: headerRows[0], // 保持兼容性，使用第一行作为headers
       headerRows, // 新增：多行表头
       rows, 
       totals, 
       summary 
     };
+    
+    return result;
   };
 
   // 格式化字段值的辅助函数
   const formatFieldValue = (value: any): string => {
     if (value === null || value === undefined) {
-      return '';
+      return 'null';
     }
     
     // 处理时间字段，统一为北京时间日期格式
@@ -781,6 +802,35 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     }
     
     return String(value);
+  };
+
+  // 脱敏处理函数
+  const maskSensitiveData = (value: any, fieldName: string): string => {
+    
+    if (value === null || value === undefined) {
+      return 'null';
+    }
+    
+    const stringValue = String(value);
+    
+    // 只针对特定字段进行脱敏
+    if (fieldName === 'leads.phone' || fieldName === 'phone') {
+      if (stringValue.length >= 7) {
+        const maskedValue = stringValue.substring(0, 3) + '*'.repeat(stringValue.length - 7) + stringValue.substring(stringValue.length - 4);
+        return maskedValue;
+      }
+      return stringValue;
+    }
+    
+    if (fieldName === 'leads.wechat' || fieldName === 'wechat') {
+      if (stringValue.length >= 4) {
+        const maskedValue = stringValue.substring(0, 2) + '*'.repeat(stringValue.length - 4) + stringValue.substring(stringValue.length - 2);
+        return maskedValue;
+      }
+      return stringValue;
+    }
+    
+    return stringValue;
   };
 
   // 拖拽处理函数
@@ -959,6 +1009,11 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
   // 保存透视表配置
   const savePivotConfig = async (config: PivotConfig) => {
     try {
+      if (!user) {
+        message.error('用户信息获取失败');
+        return null;
+      }
+      
       const { data, error } = await supabase
         .from('bi_pivot_configs')
         .insert([{
@@ -966,7 +1021,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
           description: config.description,
           config: config,
           data_source: 'joined_data',
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          created_by: user.id
         }])
         .select();
 
@@ -983,7 +1038,6 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       loadPivotConfigs();
       return data?.[0]?.id;
     } catch (error) {
-      console.error('保存配置失败:', error);
       message.error('保存配置失败');
     }
   };
@@ -1009,7 +1063,6 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
 
       setPivotConfigs(data || []);
     } catch (error) {
-      console.error('加载配置失败:', error);
       message.error('加载配置失败');
     }
   };
@@ -1034,7 +1087,6 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       message.success('配置删除成功');
       loadPivotConfigs();
     } catch (error) {
-      console.error('删除配置失败:', error);
       message.error('删除配置失败');
     }
   };
@@ -1066,133 +1118,266 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     };
   }, []);
 
-  // 透视表列定义
+  // 透视表列定义 - 使用Ant Design的children功能实现多行表头
   const pivotColumns = useMemo(() => {
     if (!pivotResult || !pivotResult.headers) return [];
 
-    return pivotResult.headers.map((header) => ({
-      title: header,
-      dataIndex: header,
-      key: header,
-      width: currentConfig?.rowFields?.includes(header) ? 150 : 120, // 行字段列宽一些
-      fixed: currentConfig?.rowFields?.includes(header) ? ('left' as const) : undefined, // 行字段固定在左侧
-      render: (value: any, record: any) => {
-        // 检查是否为时间字段
-        const isTimeField = TIME_FIELDS.some(field => header.includes(field));
-        
-        if (isTimeField && value && value !== '0' && value !== '空值') {
-          return formatTimeField(value);
-        }
-        
-        // 总计行特殊处理
-        if (record.key === 'totals') {
-          return typeof value === 'number' ? value.toLocaleString() : value;
-        }
-        
-        // 行字段特殊处理
-        if (currentConfig?.rowFields?.includes(header)) {
-          return (
-            <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
-              {typeof value === 'number' ? value.toLocaleString() : value}
-            </span>
-          );
-        }
-        
-        // 列维度值特殊处理（透视表格式）
-        if (currentConfig && currentConfig.columnFields && currentConfig.columnFields.length > 0) {
-          const isColumnValue = !currentConfig.rowFields.includes(header) && header !== '总计';
-          if (isColumnValue) {
+    const rowFields = currentConfig?.rowFields || [];
+    const columnFields = currentConfig?.columnFields || [];
+    
+    // 构建列定义
+    const columns: any[] = [];
+    
+    // 添加行字段列
+    rowFields.forEach(field => {
+      columns.push({
+        title: field,
+        dataIndex: field,
+        key: field,
+        width: 150,
+        fixed: 'left' as const,
+        render: (value: any, record: any) => {
+          
+          // 处理空值，但保留"null"字符串
+          if (value === null || value === undefined) {
+            return '';
+          }
+          
+          // 如果是"null"字符串，直接显示
+          if (value === 'null') {
+            return 'null';
+          }
+          
+          // 总计行特殊处理 - 优先处理，避免被时间格式化
+          if (record.key === 'totals') {
+            // 如果是行字段且值为"总计"，直接显示
+            if (value === '总计') {
+              return '总计';
+            }
             return typeof value === 'number' ? value.toLocaleString() : value;
           }
+          
+          // 检查是否为时间字段
+          const isTimeField = TIME_FIELDS.some(timeField => field.includes(timeField));
+          if (isTimeField && value && value !== '0' && value !== '空值') {
+            const formattedValue = formatTimeField(value);
+            return formattedValue;
+          }
+          
+          const finalValue = typeof value === 'number' ? value.toLocaleString() : value;
+          return finalValue;
+        }
+      });
+    });
+    
+    // 如果有列字段，使用children构建多层级表头
+    if (columnFields.length > 0 && pivotResult.headerRows && pivotResult.headerRows.length > 1) {
+      
+      // 检查是否为真正的多层级（多列字段）
+      const isMultiLevel = columnFields.length > 1;
+      
+      if (isMultiLevel) {
+        // 真正的多层级表头
+        
+        // 使用headerRows来构建多层级表头
+        const headerRows = pivotResult.headerRows;
+        const firstRow = headerRows[0];
+        const secondRow = headerRows[1];
+        
+        // 跳过行字段列，处理数据列
+        const dataColumns = firstRow.slice(rowFields.length, -1); // 排除行字段和总计列
+        const dataColumnHeaders = secondRow.slice(rowFields.length, -1); // 排除行字段和总计列
+        
+        // 构建多层级列结构
+        const columnStructure = new Map<string, Set<string>>();
+        
+        for (let i = 0; i < dataColumns.length; i++) {
+          const level1Value = dataColumns[i];
+          const level2Value = dataColumnHeaders[i];
+          
+          
+          if (!columnStructure.has(level1Value)) {
+            columnStructure.set(level1Value, new Set());
+          }
+          columnStructure.get(level1Value)!.add(level2Value);
         }
         
-        // 值字段特殊处理
-        if (currentConfig?.valueFields?.some(vf => vf.field === header)) {
-          return (
-            <span style={{ fontWeight: 'bold', color: '#52c41a' }}>
-              {typeof value === 'number' ? value.toLocaleString() : value}
-            </span>
-          );
-        }
         
-        return typeof value === 'number' ? value.toLocaleString() : value;
+        // 构建多层级表头
+        const uniqueLevel1Values = Array.from(columnStructure.keys()).sort();
+        
+        uniqueLevel1Values.forEach(level1Value => {
+          const level2Values = Array.from(columnStructure.get(level1Value) || []).sort();
+          
+          if (level2Values.length === 1) {
+            // 只有一个子列，直接添加
+            const level2Value = level2Values[0];
+            const columnKey = `${level1Value}_${level2Value}`; // 多列字段使用组合键
+            
+            columns.push({
+              title: level1Value,
+              dataIndex: columnKey,
+              key: columnKey,
+              width: 120,
+              render: (value: any, record: any) => {
+                if (value === null || value === undefined) {
+                  return '';
+                }
+                const result = typeof value === 'number' ? value.toLocaleString() : value;  
+                return result;
+              }
+            });
+          } else {
+            // 多个子列，使用children
+            const children = level2Values.map(level2Value => {
+              const columnKey = `${level1Value}_${level2Value}`; // 多列字段使用组合键
+              
+              return {
+                title: level2Value,
+                dataIndex: columnKey,
+                key: columnKey,
+                width: 120,
+                render: (value: any, record: any) => {
+                  if (value === null || value === undefined) {
+                    return '';
+                  }
+                  const result = typeof value === 'number' ? value.toLocaleString() : value;
+                  return result;
+                }
+              };
+            });
+            
+            columns.push({
+              title: level1Value,
+              children: children
+            });
+          }
+        });
+      } else {
+        // 单列字段，使用单行表头逻辑
+        const uniqueColumnValues = pivotResult.headers.filter(header => 
+          !rowFields.includes(header) && header !== '总计'
+        );
+        
+        uniqueColumnValues.forEach(colValue => {
+          columns.push({
+            title: colValue,
+            dataIndex: colValue,
+            key: colValue,
+            width: 120,
+            render: (value: any, record: any) => {
+              if (value === null || value === undefined) {
+                return '';
+              }
+              const result = typeof value === 'number' ? value.toLocaleString() : value;
+              return result;
+            }
+          });
+        });
       }
-    }));
+    } else {
+      // 单列字段，直接添加所有唯一值
+      const uniqueColumnValues = pivotResult.headers.filter(header => 
+        !rowFields.includes(header) && header !== '总计'
+      );
+      
+      uniqueColumnValues.forEach(colValue => {
+        columns.push({
+          title: colValue,
+          dataIndex: colValue,
+          key: colValue,
+          width: 120,
+          render: (value: any, record: any) => {
+            if (value === null || value === undefined) {
+              return '';
+            }
+            const result = typeof value === 'number' ? value.toLocaleString() : value;
+            return result;
+          }
+        });
+      });
+    }
+    
+    // 添加总计列
+    columns.push({
+      title: '总计',
+      dataIndex: '总计',
+      key: '总计',
+      width: 120,
+      fixed: 'right' as const,
+      render: (_: any, record: any) => {
+        // 直接返回每行的合计值，避免 value 取值异常
+        return record['总计'];
+      }
+    });
+    
+    return columns;
   }, [pivotResult, currentConfig]);
 
-    // 多行表头渲染组件
-  const renderMultiLevelHeaders = () => {
-    if (!pivotResult?.headerRows || pivotResult.headerRows.length <= 1) {
-      return null;
-    }
 
-    return (
-      <div className="multi-level-headers">
-        <table>
-          <thead>
-            {pivotResult.headerRows.map((headerRow, rowIndex) => (
-              <tr key={rowIndex}>
-                {headerRow.map((cell, cellIndex) => {
-                  // 计算单元格的colspan和rowspan
-                  let colspan = 1;
-                  let rowspan = 1;
-                  
-                  // 如果是行字段列，需要跨行
-                  if (cellIndex < (currentConfig?.rowFields?.length || 0)) {
-                    rowspan = pivotResult.headerRows?.length || 1;
-                  }
-                  
-                  // 如果是第一行且是多层级列字段，计算合并
-                  if (rowIndex === 0 && cellIndex >= (currentConfig?.rowFields?.length || 0)) {
-                    const columnFields = currentConfig?.columnFields || [];
-                    if (columnFields.length > 1) {
-                      // 简化处理：根据列字段数量计算合并
-                      const totalDataColumns = headerRow.length - (currentConfig?.rowFields?.length || 0) - 1; // 减去行字段和总计列
-                      const level1Count = columnFields.length > 0 ? 2 : 1; // 假设有2个层级
-                      
-                      if (level1Count > 0) {
-                        colspan = Math.ceil(totalDataColumns / level1Count);
-                      }
-                    }
-                  }
-                  
-                  return (
-                    <th 
-                      key={cellIndex}
-                      colSpan={colspan}
-                      rowSpan={rowspan}
-                    >
-                      {cell}
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
-        </table>
-      </div>
-    );
-  };
 
   // 透视表数据源
   const pivotDataSource = useMemo(() => {
     if (!pivotResult) return [];
 
-    const dataSource = pivotResult.rows.map((row, index) => ({
-      key: `row-${index}`,
-      ...row
-    }));
+    const dataSource = pivotResult.rows.map((row, index) => {
+      
+      // 如果行中已经有总计值，直接使用；否则计算总计值
+      let rowTotal = row['总计'];
+      if (rowTotal === undefined || rowTotal === null) {
+        rowTotal = 0;
+        if (currentConfig?.valueFields) {
+          currentConfig.valueFields.forEach(valueField => {
+            // 修正：从后端结果中获取值字段时，使用 field_aggregation 格式的键
+            const valueKey = `${valueField.field}_${valueField.aggregation}`;
+            const value = row[valueKey];
+            if (value !== undefined && value !== null) {
+              const numValue = Number(value);
+              if (!isNaN(numValue)) {
+                rowTotal += numValue;
+              }
+            }
+          });
+        }
+      }
+      
+      return {
+        key: `row-${index}`,
+        ...row,
+        总计: rowTotal
+      };
+    });
 
     // 添加总计行
     if (pivotResult.totals && Object.keys(pivotResult.totals).length > 0) {
-      dataSource.push({
+      
+      // 计算总计行的总计值
+      let grandTotal = 0;
+      if (currentConfig?.valueFields) {
+        currentConfig.valueFields.forEach(valueField => {
+          // 修正：从 pivotResult.totals 中获取值字段时，使用 field_aggregation 格式的键
+          const valueKey = `${valueField.field}_${valueField.aggregation}`;
+          const value = pivotResult.totals[valueKey];
+          if (value !== undefined && value !== null) {
+            const numValue = Number(value);
+            if (!isNaN(numValue)) {
+              grandTotal += numValue;
+            }
+          }
+        });
+      }
+      
+      const totalsRow = {
         key: 'totals',
-        ...pivotResult.totals
-      });
+        ...pivotResult.totals,
+        总计: grandTotal
+      };
+      
+      dataSource.push(totalsRow);
     }
 
     return dataSource;
-  }, [pivotResult]);
+  }, [pivotResult, currentConfig]);
 
   // 透视表滚动配置
   const pivotTableScroll = useMemo(() => {
@@ -1293,7 +1478,6 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
                         handleConfigFieldDrop(dragData, area, index);
                       }
                     } catch (error) {
-                      console.error('拖拽数据处理错误:', error);
                     }
                   }}
                   style={{ 
@@ -1392,60 +1576,180 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       // 构建制表符分隔的数据（Excel兼容格式）
       let tsvContent = '';
       
-      // 如果有多行表头，先添加表头
-      if (pivotResult.headerRows && pivotResult.headerRows.length > 1) {
-        pivotResult.headerRows.forEach(headerRow => {
+      // 统一处理：检查是否为真正的多层级表头
+      const hasHeaderRows = pivotResult.headerRows && pivotResult.headerRows.length > 0;
+      const isMultiLevel = currentConfig?.columnFields && currentConfig.columnFields.length > 1;
+      
+      // 添加表头
+      if (hasHeaderRows && pivotResult.headerRows && isMultiLevel) {
+        pivotResult.headerRows.forEach((headerRow, index) => {
           tsvContent += headerRow.map(cell => cell || '').join('\t') + '\n';
         });
       } else {
-        // 单行表头
+        // 单行表头或单列字段
         tsvContent += pivotResult.headers.map(header => header || '').join('\t') + '\n';
       }
       
-      // 添加数据行
-      pivotResult.rows.forEach(row => {
-        const rowData = pivotResult.headers.map(header => {
-          const value = row[header];
-          // 处理空值和特殊字符
-          if (value === null || value === undefined) {
-            return '';
-          }
-          const stringValue = String(value);
-          // 移除换行符，保留制表符分隔
-          return stringValue.replace(/\n/g, ' ').replace(/\r/g, '');
+      // 统一处理数据行
+      pivotResult.rows.forEach((row, rowIndex) => {
+        
+        const rowData: string[] = [];
+        const rowFields = currentConfig?.rowFields || [];
+        
+        // 添加行字段列
+        rowFields.forEach(field => {
+          const value = row[field];
+          rowData.push(value === null || value === undefined ? '' : String(value));
         });
+        
+        // 添加数据列
+        if (hasHeaderRows && pivotResult.headerRows && pivotResult.headerRows.length > 1 && isMultiLevel) {
+          // 真正的多行表头情况：根据表头结构构建数据
+          const firstRow = pivotResult.headerRows[0];
+          const secondRow = pivotResult.headerRows[1];
+          const dataColumns = firstRow.slice(rowFields.length, -1); // 排除行字段和总计列
+          const dataColumnHeaders = secondRow.slice(rowFields.length, -1); // 排除行字段和总计列
+          
+          
+          for (let i = 0; i < dataColumns.length; i++) {
+            const level1Value = dataColumns[i];
+            const level2Value = dataColumnHeaders[i];
+            
+            // 多列字段使用组合键
+            const columnKey = `${level1Value}_${level2Value}`;
+            
+            const value = row[columnKey];
+            rowData.push(value === null || value === undefined ? '' : String(value));
+          }
+        } else {
+          // 单行表头或单列字段情况：直接使用列名
+          const dataHeaders = pivotResult.headers.filter(header => 
+            !rowFields.includes(header) && header !== '总计'
+          );
+          
+          dataHeaders.forEach(header => {
+            const value = row[header];
+            // 处理空值和特殊字符
+            if (value === null || value === undefined) {
+              rowData.push('');
+            } else {
+              const stringValue = String(value);
+              // 移除换行符，保留制表符分隔
+              rowData.push(stringValue.replace(/\n/g, ' ').replace(/\r/g, ''));
+            }
+          });
+        }
+        
+        // 添加总计列
+        const totalValue = row['总计'];
+        rowData.push(totalValue === null || totalValue === undefined ? '' : String(totalValue));
+        
         tsvContent += rowData.join('\t') + '\n';
       });
       
-      // 添加总计行
+      // 统一处理总计行
       if (pivotResult.totals && Object.keys(pivotResult.totals).length > 0) {
-        const totalsData = pivotResult.headers.map(header => {
-          const value = pivotResult.totals[header];
-          if (value === null || value === undefined) {
-            return '';
-          }
-          const stringValue = String(value);
-          return stringValue.replace(/\n/g, ' ').replace(/\r/g, '');
+        
+        const totalsData: string[] = [];
+        const rowFields = currentConfig?.rowFields || [];
+        
+        // 添加行字段列的总计
+        rowFields.forEach(field => {
+          const value = pivotResult.totals[field];
+          totalsData.push(value === null || value === undefined ? '' : String(value));
         });
+        
+                // 添加数据列的总计
+        if (hasHeaderRows && pivotResult.headerRows && pivotResult.headerRows.length > 1 && isMultiLevel) {
+          // 真正的多行表头情况
+          const firstRow = pivotResult.headerRows[0];
+          const secondRow = pivotResult.headerRows[1];
+          const dataColumns = firstRow.slice(rowFields.length, -1);
+          const dataColumnHeaders = secondRow.slice(rowFields.length, -1);
+         
+          for (let i = 0; i < dataColumns.length; i++) {
+            const level1Value = dataColumns[i];
+            const level2Value = dataColumnHeaders[i];
+            
+            // 多列字段使用组合键
+            const columnKey = `${level1Value}_${level2Value}`;
+            
+            const value = pivotResult.totals[columnKey];
+            totalsData.push(value === null || value === undefined ? '' : String(value));
+          }
+        } else {
+          // 单行表头或单列字段情况
+          const dataHeaders = pivotResult.headers.filter(header => 
+            !rowFields.includes(header) && header !== '总计'
+          );
+          
+          dataHeaders.forEach(header => {
+            const value = pivotResult.totals[header];
+            if (value === null || value === undefined) {
+              totalsData.push('');
+            } else {
+              const stringValue = String(value);
+              totalsData.push(stringValue.replace(/\n/g, ' ').replace(/\r/g, ''));
+            }
+          });
+        }
+        
+        // 添加总计列的总计
+        const grandTotal = pivotResult.totals['总计'];
+        totalsData.push(grandTotal === null || grandTotal === undefined ? '' : String(grandTotal));
+        
         tsvContent += totalsData.join('\t') + '\n';
       }
       
-      // 复制到剪贴板
-      navigator.clipboard.writeText(tsvContent).then(() => {
-        message.success('数据已复制到剪贴板，可直接粘贴到Excel');
-      }).catch(() => {
-        // 如果剪贴板API不可用，使用传统方法
-        const textArea = document.createElement('textarea');
-        textArea.value = tsvContent;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        message.success('数据已复制到剪贴板，可直接粘贴到Excel');
-      });
+      // 尝试使用现代Clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(tsvContent).then(() => {
+          message.success('数据已复制到剪贴板，可直接粘贴到Excel中');
+        }).catch((err) => {
+          fallbackCopyToClipboard(tsvContent);
+        });
+      } else {
+        fallbackCopyToClipboard(tsvContent);
+      }
     } catch (error) {
-      console.error('复制数据失败:', error);
-      message.error('复制数据失败');
+      message.error('复制失败，请重试');
+    }
+  };
+
+  // 安全的降级复制方案
+  const fallbackCopyToClipboard = (text: string) => {
+    try {
+      // 创建一个不可见的textarea元素
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      
+      // 设置样式，确保元素不可见且不影响布局
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      textArea.style.opacity = '0';
+      textArea.style.pointerEvents = 'none';
+      textArea.style.zIndex = '-1';
+      
+      // 添加到DOM
+      document.body.appendChild(textArea);
+      
+      // 选择文本并复制
+      textArea.focus();
+      textArea.select();
+      
+      const successful = document.execCommand('copy');
+      
+      // 立即移除元素
+      document.body.removeChild(textArea);
+      
+      if (successful) {
+        message.success('数据已复制到剪贴板，可直接粘贴到Excel');
+      } else {
+        message.error('复制失败，请手动复制数据');
+      }
+    } catch (err) {
+      message.error('复制失败，请手动复制数据');
     }
   };
 
@@ -1460,52 +1764,166 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       // 构建CSV格式的数据
       let csvContent = '';
       
-      // 如果有多行表头，先添加表头
-      if (pivotResult.headerRows && pivotResult.headerRows.length > 1) {
+      // 检查是否为真正的多层级表头（需要至少2个列字段）
+      const hasMultiLevelHeaders = currentConfig?.columnFields && currentConfig.columnFields.length > 1;
+      
+      
+      // 如果有多行表头且是多层级，先添加表头
+      if (pivotResult.headerRows && pivotResult.headerRows.length > 1 && hasMultiLevelHeaders) {
         pivotResult.headerRows.forEach(headerRow => {
           csvContent += headerRow.map(cell => `"${cell}"`).join(',') + '\n';
         });
       } else {
-        // 单行表头
+        // 单行表头或单列字段
         csvContent += pivotResult.headers.map(header => `"${header}"`).join(',') + '\n';
       }
       
       // 添加数据行
       pivotResult.rows.forEach(row => {
-        const rowData = pivotResult.headers.map(header => {
-          const value = row[header];
-          // 处理包含逗号、引号或换行符的值
-          if (value === null || value === undefined) {
-            return '""';
+        // 检查是否为真正的多层级表头
+        const hasMultiLevelHeaders = currentConfig?.columnFields && currentConfig.columnFields.length > 1;
+        
+        if (pivotResult.headerRows && pivotResult.headerRows.length > 1 && hasMultiLevelHeaders) {
+          // 多层级透视表的数据行处理
+          const rowData: string[] = [];
+          
+          // 添加行字段列
+          const rowFields = currentConfig?.rowFields || [];
+          rowFields.forEach(field => {
+            const value = row[field];
+            rowData.push(value === null || value === undefined ? '""' : `"${String(value)}"`);
+          });
+          
+          // 添加数据列
+          const firstRow = pivotResult.headerRows[0];
+          const secondRow = pivotResult.headerRows[1];
+          const dataColumns = firstRow.slice(rowFields.length, -1);
+          const dataColumnHeaders = secondRow.slice(rowFields.length, -1);
+          
+          for (let i = 0; i < dataColumns.length; i++) {
+            const level1Value = dataColumns[i];
+            const level2Value = dataColumnHeaders[i];
+            const columnKey = `${level1Value}_${level2Value}`;
+            
+            const value = row[columnKey];
+            if (value === null || value === undefined) {
+              rowData.push('""');
+            } else {
+              const stringValue = String(value);
+              rowData.push(`"${stringValue}"`);
+            }
           }
-          const stringValue = String(value);
-          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-            return `"${stringValue.replace(/"/g, '""')}"`;
-          }
-          return `"${stringValue}"`;
-        });
-        csvContent += rowData.join(',') + '\n';
+          
+          // 添加总计列
+          const totalValue = row['总计'];
+          rowData.push(totalValue === null || totalValue === undefined ? '""' : `"${String(totalValue)}"`);
+          
+          csvContent += rowData.join(',') + '\n';
+        } else {
+          // 单层级透视表或单列字段的数据行处理
+          const rowData: string[] = [];
+          
+          // 添加行字段列
+          const rowFields = currentConfig?.rowFields || [];
+          rowFields.forEach(field => {
+            const value = row[field];
+            rowData.push(value === null || value === undefined ? '""' : `"${String(value)}"`);
+          });
+          
+          // 添加数据列（排除行字段和总计列）
+          const dataHeaders = pivotResult.headers.filter(header => 
+            !rowFields.includes(header) && header !== '总计'
+          );
+          
+          dataHeaders.forEach(header => {
+            const value = row[header];
+            if (value === null || value === undefined) {
+              rowData.push('""');
+            } else {
+              const stringValue = String(value);
+              rowData.push(`"${stringValue}"`);
+            }
+          });
+          
+          // 添加总计列
+          const totalValue = row['总计'];
+          rowData.push(totalValue === null || totalValue === undefined ? '""' : `"${String(totalValue)}"`);
+          
+          csvContent += rowData.join(',') + '\n';
+        }
       });
       
       // 添加总计行
       if (pivotResult.totals && Object.keys(pivotResult.totals).length > 0) {
-        const totalsData = pivotResult.headers.map(header => {
-          const value = pivotResult.totals[header];
-          if (value === null || value === undefined) {
-            return '""';
+        const hasMultiLevelHeaders = currentConfig?.columnFields && currentConfig.columnFields.length > 1;
+        
+        if (pivotResult.headerRows && pivotResult.headerRows.length > 1 && hasMultiLevelHeaders) {
+          // 多层级透视表的总计行处理
+          const totalsData: string[] = [];
+          
+          // 添加行字段列的总计
+          const rowFields = currentConfig?.rowFields || [];
+          rowFields.forEach(field => {
+            const value = pivotResult.totals[field];
+            totalsData.push(value === null || value === undefined ? '""' : `"${String(value)}"`);
+          });
+          
+          // 添加数据列的总计
+          const firstRow = pivotResult.headerRows[0];
+          const secondRow = pivotResult.headerRows[1];
+          const dataColumns = firstRow.slice(rowFields.length, -1);
+          const dataColumnHeaders = secondRow.slice(rowFields.length, -1);
+          
+          for (let i = 0; i < dataColumns.length; i++) {
+            const level1Value = dataColumns[i];
+            const level2Value = dataColumnHeaders[i];
+            const columnKey = `${level1Value}_${level2Value}`;
+            
+            const value = pivotResult.totals[columnKey];
+            totalsData.push(value === null || value === undefined ? '""' : `"${String(value)}"`);
           }
-          const stringValue = String(value);
-          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-            return `"${stringValue.replace(/"/g, '""')}"`;
-          }
-          return `"${stringValue}"`;
-        });
-        csvContent += totalsData.join(',') + '\n';
+          
+          // 添加总计列的总计
+          const grandTotal = pivotResult.totals['总计'];
+          totalsData.push(grandTotal === null || grandTotal === undefined ? '""' : `"${String(grandTotal)}"`);
+          
+          csvContent += totalsData.join(',') + '\n';
+        } else {
+          // 单层级透视表的总计行处理
+          const totalsData: string[] = [];
+          
+          // 添加行字段列的总计
+          const rowFields = currentConfig?.rowFields || [];
+          rowFields.forEach(field => {
+            const value = pivotResult.totals[field];
+            totalsData.push(value === null || value === undefined ? '""' : `"${String(value)}"`);
+          });
+          
+          // 添加数据列的总计（排除行字段和总计列）
+          const dataHeaders = pivotResult.headers.filter(header => 
+            !rowFields.includes(header) && header !== '总计'
+          );
+          
+          dataHeaders.forEach(header => {
+            const value = pivotResult.totals[header];
+            if (value === null || value === undefined) {
+              totalsData.push('""');
+            } else {
+              const stringValue = String(value);
+              totalsData.push(`"${stringValue}"`);
+            }
+          });
+          
+          // 添加总计列的总计
+          const grandTotal = pivotResult.totals['总计'];
+          totalsData.push(grandTotal === null || grandTotal === undefined ? '""' : `"${String(grandTotal)}"`);
+          
+          csvContent += totalsData.join(',') + '\n';
+        }
       }
       
       // 创建下载链接
       const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       
       // 生成文件名
@@ -1513,19 +1931,47 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       const configName = currentConfig?.name || 'pivot_data';
       const fileName = `${configName}_${timestamp}.csv`;
       
-      link.setAttribute('href', url);
-      link.setAttribute('download', fileName);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // 使用更安全的下载方式
+      safeDownloadFile(url, fileName);
       
       message.success('数据已下载为CSV文件');
     } catch (error) {
-      console.error('下载数据失败:', error);
       message.error('下载数据失败');
     }
   };
+
+  // 安全的文件下载函数
+  const safeDownloadFile = (url: string, fileName: string) => {
+    try {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      
+      // 设置样式，确保元素不可见且不影响布局
+      link.style.position = 'fixed';
+      link.style.left = '-999999px';
+      link.style.top = '-999999px';
+      link.style.opacity = '0';
+      link.style.pointerEvents = 'none';
+      link.style.zIndex = '-1';
+      
+      // 添加到DOM并触发下载
+      document.body.appendChild(link);
+      link.click();
+      
+      // 立即移除元素并清理URL
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err) {
+      message.error('下载失败，请重试');
+    }
+  };
+
+  if (loading) {
+    return <LoadingScreen type="data" />;
+  }
 
   return (
     <div className="page-card">
@@ -1577,10 +2023,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
                       >
                     {pivotResult ? (
                       <div>
-                        {/* 渲染多行表头 */}
-                        {renderMultiLevelHeaders()}
-                        
-                        {/* 透视表操作按钮 */}
+                        {/* 透视表操作按钮 - 移到多行表头之前 */}
                         <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
                           <Button 
                             size="small"
@@ -1602,6 +2045,8 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
                           </Button>
                         </div>
                         
+
+                        
                         {/* 渲染数据表格 */}
                         <Table
                           columns={pivotColumns}
@@ -1611,17 +2056,13 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
                           bordered
                           className="pivot-table"
                           scroll={pivotTableScroll}
-                          showHeader={!pivotResult.headerRows || pivotResult.headerRows.length <= 1}
-
-                          summary={() => (
-                            <Table.Summary.Row>
-                              <Table.Summary.Cell index={0} colSpan={pivotColumns.length}>
-                                <div>
-                                  总计: {pivotResult?.summary?.totalRows || 0} 行数据
-                                </div>
-                              </Table.Summary.Cell>
-                            </Table.Summary.Row>
-                          )}
+                          rowClassName={(record) => {
+                            // 为总计行添加特殊样式
+                            if (record.key === 'totals') {
+                              return 'totals-row';
+                            }
+                            return '';
+                          }}
                         />
                         
                         

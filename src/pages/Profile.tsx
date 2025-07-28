@@ -1,5 +1,7 @@
-import { Form, Input, Button, message, Card, Tag, Divider, List, Typography, Space, Badge, Upload, Avatar, Modal, Tooltip, Spin } from 'antd';
+import { Form, Input, Button, message, Card, Tag, Divider, List, Typography, Space, Badge, Upload, Avatar, Modal, Tooltip } from 'antd';
+import LoadingScreen from '../components/LoadingScreen';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supaClient';
 import { useRolePermissions } from '../hooks/useRolePermissions';
 import { useAchievements } from '../hooks/useAchievements';
@@ -14,10 +16,12 @@ import {
 import ImgCrop from 'antd-img-crop';
 import imageCompression from 'browser-image-compression';
 import { useUser } from '../context/UserContext';
+import { safeSignOut } from '../utils/authUtils';
 
 const { Title, Text } = Typography;
 
 const Profile = () => {
+  const navigate = useNavigate();
   const [form] = Form.useForm();
   const [emailForm] = Form.useForm();
   const [email, setEmail] = useState('');
@@ -214,8 +218,7 @@ const Profile = () => {
       message.error(error.message);
     } else {
       message.success('密码修改成功，请重新登录');
-      await supabase.auth.signOut();
-      window.location.href = '/login';
+      await safeSignOut(navigate);
     }
   };
 
@@ -295,7 +298,7 @@ const Profile = () => {
       {/* 头像框系统 */}
       <Card title="我的头像框" style={{ marginBottom: 24 }}>
         {loadingProfile || !user ? (
-          <Spin style={{ display: 'block', margin: '60px auto' }} />
+          <LoadingScreen type="profile" />
         ) : (
           <div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -349,7 +352,7 @@ const Profile = () => {
               </div>
             </Tooltip>
             {/* 其余头像框卡片 */}
-            {avatarFrames.length === 0 && <span>暂无已解锁头像框</span>}
+            {avatarFrames.length === 0}
             {avatarFrames.map(frame => {
               // 稀有度色系与大字
               let bg = '#fff';

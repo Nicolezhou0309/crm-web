@@ -23,6 +23,7 @@ import {
 import { supabase } from '../supaClient';
 import dayjs from 'dayjs';
 import './LeadDetailDrawer.css';
+import LoadingScreen from './LoadingScreen';
 
 const { Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -256,36 +257,40 @@ const LeadDetailDrawer: React.FC<{ leadid: string }> = ({ leadid }) => {
     return colorMap[source] || 'default';
   };
 
+  if (loading) {
+    return <LoadingScreen type="data" />;
+  }
+  if (!leadData) {
+    return null;
+  }
   return (
-    <Spin spinning={loading}>
-      {leadData && (
-        <Tabs defaultActiveKey="basic" size="large">
-          {/* 基本信息 */}
-          <TabPane 
-            tab={
-              <span>
-                <UserOutlined />
-                基本信息
-              </span>
-            } 
-            key="basic"
-          >
-            <div>
-              <Card title="线索基础信息" size="small">
-                <Descriptions column={2} bordered size="small">
-                  <Descriptions.Item label="线索编号" span={2}>
-                    <Space>
-                      <Text code>{leadData.leadid}</Text>
-                      <Button 
-                        type="link" 
-                        size="small" 
-                        icon={<CopyOutlined />}
-                        onClick={() => copyToClipboard(leadData.leadid, '线索编号')}
-                      >
-                        复制
-                      </Button>
-                    </Space>
-                  </Descriptions.Item>
+    <Tabs defaultActiveKey="basic" size="large">
+      {/* 基本信息 */}
+      <TabPane 
+        tab={
+          <span>
+            <UserOutlined />
+            基本信息
+          </span>
+        } 
+        key="basic"
+      >
+        <div>
+          <Card title="线索基础信息" size="small">
+            <Descriptions column={2} bordered size="small">
+              <Descriptions.Item label="线索编号" span={2}>
+                <Space>
+                  <Text code>{leadData.leadid}</Text>
+                  <Button 
+                    type="link" 
+                    size="small" 
+                    icon={<CopyOutlined />}
+                    onClick={() => copyToClipboard(leadData.leadid, '线索编号')}
+                  >
+                    复制
+                  </Button>
+                </Space>
+              </Descriptions.Item>
                   
                   <Descriptions.Item label="手机号">
                     <Space>
@@ -651,9 +656,7 @@ const LeadDetailDrawer: React.FC<{ leadid: string }> = ({ leadid }) => {
             </div>
           </TabPane>
         </Tabs>
-      )}
-    </Spin>
-  );
-};
+    );
+  };
 
 export default LeadDetailDrawer; 

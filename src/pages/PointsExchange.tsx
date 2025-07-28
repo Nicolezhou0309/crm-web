@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { exchangePoints, filterExchangeRecords, getUserPointsInfo, getCurrentProfileId } from '../api/pointsApi';
-import { useAuth } from '../hooks/useAuth';
+import { useUser } from '../context/UserContext';
 import { Card, Button, Typography, Space, Tag, message, Row, Col, Statistic, Alert, Spin, Table } from 'antd';
 import { GiftOutlined, WalletOutlined, LoadingOutlined, CrownOutlined, UserOutlined } from '@ant-design/icons';
 import type { ColumnsType, TableProps } from 'antd/es/table';
@@ -20,11 +20,14 @@ export default function PointsExchange() {
   const [error, setError] = useState<string | null>(null);
   const [userPoints, setUserPoints] = useState<number>(0);
   const [profileId, setProfileId] = useState<number | null>(null);
-  const { user } = useAuth();
+  const { user, profile } = useUser();
 
   useEffect(() => {
-    getCurrentProfileId().then(setProfileId);
-  }, [user]);
+    // 直接使用profile中的id，避免重复查询
+    if (profile?.id) {
+      setProfileId(profile.id);
+    }
+  }, [profile]);
 
   useEffect(() => {
     if (profileId) {

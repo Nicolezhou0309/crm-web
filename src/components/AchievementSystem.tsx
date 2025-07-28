@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   Card, Row, Col, Progress, Tag, Space, Typography, Button, 
-  Avatar, Modal, Tabs, Statistic, 
-  Spin} from 'antd';
+  Avatar, Modal, Tabs, Statistic
+} from 'antd';
+import LoadingScreen from './LoadingScreen';
 import {
   TrophyOutlined, StarOutlined, FireOutlined,
   CheckCircleOutlined, UserOutlined
@@ -229,12 +230,7 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
   };
 
   if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: 40 }}>
-        <Spin size="large" />
-        <div style={{ marginTop: 16 }}>加载成就数据中...</div>
-      </div>
-    );
+    return <LoadingScreen type="data" />;
   }
 
   return (

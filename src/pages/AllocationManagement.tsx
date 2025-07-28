@@ -114,7 +114,6 @@ const AllocationManagement: React.FC = () => {
         setRules(response.data);
       }
     } catch (error) {
-      console.error('加载分配规则失败:', error);
     } finally {
       setLoading(false);
     }
@@ -163,7 +162,6 @@ const AllocationManagement: React.FC = () => {
 
       setGroupMembersCache(prev => ({...prev, ...membersByGroup}));
     } catch (error) {
-      console.error('加载销售组成员失败:', error);
       message.error('加载成员信息失败');
     }
   };
@@ -229,7 +227,6 @@ const AllocationManagement: React.FC = () => {
 
       setUserProfileCache(prev => ({ ...prev, ...newCache }));
         } catch (error) {
-      console.error('加载用户信息失败:', error);
       message.error('加载用户信息失败');
     }
   };
@@ -250,7 +247,6 @@ const AllocationManagement: React.FC = () => {
         message.error('获取分配日志失败');
       }
     } catch (error) {
-      console.error('加载分配日志失败:', error);
       message.error('加载分配日志失败');
     } finally {
       setLoading(false);
@@ -277,7 +273,6 @@ const AllocationManagement: React.FC = () => {
         setAllocationMethodOptions(allocationMethodResponse.data);
       }
     } catch (error) {
-      console.error('加载枚举选项失败:', error);
     }
   };
 
@@ -288,7 +283,6 @@ const AllocationManagement: React.FC = () => {
         setPointsCostRules(response.data);
       }
     } catch (error) {
-      console.error('加载积分成本规则失败:', error);
     }
   };
 
@@ -299,7 +293,6 @@ const AllocationManagement: React.FC = () => {
         setCommunityKeywords(response.data);
       }
     } catch (error) {
-      console.error('加载社区关键词失败:', error);
     }
   };
 
@@ -800,7 +793,6 @@ const AllocationManagement: React.FC = () => {
         message.error(response.error || '删除失败');
       }
     } catch (error) {
-      console.error('删除分配规则失败:', error);
       message.error('删除失败');
     }
   };
@@ -838,7 +830,6 @@ const AllocationManagement: React.FC = () => {
         message.error(response.error || '删除失败');
       }
     } catch (error) {
-      console.error('删除销售组失败:', error);
       message.error('删除失败');
     }
   };
@@ -881,7 +872,6 @@ const AllocationManagement: React.FC = () => {
         message.error(response.error || '删除失败');
       }
     } catch (error) {
-      console.error('删除积分成本规则失败:', error);
       message.error('删除失败');
     }
   };
@@ -912,7 +902,6 @@ const AllocationManagement: React.FC = () => {
         message.error(response.error || '保存失败');
       }
     } catch (error) {
-      console.error('保存积分成本规则失败:', error);
       message.error('保存失败，请检查JSON格式是否正确');
     }
   };
@@ -943,7 +932,6 @@ const AllocationManagement: React.FC = () => {
         message.error(`${errorMsg}${detailMsg}`);
       }
     } catch (error) {
-      console.error('[RuleModal] 保存规则失败 →', error);
       message.error(`保存失败: ${(error as Error).message}`);
     }
   };
@@ -987,7 +975,6 @@ const AllocationManagement: React.FC = () => {
         message.error('分配测试失败');
       }
     } catch (error) {
-      console.error('测试分配失败:', error);
       setTestResult({
         success: false,
         message: '测试执行异常',
@@ -1012,7 +999,6 @@ const AllocationManagement: React.FC = () => {
         .eq('status', 'active');
       setAllUsers(data || []);
     } catch (error) {
-      console.error('加载用户信息失败:', error);
     }
   };
 
@@ -1098,7 +1084,6 @@ const AllocationManagement: React.FC = () => {
       
       setTreeData(tree);
     } catch (error) {
-      console.error('加载部门树数据失败:', error);
     }
   };
 
@@ -1356,7 +1341,6 @@ const AllocationManagement: React.FC = () => {
         try {
           processingDetails = JSON.parse(processingDetails);
         } catch (e) {
-          console.warn('解析 processing_details 失败:', e);
           processingDetails = {};
         }
       }
@@ -1430,9 +1414,6 @@ const AllocationManagement: React.FC = () => {
             <Button 
               type="dashed"
               onClick={() => {
-                console.log('当前日志数据:', logData);
-                console.log('用户缓存:', userProfileCache);
-                console.log('规则数据:', rules);
                 message.info('调试信息已输出到控制台');
               }}
             >
@@ -1612,7 +1593,6 @@ const AllocationManagement: React.FC = () => {
         message.error(response.error || '删除失败');
       }
     } catch (error) {
-      console.error('删除社区关键词失败:', error);
       message.error('删除失败');
     }
   };
@@ -1636,7 +1616,6 @@ const AllocationManagement: React.FC = () => {
         message.error(response.error || '保存失败');
       }
     } catch (error) {
-      console.error('保存社区关键词失败:', error);
       message.error('保存失败');
     }
   };
@@ -1715,7 +1694,6 @@ const AllocationManagement: React.FC = () => {
                       message.error(response.error || '创建失败');
                     }
                   } catch (error) {
-                    console.error('创建规则失败:', error);
                     message.error('创建失败');
                   }
                 }}
@@ -1729,14 +1707,12 @@ const AllocationManagement: React.FC = () => {
                       message.error(response.error || '更新失败');
                     }
                   } catch (error) {
-                    console.error('更新规则失败:', error);
                     message.error('更新失败');
                   }
                 }}
                 onRulesReorder={async (reorderedRules) => {
                   // 批量更新规则优先级
                   try {
-                    console.log('收到重新排序的规则:', reorderedRules);
                     
                     // 过滤掉默认分配规则，确保其优先级始终为0
                     const nonDefaultRules = reorderedRules.filter(rule => rule.name !== '默认分配规则');
@@ -1766,7 +1742,6 @@ const AllocationManagement: React.FC = () => {
                     await Promise.all(updatePromises);
                     message.success('规则顺序已更新');
                   } catch (error) {
-                    console.error('更新规则顺序失败:', error);
                     message.error('更新顺序失败');
                     // 如果更新失败，重新加载数据
                     loadRules();
@@ -2158,11 +2133,9 @@ const AllocationManagement: React.FC = () => {
               } else {
                 const errorMsg = response.error || '保存失败';
                 const detailMsg = response.details ? ` (${response.details})` : '';
-                console.error('销售组保存失败:', response);
                 message.error(`${errorMsg}${detailMsg}`);
               }
             } catch (error) {
-              console.error('保存销售组异常:', error);
               message.error(`保存失败: ${(error as Error).message}`);
             }
           }}
@@ -2374,8 +2347,6 @@ const AllocationManagement: React.FC = () => {
               }}
               onChange={(val) => {
                 const values = Array.isArray(val) ? val : [];
-                console.log('【TreeSelect onChange】原始val:', val);
-                console.log('【TreeSelect onChange】values:', values);
                 
                 // 递归获取部门下所有成员id（字符串）
                 const getAllUsersInDept = (deptKey: string): string[] => {

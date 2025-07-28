@@ -13,7 +13,6 @@ const rules = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('获取分配规则失败:', error);
       return { success: false, error: '获取分配规则失败' };
     }
   },
@@ -29,7 +28,6 @@ const rules = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('创建分配规则失败:', error);
       return { success: false, error: '创建分配规则失败' };
     }
   },
@@ -46,7 +44,6 @@ const rules = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('更新分配规则失败:', error);
       return { success: false, error: '更新分配规则失败' };
     }
   },
@@ -61,7 +58,6 @@ const rules = {
       if (error) throw error;
       return { success: true };
     } catch (error) {
-      console.error('删除分配规则失败:', error);
       return { success: false, error: '删除分配规则失败' };
     }
   },
@@ -93,7 +89,6 @@ const rules = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('测试分配失败:', error);
       return {
         success: false,
         error: '测试分配失败',
@@ -107,31 +102,24 @@ const rules = {
 const groups = {
   getGroups: async (): Promise<AllocationApiResponse<UserGroup[]>> => {
     try {
-      console.log('获取销售组列表...');
       
       const { data, error } = await supabase
         .from('users_list')
         .select('*')
         .order('groupname');
       
-      console.log('获取销售组 - Supabase响应:', { data, error });
-      
       if (error) {
-        console.error('获取销售组 - Supabase错误:', error);
         throw error;
       }
       
-      console.log('获取销售组 - 成功，数据条数:', data?.length || 0);
       return { success: true, data };
     } catch (error) {
-      console.error('获取销售组失败:', error);
       return { success: false, error: '获取销售组失败' };
     }
   },
 
   createGroup: async (group: Partial<UserGroup>): Promise<AllocationApiResponse<UserGroup>> => {
     try {
-      console.log('创建销售组 - 输入数据:', group);
       
       const { data, error } = await supabase
         .from('users_list')
@@ -139,17 +127,12 @@ const groups = {
         .select()
         .single();
       
-      console.log('创建销售组 - Supabase响应:', { data, error });
-      
       if (error) {
-        console.error('创建销售组 - Supabase错误:', error);
         throw error;
       }
       
-      console.log('创建销售组 - 成功:', data);
       return { success: true, data };
     } catch (error) {
-      console.error('创建销售组失败:', error);
       return { 
         success: false, 
         error: '创建销售组失败',
@@ -170,7 +153,6 @@ const groups = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('更新销售组失败:', error);
       return { success: false, error: '更新销售组失败' };
     }
   },
@@ -185,7 +167,6 @@ const groups = {
       if (error) throw error;
       return { success: true };
     } catch (error) {
-      console.error('删除销售组失败:', error);
       return { success: false, error: '删除销售组失败' };
     }
   }
@@ -204,7 +185,6 @@ const logs = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('获取分配日志失败:', error);
       return { success: false, error: '获取分配日志失败' };
     }
   }
@@ -220,7 +200,6 @@ const stats = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('获取统计数据失败:', error);
       return { success: false, error: '获取统计数据失败' };
     }
   }
@@ -236,7 +215,6 @@ const enums = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('获取来源类型失败:', error);
       return { success: false, error: '获取来源类型失败' };
     }
   },
@@ -249,7 +227,6 @@ const enums = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('获取社区类型失败:', error);
       return { success: false, error: '获取社区类型失败' };
     }
   },
@@ -262,7 +239,6 @@ const enums = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('获取分配方式失败:', error);
       return { success: false, error: '获取分配方式失败' };
     }
   },
@@ -276,7 +252,6 @@ const enums = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('获取社区关键词失败:', error);
       return { success: false, error: '获取社区关键词失败' };
     }
   }
@@ -293,7 +268,6 @@ const communityKeywords = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('获取社区关键词失败:', error);
       return { success: false, error: '获取社区关键词失败' };
     }
   },
@@ -308,7 +282,6 @@ const communityKeywords = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('创建社区关键词失败:', error);
       return { success: false, error: '创建社区关键词失败' };
     }
   },
@@ -323,8 +296,7 @@ const communityKeywords = {
         .single();
       if (error) throw error;
       return { success: true, data };
-    } catch (error) {
-      console.error('更新社区关键词失败:', error);
+    } catch (error) { 
       return { success: false, error: '更新社区关键词失败' };
     }
   },
@@ -337,8 +309,7 @@ const communityKeywords = {
         .eq('id', id);
       if (error) throw error;
       return { success: true };
-    } catch (error) {
-      console.error('删除社区关键词失败:', error);
+    } catch (error) { 
       return { success: false, error: '删除社区关键词失败' };
     }
   }

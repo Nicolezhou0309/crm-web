@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { getUserPointsInfo, awardPoints, getCurrentProfileId, filterPointsTransactions } from '../api/pointsApi';
-import { getUserPointsAllocationStats, getUserPointsAllocationHistory } from '../api/pointsAllocationApi';
-import { useAuth } from '../hooks/useAuth';
+import { getUserPointsInfo, awardPoints, filterPointsTransactions } from '../api/pointsApi';
+
+import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
-import { Card, Row, Col, Button, Table, Tag, Space, Statistic, Typography, Spin, Alert } from 'antd';
+import { Card, Row, Col, Button, Table, Tag, Space, Statistic, Typography, Alert } from 'antd';
 import { 
-  TrophyOutlined, PlusOutlined, MinusOutlined, WalletOutlined, LoadingOutlined,
-  BranchesOutlined, BarChartOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DollarOutlined
+  TrophyOutlined, PlusOutlined, MinusOutlined, WalletOutlined,
+  BranchesOutlined
 } from '@ant-design/icons';
+import LoadingScreen from '../components/LoadingScreen';
 import type { ColumnsType, TableProps } from 'antd/es/table';
 import './compact-table.css';
 
@@ -29,14 +30,7 @@ interface PointsInfo {
   }>;
 }
 
-interface AllocationStats {
-  total_allocations: number;
-  successful_allocations: number;
-  insufficient_points_allocations: number;
-  total_points_cost: number;
-  successful_points_cost: number;
-  avg_points_cost: number;
-}
+
 
 interface Transaction {
   id: number;
@@ -51,23 +45,25 @@ interface Transaction {
 export default function PointsDashboard() {
   const [pointsInfo, setPointsInfo] = useState<PointsInfo | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [allocationStats, setAllocationStats] = useState<AllocationStats | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<number | null>(null);
   const [signingIn, setSigningIn] = useState(false);
-  const { user } = useAuth();
+  const { profile } = useUser();
   const navigate = useNavigate();
 
   useEffect(() => {
-    getCurrentProfileId().then(setProfileId);
-  }, [user]);
+    // 直接使用profile中的id，避免重复查询
+    if (profile?.id) {
+      setProfileId(profile.id);
+    }
+  }, [profile]);
 
   useEffect(() => {
     if (profileId) {
       loadPointsInfo(profileId);
       loadTransactions(profileId);
-      loadAllocationData(profileId);
     }
   }, [profileId]);
 
@@ -96,18 +92,14 @@ export default function PointsDashboard() {
     }
   };
 
-  const loadAllocationData = async (id: number) => {
-    try {
-      const [statsData] = await Promise.all([
-        getUserPointsAllocationStats(id),
-        getUserPointsAllocationHistory(id, { limit: 10 })
-      ]);
-      setAllocationStats(statsData);
-      // setAllocationHistory(historyData); // This line was removed as per the edit hint
-    } catch (err) {
-      console.error('加载分配数据失败:', err);
-    }
+  // 计算线索分配消耗
+  const calculateAllocationCost = (transactions: Transaction[]) => {
+    return transactions
+      .filter(t => t.source_type === 'ALLOCATION_LEAD' && t.points_change < 0)
+      .reduce((sum, t) => sum + Math.abs(t.points_change), 0);
   };
+
+
 
   const handleSignIn = async () => {
     try {
@@ -175,13 +167,21 @@ export default function PointsDashboard() {
         { text: '成交订单', value: 'DEAL' },
         { text: '每日签到', value: 'SIGNIN' },
         { text: '兑换线索', value: 'EXCHANGE_LEAD' },
+        { text: '线索分配', value: 'ALLOCATION_LEAD' },
+        { text: '积分回退', value: 'ROLLBACK_REFUND' },
+        { text: '手动调整', value: 'MANUAL_ADJUST' },
+        { text: '积分调整', value: 'POINTS_ADJUST' },
       ],
       onFilter: (value, record) => record.source_type === value,
       render: (text) => {
         const label = text === 'FOLLOWUP' ? '跟进' :
                      text === 'DEAL' ? '成交' :
                      text === 'SIGNIN' ? '签到' :
-                     text === 'EXCHANGE_LEAD' ? '兑换线索' : text;
+                     text === 'EXCHANGE_LEAD' ? '兑换线索' :
+                     text === 'ALLOCATION_LEAD' ? '线索分配' :
+                     text === 'ROLLBACK_REFUND' ? '积分回退' :
+                     text === 'MANUAL_ADJUST' ? '手动调整' :
+                     text === 'POINTS_ADJUST' ? '积分调整' : text;
         return <Tag color="default">{label}</Tag>;
       },
     },
@@ -218,11 +218,7 @@ export default function PointsDashboard() {
   };
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <Spin size="large" indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
-      </div>
-    );
+    return <LoadingScreen type="data" />;
   }
 
   if (error) {
@@ -310,7 +306,7 @@ export default function PointsDashboard() {
           <Card>
             <Statistic
               title="线索分配消耗"
-              value={allocationStats?.successful_points_cost || 0}
+              value={calculateAllocationCost(transactions)}
               prefix={<BranchesOutlined />}
               valueStyle={{ color: '#722ed1' }}
               suffix="积分"
@@ -319,52 +315,7 @@ export default function PointsDashboard() {
         </Col>
       </Row>
 
-      {/* 分配统计卡片 */}
-      {allocationStats && (
-        <Row gutter={16} style={{ marginBottom: '24px' }}>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="分配总数"
-                value={allocationStats.total_allocations}
-                prefix={<BarChartOutlined />}
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="成功分配"
-                value={allocationStats.successful_allocations}
-                prefix={<CheckCircleOutlined />}
-                valueStyle={{ color: '#52c41a' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="积分不足"
-                value={allocationStats.insufficient_points_allocations}
-                prefix={<ExclamationCircleOutlined />}
-                valueStyle={{ color: '#faad14' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="平均成本"
-                value={allocationStats.avg_points_cost}
-                prefix={<DollarOutlined />}
-                valueStyle={{ color: '#722ed1' }}
-                suffix="积分"
-              />
-            </Card>
-          </Col>
-        </Row>
-      )}
+
 
       {/* 积分明细表格 */}
       <Card 

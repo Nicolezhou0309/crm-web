@@ -7,8 +7,7 @@ const { TabPane } = Tabs;
 import {
   CheckOutlined, EyeOutlined, DeleteOutlined, CopyOutlined, ClockCircleOutlined, CheckCircleOutlined} from '@ant-design/icons';
 import { notificationApi, type Announcement } from '../api/notificationApi';
-import { useAuth } from '../hooks/useAuth';
-import { usePermissions } from '../hooks/usePermissions';
+import { useUser } from '../context/UserContext';
 import dayjs from 'dayjs';
 import { useState as useReactState } from 'react';
 import { message as antdMessage } from 'antd';
@@ -60,8 +59,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   simple = false,
   onViewAll
 }) => {
-  const { } = useAuth();
-  usePermissions();
+  const { user } = useUser();
   // 如果 props 传递了 notifications/unreadCount 等，则优先用 props，否则用内部 hook
   // 移除 useRealtimeNotifications 相关代码
   const notifications = propsNotifications ?? [];
@@ -96,7 +94,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   useEffect(() => {
     const loadAnnouncements = async () => {
       try {
-        // 检查缓存
+        // 先尝试使用缓存
         const cachedAnnouncements = localStorage.getItem('announcements_cache');
         const cacheTimestamp = localStorage.getItem('announcements_timestamp');
         
@@ -116,8 +114,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         localStorage.setItem('announcements_cache', JSON.stringify(data));
         localStorage.setItem('announcements_timestamp', Date.now().toString());
       } catch (error) {
-        console.error('❌ 加载公告失败:', error);
-        // 尝试使用缓存数据
+        // 静默处理错误，尝试使用缓存数据
+        console.log('加载公告失败，使用缓存数据:', error);
         const cachedAnnouncements = localStorage.getItem('announcements_cache');
         if (cachedAnnouncements) {
           setAnnouncements(JSON.parse(cachedAnnouncements));
@@ -173,7 +171,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         message.success('已删除通知');
       }
     } catch (error) {
-      console.error('❌ 操作失败:', error);
       notification.error({
         message: '操作失败',
         description: error instanceof Error ? error.message : '未知错误'
@@ -507,14 +504,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         .eq('leadid', leadid);
       
       if (error) {
-        console.error('❌ 推进阶段失败:', error);
         antdMessage.error('推进失败: ' + error.message);
       } else {
         antdMessage.success('已推进到"确认需求"阶段');
         setDetailModalVisible(false);
       }
     } catch (e) {
-      console.error('❌ 推进阶段异常:', e);
       antdMessage.error('推进失败: ' + (e instanceof Error ? e.message : '未知错误'));
     }
   };
@@ -532,31 +527,26 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   // 统一操作编号提取逻辑
   const extractOperationId = useCallback((notification: any) => {
     if (notification.type === 'approval') {
-      console.log('🔍 提取操作编号，通知:', notification);
       
       // 1. 优先使用related_id（最可靠）
       if (notification.related_id) {
-        console.log('✅ 使用related_id:', notification.related_id);
         return notification.related_id;
       }
       
       // 2. 从metadata中获取operation_id
       if (notification.metadata?.operation_id) {
-        console.log('✅ 使用metadata.operation_id:', notification.metadata.operation_id);
         return notification.metadata.operation_id;
       }
       
       // 3. 从内容中提取"操作编号：" 后面的UUID
       const operationIdMatch = notification.content?.match(/操作编号：\s*([a-f0-9-]+)/i);
       if (operationIdMatch) {
-        console.log('✅ 从内容提取操作编号:', operationIdMatch[1]);
         return operationIdMatch[1];
       }
       
       // 4. 从内容中提取"实例 ID:" 后面的UUID（兼容旧格式）
       const instanceIdMatch = notification.content?.match(/实例\s*ID:\s*([a-f0-9-]+)/i);
       if (instanceIdMatch) {
-        console.log('✅ 从内容提取实例ID:', instanceIdMatch[1]);
         return instanceIdMatch[1];
       }
       
@@ -564,11 +554,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
       const match = notification.content?.match(uuidRegex);
       if (match) {
-        console.log('✅ 从内容提取UUID:', match[0]);
         return match[0];
       }
       
-      console.log('❌ 无法提取操作编号');
     }
     return null;
   }, []);
@@ -576,18 +564,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   // 新增：跳转到审批详情
   const navigate = useNavigate();
   const handleGoToApprovalDetails = useCallback(() => {
-    console.log('🔍 跳转到审批详情，通知:', selectedNotification);
     
     const operationId = extractOperationId(selectedNotification);
-    console.log('🔍 提取的操作编号:', operationId);
     
     if (operationId) {
       const targetUrl = `/approval-details?tab=all&filter_target_id=${operationId}`;
-      console.log('🔍 跳转URL:', targetUrl);
       navigate(targetUrl);
       setDetailModalVisible(false);
     } else {
-      console.log('❌ 无法获取操作编号');
       message.warning('无法获取操作编号，无法跳转到审批详情');
     }
   }, [selectedNotification, extractOperationId, navigate]);

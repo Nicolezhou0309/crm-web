@@ -1,8 +1,10 @@
 import { Dropdown } from 'antd';
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supaClient';
 import { useUser } from '../context/UserContext';
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
+import { safeSignOut } from '../utils/authUtils';
 import './user-menu.css';
 
 export function useUserMenuAvatarUrl() {
@@ -12,6 +14,7 @@ export function useUserMenuAvatarUrl() {
 
 const UserMenu = () => {
   const { refreshUser } = useUser();
+  const navigate = useNavigate();
 
   // 监听全局刷新口令
   useEffect(() => {
@@ -60,8 +63,7 @@ const UserMenu = () => {
     items: menuItems,
     onClick: async (e: any) => {
       if (e.key === 'logout') {
-        await supabase.auth.signOut();
-        window.location.href = '/login';
+        await safeSignOut(navigate);
       }
     },
   };

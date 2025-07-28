@@ -54,16 +54,7 @@ export async function exchangePoints(userId: number, exchangeType: string, targe
   return data;
 }
 
-// 获取积分规则
-export async function getPointsRules() {
-  const { data, error } = await supabase
-    .from('points_rules')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data;
-}
+
 
 // 筛选积分明细
 export async function filterPointsTransactions(userId: number, filters: Record<string, any> = {}) {

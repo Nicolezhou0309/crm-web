@@ -6,6 +6,46 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
 };
 
+// 安全解析JWT token
+function parseJwtToken(token: string) {
+  try {
+    // 验证token格式
+    if (!token || typeof token !== 'string') {
+      return null;
+    }
+    
+    const tokenParts = token.split('.');
+    if (tokenParts.length !== 3) {
+      return null;
+    }
+    
+    // 确保payload是有效的base64
+    const payload = tokenParts[1];
+    if (!payload) {
+      return null;
+    }
+    
+    // 移除可能的URL安全字符
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
+    
+    // 添加padding以确保base64解码正确
+    const paddedPayload = normalizedPayload + '='.repeat((4 - normalizedPayload.length % 4) % 4);
+    
+    // 验证base64格式
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(paddedPayload)) {
+      return null;
+    }
+    
+    const decodedPayload = atob(paddedPayload);
+    const parsedPayload = JSON.parse(decodedPayload);
+    
+    return parsedPayload;
+  } catch (error) {
+    console.log('Token解析失败，跳过权限检查');
+    return null;
+  }
+}
+
 // 递归获取所有可管理的部门ID（含自己和所有子部门）
 async function getAllManageableOrgIds(adminClient, rootOrgId) {
   const result = [rootOrgId];
@@ -146,8 +186,8 @@ Deno.serve(async (req) => {
       
       // 首先检查是否为超级管理员
       const { data: { session } } = await userClient.auth.getSession();
-      const isSuperAdmin = session?.access_token ? 
-        JSON.parse(atob(session.access_token.split('.')[1])).role === 'service_role' : false;
+      const tokenPayload = session?.access_token ? parseJwtToken(session.access_token) : null;
+      const isSuperAdmin = tokenPayload?.role === 'service_role';
       
       if (isSuperAdmin) {
         console.log('用户是超级管理员，权限验证通过');
@@ -563,8 +603,8 @@ Deno.serve(async (req) => {
             
             // 检查是否为超级管理员
             const { data: { session } } = await userClient.auth.getSession();
-            const isSuperAdmin = session?.access_token ? 
-              JSON.parse(atob(session.access_token.split('.')[1])).role === 'service_role' : false;
+            const tokenPayload = session?.access_token ? parseJwtToken(session.access_token) : null;
+            const isSuperAdmin = tokenPayload?.role === 'service_role';
               
             if (isSuperAdmin) {
               console.log('[reset_email] 超级管理员，权限验证通过');

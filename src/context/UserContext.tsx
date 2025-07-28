@@ -10,12 +10,25 @@ interface UserProfile {
   password_set?: boolean;
 }
 
+interface UserPermissions {
+  manageableOrganizations: string[];
+  isSuperAdmin: boolean;
+  isDepartmentAdmin: boolean;
+  userRoles: Array<{
+    role_id: string;
+    role_name: string;
+    role_description: string;
+  }>;
+}
+
 interface UserContextType {
   user: any | null;
   profile: UserProfile | null;
+  permissions: UserPermissions | null;
   loading: boolean;
   error: string | null;
   refreshUser: () => Promise<void>;
+  refreshPermissions: () => Promise<void>;
   clearUserCache: () => void;
   sessionTimeRemaining: number;
   isSessionExpired: boolean;
@@ -30,6 +43,7 @@ const WARNING_THRESHOLD = 5 * 60 * 1000; // 5分钟前开始警告
 const CACHE_KEYS = {
   USER: 'user_cache',
   PROFILE: 'profile_cache',
+  PERMISSIONS: 'permissions_cache',
   TIMESTAMP: 'user_cache_timestamp',
   LAST_ACTIVITY: 'last_activity_timestamp',
   SESSION_ID: 'session_id'
@@ -47,19 +61,21 @@ class UserCacheManager {
   }
 
   // 设置用户缓存
-  setUserCache(user: any, profile: UserProfile | null) {
+  setUserCache(user: any, profile: UserProfile | null, permissions?: UserPermissions | null) {
     try {
       localStorage.setItem(CACHE_KEYS.USER, JSON.stringify(user));
       localStorage.setItem(CACHE_KEYS.PROFILE, JSON.stringify(profile));
+      if (permissions) {
+        localStorage.setItem(CACHE_KEYS.PERMISSIONS, JSON.stringify(permissions));
+      }
       localStorage.setItem(CACHE_KEYS.TIMESTAMP, Date.now().toString());
       this.updateLastActivity();
     } catch (error) {
-      console.error('设置用户缓存失败:', error);
     }
   }
 
   // 获取用户缓存
-  getUserCache(): { user: any | null; profile: UserProfile | null } | null {
+  getUserCache(): { user: any | null; profile: UserProfile | null; permissions: UserPermissions | null } | null {
     try {
       const timestamp = localStorage.getItem(CACHE_KEYS.TIMESTAMP);
       if (!timestamp) return null;
@@ -72,15 +88,16 @@ class UserCacheManager {
 
       const userStr = localStorage.getItem(CACHE_KEYS.USER);
       const profileStr = localStorage.getItem(CACHE_KEYS.PROFILE);
+      const permissionsStr = localStorage.getItem(CACHE_KEYS.PERMISSIONS);
       
       if (!userStr) return null;
 
       return {
         user: JSON.parse(userStr),
-        profile: profileStr ? JSON.parse(profileStr) : null
+        profile: profileStr ? JSON.parse(profileStr) : null,
+        permissions: permissionsStr ? JSON.parse(permissionsStr) : null
       };
     } catch (error) {
-      console.error('获取用户缓存失败:', error);
       this.clearUserCache();
       return null;
     }
@@ -134,6 +151,7 @@ class UserCacheManager {
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [permissions, setPermissions] = useState<UserPermissions | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessionTimeRemaining, setSessionTimeRemaining] = useState(SESSION_TIMEOUT);
@@ -147,7 +165,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSessionTimeRemaining(timeRemaining);
     // 如果会话已过期
     if (cacheManager.isSessionExpired()) {
-      console.log('[SESSION] 会话已超时，自动登出');
       handleLogout();
       return;
     }
@@ -162,14 +179,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // 处理登出
   const handleLogout = useCallback(async () => {
     try {
-      console.log('[DEBUG] handleLogout 调用');
       await supabase.auth.signOut();
       cacheManager.clearUserCache();
       setUser(null);
       setProfile(null);
+      setPermissions(null);
       setSessionTimeRemaining(0);
     } catch (error) {
-      console.error('登出失败:', error);
     }
   }, []);
 
@@ -178,7 +194,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     cacheManager.updateLastActivity();
     setShowSessionWarning(false);
     setSessionTimeRemaining(SESSION_TIMEOUT);
-    console.log('[SESSION] 会话已延长');
   }, []);
 
   // 更新活动时间
@@ -220,15 +235,39 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // 页面可见性变化处理
   useEffect(() => {
+    let lastVisibilityState = document.visibilityState;
+    let visibilityChangeTimeout: NodeJS.Timeout | null = null;
+    
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // 页面变为可见时检查会话状态
-        checkSessionTimeout();
+      const currentVisibilityState = document.visibilityState;
+      
+      // 避免重复处理相同的可见性状态
+      if (currentVisibilityState === lastVisibilityState) {
+        return;
       }
+      
+      // 清除之前的定时器
+      if (visibilityChangeTimeout) {
+        clearTimeout(visibilityChangeTimeout);
+      }
+      
+      // 延迟处理，避免截图等短暂操作触发状态更新
+      visibilityChangeTimeout = setTimeout(() => {
+        if (currentVisibilityState === 'visible') {
+          // 页面变为可见时检查会话状态
+          checkSessionTimeout();
+        }
+        lastVisibilityState = currentVisibilityState;
+      }, 100); // 100ms延迟，避免截图等短暂操作
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (visibilityChangeTimeout) {
+        clearTimeout(visibilityChangeTimeout);
+      }
+    };
   }, [checkSessionTimeout]);
 
   // 页面关闭前处理
@@ -241,6 +280,100 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
+
+  // 刷新权限信息
+  const refreshPermissions = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      // 安全解析JWT token
+      const parseJwtToken = (token: string) => {
+        try {
+          if (!token || typeof token !== 'string') {
+            return null;
+          }
+          
+          const tokenParts = token.split('.');
+          if (tokenParts.length !== 3) {
+            return null;
+          }
+          
+          const payload = tokenParts[1];
+          if (!payload) {
+            return null;
+          }
+          
+          const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
+          const paddedPayload = normalizedPayload + '='.repeat((4 - normalizedPayload.length % 4) % 4);
+          
+          if (!/^[A-Za-z0-9+/]*={0,2}$/.test(paddedPayload)) {
+            return null;
+          }
+          
+          const decodedPayload = atob(paddedPayload);
+          const parsedPayload = JSON.parse(decodedPayload);
+          
+          return parsedPayload;
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Token解析失败，跳过权限检查');
+          }
+          return null;
+        }
+      };
+
+      // 检查是否为超级管理员
+      const { data: { session } } = await supabase.auth.getSession();
+      const tokenPayload = session?.access_token ? parseJwtToken(session.access_token) : null;
+      const isSuperAdmin = tokenPayload?.role === 'service_role';
+      
+      // 获取用户角色
+      const { data: roles } = await supabase.rpc('get_user_roles', { p_user_id: user.id });
+      const userRoles = roles || [];
+      
+      // 检查是否有管理员或经理角色
+      const hasAdminRole = userRoles.some((r: any) => r.role_name === 'admin') || false;
+      
+      let manageableOrganizations: string[] = [];
+      
+      // 如果是超级管理员或管理员，可以管理所有组织
+      if (isSuperAdmin || hasAdminRole) {
+        const { data: allOrgs } = await supabase
+          .from('organizations')
+          .select('id')
+          .order('name');
+        
+        manageableOrganizations = allOrgs?.map(o => o.id) || [];
+      } else {
+        // 使用数据库函数获取可管理的组织（递归）
+        const { data: managedOrgIds } = await supabase.rpc('get_managed_org_ids', { 
+          admin_id: user.id 
+        });
+        
+        if (managedOrgIds && managedOrgIds.length > 0) {
+          manageableOrganizations = managedOrgIds.map((org: any) => org.org_id);
+        }
+      }
+      
+      const permissionsData: UserPermissions = {
+        manageableOrganizations,
+        isSuperAdmin,
+        isDepartmentAdmin: manageableOrganizations.length > 0,
+        userRoles
+      };
+      
+      setPermissions(permissionsData);
+      
+      // 更新缓存
+      if (profile) {
+        cacheManager.setUserCache(user, profile, permissionsData);
+      }
+      
+    } catch (error) {
+      console.error('获取权限信息失败:', error);
+      setPermissions(null);
+    }
+  }, [user, profile]);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -262,16 +395,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentSessionUser &&
         cachedData.user?.id === currentSessionUser.id
       ) {
-        console.log('[USER] 使用缓存用户信息');
         setUser(cachedData.user);
         setProfile(cachedData.profile);
+        setPermissions(cachedData.permissions);
         setLoading(false);
         // 检查会话状态
         checkSessionTimeout();
         return;
       } else if (cachedData) {
         // 缓存和当前用户不一致，清空缓存
-        console.warn('[USER] 缓存用户与当前session用户不一致，清空缓存');
         cacheManager.clearUserCache();
       }
 
@@ -285,10 +417,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: { user }, error: userError } = result;
       
       if (userError) {
-        console.error('[USER] 获取用户失败:', userError);
         setError(userError.message);
         setUser(null);
         setProfile(null);
+        setPermissions(null);
         setLoading(false);
         return;
       }
@@ -305,7 +437,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .single();
           
           if (profileError) {
-            console.error('[USER] 获取用户 profile 失败:', profileError);
             setError(profileError.message);
             setProfile(null);
           } else {
@@ -315,24 +446,27 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // 缓存用户信息
           cacheManager.setUserCache(user, profileData);
           
+          // 获取权限信息
+          await refreshPermissions();
+          
           // 检查会话状态
           checkSessionTimeout();
           
         } catch (profileErr) {
-          console.error('[USER] 获取 profile 异常:', profileErr);
           setError('获取用户信息失败');
           setProfile(null);
         }
       } else {
         setUser(null);
         setProfile(null);
+        setPermissions(null);
         cacheManager.clearUserCache();
       }
     } catch (err) {
-      console.error('[USER] 获取用户信息异常:', err);
       setError(err instanceof Error ? err.message : '获取用户信息失败');
       setUser(null);
       setProfile(null);
+      setPermissions(null);
     } finally {
       setLoading(false);
     }
@@ -341,19 +475,32 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // 清除用户缓存
   const clearUserCache = useCallback(() => {
     cacheManager.clearUserCache();
-    console.log('[USER] 用户缓存已清除');
   }, []);
 
   useEffect(() => {
     refreshUser();
     
     // 监听认证状态变化
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
         refreshUser();
+      } else if (event === 'TOKEN_REFRESHED') {
+        // token刷新时，静默更新用户状态，不触发完整的refreshUser流程
+        if (session?.user) {
+          setUser(session.user);
+          // 更新缓存中的用户信息
+          if (profile) {
+            cacheManager.setUserCache(session.user, profile, permissions);
+          }
+          // 重置会话超时
+          cacheManager.updateLastActivity();
+          setSessionTimeRemaining(SESSION_TIMEOUT);
+          setShowSessionWarning(false);
+        }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setProfile(null);
+        setPermissions(null);
         setSessionTimeRemaining(0);
         cacheManager.clearUserCache();
         setShowSessionWarning(false);
@@ -368,9 +515,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value: UserContextType = {
     user,
     profile,
+    permissions,
     loading,
     error,
     refreshUser,
+    refreshPermissions,
     clearUserCache,
     sessionTimeRemaining,
     isSessionExpired: cacheManager.isSessionExpired(),

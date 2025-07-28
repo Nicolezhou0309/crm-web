@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, List, Badge, Button, Tag, Modal, Descriptions, Space, Typography, Tooltip, Empty, Spin } from 'antd';
+import { Card, List, Badge, Button, Tag, Modal, Descriptions, Space, Typography, Tooltip, Empty } from 'antd';
+import LoadingScreen from './LoadingScreen';
 import { BellOutlined, CheckOutlined, EyeOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { DuplicateNotification } from '../types/allocation';
 import { NOTIFICATION_STATUSES, DUPLICATE_TYPES } from '../types/allocation';
@@ -192,44 +193,44 @@ export const DuplicateNotificationCenter: React.FC<DuplicateNotificationCenterPr
           </Button>
         }
       >
-        <Spin spinning={loading}>
-          {notifications.length === 0 ? (
-            <Empty 
-              description="暂无重复客户通知" 
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
-          ) : (
-            <div>
-              {/* 待处理通知 */}
-              {pendingNotifications.length > 0 && (
-                <div style={{ marginBottom: '16px' }}>
-                  <Title level={5} style={{ color: '#fa8c16' }}>
-                    待处理通知 ({pendingNotifications.length})
-                  </Title>
-                  <List
-                    dataSource={pendingNotifications}
-                    renderItem={renderNotificationItem}
-                    pagination={false}
-                  />
-                </div>
-              )}
+        {loading ? (
+          <LoadingScreen type="data" />
+        ) : notifications.length === 0 ? (
+          <Empty 
+            description="暂无重复客户通知" 
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          />
+        ) : (
+          <div>
+            {/* 待处理通知 */}
+            {pendingNotifications.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <Title level={5} style={{ color: '#fa8c16' }}>
+                  待处理通知 ({pendingNotifications.length})
+                </Title>
+                <List
+                  dataSource={pendingNotifications}
+                  renderItem={renderNotificationItem}
+                  pagination={false}
+                />
+              </div>
+            )}
 
-              {/* 其他通知 */}
-              {otherNotifications.length > 0 && (
-                <div>
-                  <Title level={5} style={{ color: '#666' }}>
-                    历史通知 ({otherNotifications.length})
-                  </Title>
-                  <List
-                    dataSource={otherNotifications.slice(0, 10)} // 只显示最近10条
-                    renderItem={renderNotificationItem}
-                    pagination={false}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </Spin>
+            {/* 其他通知 */}
+            {otherNotifications.length > 0 && (
+              <div>
+                <Title level={5} style={{ color: '#666' }}>
+                  历史通知 ({otherNotifications.length})
+                </Title>
+                <List
+                  dataSource={otherNotifications.slice(0, 10)} // 只显示最近10条
+                  renderItem={renderNotificationItem}
+                  pagination={false}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* 通知详情弹窗 */}

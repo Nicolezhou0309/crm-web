@@ -3,6 +3,7 @@ import { Table, Button, Modal, Form, Input, Steps, Tag, message, Select, TreeSel
 import { supabase } from '../supaClient'
 import { PlusOutlined, DeleteOutlined, ClockCircleOutlined, CheckCircleOutlined, FileTextOutlined } from '@ant-design/icons';
 import { getApprovalInstances, getApprovalStatistics, type ApprovalInstancesParams } from '../api/approvalApi';
+import { useUser } from '../context/UserContext';
 
 // 格式化北京时间
 function formatToBeijingTime(isoString?: string) {
@@ -54,6 +55,7 @@ interface ApprovalStep {
 const { Step } = Steps;
 
 const ApprovalFlowManagement: React.FC = () => {
+  const { user, profile } = useUser();
   const [form] = Form.useForm();
   // 模板管理
   const [templates, setTemplates] = useState<ApprovalFlowTemplate[]>([]); // 审批流模板列表
@@ -405,21 +407,19 @@ const ApprovalFlowManagement: React.FC = () => {
   // onApproveStep函数修复
   async function onApproveStep(step: ApprovalStep, action: 'approved' | 'rejected') {
     try {
-      // 获取当前用户信息
-      const { data: { user } } = await supabase.auth.getUser();
-      // 获取当前用户profile信息
-      const { data: userProfile } = await supabase
-        .from('users_profile')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
+      // 使用UserContext中的用户信息
+      if (!user || !profile) {
+        message.error('用户信息获取失败');
+        return;
+      }
+      
       // 检查审批步骤状态
       if (step.status !== 'pending') {
         message.error('该步骤已处理，无法重复审批');
         return;
       }
       // 检查是否为审批人
-      if (userProfile?.id !== step.approver_id) {
+      if (profile.id !== step.approver_id) {
         message.error('您不是该步骤的审批人');
         return;
       }

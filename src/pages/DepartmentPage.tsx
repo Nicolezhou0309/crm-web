@@ -4,7 +4,7 @@ import { Tree, Table, Button, Modal, Form, Input, message, Badge, Dropdown, Sele
 import { supabase } from '../supaClient';
 import { withRetry, supabaseRetryOptions } from '../utils/retryUtils';
 import { EllipsisOutlined, ExclamationCircleOutlined, CrownOutlined, SearchOutlined, TrophyOutlined } from '@ant-design/icons';
-import { usePermissions } from '../hooks/usePermissions';
+import { useRolePermissions } from '../hooks/useRolePermissions';
 import './DepartmentPage.css';
 import React from 'react';
 
@@ -35,7 +35,7 @@ const DepartmentPage = () => {
   const [setAdminForm] = Form.useForm();
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
-  const { canManageOrganization, canManageUser } = usePermissions();
+  const { canManageOrganization, canManageUser, isSuperAdmin, isDepartmentAdmin } = useRolePermissions();
 
   
   // 新增：树节点搜索关键词
@@ -765,312 +765,327 @@ const DepartmentPage = () => {
           </div>
         </div>
         
-        <div className="page-table-wrap">
-          <div style={{ overflowX: 'auto', width: '100%' }}>
+        <div className="page-table-wrap" style={{ width: '100%' }}>
+          <div style={{ width: '100%', overflow: 'auto' }}>
             <Table
               className="page-table"
               dataSource={pagedMembers}
               loading={loading}
               rowKey={(record) => record.user_id || record.email || `temp_${record.email}_${record.nickname || 'unknown'}`}
+              scroll={{ x: 'max-content' }}
               columns={[
                 { 
                   title: '姓名', 
                   dataIndex: 'nickname', 
                   className: 'page-col-nowrap',
+                  width: 120,
                   render: (text: string) => (
                     <span style={{ fontWeight: 600, color: '#262626' }}>
                       {text || '未命名'}
                     </span>
                   )
                 },
-                { 
+                // 只有管理员可以看到邮箱列
+                ...(hasManagePermission(selectedDept?.id) ? [{
                   title: '邮箱', 
                   dataIndex: 'email', 
                   className: 'page-col-nowrap',
+                  width: 200,
                   render: (text: string) => (
                     <span style={{ color: '#595959', fontFamily: 'monospace' }}>
                       {text || '-'}
                     </span>
                   )
-                },
+                }] : []),
                 {
                   title: '部门',
                   dataIndex: ['organizations', 'name'],
                   className: 'page-col-nowrap',
+                  width: 150,
                   render: (name: string) => (
                     <Tag 
                       color="blue" 
                       style={{ 
                         borderRadius: '8px',
                         fontSize: '12px',
-                        fontWeight: 500
+                        fontWeight: 500,
+                        padding: '4px 8px'
                       }}
                     >
                       {name || '未分配'}
                     </Tag>
                   )
                 },
-                {
-                  title: '状态',
-                  dataIndex: 'status',
-                  className: 'page-col-nowrap',
-                  render: (status: string) => (
-                    <Badge 
-                      color={status === 'left' ? 'gray' : statusColorMap[status] || 'gray'} 
-                      text={status === 'left' ? '已离职' : statusTextMap[status] || '未知'}
-                      style={{ fontSize: '12px' }}
-                    />
-                  )
-                },
-                {
-                  title: '剩余积分',
-                  dataIndex: 'points',
-                  className: 'page-col-nowrap',
-                  width: 100,
-                  render: (points: number) => (
-                    <span style={{ 
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      color: points > 0 ? '#52c41a' : '#ff4d4f',
-                      fontWeight: 600,
-                      fontSize: '14px'
-                    }}>
-                      <TrophyOutlined style={{ fontSize: '12px' }} />
-                      {points || 0}
-                    </span>
-                  )
-                },
-                {
-                  title: '销售组状态',
-                  dataIndex: 'sales_groups',
-                  className: 'page-col-nowrap',
-                  width: 120,
-                  render: (salesGroups: any[], record: any) => { 
-                    if (!salesGroups || salesGroups.length === 0) {
-                      return (
-                        <span style={{ 
-                          color: '#8c8c8c',
-                          fontSize: '12px'
-                        }}>
-                          未加入
-                        </span>
-                      );
-                    }
-                    
-                    // 检查当前用户在该销售组中的状态
-                    const userGroups = salesGroups.filter(sg => 
-                      sg.list && sg.list.includes(record.id)
-                    );
-                    
-                    if (userGroups.length === 0) {
-                      return (
-                        <span style={{ 
-                          color: '#8c8c8c',
-                          fontSize: '12px'
-                        }}>
-                          未加入
-                        </span>
-                      );
-                    }
-                    
-                    // 检查是否有异常状态
-                    const hasAbnormal = userGroups.some(sg => {
-                      const userStatus = sg.user_statuses?.find((us: any) => us.profileId === record.id);
-                      // get_user_allocation_status_multi 返回数组，需要检查该用户在该组中的状态
-                      if (!userStatus?.status || !Array.isArray(userStatus.status)) {
-                        return false;
-                      }
-                      // 找到该用户在该组中的状态
-                      const groupStatus = userStatus.status.find((status: any) => 
-                        status.groupname === sg.groupname
-                      );
-                      const isAbnormal = groupStatus && !groupStatus.can_allocate;
-                      
-                      return isAbnormal;
-                    });
-                    
-                    return (
+                // 只有管理员可以看到状态、积分、销售组和操作列
+                ...(hasManagePermission(selectedDept?.id) ? [
+                  {
+                    title: '状态',
+                    dataIndex: 'status',
+                    className: 'page-col-nowrap',
+                    width: 120,
+                    render: (status: string) => (
                       <Badge 
-                        color={hasAbnormal ? 'red' : 'green'} 
-                        text={hasAbnormal ? '异常' : '正常'}
+                        color={status === 'left' ? 'gray' : statusColorMap[status] || 'gray'} 
+                        text={status === 'left' ? '已离职' : statusTextMap[status] || '未知'}
                         style={{ fontSize: '12px' }}
                       />
-                    );
-                  }
-                },
-                {
-                  title: '销售组列表',
-                  dataIndex: 'sales_groups',
-                  className: 'page-col-nowrap',
-                  width: 350,
-                  render: (salesGroups: any[], record: any) => {
-                    if (!salesGroups || salesGroups.length === 0) {
-                      return <span style={{ color: '#8c8c8c' }}>-</span>;
+                    )
+                  },
+                  {
+                    title: '剩余积分',
+                    dataIndex: 'points',
+                    className: 'page-col-nowrap',
+                    width: 120,
+                    render: (points: number) => (
+                      <span style={{ 
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: points > 0 ? '#52c41a' : '#ff4d4f',
+                        fontWeight: 600,
+                        fontSize: '14px'
+                      }}>
+                        <TrophyOutlined style={{ fontSize: '12px', marginRight: '4px' }} />
+                        {points || 0}
+                      </span>
+                    )
+                  },
+                  {
+                    title: '销售组状态',
+                    dataIndex: 'sales_groups',
+                    className: 'page-col-nowrap',
+                    width: 100,
+                    render: (salesGroups: any[], record: any) => { 
+                      if (!salesGroups || salesGroups.length === 0) {
+                        return (
+                          <span style={{ 
+                            color: '#8c8c8c',
+                            fontSize: '12px'
+                          }}>
+                            未加入
+                          </span>
+                        );
+                      }
+                      
+                      // 检查当前用户在该销售组中的状态
+                      const userGroups = salesGroups.filter(sg => 
+                        sg.list && sg.list.includes(record.id)
+                      );
+                      
+                      if (userGroups.length === 0) {
+                        return (
+                          <span style={{ 
+                            color: '#8c8c8c',
+                            fontSize: '12px'
+                          }}>
+                            未加入
+                          </span>
+                        );
+                      }
+                      
+                      // 检查是否有异常状态
+                      const hasAbnormal = userGroups.some(sg => {
+                        const userStatus = sg.user_statuses?.find((us: any) => us.profileId === record.id);
+                        // get_user_allocation_status_multi 返回数组，需要检查该用户在该组中的状态
+                        if (!userStatus?.status || !Array.isArray(userStatus.status)) {
+                          return false;
+                        }
+                        // 找到该用户在该组中的状态
+                        const groupStatus = userStatus.status.find((status: any) => 
+                          status.groupname === sg.groupname
+                        );
+                        const isAbnormal = groupStatus && !groupStatus.can_allocate;
+                        
+                        return isAbnormal;
+                      });
+                      
+                      return (
+                        <Badge 
+                          color={hasAbnormal ? 'red' : 'green'} 
+                          text={hasAbnormal ? '异常' : '正常'}
+                          style={{ fontSize: '12px' }}
+                        />
+                      );
                     }
-                    const userGroups = salesGroups.filter(sg => sg.list && sg.list.includes(record.id));
-                    if (userGroups.length === 0) {
-                      return <span style={{ color: '#8c8c8c' }}>-</span>;
-                    }
-                    return (
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: '4px',
-                          minHeight: '24px',
-                          maxHeight: '80px',
-                          alignItems: 'flex-start',
-                          overflowY: 'auto',
-                          overflowX: 'hidden'
-                        }}
-                      >
-                        {userGroups.map((group) => {
-                          // 检查该用户在该销售组中的状态
-                          const userStatus = group.user_statuses?.find((us: any) => us.profileId === record.id);
-                          let isAbnormal = false;
-                          let abnormalReasons: string[] = [];
-                          if (userStatus?.status && Array.isArray(userStatus.status)) {
-                            const groupStatus = userStatus.status.find((status: any) => 
-                              status.groupname === group.groupname
-                            );
-                            isAbnormal = groupStatus && !groupStatus.can_allocate;
-                            if (isAbnormal && groupStatus?.reason && Array.isArray(groupStatus.reason)) {
-                              abnormalReasons = groupStatus.reason;
+                  },
+                  {
+                    title: '销售组列表',
+                    dataIndex: 'sales_groups',
+                    className: 'page-col-nowrap',
+                    width: 300,
+                    render: (salesGroups: any[], record: any) => {
+                      if (!salesGroups || salesGroups.length === 0) {
+                        return <span style={{ color: '#8c8c8c' }}>-</span>;
+                      }
+                      const userGroups = salesGroups.filter(sg => sg.list && sg.list.includes(record.id));
+                      if (userGroups.length === 0) {
+                        return <span style={{ color: '#8c8c8c' }}>-</span>;
+                      }
+                      return (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '6px',
+                            minHeight: '24px',
+                            maxHeight: '80px',
+                            alignItems: 'flex-start',
+                            overflowY: 'auto',
+                            overflowX: 'hidden'
+                          }}
+                        >
+                          {userGroups.map((group) => {
+                            // 检查该用户在该销售组中的状态
+                            const userStatus = group.user_statuses?.find((us: any) => us.profileId === record.id);
+                            let isAbnormal = false;
+                            let abnormalReasons: string[] = [];
+                            if (userStatus?.status && Array.isArray(userStatus.status)) {
+                              const groupStatus = userStatus.status.find((status: any) => 
+                                status.groupname === group.groupname
+                              );
+                              isAbnormal = groupStatus && !groupStatus.can_allocate;
+                              if (isAbnormal && groupStatus?.reason && Array.isArray(groupStatus.reason)) {
+                                abnormalReasons = groupStatus.reason;
+                              }
                             }
-                          }
-                          const tooltipContent = isAbnormal && abnormalReasons.length > 0 
-                            ? `${group.groupname}\n异常原因：\n${abnormalReasons.join('\n')}`
-                            : group.groupname;
-                          return (
-                            <Tooltip 
-                              key={group.id} 
-                              title={tooltipContent} 
-                              placement="top"
-                              styles={{ 
-                                root: {
-                                  maxWidth: '350px',
-                                  whiteSpace: 'pre-line'
-                                }
-                              }}
-                            >
-                              <Tag 
-                                color={isAbnormal ? 'red' : 'blue'}
-                                style={{ 
-                                  fontSize: '11px',
-                                  margin: 0,
-                                  padding: '2px 6px',
-                                  borderRadius: '6px',
-                                  lineHeight: '1.3',
-                                  maxWidth: '120px',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  cursor: 'help',
-                                  display: 'inline-block',
-                                  verticalAlign: 'middle'
+                            const tooltipContent = isAbnormal && abnormalReasons.length > 0 
+                              ? `${group.groupname}\n异常原因：\n${abnormalReasons.join('\n')}`
+                              : group.groupname;
+                            return (
+                              <Tooltip 
+                                key={group.id} 
+                                title={tooltipContent} 
+                                placement="top"
+                                styles={{ 
+                                  root: {
+                                    maxWidth: '350px',
+                                    whiteSpace: 'pre-line'
+                                  }
                                 }}
                               >
-                                {group.groupname}
-                              </Tag>
-                            </Tooltip>
-                          );
-                        })}
-                      </div>
-                    );
-                  }
-                },
-                {
-                  title: '操作',
-                  dataIndex: 'actions',
-                  width: 150,
-                  render: (_: any, record: any) => {
-                    // 检查是否有权限管理该用户
-                    const canManage = hasUserManagePermission(record.organization_id);
-                    
-                    if (!canManage) {
-                      return null; // 无权限时不显示任何操作按钮
-                    }
-                    
-                    return (
-                      <div className="dept-table-actions">
-                        <Button
-                          size="small"
-                          type="link"
-                          disabled={record.status === 'left'}
-                          onClick={() => {
-                            Modal.confirm({
-                              title: '调整部门',
-                              content: (
-                                <Select
-                                  style={{ width: '100%' }}
-                                  defaultValue={record.organization_id}
-                                  options={departments.map(dep => ({ value: dep.id, label: dep.name }))}
-                                  onChange={async (value) => {
-                                    if (!record.user_id) {
-                                      message.error('用户未注册，无法调整部门');
-                                      return;
-                                    }
-                                    const { error } = await supabase
-                                      .from('users_profile')
-                                      .update({ organization_id: value })
-                                      .eq('user_id', record.user_id);
-                                    if (error) {
-                                      message.error('部门调整失败: ' + error.message);
-                                    } else {
-                                      message.success('部门调整成功');
-                                      fetchMembers(selectedDept?.id ?? null);
-                                      Modal.destroyAll();
-                                    }
+                                <Tag 
+                                  color={isAbnormal ? 'red' : 'blue'}
+                                  style={{ 
+                                    fontSize: '11px',
+                                    margin: 0,
+                                    padding: '3px 8px',
+                                    borderRadius: '6px',
+                                    lineHeight: '1.3',
+                                    maxWidth: '120px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    cursor: 'help',
+                                    display: 'inline-block',
+                                    verticalAlign: 'middle'
                                   }}
-                                />
-                              ),
-                              okButtonProps: { style: { display: 'none' } },
-                              cancelText: '取消'
-                            });
-                          }}
-                        >
-                          调整部门
-                        </Button>
-                        
-
-                        
-                        <Button
-                          danger
-                          size="small"
-                          type="link"
-                          disabled={record.status === 'left'}
-                          onClick={() => {
-                            Modal.confirm({
-                              title: '确认将该成员标记为离职？',
-                              okText: '离职',
-                              okType: 'danger',
-                              cancelText: '取消',
-                              onOk: async () => {
-                                await supabase.from('users_profile').update({ status: 'left' }).eq('user_id', record.user_id);
-                                fetchMembers(selectedDept?.id ?? null);
-                              }
-                            });
-                          }}
-                        >
-                          离职
-                        </Button>
-                      </div>
-                    );
+                                >
+                                  {group.groupname}
+                                </Tag>
+                              </Tooltip>
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+                  },
+                  {
+                    title: '操作',
+                    dataIndex: 'actions',
+                    width: 180,
+                    render: (_: any, record: any) => {
+                      // 检查是否有权限管理该用户
+                      const canManage = hasUserManagePermission(record.organization_id);
+                      
+                      if (!canManage) {
+                        return null; // 无权限时不显示任何操作按钮
+                      }
+                      
+                      return (
+                        <div className="dept-table-actions" style={{ display: 'flex', gap: '8px' }}>
+                          <Button
+                            size="small"
+                            type="link"
+                            disabled={record.status === 'left'}
+                            onClick={() => {
+                              Modal.confirm({
+                                title: '调整部门',
+                                content: (
+                                  <Select
+                                    style={{ width: '100%' }}
+                                    defaultValue={record.organization_id}
+                                    options={departments.map(dep => ({ value: dep.id, label: dep.name }))}
+                                    onChange={async (value) => {
+                                      if (!record.user_id) {
+                                        message.error('用户未注册，无法调整部门');
+                                        return;
+                                      }
+                                      const { error } = await supabase
+                                        .from('users_profile')
+                                        .update({ organization_id: value })
+                                        .eq('user_id', record.user_id);
+                                      if (error) {
+                                        message.error('部门调整失败: ' + error.message);
+                                      } else {
+                                        message.success('部门调整成功');
+                                        fetchMembers(selectedDept?.id ?? null);
+                                        Modal.destroyAll();
+                                      }
+                                    }}
+                                  />
+                                ),
+                                okButtonProps: { style: { display: 'none' } },
+                                cancelText: '取消'
+                              });
+                            }}
+                          >
+                            调整部门
+                          </Button>
+                          
+                          <Button
+                            danger
+                            size="small"
+                            type="link"
+                            disabled={record.status === 'left'}
+                            onClick={() => {
+                              Modal.confirm({
+                                title: '确认将该成员标记为离职？',
+                                okText: '离职',
+                                okType: 'danger',
+                                cancelText: '取消',
+                                onOk: async () => {
+                                  await supabase.from('users_profile').update({ status: 'left' }).eq('user_id', record.user_id);
+                                  fetchMembers(selectedDept?.id ?? null);
+                                }
+                              });
+                            }}
+                          >
+                            离职
+                          </Button>
+                        </div>
+                      );
+                    }
                   }
-                }
+                ] : []),
               ]}
               style={{ 
                 marginTop: 0,
                 borderRadius: '12px',
-                overflow: 'hidden',
-                minWidth: 1200 // 保证内容超出时出现横向滚动条
+                width: '100%'
               }}
               pagination={false}
             />
           </div>
           {/* 分页器和离职成员按钮同一行，按钮左，分页器右，始终固定 */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, width: '100%' }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            marginTop: 8, 
+            width: '100%',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
             <div>
               {members.some(m => m.status === 'left') && !showLeftMembers && (
                 <Button type="link" className="no-outline-btn" onClick={() => setShowLeftMembers(true)} style={{ paddingLeft: 0 }}>
@@ -1106,8 +1121,17 @@ const DepartmentPage = () => {
         okText="发送邀请"
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="email" label="邮箱" rules={[{ required: true, type: 'email' }]}><Input /></Form.Item>
-          <Form.Item name="name" label="姓名" rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item 
+            name="email" 
+            label="邮箱" 
+            rules={[{ required: true, type: 'email' }]}
+            extra="只有部门管理员可以查看和邀请成员"
+          >
+            <Input placeholder="请输入邮箱地址" />
+          </Form.Item>
+          <Form.Item name="name" label="姓名" rules={[{ required: true }]}>
+            <Input placeholder="请输入姓名" />
+          </Form.Item>
         </Form>
       </Modal>
 

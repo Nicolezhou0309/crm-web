@@ -28,6 +28,8 @@ import {
   BarChartOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
+import { useRolePermissions } from '../hooks/useRolePermissions';
+import { PermissionGate } from './PermissionGate';
 
 
 interface NavigationMenuProps {
@@ -44,6 +46,16 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   onCollapse
 }) => {
   const [search, setSearch] = React.useState('');
+  const { hasPermission, hasRole } = useRolePermissions();
+
+  // 权限检查函数
+  const canAccessLeads = () => hasPermission('lead_manage');
+  const canAccessDataAnalysis = () => hasPermission('data_analysis');
+  const canAccessAllocation = () => hasPermission('allocation_manage');
+  const canAccessPointsSummary = () => hasPermission('points_manage');
+  const canAccessHonor = () => hasPermission('user_manage');
+  const canAccessSystem = () => hasRole('admin');
+  const canAccessApproval = () => hasPermission('approval_manage');
 
   const menuItems = [
     { 
@@ -65,6 +77,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '线索列表', 
           path: '/leads',
           className: 'main-menu-item',
+          permission: 'lead_manage',
         },
         { 
           key: 'followups', 
@@ -89,15 +102,16 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
         },
       ]
     },
-    // 新增数据分析菜单
+    // 数据分析菜单
     {
       key: 'data-analysis',
       icon: <BarChartOutlined />,
-      label: '数据分析',
+      label: '线索分析',
       path: '/data-analysis',
       className: 'main-menu-item',
+      permission: 'data_analysis',
     },
-    // 新增分配管理一级菜单
+    // 分配管理一级菜单
     {
       key: 'allocation-manage',
       icon: <BranchesOutlined />,
@@ -110,6 +124,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '线索分配',
           path: '/allocation',
           className: 'main-menu-item',
+          permission: 'allocation_manage',
         },
         {
           key: 'showings-queue',
@@ -117,16 +132,11 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '带看分配',
           path: '/showings-queue',
           className: 'main-menu-item',
+          permission: 'allocation_manage',
         },
       ]
     },
-    { 
-      key: 'dashboard', 
-      icon: <DashboardOutlined />, 
-      label: '仪表盘', 
-      path: '/dashboard',
-      className: 'main-menu-item',
-    },
+
     {
       key: 'points',
       icon: <TrophyOutlined />,
@@ -135,7 +145,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       children: [
         { 
           key: 'points-dashboard', 
-          icon: <DashboardOutlined />, 
+          icon: <DatabaseOutlined />, 
           label: '积分看板', 
           path: '/points',
           className: 'main-menu-item',
@@ -146,19 +156,13 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '积分汇总', 
           path: '/points-summary',
           className: 'main-menu-item',
+          permission: 'points_manage',
         },
         { 
           key: 'points-exchange', 
           icon: <GiftOutlined />, 
           label: '积分兑换', 
           path: '/points/exchange',
-          className: 'main-menu-item',
-        },
-        { 
-          key: 'points-rules', 
-          icon: <KeyOutlined />, 
-          label: '积分规则', 
-          path: '/points/rules',
           className: 'main-menu-item',
         },
       ]
@@ -175,6 +179,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '荣誉管理', 
           path: '/honor',
           className: 'main-menu-item',
+          permission: 'user_manage',
         },
         { 
           key: 'achievement-management', 
@@ -182,6 +187,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '成就管理', 
           path: '/achievement',
           className: 'main-menu-item',
+          permission: 'user_manage',
         },
       ]
     },
@@ -197,6 +203,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       icon: <SettingOutlined />,
       label: '系统管理',
       className: 'main-menu-submenu-title',
+      permission: 'admin',
       children: [
         {
           key: 'test-tools',
@@ -204,6 +211,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '测试工具集',
           path: '/test-tools',
           className: 'main-menu-item',
+          permission: 'admin',
         },
         { 
           key: 'roles', 
@@ -211,6 +219,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '角色权限', 
           path: '/roles',
           className: 'main-menu-item',
+          permission: 'admin',
         },
         { 
           key: 'announcements', 
@@ -218,6 +227,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '公告配置', 
           path: '/announcements',
           className: 'main-menu-item',
+          permission: 'admin',
         },
         { 
           key: 'test', 
@@ -225,6 +235,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '数据库测试', 
           path: '/test',
           className: 'main-menu-item',
+          permission: 'admin',
         },
         {
           key: 'banner-management',
@@ -232,6 +243,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '首页管理',
           path: '/banner-management',
           className: 'main-menu-item',
+          permission: 'admin',
         },
         {
           key: 'load-demo',
@@ -239,6 +251,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '加载演示',
           path: '/loading-demo',
           className: 'main-menu-item',
+          permission: 'admin',
         },
         {
           key: 'email-test',
@@ -246,6 +259,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '邮件测试',
           path: '/email-test',
           className: 'main-menu-item',
+          permission: 'admin',
         },
         {
           key: 'notification-templates',
@@ -253,10 +267,11 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '通知模板管理',
           path: '/notification-templates',
           className: 'main-menu-item',
+          permission: 'admin',
         },
       ]
     },
-    // 新增审批管理一级菜单
+    // 审批管理一级菜单
     {
       key: 'approval-flows',
       icon: <SolutionOutlined />,
@@ -264,11 +279,12 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       className: 'main-menu-submenu-title',
       children: [
         {
-          key: 'approval-flows-list', // 唯一key，避免与父级重复
+          key: 'approval-flows-list',
           icon: <SolutionOutlined />,
           label: '审批流管理',
           path: '/approval-flows',
           className: 'main-menu-item',
+          permission: 'approval_manage',
         },
         {
           key: 'approval-details',
@@ -283,17 +299,82 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           label: '性能监控',
           path: '/approval-performance',
           className: 'main-menu-item',
+          permission: 'approval_manage',
         },
       ]
     },
   ];
 
-  // 递归过滤菜单项
+  // 递归过滤菜单项，包含权限检查
   function filterMenu(items: any[], keyword: string): any[] {
-    if (!keyword) return items;
+    console.log(`🔍 [菜单过滤] 开始过滤菜单项，关键词: "${keyword}"`);
+    console.log(`🔍 [菜单过滤] 输入菜单项数量: ${items.length}`);
+    
+    if (!keyword) {
+      const filtered = items.filter(item => {
+        console.log(`🔍 [菜单过滤] 检查菜单项: ${item.label} (${item.key})`);
+        
+        // 检查权限或角色
+        if (item.permission) {
+          console.log(`🔍 [菜单过滤] ${item.label} 需要权限: ${item.permission}`);
+          if (item.permission === 'admin') {
+            const hasAdminRole = hasRole('admin');
+            console.log(`🔍 [菜单过滤] ${item.label} admin角色检查: ${hasAdminRole}`);
+            if (!hasAdminRole) {
+              console.log(`🚫 [菜单过滤] ${item.label} (${item.key}): 需要admin角色，用户无权限`);
+              return false;
+            }
+          } else {
+            const hasPerm = hasPermission(item.permission);
+            console.log(`🔍 [菜单过滤] ${item.label} 权限检查 ${item.permission}: ${hasPerm}`);
+            if (!hasPerm) {
+              console.log(`🚫 [菜单过滤] ${item.label} (${item.key}): 需要${item.permission}权限，用户无权限`);
+              return false;
+            }
+          }
+        } else {
+          console.log(`🔍 [菜单过滤] ${item.label} 无权限要求`);
+        }
+        
+        // 检查子菜单
+        if (item.children) {
+          console.log(`🔍 [菜单过滤] ${item.label} 有子菜单，开始过滤子菜单`);
+          const filteredChildren = filterMenu(item.children, keyword);
+          console.log(`🔍 [菜单过滤] ${item.label} 子菜单过滤结果: ${filteredChildren.length} 个`);
+          if (filteredChildren.length === 0) {
+            console.log(`🚫 [菜单过滤] ${item.label} (${item.key}): 所有子菜单都被过滤，隐藏父菜单`);
+            return false;
+          }
+          // 更新子菜单
+          item.children = filteredChildren;
+          console.log(`✅ [菜单过滤] ${item.label} (${item.key}): 显示父菜单，保留 ${filteredChildren.length} 个子菜单`);
+          return true;
+        }
+        console.log(`✅ [菜单过滤] ${item.label} (${item.key}): 显示菜单项`);
+        return true;
+      });
+      
+      console.log(`🔍 [菜单过滤] 过滤后菜单项数量: ${filtered.length}`);
+      return filtered;
+    }
+    
+    // 搜索模式的处理逻辑保持不变
     const lower = keyword.toLowerCase();
     return items
       .map((item: any) => {
+        // 检查权限或角色
+        if (item.permission) {
+          if (item.permission === 'admin') {
+            if (!hasRole('admin')) {
+              console.log(`🚫 [菜单搜索过滤] ${item.label} (${item.key}): 需要admin角色，用户无权限`);
+              return null;
+            }
+          } else if (!hasPermission(item.permission)) {
+            console.log(`🚫 [菜单搜索过滤] ${item.label} (${item.key}): 需要${item.permission}权限，用户无权限`);
+            return null;
+          }
+        }
+        
         if (item.children) {
           const filteredChildren = filterMenu(item.children, keyword);
           if (filteredChildren.length > 0 || (item.label && String(item.label).toLowerCase().includes(lower))) {

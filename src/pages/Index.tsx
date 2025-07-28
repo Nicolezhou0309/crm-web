@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Row, Col, Modal, Spin, Card } from 'antd';
+import { Row, Col, Modal, Card } from 'antd';
 import AllocationStatusCard from '../components/AllocationStatusCard';
 import { fetchBanners } from '../api/bannersApi';
 import RankingBoard from '../components/RankingBoard';
 import TodoCenter from '../components/TodoCenter';
 import PerformanceDashboard from '../components/PerformanceDashboard';
+import LoadingScreen from '../components/LoadingScreen';
 
 const Index: React.FC = () => {
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -92,16 +93,7 @@ const Index: React.FC = () => {
           z-index: 10;
         }
       `}</style>
-      {pageLoading && (
-        <div style={{
-          position: 'fixed', left: 0, top: 0, width: '100vw', height: '100vh',
-          background: 'rgba(255,255,255,0.8)', zIndex: 9999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <Spin size='large' />
-          <div style={{ marginTop: 16, fontSize: 16, color: '#666' }}></div>
-        </div>
-      )}
+      {pageLoading && <LoadingScreen type="data" />}
       <div style={{ background: '#f5f6fa', width: '100%', minHeight: '100%' }}>
         {/* 三栏布局：左栏（banner+业绩进度）、中栏（销售组+待办事项）、右栏（排行榜） */}
         <Row gutter={24} style={{ height: '80vh', padding: '16px' }}>

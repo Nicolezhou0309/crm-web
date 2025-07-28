@@ -3,6 +3,7 @@ import { Tabs, Table, Tag,Button, message, Modal, Drawer, Steps, Input } from 'a
 import { supabase } from '../supaClient';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import { useSearchParams } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 
 function formatToBeijingTime(isoString?: string) {
   if (!isoString) return '-';
@@ -12,6 +13,7 @@ function formatToBeijingTime(isoString?: string) {
 }
 
 const ApprovalDetails: React.FC = () => {
+  const { user, profile } = useUser();
   const [pendingList, setPendingList] = useState<any[]>([]);
   const [approvedList, setApprovedList] = useState<any[]>([]);
   const [initiatedList, setInitiatedList] = useState<any[]>([]);
@@ -347,14 +349,7 @@ const ApprovalDetails: React.FC = () => {
     async function fetchProfileIdAndData() {
       setLoading(true);
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const { data: profile } = await supabase
-          .from('users_profile')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-        if (!profile?.id) return;
+        if (!user || !profile) return;
         setProfileId(profile.id);
 
         // 查所有用户，建立id->nickname映射
@@ -435,15 +430,14 @@ const ApprovalDetails: React.FC = () => {
           };
           allMap.set(item.id, normalizedItem);
         });
-        const allListData = Array.from(allMap.values());
-        console.log('🔍 合并后的全部数据:', allListData);
+        const allListData = Array.from(allMap.values()); 
         setAllList(allListData);
       } finally {
         setLoading(false);
       }
     }
     fetchProfileIdAndData();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, user, profile]);
 
   // 处理URL参数变化
   const [searchParams, setSearchParams] = useSearchParams();
@@ -453,35 +447,33 @@ const ApprovalDetails: React.FC = () => {
   // 统一操作编号筛选逻辑
   const filteredAllList = useMemo(() => {
     if (filterTargetId) {
-      console.log('🔍 操作编号筛选条件:', filterTargetId);
-      console.log('🔍 全部数据长度:', allList.length);
+      
       
       const filtered = allList.filter(item => {
         // 统一使用target_id作为操作编号
         const operationId = item.target_id || item.operation_id || item.id;
         
         if (!operationId) {
-          console.log('❌ 项目无操作编号:', item);
+          
           return false;
         }
         
         // 精确匹配
         if (operationId === filterTargetId) {
-          console.log('✅ 精确匹配:', operationId);
+          
           return true;
         }
         
         // 包含匹配（不区分大小写）
         if (operationId.toLowerCase().includes(filterTargetId.toLowerCase())) {
-          console.log('✅ 包含匹配:', operationId);
+          
           return true;
         }
         
-        console.log('❌ 不匹配:', operationId);
+        
         return false;
       });
       
-      console.log('🔍 筛选结果数量:', filtered.length);
       return filtered;
     }
     return allList;

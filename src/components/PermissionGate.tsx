@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRolePermissions } from '../hooks/useRolePermissions';
-import { usePermissions } from '../hooks/usePermissions';
+import LoadingScreen from './LoadingScreen';
 
 interface PermissionGateProps {
   children: React.ReactNode;
@@ -24,7 +24,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   roles = [],
   requireAllRoles = false,
   fallback = null,
-  loading = <div>加载中...</div>,
+  loading = <LoadingScreen type="auth" />,
   organizationId
 }) => {
   const { 
@@ -33,18 +33,21 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     hasAllPermissions,
     hasRole,
     hasAnyRole,
+    canManageOrganization,
     loading: permissionsLoading 
   } = useRolePermissions();
 
-  const { canManageOrganization, loading: orgPermissionsLoading } = usePermissions();
-
-  if (permissionsLoading || orgPermissionsLoading) {
+  if (permissionsLoading) {
+    console.log(`⏳ [权限门控] 权限加载中...`);
     return <>{loading}</>;
   }
 
   // 检查权限
   if (permission) {
-    if (!hasPermission(permission)) {
+    const hasPerm = hasPermission(permission);
+    console.log(`🔐 [权限门控] 检查权限 ${permission}: ${hasPerm}`);
+    if (!hasPerm) {
+      console.log(`🚫 [权限门控] 权限不足，显示fallback`);
       return <>{fallback}</>;
     }
   }
@@ -54,14 +57,19 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
       ? hasAllPermissions(permissions)
       : hasAnyPermission(permissions);
     
+    console.log(`🔐 [权限门控] 检查权限组 ${permissions.join(', ')} (${requireAllPermissions ? '全部' : '任意'}): ${hasRequiredPermissions}`);
     if (!hasRequiredPermissions) {
+      console.log(`🚫 [权限门控] 权限组不足，显示fallback`);
       return <>{fallback}</>;
     }
   }
 
   // 检查角色
   if (role) {
-    if (!hasRole(role)) {
+    const hasRolePerm = hasRole(role);
+    console.log(`🔐 [权限门控] 检查角色 ${role}: ${hasRolePerm}`);
+    if (!hasRolePerm) {
+      console.log(`🚫 [权限门控] 角色不足，显示fallback`);
       return <>{fallback}</>;
     }
   }
@@ -71,18 +79,24 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
       ? roles.every(role => hasRole(role))
       : hasAnyRole(roles);
     
+    console.log(`🔐 [权限门控] 检查角色组 ${roles.join(', ')} (${requireAllRoles ? '全部' : '任意'}): ${hasRequiredRoles}`);
     if (!hasRequiredRoles) {
+      console.log(`🚫 [权限门控] 角色组不足，显示fallback`);
       return <>{fallback}</>;
     }
   }
 
   // 如果有organizationId，检查是否有权限管理该组织
   if (organizationId) {
-    if (!canManageOrganization(organizationId)) {
+    const canManage = canManageOrganization(organizationId);
+    console.log(`🔐 [权限门控] 检查组织权限 ${organizationId}: ${canManage}`);
+    if (!canManage) {
+      console.log(`🚫 [权限门控] 组织权限不足，显示fallback`);
       return <>{fallback}</>;
     }
   }
 
+  console.log(`✅ [权限门控] 权限检查通过，显示内容`);
   return <>{children}</>;
 };
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Layout, Typography, Button, ConfigProvider } from 'antd';
 import {
   UserOutlined,
@@ -27,6 +27,7 @@ import RolePermissionManagement from './pages/RolePermissionManagement';
 import AllocationManagement from './pages/AllocationManagement';
 import ResetPassword from './pages/ResetPassword';
 import PointsDashboard from './pages/PointsDashboard';
+import PointsExchange from './pages/PointsExchange';
 import AnnouncementManagement from './pages/AnnouncementManagement';
 import { HonorManagement } from './pages/HonorManagement';
 import { AchievementManagement } from './pages/AchievementManagement';
@@ -58,6 +59,8 @@ import ApprovalPerformance from './pages/ApprovalPerformance';
 import DataAnalysis from './pages/DataAnalysis';
 import PivotTableDemo from './pages/PivotTableDemo';
 import PivotDemo from './pages/PivotDemo';
+import { useTokenRefresh } from './hooks/useTokenRefresh';
+import { useRolePermissions } from './hooks/useRolePermissions';
 
 
 const { Sider, Content, Header } = Layout;
@@ -102,12 +105,36 @@ const App: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { user, profile, loading, isSessionExpired } = useUser();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, loading } = useUser();
+  const { hasPermission, hasRole } = useRolePermissions();
+
+  // 添加路由渲染调试日志
+  useEffect(() => {
+    console.log(`🛣️ [路由渲染] 当前路径: ${location.pathname}`);
+    console.log(`🛣️ [路由渲染] 用户状态: ${user ? '已登录' : '未登录'}`);
+    console.log(`🛣️ [路由渲染] 加载状态: ${loading}`);
+  }, [location.pathname, user, loading]);
+
+  // 添加权限检查调试日志
+  useEffect(() => {
+    if (user) {
+      console.log(`🔐 [路由权限] 用户权限检查:`, {
+        hasApprovalManage: hasPermission('approval_manage'),
+        hasAdminRole: hasRole('admin'),
+        currentPath: location.pathname
+      });
+    }
+  }, [user, hasPermission, hasRole, location.pathname]);
+
+  const { profile, loading: profileLoading, isSessionExpired } = useUser();
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth] = React.useState(220);
   const minSiderWidth = 56;
-  const navigate = useNavigate();
-  const location = useLocation();
+  
+  // 启用token刷新监控
+  useTokenRefresh();
 
   // 侧边栏 key-path 映射
   const keyPathMap: { [key: string]: string } = {
@@ -118,11 +145,11 @@ const AppContent: React.FC = () => {
     'deals': '/deals',
     'allocation': '/allocation',
     'showings-queue': '/showings-queue',
-    'dashboard': '/dashboard',
+
     'points': '/points',
+    'points-dashboard': '/points',
     'points-summary': '/points-summary',
     'points-exchange': '/points/exchange',
-    'points-rules': '/points/rules',
     'honor-management': '/honor',
     'achievement-management': '/achievement',
     'departments': '/departments',
@@ -684,83 +711,112 @@ const AppContent: React.FC = () => {
               <PrivateRoute>
                 <Routes>
                   <Route path="/" element={<Index />} />
-                  <Route path="/dashboard" element={
-                    <div style={{
-                      background: '#fff',
-                      borderRadius: 16,
-                      boxShadow: '0 2px 8px 0 rgba(0,0,0,0.03)',
-                      padding: 32,
-                      minHeight: 500,
-                    }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        marginBottom: 24 
-                      }}>
-                        <LottieLogo 
-                          width={56} 
-                          height={56} 
-                        />
-                        <Title level={4} style={{ 
-                          fontWeight: 700, 
-                          color: '#222',
-                          margin: 0
-                        }}>
-                          欢迎使用长租公寓CRM系统
-                        </Title>
-                      </div>
-                      <p style={{ fontSize: 16, color: '#666' }}>
-                        这是一个现代化的客户关系管理系统，帮助您更好地管理销售线索和客户关系。
-                      </p>
-                      <Button type="primary" size="large" style={{ marginTop: 24 }}>
-                        开始使用
-                      </Button>
-                    </div>
+
+                  <Route path="/leads" element={
+                    <PermissionGate permission="lead_manage" fallback={<Error403 />}>
+                      <LeadsList />
+                    </PermissionGate>
                   } />
-                  <Route path="/leads" element={<LeadsList />} />
                   <Route path="/followups" element={<FollowupsGroupList />} />
                   <Route path="/showings" element={<ShowingsList />} />
 
                   <Route path="/deals" element={<DealsList />} />
-                  <Route path="/allocation" element={<AllocationManagement />} />
-                  <Route path="/allocation-management" element={<AllocationManagement />} />
-                  <Route path="/showings-queue" element={<ShowingsQueueManagement />} />
+                  <Route path="/allocation" element={
+                    <PermissionGate permission="allocation_manage" fallback={<Error403 />}>
+                      <AllocationManagement />
+                    </PermissionGate>
+                  } />
+                  <Route path="/allocation-management" element={
+                    <PermissionGate permission="allocation_manage" fallback={<Error403 />}>
+                      <AllocationManagement />
+                    </PermissionGate>
+                  } />
+                  <Route path="/showings-queue" element={
+                    <PermissionGate permission="allocation_manage" fallback={<Error403 />}>
+                      <ShowingsQueueManagement />
+                    </PermissionGate>
+                  } />
 
                   {/* 积分系统路由 */}
                   <Route path="/points" element={<PointsDashboard />} />
-                  <Route path="/points-summary" element={<PointsSummary />} />
+                  <Route path="/points-summary" element={
+                    <PermissionGate permission="points_manage" fallback={<Error403 />}>
+                      <PointsSummary />
+                    </PermissionGate>
+                  } />
+                  <Route path="/points/exchange" element={<PointsExchange />} />
 
                   <Route path="/test" element={<TestSupabase />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/403" element={<Error403 />} />
                   <Route path="/departments" element={<DepartmentPage />} />
-                  <Route path="/roles" element={<RolePermissionManagement />} />
+                  <Route path="/roles" element={
+                    <PermissionGate role="admin" fallback={<Error403 />}>
+                      <RolePermissionManagement />
+                    </PermissionGate>
+                  } />
                   <Route path="/announcements" element={
                     <PermissionGate permission="manage_announcements" fallback={<Error403 />}>
                       <AnnouncementManagement />
                     </PermissionGate>
                   } />
                   <Route path="/honor" element={
-                    <PermissionGate permission="admin" fallback={<Error403 />}>
+                    <PermissionGate permission="user_manage" fallback={<Error403 />}>
                       <HonorManagement />
                     </PermissionGate>
                   } />
                   <Route path="/achievement" element={
-                    <PermissionGate permission="admin" fallback={<Error403 />}>
+                    <PermissionGate permission="user_manage" fallback={<Error403 />}>
                       <AchievementManagement />
                     </PermissionGate>
                   } />
                   <Route path="/reset-password" element={<ResetPassword />} />
-                  <Route path="/banner-management" element={<BannerManagement />} />
-                  <Route path="/loading-demo" element={<LoadingDemo />} />
-                  <Route path="/test-tools" element={<TestTools />} />
-                  <Route path="/test-showings-data" element={<TestShowingsData />} />
-                  <Route path="/email-test" element={<EmailTest />} />
-                  <Route path="/notification-templates" element={<NotificationTemplateManager />} />
-                  <Route path="/approval-flows" element={<ApprovalFlowManagement />} />
+                  <Route path="/banner-management" element={
+                    <PermissionGate role="admin" fallback={<Error403 />}>
+                      <BannerManagement />
+                    </PermissionGate>
+                  } />
+                  <Route path="/loading-demo" element={
+                    <PermissionGate role="admin" fallback={<Error403 />}>
+                      <LoadingDemo />
+                    </PermissionGate>
+                  } />
+                  <Route path="/test-tools" element={
+                    <PermissionGate role="admin" fallback={<Error403 />}>
+                      <TestTools />
+                    </PermissionGate>
+                  } />
+                  <Route path="/test-showings-data" element={
+                    <PermissionGate role="admin" fallback={<Error403 />}>
+                      <TestShowingsData />
+                    </PermissionGate>
+                  } />
+                  <Route path="/email-test" element={
+                    <PermissionGate role="admin" fallback={<Error403 />}>
+                      <EmailTest />
+                    </PermissionGate>
+                  } />
+                  <Route path="/notification-templates" element={
+                    <PermissionGate role="admin" fallback={<Error403 />}>
+                      <NotificationTemplateManager />
+                    </PermissionGate>
+                  } />
+                  <Route path="/approval-flows" element={
+                            <PermissionGate permission="approval_manage" fallback={<Error403 />}>
+          <ApprovalFlowManagement />
+        </PermissionGate>
+                  } />
                   <Route path="/approval-details" element={<ApprovalDetails />} />
-                  <Route path="/approval-performance" element={<ApprovalPerformance />} />
-                          <Route path="/data-analysis" element={<DataAnalysis />} />
+                  <Route path="/approval-performance" element={
+                            <PermissionGate permission="approval_manage" fallback={<Error403 />}>
+          <ApprovalPerformance />
+        </PermissionGate>
+                  } />
+                          <Route path="/data-analysis" element={
+                            <PermissionGate permission="data_analysis" fallback={<Error403 />}>
+                              <DataAnalysis />
+                            </PermissionGate>
+                          } />
                           <Route path="/pivot-demo" element={<PivotTableDemo />} />
                           <Route path="/pivot-demo-new" element={<PivotDemo />} />
         <Route path="*" element={<Error404 />} />

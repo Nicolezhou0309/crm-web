@@ -193,69 +193,7 @@ export async function allocateLeadWithPoints(params: {
 // 用户积分分配相关
 // =====================================
 
-// 获取用户积分分配历史（改为查询user_points_transactions）
-export async function getUserPointsAllocationHistory(userId: number, filters: Record<string, any> = {}) {
-  let query = supabase
-    .from('user_points_transactions')
-    .select('*')
-    .eq('user_id', userId);
 
-  // 动态添加筛选条件
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '' && !['orderBy', 'ascending', 'limit', 'offset'].includes(key)) {
-      query = query.eq(key, value);
-    }
-  });
-
-  // 支持排序和分页
-  if (filters.orderBy) {
-    query = query.order(filters.orderBy, { ascending: !!filters.ascending });
-  } else {
-    query = query.order('created_at', { ascending: false });
-  }
-  
-  if (filters.limit) {
-    query = query.limit(filters.limit);
-  }
-  
-  if (filters.offset) {
-    query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data;
-}
-
-// 获取用户积分分配统计（改为统计user_points_transactions）
-export async function getUserPointsAllocationStats(userId: number) {
-  // 获取所有记录
-  const { data: allRecords, error } = await supabase
-    .from('user_points_transactions')
-    .select('*')
-    .eq('user_id', userId);
-  
-  if (error) throw error;
-  
-  const records = allRecords || [];
-  const total_allocations = records.length;
-  const successful_allocations = records.filter(r => r.transaction_type === 'EARN').length;
-  const insufficient_points_allocations = records.filter(r => r.transaction_type === 'DEDUCT').length;
-  const total_points_cost = records.reduce((sum, r) => sum + (r.points_change < 0 ? Math.abs(r.points_change) : 0), 0);
-  const successful_points_cost = records
-    .filter(r => r.transaction_type === 'EARN')
-    .reduce((sum, r) => sum + (r.points_change > 0 ? r.points_change : 0), 0);
-  const avg_points_cost = total_allocations > 0 ? total_points_cost / total_allocations : 0;
-  
-  return {
-    total_allocations,
-    successful_allocations,
-    insufficient_points_allocations,
-    total_points_cost,
-    successful_points_cost,
-    avg_points_cost: Math.round(avg_points_cost * 100) / 100
-  };
-}
 
 // =====================================
 // 系统验证和测试
@@ -302,7 +240,6 @@ const costRules = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('获取积分成本规则失败:', error);
       return { success: false, error: '获取积分成本规则失败' };
     }
   },
@@ -318,7 +255,6 @@ const costRules = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('创建积分成本规则失败:', error);
       return { success: false, error: '创建积分成本规则失败' };
     }
   },
@@ -335,7 +271,6 @@ const costRules = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('更新积分成本规则失败:', error);
       return { success: false, error: '更新积分成本规则失败' };
     }
   },
@@ -349,7 +284,6 @@ const costRules = {
       if (error) throw error;
       return { success: true };
     } catch (error) {
-      console.error('软删除积分成本规则失败:', error);
       return { success: false, error: '软删除积分成本规则失败' };
     }
   }
@@ -380,7 +314,6 @@ const allocationRecords = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('获取分配记录失败:', error);
       return { success: false, error: '获取分配记录失败' };
     }
   }
@@ -400,7 +333,6 @@ const stats = {
       
       return { success: true, data: stats };
     } catch (error) {
-      console.error('获取统计数据失败:', error);
       return { success: false, error: '获取统计数据失败' };
     }
   }

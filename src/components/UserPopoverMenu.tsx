@@ -2,6 +2,7 @@ import React from 'react';
 import { Menu } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supaClient';
+import { safeSignOut } from '../utils/authUtils';
 
 const UserPopoverMenu: React.FC = () => {
   const navigate = useNavigate();
@@ -10,8 +11,7 @@ const UserPopoverMenu: React.FC = () => {
     if (e.key === 'profile') {
       navigate('/profile');
     } else if (e.key === 'logout') {
-      await supabase.auth.signOut();
-      window.location.href = '/login';
+      await safeSignOut(navigate);
     }
   };
 

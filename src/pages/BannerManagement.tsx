@@ -68,11 +68,7 @@ const BannerManagement: React.FC = () => {
     setLoading(true);
     try {
       const data = await fetchBanners();
-      console.log('[loadBanners] fetchBanners data:', data);
       setBanners(data);
-      setTimeout(() => {
-        console.log('[loadBanners] setBanners后 banners:', data);
-      }, 0);
     } catch (e) {
       message.error('获取轮播图失败');
     }
@@ -84,7 +80,6 @@ const BannerManagement: React.FC = () => {
   }, []);
 
   const handleAdd = () => {
-    console.log('[handleAdd] 新建，重置 editingBanner, imageUrl, modalVisible, formReady');
     setEditingBanner(null);
     setImageUrl('');
     setModalVisible(true);
@@ -92,7 +87,6 @@ const BannerManagement: React.FC = () => {
   };
 
   const handleEdit = (record: Banner) => {
-    console.log('[handleEdit] record:', record);
     setEditingBanner(record);
     setImageUrl(record.image_url);
     setModalVisible(true);
@@ -101,10 +95,8 @@ const BannerManagement: React.FC = () => {
 
   // Modal 渲染后再 setFieldsValue，确保编辑/新建都能正确填充
   useEffect(() => {
-    console.log('[useEffect] modalVisible:', modalVisible, 'formReady:', formReady, 'editingBanner:', editingBanner);
     if (modalVisible && !formReady) {
       if (editingBanner) {
-        console.log('[useEffect] setFieldsValue for editingBanner:', editingBanner);
         form.setFieldsValue({
           title: editingBanner.title || '',
           description: editingBanner.description || '',
@@ -113,9 +105,7 @@ const BannerManagement: React.FC = () => {
           jump_type: editingBanner.jump_type || 'none',
           jump_target: editingBanner.jump_target || ''
         });
-        console.log('[useEffect] form.getFieldsValue after setFieldsValue(editingBanner):', form.getFieldsValue());
       } else {
-        console.log('[useEffect] setFieldsValue for new');
         form.setFieldsValue({
           title: '',
           description: '',
@@ -124,7 +114,6 @@ const BannerManagement: React.FC = () => {
           jump_type: 'none',
           jump_target: ''
         });
-        console.log('[useEffect] form.getFieldsValue after setFieldsValue(new):', form.getFieldsValue());
       }
       setFormReady(true);
     }
@@ -132,7 +121,6 @@ const BannerManagement: React.FC = () => {
 
   // Modal 关闭时重置 imageUrl 和表单
   const handleModalCancel = () => {
-    console.log('[handleModalCancel] 关闭弹窗，重置 imageUrl 和表单');
     setModalVisible(false);
     setImageUrl('');
     form.resetFields();
@@ -163,18 +151,15 @@ const BannerManagement: React.FC = () => {
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
-      console.log('[handleOk] 表单校验通过，values:', values, 'imageUrl:', imageUrl);
       if (!imageUrl) {
         message.error('请上传图片');
         return;
       }
       const data = { ...values, image_url: imageUrl };
       if (editingBanner) {
-        console.log('[handleOk] 编辑模式，updateBanner:', editingBanner.id, data);
         await updateBanner(editingBanner.id!, data);
         message.success('编辑成功');
       } else {
-        console.log('[handleOk] 新建模式，createBanner:', data);
         await createBanner(data);
         message.success('新建成功');
       }
@@ -182,8 +167,7 @@ const BannerManagement: React.FC = () => {
       setImageUrl('');
       form.resetFields();
       loadBanners();
-    } catch (err) {
-      console.log('[handleOk] 校验失败:', err);
+    } catch (err) { 
       // 校验失败，不做处理，antd 会自动高亮错误项
     }
   };
@@ -221,9 +205,6 @@ const BannerManagement: React.FC = () => {
       </>
     ) },
   ];
-
-  console.log('[Table] banners:', banners);
-  console.log('[Table] columns:', columns);
 
   return (
     <div style={{ padding: 24 }}>

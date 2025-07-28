@@ -1,109 +1,137 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Button, message, Typography } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Button, Space, Typography, Divider, List, Tag } from 'antd';
 import { supabase } from '../supaClient';
+import { useUser } from '../context/UserContext';
+import { useRolePermissions } from '../hooks/useRolePermissions';
 
 const { Title, Text } = Typography;
 
 const TestSupabase: React.FC = () => {
-  const [isConnected, setIsConnected] = useState<boolean | null>(null);
-  const [tableCount, setTableCount] = useState<number | null>(null);
+  const { user, profile, permissions, refreshUser, refreshPermissions } = useUser();
+  const { 
+    userRoles, 
+    userPermissions, 
+    hasPermission, 
+    hasRole, 
+    isSuperAdmin, 
+    isSystemAdmin,
+    loading: permissionsLoading 
+  } = useRolePermissions();
+  const [testResults, setTestResults] = useState<any>({});
 
-  useEffect(() => {
-    testConnection();
-  }, []);
-
-  const testConnection = async () => {
-    try {
-      // 测试基本连接
-      const { data, error } = await supabase
-        .from('leads')
-        .select('count', { count: 'exact', head: true });
-      
-      if (error) {
-        console.error('连接测试失败:', error);
-        setIsConnected(false);
-        message.error('Supabase连接失败: ' + error.message);
-      } else {
-        setIsConnected(true);
-        setTableCount(data?.length || 0);
-        message.success('Supabase连接成功！');
+  const testUserContext = () => {
+    setTestResults((prev: any) => ({
+      ...prev,
+      userContext: {
+        user: user ? { id: user.id, email: user.email } : null,
+        profile: profile,
+        permissions: permissions
       }
+    }));
+  };
+
+  const testPermissions = async () => {
+    try {
+      await refreshPermissions();
+      setTestResults((prev: any) => ({
+        ...prev,
+        permissionsRefreshed: '权限信息已刷新'
+      }));
     } catch (error) {
-      console.error('连接测试异常:', error);
-      setIsConnected(false);
-      message.error('连接测试异常');
+      setTestResults((prev: any) => ({
+        ...prev,
+        permissionsError: error instanceof Error ? error.message : '未知错误'
+      }));
     }
   };
 
-  const testInsert = async () => {
-    try {
-      const testData = {
-        leadid: 'TEST-' + Date.now(),
-        phone: '13800138000',
-        wechat: 'test_wechat',
-        source: '测试',
-        leadstatus: '新建',
-      };
-
-      const { error } = await supabase
-        .from('leads')
-        .insert([testData])
-        .select();
-
-      if (error) {
-        message.error('插入测试失败: ' + error.message);
-      } else {
-        message.success('插入测试成功！');
-        testConnection(); // 刷新数据
+  const testApprovalPermission = () => {
+    const hasApproval = hasPermission('approval_manage');
+    const hasAdmin = hasRole('admin');
+    setTestResults((prev: any) => ({
+      ...prev,
+      approvalTest: {
+        hasApprovalManage: hasApproval,
+        hasAdminRole: hasAdmin,
+        isSuperAdmin,
+        isSystemAdmin
       }
-    } catch (error) {
-      message.error('插入测试异常');
-    }
+    }));
   };
 
   return (
-    <div style={{
-      background: '#fff',
-      borderRadius: 16,
-      boxShadow: '0 2px 8px 0 rgba(0,0,0,0.03)',
-      padding: 32,
-      minHeight: 500,
-    }}>
-      <Title level={4} style={{ marginBottom: 24, fontWeight: 700, color: '#222' }}>
-        Supabase连接测试
-      </Title>
+    <div style={{ padding: '20px' }}>
+      <Title level={2}>权限调试页面</Title>
       
-      <Card style={{ marginBottom: 16 }}>
-        <div style={{ marginBottom: 16 }}>
-          <Text strong>连接状态: </Text>
-          {isConnected === null && <Text>测试中...</Text>}
-          {isConnected === true && <Text style={{ color: 'green' }}>✅ 已连接</Text>}
-          {isConnected === false && <Text style={{ color: 'red' }}>❌ 连接失败</Text>}
-        </div>
-        
-        <div style={{ marginBottom: 16 }}>
-          <Text strong>leads表记录数: </Text>
-          {tableCount !== null ? tableCount : '未知'}
-        </div>
-        
-        <Button onClick={testConnection} style={{ marginRight: 8 }}>
-          重新测试连接
-        </Button>
-        <Button type="primary" onClick={testInsert}>
-          测试插入数据
-        </Button>
-      </Card>
-      
-      <Card>
-        <Title level={5}>配置信息</Title>
-        <div style={{ marginBottom: 8 }}>
-          <Text strong>URL: </Text>
-          <Text code>https://wteqgprgiylmxzszcnws.supabase.co</Text>
-        </div>
-        <div>
-          <Text strong>环境变量: </Text>
-          <Text code>VITE_SUPABASE_URL</Text> 和 <Text code>VITE_SUPABASE_ANON_KEY</Text>
-        </div>
+      <Card title="当前用户权限信息" style={{ marginBottom: '20px' }}>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Button onClick={testUserContext}>测试 UserContext</Button>
+          <Button onClick={testPermissions}>刷新权限信息</Button>
+          <Button onClick={testApprovalPermission}>测试审批权限</Button>
+          
+          {!permissionsLoading && (
+            <div>
+              <Divider>权限状态</Divider>
+              <List
+                size="small"
+                dataSource={[
+                  { label: '审批管理权限', value: hasPermission('approval_manage') },
+                  { label: '管理员角色', value: hasRole('admin') },
+                  { label: '超级管理员', value: isSuperAdmin },
+                  { label: '系统管理员', value: isSystemAdmin },
+                ]}
+                renderItem={item => (
+                  <List.Item>
+                    <Text>{item.label}:</Text>
+                    <Tag color={item.value ? 'green' : 'red'}>
+                      {item.value ? '✅ 有权限' : '❌ 无权限'}
+                    </Tag>
+                  </List.Item>
+                )}
+              />
+              
+              <Divider>用户角色</Divider>
+              <div>
+                {userRoles.map((role: any) => (
+                  <Tag key={role.role_id} color="blue">{role.role_name}</Tag>
+                ))}
+              </div>
+              
+              <Divider>用户权限</Divider>
+              <div>
+                {userPermissions.map((perm: any) => (
+                  <Tag key={perm.permission_name} color="green">{perm.permission_name}</Tag>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {testResults.userContext && (
+            <div>
+              <Divider>UserContext 信息</Divider>
+              <pre>{JSON.stringify(testResults.userContext, null, 2)}</pre>
+            </div>
+          )}
+          
+          {testResults.approvalTest && (
+            <div>
+              <Divider>审批权限测试</Divider>
+              <pre>{JSON.stringify(testResults.approvalTest, null, 2)}</pre>
+            </div>
+          )}
+          
+          {testResults.permissionsRefreshed && (
+            <div>
+              <Text type="success">{testResults.permissionsRefreshed}</Text>
+            </div>
+          )}
+          
+          {testResults.permissionsError && (
+            <div>
+              <Text type="danger">权限刷新错误: {testResults.permissionsError}</Text>
+            </div>
+          )}
+        </Space>
       </Card>
     </div>
   );
