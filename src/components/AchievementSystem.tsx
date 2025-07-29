@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Card, Row, Col, Progress, Tag, Space, Typography, Button, 
-  Avatar, Modal, Tabs, Statistic
+  Avatar, Modal, Menu, Statistic
 } from 'antd';
 import LoadingScreen from './LoadingScreen';
 import {
@@ -12,7 +12,6 @@ import { useAchievements } from '../hooks/useAchievements';
 import type { Achievement, AvatarFrame, Badge } from '../api/achievementApi';
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
 
 interface AchievementSystemProps {
   showHeader?: boolean;
@@ -40,6 +39,30 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
 
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [achievementModalVisible, setAchievementModalVisible] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // 获取当前分类的成就
+  const getCurrentAchievements = () => {
+    switch (selectedCategory) {
+      case 'all':
+        return achievements;
+      case 'milestone':
+        return getAchievementsByCategory().milestone || [];
+      case 'skill':
+        return getAchievementsByCategory().skill || [];
+      case 'social':
+        return getAchievementsByCategory().social || [];
+      case 'special':
+        return getAchievementsByCategory().special || [];
+      default:
+        return achievements;
+    }
+  };
+
+  // 处理菜单点击
+  const handleMenuClick = ({ key }: { key: string }) => {
+    setSelectedCategory(key);
+  };
 
   // 渲染成就卡片
   const renderAchievementCard = (achievement: Achievement) => {
@@ -51,65 +74,125 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
         key={achievement.achievement_id}
         hoverable
         style={{
-          marginBottom: 16,
+          marginBottom: 12,
+          marginTop: 12,
           border: isCompleted ? '2px solid #52c41a' : '1px solid #f0f0f0',
-          borderRadius: 12,
+          borderRadius: 8,
           cursor: 'pointer',
-          transition: 'all 0.3s ease'
+          transition: 'all 0.3s ease',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+        bodyStyle={{ 
+          padding: '12px',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column'
         }}
         onClick={() => {
           setSelectedAchievement(achievement);
           setAchievementModalVisible(true);
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 8, flex: 1 }}>
           <div
             style={{
-              fontSize: 32,
-              marginRight: 12,
-              opacity: isCompleted ? 1 : 0.6
+              fontSize: 24,
+              marginRight: 8,
+              opacity: isCompleted ? 1 : 0.6,
+              flexShrink: 0
             }}
           >
             {achievement.icon}
           </div>
-          <div style={{ flex: 1 }}>
-            <Title level={5} style={{ margin: 0, color: achievement.color }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Title level={5} style={{ 
+              margin: 0, 
+              color: achievement.color, 
+              fontSize: 13, 
+              lineHeight: 1.3,
+              marginBottom: 6,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
               {achievement.name}
             </Title>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" style={{ 
+              fontSize: 11, 
+              lineHeight: 1.2,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              wordBreak: 'break-word',
+              marginBottom: 8
+            }}>
               {achievement.description}
             </Text>
           </div>
           {isCompleted && (
-            <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 20 }} />
+            <CheckCircleOutlined style={{ 
+              color: '#52c41a', 
+              fontSize: 16,
+              flexShrink: 0,
+              marginLeft: 4
+            }} />
           )}
         </div>
 
-        <div style={{ marginBottom: 12 }}>
-          <Space wrap>
-            <Tag color={getCategoryColor(achievement.category)}>
+        {/* 积分奖励单独一行 */}
+        {achievement.points_reward > 0 && (
+          <div style={{ marginBottom: 8, flexShrink: 0 }}>
+            <div style={{
+              display: 'inline-block',
+              padding: '2px 8px',
+              borderRadius: 4,
+              background: '#fff7e6',
+              color: '#d46b08',
+              fontWeight: 600,
+              fontSize: 10,
+              border: '1px solid #ffd591'
+            }}>
+              +{achievement.points_reward} 积分
+            </div>
+          </div>
+        )}
+
+        {/* 标签区域 */}
+        <div style={{ marginBottom: 8, flexShrink: 0 }}>
+          <Space wrap size={4} style={{ width: '100%' }}>
+            <Tag color={getCategoryColor(achievement.category)} style={{ 
+              fontSize: 10, 
+              padding: '0 6px',
+              marginBottom: 4
+            }}>
               {getCategoryText(achievement.category)}
             </Tag>
-            {achievement.points_reward > 0 && (
-              <Tag color="gold">
-                +{achievement.points_reward} 积分
-              </Tag>
-            )}
             {achievement.avatar_frame_id && (
-              <Tag color="blue">头像框</Tag>
+              <Tag color="blue" style={{ 
+                fontSize: 10, 
+                padding: '0 6px',
+                marginBottom: 4
+              }}>头像框</Tag>
             )}
             {achievement.badge_id && (
-              <Tag color="purple">勋章</Tag>
+              <Tag color="purple" style={{ 
+                fontSize: 10, 
+                padding: '0 6px',
+                marginBottom: 4
+              }}>勋章</Tag>
             )}
           </Space>
         </div>
 
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+            <Text type="secondary" style={{ fontSize: 10 }}>
               进度: {achievement.progress} / {achievement.target}
             </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" style={{ fontSize: 10 }}>
               {progressPercentage}%
             </Text>
           </div>
@@ -118,6 +201,7 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
             size="small"
             strokeColor={isCompleted ? '#52c41a' : achievement.color}
             showInfo={false}
+            style={{ marginBottom: 0 }}
           />
         </div>
       </Card>
@@ -131,15 +215,26 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
         key={frame.frame_id}
         hoverable
         style={{
-          marginBottom: 16,
+          marginBottom: 12,
+          marginTop: 12,
           border: frame.is_equipped ? '2px solid #1890ff' : '1px solid #f0f0f0',
-          borderRadius: 12
+          borderRadius: 8,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+        bodyStyle={{ 
+          padding: '12px',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          textAlign: 'center'
         }}
       >
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ marginBottom: 12 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ marginBottom: 8 }}>
             <Avatar
-              size={64}
+              size={48}
               icon={<UserOutlined />}
               style={{
                 ...frame.frame_data,
@@ -147,30 +242,44 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
               }}
             />
           </div>
-          <Title level={5} style={{ margin: '8px 0' }}>
+          <Title level={5} style={{ margin: '4px 0', fontSize: 13, lineHeight: 1.3 }}>
             {frame.name}
           </Title>
-          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+          <Text type="secondary" style={{ 
+            fontSize: 11, 
+            marginBottom: 6, 
+            lineHeight: 1.2,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical'
+          }}>
             {frame.description}
           </Text>
-          <Tag color={getRarityColor(frame.rarity)} style={{ marginBottom: 8 }}>
+          <Tag color={getRarityColor(frame.rarity)} style={{ 
+            marginBottom: 6, 
+            fontSize: 10, 
+            padding: '0 6px' 
+          }}>
             {getRarityText(frame.rarity)}
           </Tag>
-          <div>
-            {frame.is_equipped ? (
-              <Button type="primary" size="small" disabled>
-                已装备
-              </Button>
-            ) : (
-              <Button
-                type="default"
-                size="small"
-                onClick={() => equipAvatarFrame(frame.frame_id)}
-              >
-                装备
-              </Button>
-            )}
-          </div>
+        </div>
+        <div style={{ flexShrink: 0 }}>
+          {frame.is_equipped ? (
+            <Button type="primary" size="small" disabled style={{ fontSize: 11, width: '100%' }}>
+              已装备
+            </Button>
+          ) : (
+            <Button
+              type="default"
+              size="small"
+              style={{ fontSize: 11, width: '100%' }}
+              onClick={() => equipAvatarFrame(frame.frame_id)}
+            >
+              装备
+            </Button>
+          )}
         </div>
       </Card>
     );
@@ -183,16 +292,27 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
         key={badge.badge_id}
         hoverable
         style={{
-          marginBottom: 16,
+          marginBottom: 12,
+          marginTop: 12,
           border: badge.is_equipped ? '2px solid #1890ff' : '1px solid #f0f0f0',
-          borderRadius: 12
+          borderRadius: 8,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+        bodyStyle={{ 
+          padding: '12px',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          textAlign: 'center'
         }}
       >
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ marginBottom: 12 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ marginBottom: 8 }}>
             <div
               style={{
-                fontSize: 48,
+                fontSize: 36,
                 color: badge.color,
                 opacity: badge.is_equipped ? 1 : 0.6
               }}
@@ -200,30 +320,44 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
               {badge.icon}
             </div>
           </div>
-          <Title level={5} style={{ margin: '8px 0' }}>
+          <Title level={5} style={{ margin: '4px 0', fontSize: 13, lineHeight: 1.3 }}>
             {badge.name}
           </Title>
-          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+          <Text type="secondary" style={{ 
+            fontSize: 11, 
+            marginBottom: 6, 
+            lineHeight: 1.2,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical'
+          }}>
             {badge.description}
           </Text>
-          <Tag color={getRarityColor(badge.rarity)} style={{ marginBottom: 8 }}>
+          <Tag color={getRarityColor(badge.rarity)} style={{ 
+            marginBottom: 6, 
+            fontSize: 10, 
+            padding: '0 6px' 
+          }}>
             {getRarityText(badge.rarity)}
           </Tag>
-          <div>
-            {badge.is_equipped ? (
-              <Button type="primary" size="small" disabled>
-                已佩戴
-              </Button>
-            ) : (
-              <Button
-                type="default"
-                size="small"
-                onClick={() => equipBadge(badge.badge_id)}
-              >
-                佩戴
-              </Button>
-            )}
-          </div>
+        </div>
+        <div style={{ flexShrink: 0 }}>
+          {badge.is_equipped ? (
+            <Button type="primary" size="small" disabled style={{ fontSize: 11, width: '100%' }}>
+              已佩戴
+            </Button>
+          ) : (
+            <Button
+              type="default"
+              size="small"
+              style={{ fontSize: 11, width: '100%' }}
+              onClick={() => equipBadge(badge.badge_id)}
+            >
+              佩戴
+            </Button>
+          )}
         </div>
       </Card>
     );
@@ -280,77 +414,44 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
         </div>
       )}
 
-      <Tabs defaultActiveKey="all" size={compact ? 'small' : 'middle'}>
-        <TabPane tab="全部成就" key="all">
-          <Row gutter={16}>
-            {achievements.map(achievement => (
-              <Col key={achievement.achievement_id} span={compact ? 12 : 8}>
+      <Row gutter={[16, 16]}>
+        <Col span={4}>
+          <Menu
+            mode="inline"
+            defaultSelectedKeys={['all']}
+            style={{ 
+              height: '100%', 
+              borderRight: '1px solid #f0f0f0',
+            }}
+            onClick={handleMenuClick}
+          >
+            <Menu.Item key="all" icon={<TrophyOutlined style={{ fontSize: 14 }} />} style={{ fontSize: 14, padding: '8px 12px' }}>
+              全部成就
+            </Menu.Item>
+            <Menu.Item key="milestone" icon={<StarOutlined style={{ fontSize: 14 }} />} style={{ fontSize: 14, padding: '8px 12px' }}>
+              里程碑
+            </Menu.Item>
+            <Menu.Item key="skill" icon={<FireOutlined style={{ fontSize: 14 }} />} style={{ fontSize: 14, padding: '8px 12px' }}>
+              技能
+            </Menu.Item>
+            <Menu.Item key="social" icon={<UserOutlined style={{ fontSize: 14 }} />} style={{ fontSize: 14, padding: '8px 12px' }}>
+              社交
+            </Menu.Item>
+            <Menu.Item key="special" icon={<CheckCircleOutlined style={{ fontSize: 14 }} />} style={{ fontSize: 14, padding: '8px 12px' }}>
+              特殊
+            </Menu.Item>
+          </Menu>
+        </Col>
+        <Col span={20}>
+          <Row gutter={[16, 16]}>
+            {getCurrentAchievements().map(achievement => (
+              <Col key={achievement.achievement_id} span={8}>
                 {renderAchievementCard(achievement)}
               </Col>
             ))}
           </Row>
-        </TabPane>
-
-        <TabPane tab="里程碑" key="milestone">
-          <Row gutter={16}>
-            {getAchievementsByCategory().milestone?.map(achievement => (
-              <Col key={achievement.achievement_id} span={compact ? 12 : 8}>
-                {renderAchievementCard(achievement)}
-              </Col>
-            ))}
-          </Row>
-        </TabPane>
-
-        <TabPane tab="技能" key="skill">
-          <Row gutter={16}>
-            {getAchievementsByCategory().skill?.map(achievement => (
-              <Col key={achievement.achievement_id} span={compact ? 12 : 8}>
-                {renderAchievementCard(achievement)}
-              </Col>
-            ))}
-          </Row>
-        </TabPane>
-
-        <TabPane tab="社交" key="social">
-          <Row gutter={16}>
-            {getAchievementsByCategory().social?.map(achievement => (
-              <Col key={achievement.achievement_id} span={compact ? 12 : 8}>
-                {renderAchievementCard(achievement)}
-              </Col>
-            ))}
-          </Row>
-        </TabPane>
-
-        <TabPane tab="特殊" key="special">
-          <Row gutter={16}>
-            {getAchievementsByCategory().special?.map(achievement => (
-              <Col key={achievement.achievement_id} span={compact ? 12 : 8}>
-                {renderAchievementCard(achievement)}
-              </Col>
-            ))}
-          </Row>
-        </TabPane>
-
-        <TabPane tab="头像框" key="avatar-frames">
-          <Row gutter={16}>
-            {avatarFrames.map(frame => (
-              <Col key={frame.frame_id} span={compact ? 12 : 6}>
-                {renderAvatarFrameCard(frame)}
-              </Col>
-            ))}
-          </Row>
-        </TabPane>
-
-        <TabPane tab="勋章" key="badges">
-          <Row gutter={16}>
-            {badges.map(badge => (
-              <Col key={badge.badge_id} span={compact ? 12 : 6}>
-                {renderBadgeCard(badge)}
-              </Col>
-            ))}
-          </Row>
-        </TabPane>
-      </Tabs>
+        </Col>
+      </Row>
 
       {/* 成就详情弹窗 */}
       <Modal

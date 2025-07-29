@@ -33,6 +33,7 @@ import {
 import { notificationApi } from '../api/notificationApi';
 import type { Announcement } from '../api/notificationApi';
 import dayjs from 'dayjs';
+import { supabase } from '../supaClient';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -126,14 +127,23 @@ const AnnouncementManagement: React.FC = () => {
           ...formData,
         });
         message.success('公告更新成功');
+        
+        // 立即更新本地状态
+        setAnnouncements(prev => prev.map(announcement => 
+          announcement.id === editingAnnouncement.id 
+            ? { ...announcement, ...formData }
+            : announcement
+        ));
       } else {
-        await notificationApi.createAnnouncement(formData);
+        const result = await notificationApi.createAnnouncement(formData);
         message.success('公告创建成功');
+        
+        // 创建成功后重新获取数据以确保数据完整性
+        fetchAnnouncements();
       }
 
       setModalVisible(false);
       resetForm();
-      fetchAnnouncements();
     } catch (error) {
       message.error(editingAnnouncement ? '更新公告失败' : '创建公告失败');
       console.error('提交失败:', error);
@@ -143,12 +153,36 @@ const AnnouncementManagement: React.FC = () => {
   // 删除公告
   const handleDelete = async (id: string) => {
     try {
-      await notificationApi.deleteAnnouncement(id);
+      // 直接删除数据库记录
+      const { error } = await supabase
+        .from('announcements')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('数据库删除失败:', error);
+        throw error;
+      }
+      
       message.success('公告删除成功');
-      fetchAnnouncements();
+      
+      // 立即更新本地状态，同步窗口数据
+      setAnnouncements(prev => prev.filter(announcement => announcement.id !== id));
+      
+      // 重新计算统计信息
+      const updatedAnnouncements = announcements.filter(announcement => announcement.id !== id);
+      const activeCount = updatedAnnouncements.filter(a => a.is_active).length;
+      setStats({
+        total: updatedAnnouncements.length,
+        active: activeCount,
+        inactive: updatedAnnouncements.length - activeCount,
+      });
+      
+      // 可选：重新获取完整数据以确保数据一致性
+      // fetchAnnouncements();
     } catch (error) {
+      console.error('删除公告失败，ID:', id, '错误详情:', error);
       message.error('删除公告失败');
-      console.error('删除失败:', error);
     }
   };
 
@@ -160,7 +194,26 @@ const AnnouncementManagement: React.FC = () => {
         is_active: !record.is_active,
       });
       message.success(`公告已${record.is_active ? '停用' : '启用'}`);
-      fetchAnnouncements();
+      
+      // 立即更新本地状态
+      setAnnouncements(prev => prev.map(announcement => 
+        announcement.id === record.id 
+          ? { ...announcement, is_active: !record.is_active }
+          : announcement
+      ));
+      
+      // 重新计算统计信息
+      const updatedAnnouncements = announcements.map(announcement => 
+        announcement.id === record.id 
+          ? { ...announcement, is_active: !record.is_active }
+          : announcement
+      );
+      const activeCount = updatedAnnouncements.filter(a => a.is_active).length;
+      setStats({
+        total: updatedAnnouncements.length,
+        active: activeCount,
+        inactive: updatedAnnouncements.length - activeCount,
+      });
     } catch (error) {
       message.error('状态更新失败');
       console.error('状态更新失败:', error);

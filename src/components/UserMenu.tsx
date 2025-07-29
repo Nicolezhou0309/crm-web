@@ -16,24 +16,7 @@ const UserMenu = () => {
   const { refreshUser } = useUser();
   const navigate = useNavigate();
 
-  // 监听全局刷新口令
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'avatar_refresh_token') {
-        refreshUser();
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, [refreshUser]);
 
-  useEffect(() => {
-    const handleAvatarRefresh = () => {
-      refreshUser();
-    };
-    window.addEventListener('avatar_refresh_token', handleAvatarRefresh);
-    return () => window.removeEventListener('avatar_refresh_token', handleAvatarRefresh);
-  }, [refreshUser]);
 
   const menuItems = [
     {

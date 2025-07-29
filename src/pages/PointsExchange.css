@@ -1,0 +1,338 @@
+/* 积分兑换页面样式 */
+
+/* 整合页面容器 */
+.points-achievement-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* 顶部积分统计卡片 */
+.points-summary-card {
+  margin-bottom: 24px;
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.points-summary-card .ant-card-body {
+  padding: 24px;
+  text-align: center;
+}
+
+.points-summary-card .ant-statistic-title {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.points-summary-card .ant-statistic-content {
+  color: #fff;
+}
+
+.points-summary-card .ant-statistic-content-value {
+  color: #fff !important;
+  font-size: 32px !important;
+  font-weight: bold;
+}
+
+.points-summary-card .anticon {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 24px;
+}
+
+/* 主内容卡片 */
+.main-content-card {
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.main-content-card .ant-card-body {
+  padding: 24px;
+}
+
+/* 标签页样式优化 */
+.main-content-card .ant-tabs-tab {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.main-content-card .ant-tabs-tab-active {
+  background: #f0f8ff;
+  border-radius: 8px 8px 0 0;
+}
+
+.main-content-card .ant-tabs-tab .anticon {
+  margin-right: 8px;
+  font-size: 18px;
+}
+
+.main-content-card .ant-tabs-content-holder {
+  padding-top: 16px;
+}
+
+/* 页面容器 */
+.points-exchange-container {
+  padding: 0;
+  max-width: none;
+  margin: 0;
+}
+
+/* 积分显示区域 */
+.points-exchange-display {
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.points-exchange-display .ant-typography {
+  margin: 0;
+  display: inline;
+}
+
+.points-exchange-display .anticon {
+  font-size: 24px;
+  color: #1890ff;
+  margin-right: 8px;
+}
+
+/* 兑换卡片样式 */
+.exchange-card {
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  background: #fff;
+}
+
+.exchange-card:hover {
+  border-color: #d9d9d9;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+
+.exchange-card .ant-card-body {
+  padding: 24px;
+  text-align: center;
+}
+
+/* 兑换图标 */
+.exchange-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.exchange-icon.lead {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.exchange-icon.gift {
+  background: #f9f0ff;
+  color: #722ed1;
+}
+
+.exchange-icon.privilege {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.exchange-icon .anticon {
+  font-size: 24px;
+}
+
+/* 价格标签 */
+.price-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.price-tag.lead {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.price-tag.gift {
+  background: #f9f0ff;
+  color: #722ed1;
+}
+
+.price-tag.privilege {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+/* 按钮样式 */
+.exchange-card .ant-btn {
+  border-radius: 8px;
+  height: 40px;
+  font-weight: 500;
+}
+
+.exchange-card .ant-btn-primary {
+  background: #1890ff;
+  border-color: #1890ff;
+}
+
+.exchange-card .ant-btn-primary:hover {
+  background: #40a9ff;
+  border-color: #40a9ff;
+}
+
+/* 卡片容器样式 */
+.exchange-options-card {
+  margin-bottom: 32px;
+}
+
+.exchange-options-card .ant-card-head {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 0 24px;
+}
+
+.exchange-options-card .ant-card-body {
+  padding: 24px;
+}
+
+/* 兑换记录表格 */
+.exchange-records-card {
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+}
+
+.exchange-records-card .ant-card-head {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 0 24px;
+}
+
+.exchange-records-card .ant-card-body {
+  padding: 24px;
+}
+
+/* 通用卡片样式 */
+.ant-card {
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .points-achievement-container {
+    padding: 16px;
+  }
+  
+  .points-summary-card .ant-card-body {
+    padding: 16px;
+  }
+  
+  .points-summary-card .ant-statistic-content-value {
+    font-size: 24px !important;
+  }
+  
+  .main-content-card .ant-card-body {
+    padding: 16px;
+  }
+  
+  .main-content-card .ant-tabs-tab {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  
+  .points-exchange-container {
+    padding: 0;
+  }
+  
+  .exchange-card .ant-card-body {
+    padding: 16px;
+  }
+  
+  .exchange-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .exchange-icon .anticon {
+    font-size: 20px;
+  }
+}
+
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.empty-state .anticon {
+  font-size: 48px;
+  color: #d9d9d9;
+  margin-bottom: 16px;
+}
+
+/* 表格样式优化 */
+.exchange-records-table .ant-table-thead > tr > th {
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.exchange-records-table .ant-table-tbody > tr > td {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.exchange-records-table .ant-table-tbody > tr:hover > td {
+  background: #f5f5f5;
+}
+
+/* 表格时间显示样式 */
+.exchange-time-date {
+  font-weight: 500;
+}
+
+.exchange-time-time {
+  font-size: 12px;
+  color: #999;
+}
+
+/* 加载图标样式 */
+.loading-icon {
+  font-size: 24px;
+}
+
+/* 兑换记录徽章样式 */
+.exchange-records-badge .ant-badge-count {
+  background-color: #1890ff;
+}
+
+/* 成就系统在标签页中的样式调整 */
+.main-content-card .achievement-system {
+  padding: 0;
+}
+
+.main-content-card .achievement-system .ant-card {
+  margin-bottom: 16px;
+}
+
+/* 标签页内容区域样式 */
+.main-content-card .ant-tabs-content {
+  min-height: 400px;
+} 

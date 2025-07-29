@@ -159,23 +159,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const cacheManager = UserCacheManager.getInstance();
 
-  // 检查会话超时
-  const checkSessionTimeout = useCallback(() => {
-    const timeRemaining = cacheManager.getSessionTimeRemaining();
-    setSessionTimeRemaining(timeRemaining);
-    // 如果会话已过期
-    if (cacheManager.isSessionExpired()) {
-      handleLogout();
-      return;
-    }
-    // 如果剩余时间少于警告阈值，显示警告
-    if (timeRemaining <= WARNING_THRESHOLD && timeRemaining > 0) {
-      setShowSessionWarning(true);
-    } else {
-      setShowSessionWarning(false);
-    }
-  }, []);
-
   // 处理登出
   const handleLogout = useCallback(async () => {
     try {
@@ -188,6 +171,28 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
     }
   }, []);
+
+  // 检查会话超时
+  const checkSessionTimeout = useCallback(() => {
+    const timeRemaining = cacheManager.getSessionTimeRemaining();
+    
+    // 只在时间变化超过1秒时才更新状态，避免频繁更新
+    if (Math.abs(timeRemaining - sessionTimeRemaining) > 1000) {
+      setSessionTimeRemaining(timeRemaining);
+    }
+    
+    // 如果会话已过期
+    if (cacheManager.isSessionExpired()) {
+      handleLogout();
+      return;
+    }
+    
+    // 只在警告状态真正需要改变时才更新
+    const shouldShowWarning = timeRemaining <= WARNING_THRESHOLD && timeRemaining > 0;
+    if (shouldShowWarning !== showSessionWarning) {
+      setShowSessionWarning(shouldShowWarning);
+    }
+  }, [handleLogout, sessionTimeRemaining, showSessionWarning]);
 
   // 延长会话
   const extendSession = useCallback(() => {
@@ -228,7 +233,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkInterval = setInterval(() => {
       checkSessionTimeout();
-    }, 10000); // 每10秒检查一次
+    }, 30000); // 每30秒检查一次，减少频率
 
     return () => clearInterval(checkInterval);
   }, [checkSessionTimeout]);
@@ -237,9 +242,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let lastVisibilityState = document.visibilityState;
     let visibilityChangeTimeout: NodeJS.Timeout | null = null;
+    let lastCheckTime = 0;
     
     const handleVisibilityChange = () => {
       const currentVisibilityState = document.visibilityState;
+      const now = Date.now();
       
       // 避免重复处理相同的可见性状态
       if (currentVisibilityState === lastVisibilityState) {
@@ -254,8 +261,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 延迟处理，避免截图等短暂操作触发状态更新
       visibilityChangeTimeout = setTimeout(() => {
         if (currentVisibilityState === 'visible') {
-          // 页面变为可见时检查会话状态
-          checkSessionTimeout();
+          // 限制检查频率，至少间隔5秒
+          if (now - lastCheckTime > 5000) {
+            // 页面变为可见时，只在会话即将过期时才检查
+            const timeRemaining = cacheManager.getSessionTimeRemaining();
+            if (timeRemaining <= WARNING_THRESHOLD && timeRemaining > 0) {
+              checkSessionTimeout();
+              lastCheckTime = now;
+            }
+          }
         }
         lastVisibilityState = currentVisibilityState;
       }, 100); // 100ms延迟，避免截图等短暂操作

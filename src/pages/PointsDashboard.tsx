@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getUserPointsInfo, awardPoints, filterPointsTransactions } from '../api/pointsApi';
+import { getUserPointsInfo, filterPointsTransactions } from '../api/pointsApi';
 
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
@@ -49,7 +49,6 @@ export default function PointsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<number | null>(null);
-  const [signingIn, setSigningIn] = useState(false);
   const { profile } = useUser();
   const navigate = useNavigate();
 
@@ -101,27 +100,7 @@ export default function PointsDashboard() {
 
 
 
-  const handleSignIn = async () => {
-    try {
-      if (!profileId) return;
-      setSigningIn(true);
-      await awardPoints(profileId, 5, 'SIGNIN', undefined, '每日签到');
-      // 使用现代化的通知方式
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-pulse';
-      notification.textContent = `🎉 签到成功！获得 5 积分`;
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 3000);
-      loadPointsInfo(profileId);
-      loadTransactions(profileId);
-    } catch (err) {
-      // 添加详细日志
-      console.error('签到失败详细错误:', err, JSON.stringify(err));
-      alert('签到失败：' + (err instanceof Error ? err.message : JSON.stringify(err)));
-    } finally {
-      setSigningIn(false);
-    }
-  };
+
 
   // 表格列定义
   const columns: ColumnsType<Transaction> = [
@@ -251,24 +230,7 @@ export default function PointsDashboard() {
   return (
     <div style={{ padding: '24px' }}>
 
-      {/* 快捷操作按钮 */}
-      <Space style={{ marginBottom: '24px' }}>
-        <Button
-          type="primary"
-          icon={<WalletOutlined />}
-          loading={signingIn}
-          onClick={handleSignIn}
-        >
-          每日签到
-        </Button>
-        <Button
-          type="default"
-          icon={<TrophyOutlined />}
-          onClick={() => navigate('/points/exchange')}
-        >
-          积分兑换
-        </Button>
-      </Space>
+
 
       {/* 积分概览卡片 */}
       <Row gutter={16} style={{ marginBottom: '24px' }}>

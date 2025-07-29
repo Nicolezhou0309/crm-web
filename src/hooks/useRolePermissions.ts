@@ -68,22 +68,17 @@ export const useRolePermissions = () => {
       setUserRoles(userRoles);
 
       // 获取用户权限 - 使用数据库函数绕过RLS限制
-      console.log('开始获取用户权限，用户ID:', userId);
       
       const { data: permissions, error: permissionsError } = await supabase.rpc('get_user_permissions', { 
         p_user_id: userId 
       });
       
       if (permissionsError) {
-        console.error('获取用户权限失败:', permissionsError);
         setUserPermissions([]);
       } else {
-        console.log('用户权限数据:', permissions);
-        console.log('权限数据长度:', permissions?.length || 0);
         
         // 检查每个权限项的详细信息
         permissions?.forEach((p: any, index: number) => {
-          console.log(`权限项 ${index}:`, p);
         });
         
         // 格式化权限数据
@@ -95,7 +90,6 @@ export const useRolePermissions = () => {
           action: p.action
         }));
         
-        console.log('最终权限列表:', userPermissions);
         setUserPermissions(userPermissions);
       }
 

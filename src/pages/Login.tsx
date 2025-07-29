@@ -15,12 +15,7 @@ const Login: React.FC = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
 
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange(() => {});
-    return () => {
-      data.subscription.unsubscribe();
-    };
-  }, []);
+
 
   useEffect(() => {
     if (user && !userLoading) {
@@ -28,13 +23,51 @@ const Login: React.FC = () => {
     }
   }, [user, userLoading, navigate]);
 
+  // 从 localStorage 获取失败计数
+  const getLoginAttempts = (email: string) => {
+    const attempts = localStorage.getItem(`login_attempts_${email}`);
+    return attempts ? JSON.parse(attempts) : { count: 0, blockedUntil: null };
+  };
+
+  // 保存失败计数到 localStorage
+  const saveLoginAttempts = (email: string, attempts: any) => {
+    localStorage.setItem(`login_attempts_${email}`, JSON.stringify(attempts));
+  };
+
+  // 检查是否被锁定
+  const isAccountBlocked = (email: string) => {
+    const attempts = getLoginAttempts(email);
+    if (attempts.blockedUntil && new Date() < new Date(attempts.blockedUntil)) {
+      return true;
+    }
+    // 如果锁定时间已过，清除锁定状态
+    if (attempts.blockedUntil && new Date() >= new Date(attempts.blockedUntil)) {
+      saveLoginAttempts(email, { count: 0, blockedUntil: null });
+    }
+    return false;
+  };
+
   const handleLogin = async (values: any) => {
-    setLoading(true);
     const { email, password } = values;
+    
+    // 检查账户是否被锁定
+    if (isAccountBlocked(email)) {
+      const attempts = getLoginAttempts(email);
+      const remainingTime = Math.ceil((new Date(attempts.blockedUntil).getTime() - Date.now()) / 1000 / 60);
+      message.error(`账户已被临时锁定，请${remainingTime}分钟后再试`);
+      return;
+    }
+
+    setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      setLoading(false);
+      
       if (error) {
+        // 增加失败计数
+        const attempts = getLoginAttempts(email);
+        attempts.count += 1;
+        
+        // 保留原有的错误处理逻辑
         if (error.code === 'user_banned') {
           message.error('您的账号已被禁用或离职，如有疑问请联系管理员');
         } else if (error.message === 'Invalid login credentials') {
@@ -42,12 +75,28 @@ const Login: React.FC = () => {
         } else {
           message.error(error.message);
         }
+        
+        // 如果失败次数达到5次，锁定账户15分钟
+        if (attempts.count >= 5) {
+          attempts.blockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+          message.error('登录失败次数过多，账户已被临时锁定15分钟');
+        } else {
+          // 显示剩余尝试次数（仅在密码错误时）
+          if (error.message === 'Invalid login credentials') {
+            message.error(`账号或密码错误，还可尝试${5 - attempts.count}次`);
+          }
+        }
+        
+        saveLoginAttempts(email, attempts);
       } else {
+        // 登录成功，清除失败计数
+        saveLoginAttempts(email, { count: 0, blockedUntil: null });
         message.success('登录成功！');
       }
     } catch (e) {
-      setLoading(false);
       message.error('登录异常，请重试');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -106,9 +155,8 @@ const Login: React.FC = () => {
         message.success('重置密码邮件已发送，请查收邮箱！');
         setResetModalVisible(false);
       }
-    } catch (e) {
-      console.error('重置密码错误:', e);
-      message.error('操作失败，请重试');
+    } catch (error: any) {
+      message.error('重置密码失败: ' + error.message);
     } finally {
       setResetLoading(false);
     }

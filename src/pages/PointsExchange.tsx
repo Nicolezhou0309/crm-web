@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
-import { exchangePoints, filterExchangeRecords, getUserPointsInfo, getCurrentProfileId } from '../api/pointsApi';
+import { exchangePoints, filterExchangeRecords, getUserPointsInfo } from '../api/pointsApi';
 import { useUser } from '../context/UserContext';
-import { Card, Button, Typography, Space, Tag, message, Row, Col, Statistic, Alert, Spin, Table } from 'antd';
-import { GiftOutlined, WalletOutlined, LoadingOutlined, CrownOutlined, UserOutlined } from '@ant-design/icons';
+import { Card, Button, Typography, Space, Tag, message, Row, Col, Statistic, Alert, Spin, Table, Badge, Tabs, Divider } from 'antd';
+import { GiftOutlined, WalletOutlined, LoadingOutlined, CrownOutlined, UserOutlined, TrophyOutlined, StarOutlined, FireOutlined, CheckCircleOutlined, TrophyFilled, GiftFilled, StarFilled } from '@ant-design/icons';
 import type { ColumnsType, TableProps } from 'antd/es/table';
+import { AchievementSystem } from '../components/AchievementSystem';
+import './PointsExchange.css';
+
+const { TabPane } = Tabs;
+const { Title, Text } = Typography;
 
 interface ExchangeRecord {
   id: number;
@@ -20,10 +25,10 @@ export default function PointsExchange() {
   const [error, setError] = useState<string | null>(null);
   const [userPoints, setUserPoints] = useState<number>(0);
   const [profileId, setProfileId] = useState<number | null>(null);
-  const { user, profile } = useUser();
+  const [activeTab, setActiveTab] = useState('achievements');
+  const { profile } = useUser();
 
   useEffect(() => {
-    // 直接使用profile中的id，避免重复查询
     if (profile?.id) {
       setProfileId(profile.id);
     }
@@ -87,10 +92,10 @@ export default function PointsExchange() {
       defaultSortOrder: 'descend',
       render: (text) => (
         <div>
-          <div style={{ fontWeight: 500 }}>
+          <div style={{ fontWeight: 500, color: '#262626', fontSize: 13 }}>
             {new Date(text).toLocaleDateString()}
           </div>
-          <div style={{ fontSize: '12px', color: '#999' }}>
+          <div style={{ fontSize: 11, color: '#8c8c8c' }}>
             {new Date(text).toLocaleTimeString()}
           </div>
         </div>
@@ -111,7 +116,7 @@ export default function PointsExchange() {
         const label = text === 'LEAD' ? '线索' :
                      text === 'GIFT' ? '礼品' :
                      text === 'PRIVILEGE' ? '特权' : text;
-        return <Tag color={color}>{label}</Tag>;
+        return <Tag color={color} style={{ fontWeight: 500, fontSize: 12 }}>{label}</Tag>;
       },
     },
     {
@@ -120,9 +125,9 @@ export default function PointsExchange() {
       key: 'points_used',
       sorter: (a, b) => a.points_used - b.points_used,
       render: (text) => (
-        <Typography.Text type="danger" strong>
+        <Text type="danger" strong style={{ fontSize: 13 }}>
           -{text}
-        </Typography.Text>
+        </Text>
       ),
     },
     {
@@ -140,7 +145,7 @@ export default function PointsExchange() {
         const label = text === 'SUCCESS' ? '成功' :
                      text === 'PENDING' ? '处理中' :
                      text === 'FAILED' ? '失败' : text;
-        return <Tag color={color}>{label}</Tag>;
+        return <Tag color={color} style={{ fontWeight: 500, fontSize: 12 }}>{label}</Tag>;
       },
     },
   ];
@@ -150,10 +155,275 @@ export default function PointsExchange() {
     console.log('表格变化:', { pagination, filters, sorter });
   };
 
+  // 渲染积分兑换内容
+  const renderPointsExchange = () => (
+    <div style={{ padding: '0' }}>
+
+      {/* 兑换选项 */}
+      <Card>
+        <Row gutter={[16, 16]}>
+          {/* 线索兑换 */}
+          <Col xs={24} sm={12} lg={8}>
+            <Card 
+              hoverable
+              style={{ 
+                borderRadius: 8, 
+                border: '1px solid #e6f7ff',
+                transition: 'all 0.3s ease',
+                marginTop: 12,
+                marginBottom: 12
+              }}
+              bodyStyle={{ padding: '16px', textAlign: 'center' }}
+            >
+              <div style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: '#e6f7ff',
+                color: '#1890ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 12px',
+                fontSize: 18
+              }}>
+                <UserOutlined />
+              </div>
+              
+              <Title level={5} style={{ margin: '8px 0 4px', color: '#1890ff', fontSize: 14 }}>
+                兑换线索
+              </Title>
+              
+              <Text type="secondary" style={{ display: 'block', marginBottom: 12, lineHeight: 1.4, fontSize: 12 }}>
+                使用积分兑换高质量线索
+              </Text>
+              
+              <div style={{
+                display: 'inline-block',
+                padding: '4px 12px',
+                borderRadius: 12,
+                background: '#e6f7ff',
+                color: '#1890ff',
+                fontWeight: 600,
+                fontSize: 12,
+                marginBottom: 12
+              }}>
+                30 积分
+              </div>
+              
+              <Button
+                type="primary"
+                size="small"
+                block
+                disabled={userPoints < 30}
+                style={{ 
+                  height: 32, 
+                  borderRadius: 6,
+                  fontWeight: 500,
+                  fontSize: 12
+                }}
+                onClick={() => handleExchange('LEAD', 1, 30, '兑换线索')}
+              >
+                {userPoints >= 30 ? '立即兑换' : '积分不足'}
+              </Button>
+            </Card>
+          </Col>
+          
+          {/* 礼品兑换 */}
+          <Col xs={24} sm={12} lg={8}>
+            <Card 
+              hoverable
+              style={{ 
+                borderRadius: 8, 
+                border: '1px solid #f9f0ff',
+                transition: 'all 0.3s ease',
+                marginTop: 12,
+                marginBottom: 12
+              }}
+              bodyStyle={{ padding: '16px', textAlign: 'center' }}
+            >
+              <div style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: '#f9f0ff',
+                color: '#722ed1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 12px',
+                fontSize: 18
+              }}>
+                <GiftOutlined />
+              </div>
+              
+              <Title level={5} style={{ margin: '8px 0 4px', color: '#722ed1', fontSize: 14 }}>
+                兑换礼品
+              </Title>
+              
+              <Text type="secondary" style={{ display: 'block', marginBottom: 12, lineHeight: 1.4, fontSize: 12 }}>
+                兑换精美礼品，犒劳自己
+              </Text>
+              
+              <div style={{
+                display: 'inline-block',
+                padding: '4px 12px',
+                borderRadius: 12,
+                background: '#f9f0ff',
+                color: '#722ed1',
+                fontWeight: 600,
+                fontSize: 12,
+                marginBottom: 12
+              }}>
+                50 积分
+              </div>
+              
+              <Button
+                type="primary"
+                size="small"
+                block
+                disabled={userPoints < 50}
+                style={{ 
+                  height: 32, 
+                  borderRadius: 6,
+                  fontWeight: 500,
+                  fontSize: 12,
+                  background: '#722ed1',
+                  borderColor: '#722ed1'
+                }}
+                onClick={() => handleExchange('GIFT', 1, 50, '兑换礼品')}
+              >
+                {userPoints >= 50 ? '立即兑换' : '积分不足'}
+              </Button>
+            </Card>
+          </Col>
+          
+          {/* 特权兑换 */}
+          <Col xs={24} sm={12} lg={8}>
+            <Card 
+              hoverable
+              style={{ 
+                borderRadius: 8, 
+                border: '1px solid #f6ffed',
+                transition: 'all 0.3s ease',
+                marginTop: 12,
+                marginBottom: 12
+              }}
+              bodyStyle={{ padding: '16px', textAlign: 'center' }}
+            >
+              <div style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: '#f6ffed',
+                color: '#52c41a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 12px',
+                fontSize: 18
+              }}>
+                <CrownOutlined />
+              </div>
+              
+              <Title level={5} style={{ margin: '8px 0 4px', color: '#52c41a', fontSize: 14 }}>
+                兑换特权
+              </Title>
+              
+              <Text type="secondary" style={{ display: 'block', marginBottom: 12, lineHeight: 1.4, fontSize: 12 }}>
+                兑换特殊权限，享受便利
+              </Text>
+              
+              <div style={{
+                display: 'inline-block',
+                padding: '4px 12px',
+                borderRadius: 12,
+                background: '#f6ffed',
+                color: '#52c41a',
+                fontWeight: 600,
+                fontSize: 12,
+                marginBottom: 12
+              }}>
+                100 积分
+              </div>
+              
+              <Button
+                type="primary"
+                size="small"
+                block
+                disabled={userPoints < 100}
+                style={{ 
+                  height: 32, 
+                  borderRadius: 6,
+                  fontWeight: 500,
+                  fontSize: 12,
+                  background: '#52c41a',
+                  borderColor: '#52c41a'
+                }}
+                onClick={() => handleExchange('PRIVILEGE', 1, 100, '兑换特权')}
+              >
+                {userPoints >= 100 ? '立即兑换' : '积分不足'}
+              </Button>
+            </Card>
+          </Col>
+        </Row>
+      </Card>
+    </div>
+  );
+
+  // 渲染兑换记录内容
+  const renderExchangeRecords = () => (
+    <Card 
+      title={
+        <Space>
+          <StarFilled style={{ color: '#fa8c16', fontSize: 14 }} />
+          <span style={{ fontSize: 14, fontWeight: 600 }}>兑换记录</span>
+          <Badge count={exchangeRecords.length} style={{ backgroundColor: '#1890ff', fontSize: 10 }} />
+        </Space>
+      }
+      style={{ borderRadius: 8 }}
+      headStyle={{ borderBottom: '1px solid #f0f0f0', padding: '0 16px', minHeight: 40 }}
+      bodyStyle={{ padding: '16px' }}
+    >
+      {exchangeRecords.length > 0 ? (
+        <Table
+          dataSource={exchangeRecords}
+          columns={columns}
+          onChange={handleTableChange}
+          pagination={{
+            pageSize: 15,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+            style: { marginTop: 12 },
+            size: 'small'
+          }}
+          size="small"
+          rowKey="id"
+          style={{ borderRadius: 6 }}
+        />
+      ) : (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '40px 0',
+          color: '#8c8c8c'
+        }}>
+          <GiftOutlined style={{ fontSize: 40, marginBottom: 12, opacity: 0.5 }} />
+          <Text type="secondary" style={{ fontSize: 14 }}>暂无兑换记录</Text>
+        </div>
+      )}
+    </Card>
+  );
+
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <Spin size="large" indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: 300 
+      }}>
+        <Spin size="default" indicator={<LoadingOutlined style={{ fontSize: 20 }} spin />} />
       </div>
     );
   }
@@ -170,155 +440,91 @@ export default function PointsExchange() {
             重试
           </Button>
         }
+        style={{ margin: 16 }}
       />
     );
   }
 
   return (
-    <div style={{ padding: '24px' }}>
-
-      {/* 用户积分信息 */}
-      <Card style={{ marginBottom: '24px' }}>
-        <Row gutter={16}>
-          <Col span={8}>
+    <div style={{ padding: '16px', maxWidth: 1000, margin: '0 auto' }}>
+      {/* 顶部积分统计 */}
+      <Card 
+        style={{ 
+          marginBottom: 16,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          border: 'none',
+          borderRadius: 8
+        }}
+        bodyStyle={{ padding: '16px 20px', textAlign: 'center' }}
+      >
+        <Row justify="center" align="middle">
+          <Col>
+            <WalletOutlined style={{ fontSize: 20, color: '#fff', marginBottom: 4 }} />
             <Statistic
-              title="当前可用积分"
+              title={<span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>当前积分</span>}
               value={userPoints}
-              prefix={<WalletOutlined />}
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: '#fff', fontSize: 20, fontWeight: 'bold' }}
+              prefix={<span style={{ color: '#fff' }}>💰</span>}
             />
           </Col>
-          <Col span={16}>
-            <Typography.Text type="secondary">
-              积分可用于兑换高质量线索、精美礼品和特殊权限，提升您的销售业绩
-            </Typography.Text>
-          </Col>
         </Row>
       </Card>
 
-      {/* 兑换选项 */}
-      <Card title="兑换选项" style={{ marginBottom: '24px' }}>
-        <Row gutter={16}>
-          <Col span={8}>
-            <Card
-              hoverable
-              style={{ textAlign: 'center', height: '200px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-            >
-              <div>
-                <UserOutlined style={{ fontSize: 48, color: '#1890ff', marginBottom: 16 }} />
-                <Typography.Title level={4} style={{ margin: '8px 0' }}>
-                  兑换线索
-                </Typography.Title>
-                <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                  使用积分兑换高质量线索，提升销售业绩
-                </Typography.Text>
-                <Typography.Text strong style={{ fontSize: '24px', color: '#1890ff' }}>
-                  30 积分
-                </Typography.Text>
-              </div>
-              <Button
-                type="primary"
-                size="large"
-                block
-                disabled={userPoints < 30}
-                onClick={() => handleExchange('LEAD', 1, 30, '兑换线索')}
-              >
-                {userPoints >= 30 ? '立即兑换' : '积分不足'}
-              </Button>
-            </Card>
-          </Col>
-          
-          <Col span={8}>
-            <Card
-              hoverable
-              style={{ textAlign: 'center', height: '200px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-            >
-              <div>
-                <GiftOutlined style={{ fontSize: 48, color: '#722ed1', marginBottom: 16 }} />
-                <Typography.Title level={4} style={{ margin: '8px 0' }}>
-                  兑换礼品
-                </Typography.Title>
-                <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                  兑换精美礼品，犒劳自己的努力
-                </Typography.Text>
-                <Typography.Text strong style={{ fontSize: '24px', color: '#722ed1' }}>
-                  50 积分
-                </Typography.Text>
-              </div>
-              <Button
-                type="primary"
-                size="large"
-                block
-                disabled={userPoints < 50}
-                onClick={() => handleExchange('GIFT', 1, 50, '兑换礼品')}
-                style={{ backgroundColor: '#722ed1', borderColor: '#722ed1' }}
-              >
-                {userPoints >= 50 ? '立即兑换' : '积分不足'}
-              </Button>
-            </Card>
-          </Col>
-          
-          <Col span={8}>
-            <Card
-              hoverable
-              style={{ textAlign: 'center', height: '200px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-            >
-              <div>
-                <CrownOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 16 }} />
-                <Typography.Title level={4} style={{ margin: '8px 0' }}>
-                  兑换特权
-                </Typography.Title>
-                <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                  兑换特殊权限，享受更多便利
-                </Typography.Text>
-                <Typography.Text strong style={{ fontSize: '24px', color: '#52c41a' }}>
-                  100 积分
-                </Typography.Text>
-              </div>
-              <Button
-                type="primary"
-                size="large"
-                block
-                disabled={userPoints < 100}
-                onClick={() => handleExchange('PRIVILEGE', 1, 100, '兑换特权')}
-                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
-              >
-                {userPoints >= 100 ? '立即兑换' : '积分不足'}
-              </Button>
-            </Card>
-          </Col>
-        </Row>
-      </Card>
-
-      {/* 兑换记录表格 */}
+      {/* 标签页内容 */}
       <Card 
-        title={
-          <Space>
-            <span>兑换记录</span>
-            <Typography.Text type="secondary">共 {exchangeRecords.length} 条记录</Typography.Text>
-          </Space>
-        }
+        style={{ 
+          borderRadius: 8,
+          border: '1px solid #f0f0f0',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
+        }}
+        bodyStyle={{ padding: '16px' }}
       >
-        {exchangeRecords.length > 0 ? (
-          <Table
-            dataSource={exchangeRecords}
-            columns={columns}
-            onChange={handleTableChange}
-            pagination={{
-              pageSize: 20,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
-            }}
-            size="small"
-            rowKey="id"
-          />
-        ) : (
-          <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <GiftOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
-            <Typography.Text type="secondary">暂无兑换记录</Typography.Text>
-          </div>
-        )}
+        <Tabs 
+          activeKey={activeTab} 
+          onChange={setActiveTab}
+          size="small"
+          tabBarStyle={{ 
+            marginBottom: 16,
+            borderBottom: '1px solid #f0f0f0'
+          }}
+          tabBarGutter={4}
+        >
+          <TabPane 
+            tab={
+              <span style={{ fontSize: 13, fontWeight: 500 }}>
+                <TrophyFilled style={{ marginRight: 6, color: '#fa8c16', fontSize: 12 }} />
+                成就系统
+              </span>
+            } 
+            key="achievements"
+          >
+            <AchievementSystem showHeader={false} compact={true} />
+          </TabPane>
+          
+          <TabPane 
+            tab={
+              <span style={{ fontSize: 13, fontWeight: 500 }}>
+                <GiftFilled style={{ marginRight: 6, color: '#722ed1', fontSize: 12 }} />
+                积分兑换
+              </span>
+            } 
+            key="exchange"
+          >
+            {renderPointsExchange()}
+          </TabPane>
+          
+          <TabPane 
+            tab={
+              <span style={{ fontSize: 13, fontWeight: 500 }}>
+                <StarFilled style={{ marginRight: 6, color: '#fa8c16', fontSize: 12 }} />
+                兑换记录
+              </span>
+            } 
+            key="records"
+          >
+            {renderExchangeRecords()}
+          </TabPane>
+        </Tabs>
       </Card>
     </div>
   );

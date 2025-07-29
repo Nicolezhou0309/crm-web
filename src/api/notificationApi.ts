@@ -335,12 +335,23 @@ class NotificationApi {
 
   // 删除公告 - 清除相关缓存
   async deleteAnnouncement(announcementId: string): Promise<void> {
-    await this.request(`delete_announcement&id=${announcementId}`, {
-      method: 'DELETE',
-    });
+    console.log('notificationApi.deleteAnnouncement 开始，ID:', announcementId);
     
-    // 清除相关缓存
-    this.cache.clearByPattern('announcements');
+    try {
+      console.log('发送删除请求，URL参数:', `delete_announcement&id=${announcementId}`);
+      const response = await this.request(`delete_announcement&id=${announcementId}`, {
+        method: 'DELETE',
+      });
+      
+      console.log('deleteAnnouncement API 响应:', response);
+      
+      // 清除相关缓存
+      this.cache.clearByPattern('announcements');
+      console.log('公告删除成功，缓存已清除');
+    } catch (error) {
+      console.error('deleteAnnouncement API 错误:', error);
+      throw error;
+    }
   }
 
   // 更新公告 - 清除相关缓存
