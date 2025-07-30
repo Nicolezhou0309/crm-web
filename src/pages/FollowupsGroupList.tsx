@@ -2,7 +2,7 @@
 // ... existing code from FollowupsList.tsx ... 
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Table, Button, Form, Input, Select, Space, Tag, message, Typography, InputNumber, DatePicker, Alert, Tooltip, Spin, Checkbox, Cascader, Divider, Drawer, Steps, Dropdown, Menu } from 'antd';
+import { Table, Button, Form, Input, Select, Space, Tag, message, Typography, InputNumber, DatePicker, Alert, Tooltip, Spin, Checkbox, Cascader, Divider, Drawer, Steps, Dropdown } from 'antd';
 import { ReloadOutlined, CopyOutlined, UserOutlined, UploadOutlined, MoreOutlined } from '@ant-design/icons';
 import { supabase, fetchEnumValues, fetchMetroStations } from '../supaClient';
 import dayjs from 'dayjs';

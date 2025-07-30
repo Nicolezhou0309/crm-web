@@ -7,7 +7,7 @@ const { TabPane } = Tabs;
 import {
   CheckOutlined, EyeOutlined, DeleteOutlined, CopyOutlined, ClockCircleOutlined, CheckCircleOutlined} from '@ant-design/icons';
 import { notificationApi, type Announcement } from '../api/notificationApi';
-import { useUser } from '../context/UserContext';
+// import { useUser } from '../context/UserContext';
 import dayjs from 'dayjs';
 import { useState as useReactState } from 'react';
 import { message as antdMessage } from 'antd';
@@ -59,7 +59,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   simple = false,
   onViewAll
 }) => {
-  const { user } = useUser();
+  // const { user } = useUser();
   // 如果 props 传递了 notifications/unreadCount 等，则优先用 props，否则用内部 hook
   // 移除 useRealtimeNotifications 相关代码
   const notifications = propsNotifications ?? [];

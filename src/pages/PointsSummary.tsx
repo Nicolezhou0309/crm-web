@@ -41,7 +41,7 @@ export default function PointsSummary() {
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [adjustForm] = Form.useForm();
   const [adjustLoading, setAdjustLoading] = useState(false);
-  const { user, profile } = useUser();
+  const { profile } = useUser();
   const [profileId, setProfileId] = useState<number | null>(null);
 
   useEffect(() => {

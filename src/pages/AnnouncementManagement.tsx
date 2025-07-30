@@ -135,7 +135,7 @@ const AnnouncementManagement: React.FC = () => {
             : announcement
         ));
       } else {
-        const result = await notificationApi.createAnnouncement(formData);
+        await notificationApi.createAnnouncement(formData);
         message.success('公告创建成功');
         
         // 创建成功后重新获取数据以确保数据完整性

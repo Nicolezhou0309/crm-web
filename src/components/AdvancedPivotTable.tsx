@@ -10,20 +10,16 @@ import {
   Select, 
   Typography,
   Divider,
-  Tag,
-  Tooltip
+  Tag
 } from 'antd';
 import { 
   DownloadOutlined, 
-  ReloadOutlined, 
-  SettingOutlined,
-  PlusOutlined,
-  DeleteOutlined
+  ReloadOutlined
 } from '@ant-design/icons';
 import { supabase } from '../supaClient';
 import { loadPivotComponent } from '../utils/pivotWrapper';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 
 interface AdvancedPivotTableProps {

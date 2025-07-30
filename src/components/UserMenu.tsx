@@ -1,7 +1,5 @@
 import { Dropdown } from 'antd';
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supaClient';
 import { useUser } from '../context/UserContext';
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
 import { safeSignOut } from '../utils/authUtils';
@@ -13,7 +11,6 @@ export function useUserMenuAvatarUrl() {
 }
 
 const UserMenu = () => {
-  const { refreshUser } = useUser();
   const navigate = useNavigate();
 
 

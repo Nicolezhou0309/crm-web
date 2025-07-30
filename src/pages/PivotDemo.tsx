@@ -3,7 +3,7 @@ import { Card, Typography, Space, Button } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 
 const PivotDemo: React.FC = () => {
   const navigate = useNavigate();

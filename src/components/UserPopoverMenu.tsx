@@ -1,7 +1,6 @@
 import React from 'react';
 import { Menu } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supaClient';
 import { safeSignOut } from '../utils/authUtils';
 
 const UserPopoverMenu: React.FC = () => {

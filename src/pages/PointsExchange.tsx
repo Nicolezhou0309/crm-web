@@ -187,10 +187,10 @@ export default function PointsExchange() {
     }
 
     // 非带看卡直接执行兑换
-    await executeExchange(goodsId, pointsRequired, description);
+    await executeExchange(goodsId, description);
   };
 
-  const executeExchange = async (goodsId: string, pointsRequired: number, description: string) => {
+  const executeExchange = async (goodsId: string, description: string) => {
     try {
       setExchanging(goodsId); // 设置兑换状态
 
@@ -250,9 +250,9 @@ export default function PointsExchange() {
   };
 
   const handleConfirmExchange = async () => {
-    const { goodsId, pointsRequired, description } = confirmModal;
+    const { goodsId, description } = confirmModal;
     setConfirmModal({ ...confirmModal, visible: false });
-    await executeExchange(goodsId, pointsRequired, description);
+    await executeExchange(goodsId, description);
   };
 
   const handleCancelExchange = () => {
@@ -365,7 +365,8 @@ export default function PointsExchange() {
   }, [transactions]);
 
   // 表格变化处理
-  const handleTableChange: TableProps<Transaction>['onChange'] = (pagination, filters, sorter) => {
+  const handleTableChange: TableProps<Transaction>['onChange'] = () => {
+    // 表格变化处理
   };
 
   // 渲染积分兑换内容

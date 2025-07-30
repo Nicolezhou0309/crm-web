@@ -24,8 +24,8 @@ import {
   getDeals, 
   getDealsCount, 
   getDealsCommunityOptions, 
-  getDealsContractNumberOptions,
-  getDealsRoomNumberOptions,
+  // getDealsContractNumberOptions,
+  // getDealsRoomNumberOptions,
   getDealsSourceOptions,
   updateDeal,
   type Deal,
@@ -62,8 +62,8 @@ const DealsList: React.FC = () => {
 
   // 选项数据
   const [communityOptions, setCommunityOptions] = useState<{ value: string; label: string }[]>([]);
-  const [contractNumberOptions, setContractNumberOptions] = useState<{ value: string; label: string }[]>([]);
-  const [roomNumberOptions, setRoomNumberOptions] = useState<{ value: string; label: string }[]>([]);
+  // const [contractNumberOptions, setContractNumberOptions] = useState<{ value: string; label: string }[]>([]);
+  // const [roomNumberOptions, setRoomNumberOptions] = useState<{ value: string; label: string }[]>([]);
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([]);
   const [sourceOptions, setSourceOptions] = useState<{ value: string; label: string }[]>([]);
 
@@ -83,12 +83,12 @@ const DealsList: React.FC = () => {
       setSourceOptions((sources as string[]).map(s => ({ value: s, label: s })));
 
       // 获取合同编号选项
-      const contractNumbers = await getDealsContractNumberOptions();
-      setContractNumberOptions((contractNumbers as string[]).map(c => ({ value: c, label: c })));
+      // const contractNumbers = await getDealsContractNumberOptions();
+      // setContractNumberOptions((contractNumbers as string[]).map(c => ({ value: c, label: c })));
 
       // 获取房间编号选项
-      const roomNumbers = await getDealsRoomNumberOptions();
-      setRoomNumberOptions((roomNumbers as string[]).map(r => ({ value: r, label: r })));
+      // const roomNumbers = await getDealsRoomNumberOptions();
+      // setRoomNumberOptions((roomNumbers as string[]).map(r => ({ value: r, label: r })));
 
       // 获取用户选项
       const users = await getUsersProfile();

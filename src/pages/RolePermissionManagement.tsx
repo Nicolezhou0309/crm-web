@@ -16,10 +16,7 @@ import {
   Typography,
   Popconfirm,
   Checkbox,
-  Badge,
-  Divider,
-  Alert
-} from 'antd';
+  Badge} from 'antd';
 import {
   PlusOutlined,
   EditOutlined,

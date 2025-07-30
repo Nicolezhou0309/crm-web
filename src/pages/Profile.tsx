@@ -33,7 +33,7 @@ const Profile = () => {
   const [loadingProfile, setLoadingProfile] = useState(true);
   
   // 使用UserContext获取用户信息
-  const { user, refreshUser } = useUser();
+  const { user } = useUser();
 
   // 新增：user变化时自动同步email
   useEffect(() => {

@@ -530,7 +530,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     const columnStructure = new Map<string, Map<string, Set<string>>>();
     
     
-    backendResult.forEach((row, rowIndex) => {
+    backendResult.forEach((row) => {
       
       
       if (columnFields.length === 1) {
@@ -620,7 +620,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     // 构建数据行
     const groupedData = new Map<string, any>();
     
-    backendResult.forEach((row, rowIndex) => {
+    backendResult.forEach((row) => {
       
       const rowKey = rowFields.map(field => {
         const value = formatFieldValue(row[field]);
@@ -674,7 +674,6 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
         if (!groupRow[columnKey]) {
           groupRow[columnKey] = 0;
         }
-        const oldValue = groupRow[columnKey];
         groupRow[columnKey] += Number(row[valueKey] || 0);
       });
     });
@@ -1219,7 +1218,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
               dataIndex: columnKey,
               key: columnKey,
               width: 120,
-              render: (value: any, record: any) => {
+              render: (value: any) => {
                 if (value === null || value === undefined) {
                   return '';
                 }
@@ -1237,7 +1236,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
                 dataIndex: columnKey,
                 key: columnKey,
                 width: 120,
-                render: (value: any, record: any) => {
+                render: (value: any) => {
                   if (value === null || value === undefined) {
                     return '';
                   }
@@ -1265,7 +1264,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
             dataIndex: colValue,
             key: colValue,
             width: 120,
-            render: (value: any, record: any) => {
+            render: (value: any) => {
               if (value === null || value === undefined) {
                 return '';
               }
@@ -1287,7 +1286,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
           dataIndex: colValue,
           key: colValue,
           width: 120,
-          render: (value: any, record: any) => {
+          render: (value: any) => {
             if (value === null || value === undefined) {
               return '';
             }
@@ -1582,7 +1581,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       
       // 添加表头
       if (hasHeaderRows && pivotResult.headerRows && isMultiLevel) {
-        pivotResult.headerRows.forEach((headerRow, index) => {
+        pivotResult.headerRows.forEach((headerRow) => {
           tsvContent += headerRow.map(cell => cell || '').join('\t') + '\n';
         });
       } else {
@@ -1591,7 +1590,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       }
       
       // 统一处理数据行
-      pivotResult.rows.forEach((row, rowIndex) => {
+      pivotResult.rows.forEach((row) => {
         
         const rowData: string[] = [];
         const rowFields = currentConfig?.rowFields || [];
@@ -1705,7 +1704,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(tsvContent).then(() => {
           message.success('数据已复制到剪贴板，可直接粘贴到Excel中');
-        }).catch((err) => {
+        }).catch(() => {
           fallbackCopyToClipboard(tsvContent);
         });
       } else {
