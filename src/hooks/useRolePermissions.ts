@@ -76,11 +76,6 @@ export const useRolePermissions = () => {
       if (permissionsError) {
         setUserPermissions([]);
       } else {
-        
-        // 检查每个权限项的详细信息
-        permissions?.forEach((p: any, index: number) => {
-        });
-        
         // 格式化权限数据
         const userPermissions = (permissions || []).map((p: any) => ({
           permission_name: p.permission_name,

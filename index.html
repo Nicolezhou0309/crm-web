@@ -5,6 +5,9 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="timezone" content="Asia/Shanghai" />
+    <link rel="stylesheet" href="/src/fonts.css">
+    <link rel="preload" href="/fonts/Micro5-Regular.ttf" as="font" type="font/ttf" crossorigin>
+
     <title>VLINKER-CRM</title>
     <script>
       // 设置全局时区为北京时间
@@ -21,6 +24,52 @@
       if (typeof window !== 'undefined') {
         window.__TIMEZONE__ = 'Asia/Shanghai';
       }
+      
+      // ====== 页面刷新监控系统 ======
+      (function() {
+        const startTime = Date.now();
+        const sessionId = 'session_' + startTime + '_' + Math.random().toString(36).substr(2, 9);
+        
+        // 监控页面即将卸载
+        window.addEventListener('beforeunload', function(event) {
+          // 记录可能的刷新原因
+          const stack = new Error().stack;
+          console.log('🔍 [页面监控] 调用栈', {
+            sessionId: sessionId,
+            stack: stack
+          });
+        });
+        
+        // 监控页面卸载前保存状态
+        window.addEventListener('beforeunload', function() {
+          try {
+            localStorage.setItem('last_session_info', JSON.stringify({
+              sessionId: sessionId,
+              timestamp: new Date().toISOString(),
+              url: window.location.href,
+              duration: Date.now() - startTime
+            }));
+          } catch (e) {
+            console.error('保存会话信息失败:', e);
+          }
+        });
+        
+        // 页面加载时检查是否有上次的会话信息
+        window.addEventListener('load', function() {
+          try {
+            const lastSession = localStorage.getItem('last_session_info');
+            if (lastSession) {
+              const sessionInfo = JSON.parse(lastSession);
+              console.log('🔍 [页面监控] 检测到上次会话:', sessionInfo);
+              localStorage.removeItem('last_session_info');
+            }
+          } catch (e) {
+            console.error('读取会话信息失败:', e);
+          }
+        });
+        
+      })();
+      
       // ====== hash日志结束 ======
       // ====== hash写入localStorage兜底 ======
       if (window.location.hash && window.location.hash.includes('access_token')) {

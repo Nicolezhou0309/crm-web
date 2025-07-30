@@ -497,17 +497,17 @@ const DealsList: React.FC = () => {
         }}
         title="线索详情"
         width={800}
-        destroyOnClose
+        destroyOnHidden
         placement="right"
       >
         {selectedLeadId && <LeadDetailDrawer leadid={selectedLeadId} />}
       </Drawer>
 
       {/* 编辑成交记录模态框 */}
-      <Modal
-        title="编辑成交记录"
-        open={editModalVisible}
-        onCancel={() => setEditModalVisible(false)}
+              <Modal
+          title="编辑成交记录"
+          open={editModalVisible}
+          onCancel={() => setEditModalVisible(false)}
                  onOk={async () => {
            try {
              setEditLoading(true);
@@ -531,7 +531,7 @@ const DealsList: React.FC = () => {
            }
          }}
         confirmLoading={editLoading}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={editForm}

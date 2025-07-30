@@ -867,7 +867,7 @@ const LeadsList: React.FC = () => {
         }}
         title="线索详情"
         width={800}
-        destroyOnClose
+        destroyOnHidden
         placement="right"
       >
         {selectedLeadId && <LeadDetailDrawer leadid={selectedLeadId} />}

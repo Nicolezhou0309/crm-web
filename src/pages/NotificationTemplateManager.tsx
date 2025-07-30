@@ -140,7 +140,7 @@ const NotificationTemplateManager: React.FC = () => {
         open={modalOpen}
         onOk={handleOk}
         onCancel={() => { setModalOpen(false); setEditing(null); }}
-        destroyOnClose
+        destroyOnHidden
       >
         {/* 修正表单结构，确保每个 Form.Item 只有一个直接子元素 */}
         <Form form={form} layout="vertical">

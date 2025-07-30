@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Typography, Button, ConfigProvider } from 'antd';
+import { Layout, Button, ConfigProvider } from 'antd';
 import {
   UserOutlined,
   LogoutOutlined,
@@ -26,7 +26,7 @@ import RolePermissionManagement from './pages/RolePermissionManagement';
 
 import AllocationManagement from './pages/AllocationManagement';
 import ResetPassword from './pages/ResetPassword';
-import PointsDashboard from './pages/PointsDashboard';
+
 import PointsExchange from './pages/PointsExchange';
 import AnnouncementManagement from './pages/AnnouncementManagement';
 import { HonorManagement } from './pages/HonorManagement';
@@ -59,7 +59,10 @@ import ApprovalPerformance from './pages/ApprovalPerformance';
 import DataAnalysis from './pages/DataAnalysis';
 import PivotTableDemo from './pages/PivotTableDemo';
 import PivotDemo from './pages/PivotDemo';
+import { AchievementCardTest } from './pages/AchievementCardTest';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
+
+
 const { Sider, Content, Header } = Layout;
 
 // 彻底删除旧的menuItems相关children/path等所有无用代码块，只保留如下：
@@ -107,7 +110,7 @@ const AppContent: React.FC = () => {
   const [siderWidth] = React.useState(220);
   const minSiderWidth = 56;
   
-  // 启用token刷新监控
+  // 启用token刷新监控（低频率模式）
   useTokenRefresh();
 
   // 侧边栏 key-path 映射
@@ -120,8 +123,7 @@ const AppContent: React.FC = () => {
     'allocation': '/allocation',
     'showings-queue': '/showings-queue',
 
-    'points': '/points',
-    'points-dashboard': '/points',
+
     'points-summary': '/points-summary',
     'points-exchange': '/points/exchange',
     'honor-management': '/honor',
@@ -139,6 +141,7 @@ const AppContent: React.FC = () => {
     'approval-details': '/approval-details',
     'approval-performance': '/approval-performance',
     'data-analysis': '/data-analysis',
+    'achievement-card-test': '/achievement-card-test',
   };
   // path-key 反查
   const pathKeyMap: Record<string, string> = {};
@@ -166,6 +169,7 @@ const AppContent: React.FC = () => {
   // 用户积分状态管理
   const [userPoints, setUserPoints] = React.useState<number>(0);
   const [profileId, setProfileId] = React.useState<number | null>(null);
+
   
   // 自动连接通知系统
   const {
@@ -318,21 +322,33 @@ const AppContent: React.FC = () => {
       <div
         style={{
           padding: '10px 0px 20px 20px',
-          background: 'linear-gradient(135deg, #ff6b35 0%, #f7931a 100%)',
+          background: `
+            radial-gradient(ellipse at top left, rgba(255, 215, 0, 0.9) 0%, transparent 50%),
+            radial-gradient(ellipse at top right, rgba(255, 193, 7, 0.7) 0%, transparent 50%),
+            radial-gradient(ellipse at center top, rgba(255, 152, 0, 0.5) 0%, transparent 60%),
+            radial-gradient(ellipse at 30% 40%, rgba(255, 193, 7, 0.4) 0%, transparent 60%),
+            radial-gradient(ellipse at 70% 60%, rgba(255, 215, 0, 0.3) 0%, transparent 60%),
+            linear-gradient(135deg, 
+              rgba(255, 215, 0, 0.8) 0%, 
+              rgba(255, 193, 7, 0.6) 25%, 
+              rgba(255, 152, 0, 0.4) 50%, 
+              rgba(255, 193, 7, 0.3) 75%, 
+              rgba(255, 215, 0, 0.2) 100%)
+          `,
           borderRadius: '12px 12px 12px 12px',
-          color: '#fff',
+          color: '#382a04',
           position: 'relative',
           overflow: 'hidden',
           marginBottom: '0px',
           cursor: 'pointer',
-          transition: 'box-shadow 0.2s, filter 0.18s', // 移除 transform
-          boxShadow: '0 2px 8px rgba(255,107,53,0.10)',
+          transition: 'box-shadow 0.2s, filter 0.18s',
+          boxShadow: 'none',
           userSelect: 'none',
         }}
-        onClick={() => navigate('/points')}
+        onClick={() => navigate('/points/exchange')}
         onMouseEnter={e => {
-          e.currentTarget.style.boxShadow = '0 8px 32px rgba(255,107,53,0.22)';
-          e.currentTarget.style.filter = 'brightness(1.08)';
+          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.filter = 'brightness(1.03)';
           // 添加扫光元素
           let shine = document.createElement('div');
           shine.className = 'points-shine-effect';
@@ -353,45 +369,48 @@ const AppContent: React.FC = () => {
           });
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.boxShadow = '0 2px 8px rgba(255,107,53,0.10)';
+          e.currentTarget.style.boxShadow = 'none';
           e.currentTarget.style.filter = 'none';
         }}
-        title="点击查看积分看板"
+        title="点击兑换积分"
       >
         {/* 左侧积分信息 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0px', zIndex: 2, position: 'relative' }}>
-          <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: '0.5px' }}>
+          <span style={{ 
+            fontSize: 42, 
+            fontWeight: 700, 
+            letterSpacing: '0.5px', 
+            color: '#382a04', 
+            fontFamily: '"Micro 5", "Micro 5", monospace',
+            lineHeight: 1
+          }}>
             {userPoints.toLocaleString()}
           </span>
-          <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.5 }}>
+          <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.7, color: '#382a04' }}>
             剩余积分
           </span>
         </div>
         {/* 右侧装饰Logo */}
         <div style={{
           position: 'absolute',
-          right: '-30px',
-          top: '-20px',
+          right: '-10px',
+          top: '5px',
           width: '120px',
           height: '120px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: 0.15
+          opacity: 0.6,
         }}>
-          <div style={{
-            width: '100px',
-            height: '100px',
-            background: '#fff',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '48px',
-            fontWeight: 'bold',
-            color: '#f7931a'
-          }}>
-            🏆
+          <div>
+            <img 
+              src="/coin2.svg" 
+              alt="coin" 
+              style={{ width: '180px', height: '180px' }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
           </div>
         </div>
       </div>
@@ -710,7 +729,6 @@ const AppContent: React.FC = () => {
                   } />
 
                   {/* 积分系统路由 */}
-                  <Route path="/points" element={<PointsDashboard />} />
                   <Route path="/points-summary" element={
                     <PermissionGate permission="points_manage" fallback={<Error403 />}>
                       <PointsSummary />
@@ -791,6 +809,11 @@ const AppContent: React.FC = () => {
                           } />
                           <Route path="/pivot-demo" element={<PivotTableDemo />} />
                           <Route path="/pivot-demo-new" element={<PivotDemo />} />
+                          <Route path="/achievement-card-test" element={
+                            <PermissionGate role="admin" fallback={<Error403 />}>
+                              <AchievementCardTest />
+                            </PermissionGate>
+                          } />
         <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>

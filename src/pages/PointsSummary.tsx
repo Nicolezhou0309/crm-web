@@ -257,6 +257,7 @@ export default function PointsSummary() {
         open={adjustModalOpen}
         onCancel={() => setAdjustModalOpen(false)}
         footer={null}
+        destroyOnHidden
       >
         <Form
           form={adjustForm}

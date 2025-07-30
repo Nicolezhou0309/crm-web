@@ -519,7 +519,7 @@ const ApprovalFlowManagement: React.FC = () => {
         open={templateModalVisible}
         onCancel={() => setTemplateModalVisible(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={form}
@@ -599,7 +599,7 @@ const ApprovalFlowManagement: React.FC = () => {
         onCancel={() => setStepModalVisible(false)}
         footer={null}
         width={600}
-        destroyOnClose
+        destroyOnHidden
       >
         {selectedInstance && (
           <div>

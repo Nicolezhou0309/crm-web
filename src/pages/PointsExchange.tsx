@@ -1,31 +1,74 @@
-import { useEffect, useState } from 'react';
-import { exchangePoints, filterExchangeRecords, getUserPointsInfo } from '../api/pointsApi';
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { getExchangeGoods, exchangeGoodsItem, filterPointsTransactions } from '../api/pointsApi';
 import { useUser } from '../context/UserContext';
-import { Card, Button, Typography, Space, Tag, message, Row, Col, Statistic, Alert, Spin, Table, Badge, Tabs, Divider } from 'antd';
-import { GiftOutlined, WalletOutlined, LoadingOutlined, CrownOutlined, UserOutlined, TrophyOutlined, StarOutlined, FireOutlined, CheckCircleOutlined, TrophyFilled, GiftFilled, StarFilled } from '@ant-design/icons';
+import { Button, Typography, Tag, message, Alert, Spin, Table, Modal } from 'antd';
+import { LoadingOutlined, UserOutlined, TrophyFilled, GiftFilled, StarFilled, ExclamationCircleOutlined, WalletOutlined } from '@ant-design/icons';
 import type { ColumnsType, TableProps } from 'antd/es/table';
 import { AchievementSystem } from '../components/AchievementSystem';
+import Lottie from 'lottie-react';
 import './PointsExchange.css';
+import { supabase } from '../supaClient';
 
-const { TabPane } = Tabs;
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
-interface ExchangeRecord {
+interface Transaction {
   id: number;
-  exchange_type: string;
-  target_id: number;
-  points_used: number;
-  exchange_time: string;
-  status: string;
+  points_change: number;
+  balance_after: number;
+  transaction_type: string;
+  source_type: string;
+  description: string;
+  created_at: string;
+}
+
+interface ExchangeGoods {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  points_cost: number;
+  icon: string;
+  icon_type: string;
+  icon_url: string;
+  color: string;
+  is_active: boolean;
+  is_featured: boolean;
+  sort_order: number;
+  exchange_limit: number | null;
+  daily_limit: number | null;
+  can_exchange: boolean;
+  remaining_daily_limit: number | null;
 }
 
 export default function PointsExchange() {
-  const [exchangeRecords, setExchangeRecords] = useState<ExchangeRecord[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [exchangeGoods, setExchangeGoods] = useState<ExchangeGoods[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userPoints, setUserPoints] = useState<number>(0);
   const [profileId, setProfileId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('achievements');
+  const [pointsAnimation, setPointsAnimation] = useState<any>(null);
+  const [coinAnimation, setCoinAnimation] = useState<any>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const [exchanging, setExchanging] = useState<string | null>(null); // 添加兑换状态，记录正在兑换的商品ID
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    goodsId: string;
+    pointsRequired: number;
+    description: string;
+    goodsName: string;
+  }>({
+    visible: false,
+    goodsId: '',
+    pointsRequired: 0,
+    description: '',
+    goodsName: ''
+  });
+
+
+  const lottieRef = useRef<any>(null);
+  const animationPlayedRef = useRef(false);
   const { profile } = useUser();
 
   useEffect(() => {
@@ -37,357 +80,370 @@ export default function PointsExchange() {
   useEffect(() => {
     if (profileId) {
       loadUserPoints(profileId);
-      loadExchangeRecords(profileId);
+      loadTransactions(profileId);
+      loadExchangeGoods(profileId);
     }
   }, [profileId]);
 
+  // 标签页切换时重置动画状态
+  useEffect(() => {
+    animationPlayedRef.current = false;
+    setIsHovering(false);
+    if (lottieRef.current) {
+      lottieRef.current.goToAndStop(0, true);
+    }
+  }, [activeTab]);
+
+  // 加载积分动画数据
+  useEffect(() => {
+    fetch('/points.json')
+      .then(response => response.json())
+      .then(data => setPointsAnimation(data))
+      .catch(err => console.error('加载积分动画失败:', err));
+  }, []);
+
+  // 加载金币动画数据
+  useEffect(() => {
+    fetch('/coin.json')
+      .then(response => response.json())
+      .then(data => setCoinAnimation(data))
+      .catch(err => console.error('加载金币动画失败:', err));
+  }, []);
+
   const loadUserPoints = async (id: number) => {
+    
     try {
-      const data = await getUserPointsInfo(id);
-      setUserPoints(data.wallet.total_points);
+      // 临时直接查询数据库，避免使用可能有问题的函数
+      const { data, error } = await supabase
+        .from('user_points_wallet')
+        .select('total_points')
+        .eq('user_id', id)
+        .single();
+      
+      if (error) {
+        console.error('直接查询积分失败:', error);
+        throw error;
+      }
+      
+      setUserPoints(data.total_points);
     } catch (err) {
       console.error('获取用户积分失败:', err);
+      console.error('错误详情:', {
+        message: err instanceof Error ? err.message : '未知错误',
+        stack: err instanceof Error ? err.stack : undefined
+      });
     }
+    
   };
 
-  const loadExchangeRecords = async (id: number) => {
+  const loadTransactions = async (id: number) => {
     try {
       setLoading(true);
-      const data = await filterExchangeRecords(id, {
-        orderBy: 'exchange_time',
+      const data = await filterPointsTransactions(id, {
+        orderBy: 'created_at',
         ascending: false,
         limit: 50
       });
-      setExchangeRecords(data);
+      setTransactions(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '加载兑换记录失败');
+      console.error('加载积分明细失败:', err);
+      console.error('错误详情:', {
+        message: err instanceof Error ? err.message : '未知错误',
+        stack: err instanceof Error ? err.stack : undefined
+      });
+      setError(err instanceof Error ? err.message : '加载积分明细失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExchange = async (exchangeType: string, targetId: number, pointsRequired: number, description: string) => {
+  const loadExchangeGoods = async (id: number) => {
+    
     try {
-      if (!profileId) return;
-      const result = await exchangePoints(profileId, exchangeType, targetId, pointsRequired, description);
-      if (result.success) {
-        message.success(`兑换成功！消耗 ${result.points_used} 积分`);
-        loadUserPoints(profileId);
-        loadExchangeRecords(profileId);
-      } else {
-        message.error(`兑换失败：${result.error}`);
-      }
+      const data = await getExchangeGoods(undefined, id);
+      setExchangeGoods(data);
     } catch (err) {
-      message.error('兑换失败：' + (err instanceof Error ? err.message : '未知错误'));
     }
   };
 
+  const handleExchange = async (goodsId: string, pointsRequired: number, description: string, goodsName: string) => {
+    // 防止重复点击
+    if (exchanging) {
+      return;
+    }
+
+    // 检查是否为带看直通卡，如果是则显示确认弹窗
+    const isDirectCard = goodsName.includes('带看直通卡') || goodsName.includes('带看卡');
+    
+    if (isDirectCard) {
+      setConfirmModal({
+        visible: true,
+        goodsId,
+        pointsRequired,
+        description,
+        goodsName
+      });
+      return;
+    }
+
+    // 非带看卡直接执行兑换
+    await executeExchange(goodsId, pointsRequired, description);
+  };
+
+  const executeExchange = async (goodsId: string, pointsRequired: number, description: string) => {
+    try {
+      setExchanging(goodsId); // 设置兑换状态
+
+      if (!profileId) {
+        console.error('兑换失败: profileId 为空');
+        message.error('用户信息获取失败');
+        return;
+      }
+
+      const result = await exchangeGoodsItem(profileId, goodsId, description);
+      
+      if (result.success) {
+        // 显示兑换成功消息
+        let successMessage = `兑换成功！消耗 ${result.points_used} 积分`;
+        
+        // 如果有奖励发放，添加奖励信息
+        if (result.reward_issued) {
+          let rewardText = '';
+          switch (result.reward_type) {
+            case 'direct':
+              rewardText = '带看直通卡';
+              break;
+            case 'gift':
+              rewardText = '礼品';
+              break;
+            case 'privilege':
+              rewardText = '特权';
+              break;
+            case 'achievement':
+              rewardText = '成就';
+              break;
+            default:
+              rewardText = '奖励';
+          }
+          successMessage += `，已发放${rewardText}`;
+        }
+        
+        message.success(successMessage);
+        
+        await loadUserPoints(profileId);
+        await loadTransactions(profileId);
+        await loadExchangeGoods(profileId);
+      } else {
+        console.error('兑换失败:', result.error);
+        message.error(`兑换失败：${result.error}`);
+      }
+    } catch (err) {
+      console.error('兑换过程中发生异常:', err);
+      console.error('异常详情:', {
+        message: err instanceof Error ? err.message : '未知错误',
+        stack: err instanceof Error ? err.stack : undefined
+      });
+      message.error('兑换失败：' + (err instanceof Error ? err.message : '未知错误'));
+    } finally {
+      setExchanging(null); // 清除兑换状态
+    }
+  };
+
+  const handleConfirmExchange = async () => {
+    const { goodsId, pointsRequired, description } = confirmModal;
+    setConfirmModal({ ...confirmModal, visible: false });
+    await executeExchange(goodsId, pointsRequired, description);
+  };
+
+  const handleCancelExchange = () => {
+    setConfirmModal({ ...confirmModal, visible: false });
+  };
+
+
+
   // 表格列定义
-  const columns: ColumnsType<ExchangeRecord> = [
-    {
-      title: '兑换时间',
-      dataIndex: 'exchange_time',
-      key: 'exchange_time',
-      sorter: (a, b) => new Date(a.exchange_time).getTime() - new Date(b.exchange_time).getTime(),
-      defaultSortOrder: 'descend',
-      render: (text) => (
-        <div>
-          <div style={{ fontWeight: 500, color: '#262626', fontSize: 13 }}>
-            {new Date(text).toLocaleDateString()}
+  const columns: ColumnsType<Transaction> = useMemo(() => {
+    // 从实际数据中动态生成筛选选项
+    const uniqueTransactionTypes = [...new Set(transactions.map(t => t.transaction_type))];
+    const uniqueSourceTypes = [...new Set(transactions.map(t => t.source_type))];
+    
+    const transactionTypeFilters = uniqueTransactionTypes.map(type => ({
+      text: type === 'EARN' ? '获得积分' : type === 'EXCHANGE' ? '积分兑换' : type === 'DEDUCT' ? '积分扣除' : type,
+      value: type
+    }));
+    
+    const sourceTypeFilters = uniqueSourceTypes.map(sourceType => ({
+      text: sourceType === 'FOLLOWUP' ? '跟进任务' :
+            sourceType === 'DEAL' ? '成交订单' :
+            sourceType === 'SIGNIN' ? '每日签到' :
+            sourceType === 'EXCHANGE_LEAD' ? '兑换线索' :
+            sourceType === 'ALLOCATION_LEAD' ? '线索分配' :
+            sourceType === 'ROLLBACK_REFUND' ? '积分回退' :
+            sourceType === 'MANUAL_ADJUST' ? '手动调整' :
+            sourceType === 'POINTS_ADJUST' ? '积分调整' : sourceType,
+      value: sourceType
+    }));
+
+    return [
+      {
+        title: '时间',
+        dataIndex: 'created_at',
+        key: 'created_at',
+        sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        defaultSortOrder: 'descend',
+        render: (text) => (
+          <div>
+            <div className="exchange-time-date">
+              {new Date(text).toLocaleDateString()}
+            </div>
+            <div className="exchange-time-time">
+              {new Date(text).toLocaleTimeString()}
+            </div>
           </div>
-          <div style={{ fontSize: 11, color: '#8c8c8c' }}>
-            {new Date(text).toLocaleTimeString()}
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: '兑换类型',
-      dataIndex: 'exchange_type',
-      key: 'exchange_type',
-      filters: [
-        { text: '线索', value: 'LEAD' },
-        { text: '礼品', value: 'GIFT' },
-        { text: '特权', value: 'PRIVILEGE' },
-      ],
-      onFilter: (value, record) => record.exchange_type === value,
-      render: (text) => {
-        const color = text === 'LEAD' ? 'blue' : text === 'GIFT' ? 'purple' : 'green';
-        const label = text === 'LEAD' ? '线索' :
-                     text === 'GIFT' ? '礼品' :
-                     text === 'PRIVILEGE' ? '特权' : text;
-        return <Tag color={color} style={{ fontWeight: 500, fontSize: 12 }}>{label}</Tag>;
+        ),
       },
-    },
-    {
-      title: '消耗积分',
-      dataIndex: 'points_used',
-      key: 'points_used',
-      sorter: (a, b) => a.points_used - b.points_used,
-      render: (text) => (
-        <Text type="danger" strong style={{ fontSize: 13 }}>
-          -{text}
-        </Text>
-      ),
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      filters: [
-        { text: '成功', value: 'SUCCESS' },
-        { text: '处理中', value: 'PENDING' },
-        { text: '失败', value: 'FAILED' },
-      ],
-      onFilter: (value, record) => record.status === value,
-      render: (text) => {
-        const color = text === 'SUCCESS' ? 'success' : text === 'PENDING' ? 'warning' : 'error';
-        const label = text === 'SUCCESS' ? '成功' :
-                     text === 'PENDING' ? '处理中' :
-                     text === 'FAILED' ? '失败' : text;
-        return <Tag color={color} style={{ fontWeight: 500, fontSize: 12 }}>{label}</Tag>;
+      {
+        title: '交易类型',
+        dataIndex: 'transaction_type',
+        key: 'transaction_type',
+        filters: transactionTypeFilters,
+        onFilter: (value, record) => record.transaction_type === value,
+        render: (text) => {
+          const color = text === 'EARN' ? 'green' : text === 'EXCHANGE' ? 'blue' : 'red';
+          const label = text === 'EARN' ? '获得' : text === 'EXCHANGE' ? '兑换' : '扣分';
+          return <Tag color={color} className="exchange-tag">{label}</Tag>;
+        },
       },
-    },
-  ];
+      {
+        title: '来源类型',
+        dataIndex: 'source_type',
+        key: 'source_type',
+        filters: sourceTypeFilters,
+        onFilter: (value, record) => record.source_type === value,
+        render: (text) => {
+          const label = text === 'FOLLOWUP' ? '跟进' :
+                       text === 'DEAL' ? '成交' :
+                       text === 'SIGNIN' ? '签到' :
+                       text === 'EXCHANGE_LEAD' ? '兑换线索' :
+                       text === 'ALLOCATION_LEAD' ? '线索分配' :
+                       text === 'ROLLBACK_REFUND' ? '积分回退' :
+                       text === 'MANUAL_ADJUST' ? '手动调整' :
+                       text === 'POINTS_ADJUST' ? '积分调整' : text;
+          return <Tag color="default" className="exchange-tag">{label}</Tag>;
+        },
+      },
+      {
+        title: '积分变动',
+        dataIndex: 'points_change',
+        key: 'points_change',
+        sorter: (a, b) => a.points_change - b.points_change,
+        render: (text) => (
+          <Text type={text > 0 ? 'success' : 'danger'} strong className="exchange-points-text">
+            {text > 0 ? '+' : ''}{text}
+          </Text>
+        ),
+      },
+      {
+        title: '余额',
+        dataIndex: 'balance_after',
+        key: 'balance_after',
+        sorter: (a, b) => a.balance_after - b.balance_after,
+        render: (text) => <Text strong>{text}</Text>,
+      },
+      {
+        title: '说明',
+        dataIndex: 'description',
+        key: 'description',
+        ellipsis: true,
+        render: (text) => (
+          <Text type="secondary" ellipsis={{ tooltip: text }}>
+            {text || '无'}
+          </Text>
+        ),
+      },
+    ];
+  }, [transactions]);
 
   // 表格变化处理
-  const handleTableChange: TableProps<ExchangeRecord>['onChange'] = (pagination, filters, sorter) => {
-    console.log('表格变化:', { pagination, filters, sorter });
+  const handleTableChange: TableProps<Transaction>['onChange'] = (pagination, filters, sorter) => {
   };
 
   // 渲染积分兑换内容
   const renderPointsExchange = () => (
-    <div style={{ padding: '0' }}>
-
+    <div className="exchange-wrapper">
       {/* 兑换选项 */}
-      <Card>
-        <Row gutter={[16, 16]}>
-          {/* 线索兑换 */}
-          <Col xs={24} sm={12} lg={8}>
-            <Card 
-              hoverable
-              style={{ 
-                borderRadius: 8, 
-                border: '1px solid #e6f7ff',
-                transition: 'all 0.3s ease',
-                marginTop: 12,
-                marginBottom: 12
-              }}
-              bodyStyle={{ padding: '16px', textAlign: 'center' }}
-            >
-              <div style={{
-                width: 40,
-                height: 40,
-                borderRadius: 8,
-                background: '#e6f7ff',
-                color: '#1890ff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 12px',
-                fontSize: 18
-              }}>
-                <UserOutlined />
+      <div className="exchange-cards-container">
+        {exchangeGoods.map((goods) => (
+          <div key={goods.id} className="exchange-card-wrapper">
+            <div className="exchange-card">
+              <div className="exchange-icon lead">
+                {goods.icon_type === 'emoji' ? (
+                  <span style={{ fontSize: '24px' }}>{goods.icon}</span>
+                ) : goods.icon_url ? (
+                  <img src={goods.icon_url} alt={goods.name} style={{ width: '24px', height: '24px' }} />
+                ) : (
+                  <UserOutlined />
+                )}
               </div>
               
-              <Title level={5} style={{ margin: '8px 0 4px', color: '#1890ff', fontSize: 14 }}>
-                兑换线索
-              </Title>
-              
-              <Text type="secondary" style={{ display: 'block', marginBottom: 12, lineHeight: 1.4, fontSize: 12 }}>
-                使用积分兑换高质量线索
-              </Text>
-              
-              <div style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                borderRadius: 12,
-                background: '#e6f7ff',
-                color: '#1890ff',
-                fontWeight: 600,
-                fontSize: 12,
-                marginBottom: 12
-              }}>
-                30 积分
+              <div className={`price-tag ${goods.category.toLowerCase()} font-bitcount`}>
+                {goods.points_cost}
+                <img 
+                  src="/coin2.svg" 
+                  alt="coin" 
+                  className="coin-icon"
+                  style={{ width: 36, height: 36 }}
+                />
+              </div>
+              <div className={`exchange-title ${goods.category.toLowerCase()}`}>
+                {goods.name}
+              </div>
+              <div className="exchange-description">
+                {goods.description}
               </div>
               
-              <Button
-                type="primary"
-                size="small"
-                block
-                disabled={userPoints < 30}
-                style={{ 
-                  height: 32, 
-                  borderRadius: 6,
-                  fontWeight: 500,
-                  fontSize: 12
-                }}
-                onClick={() => handleExchange('LEAD', 1, 30, '兑换线索')}
+              {/* 显示每日限制信息 */}
+              {goods.daily_limit && (
+                <div style={{ 
+                  fontSize: '11px', 
+                  color: 'rgba(101, 67, 33, 0.5)', 
+                  marginTop: '4px',
+                  marginBottom: '8px'
+                }}>
+                  每日限制: {goods.remaining_daily_limit}/{goods.daily_limit}
+                </div>
+              )}
+              
+              <button
+                className={`exchange-button ${!goods.can_exchange || userPoints < goods.points_cost || exchanging === goods.id ? 'disabled' : ''}`}
+                disabled={!goods.can_exchange || userPoints < goods.points_cost || exchanging === goods.id}
+                onClick={() => handleExchange(goods.id, goods.points_cost, `兑换${goods.name}`, goods.name)}
               >
-                {userPoints >= 30 ? '立即兑换' : '积分不足'}
-              </Button>
-            </Card>
-          </Col>
-          
-          {/* 礼品兑换 */}
-          <Col xs={24} sm={12} lg={8}>
-            <Card 
-              hoverable
-              style={{ 
-                borderRadius: 8, 
-                border: '1px solid #f9f0ff',
-                transition: 'all 0.3s ease',
-                marginTop: 12,
-                marginBottom: 12
-              }}
-              bodyStyle={{ padding: '16px', textAlign: 'center' }}
-            >
-              <div style={{
-                width: 40,
-                height: 40,
-                borderRadius: 8,
-                background: '#f9f0ff',
-                color: '#722ed1',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 12px',
-                fontSize: 18
-              }}>
-                <GiftOutlined />
-              </div>
-              
-              <Title level={5} style={{ margin: '8px 0 4px', color: '#722ed1', fontSize: 14 }}>
-                兑换礼品
-              </Title>
-              
-              <Text type="secondary" style={{ display: 'block', marginBottom: 12, lineHeight: 1.4, fontSize: 12 }}>
-                兑换精美礼品，犒劳自己
-              </Text>
-              
-              <div style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                borderRadius: 12,
-                background: '#f9f0ff',
-                color: '#722ed1',
-                fontWeight: 600,
-                fontSize: 12,
-                marginBottom: 12
-              }}>
-                50 积分
-              </div>
-              
-              <Button
-                type="primary"
-                size="small"
-                block
-                disabled={userPoints < 50}
-                style={{ 
-                  height: 32, 
-                  borderRadius: 6,
-                  fontWeight: 500,
-                  fontSize: 12,
-                  background: '#722ed1',
-                  borderColor: '#722ed1'
-                }}
-                onClick={() => handleExchange('GIFT', 1, 50, '兑换礼品')}
-              >
-                {userPoints >= 50 ? '立即兑换' : '积分不足'}
-              </Button>
-            </Card>
-          </Col>
-          
-          {/* 特权兑换 */}
-          <Col xs={24} sm={12} lg={8}>
-            <Card 
-              hoverable
-              style={{ 
-                borderRadius: 8, 
-                border: '1px solid #f6ffed',
-                transition: 'all 0.3s ease',
-                marginTop: 12,
-                marginBottom: 12
-              }}
-              bodyStyle={{ padding: '16px', textAlign: 'center' }}
-            >
-              <div style={{
-                width: 40,
-                height: 40,
-                borderRadius: 8,
-                background: '#f6ffed',
-                color: '#52c41a',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 12px',
-                fontSize: 18
-              }}>
-                <CrownOutlined />
-              </div>
-              
-              <Title level={5} style={{ margin: '8px 0 4px', color: '#52c41a', fontSize: 14 }}>
-                兑换特权
-              </Title>
-              
-              <Text type="secondary" style={{ display: 'block', marginBottom: 12, lineHeight: 1.4, fontSize: 12 }}>
-                兑换特殊权限，享受便利
-              </Text>
-              
-              <div style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                borderRadius: 12,
-                background: '#f6ffed',
-                color: '#52c41a',
-                fontWeight: 600,
-                fontSize: 12,
-                marginBottom: 12
-              }}>
-                100 积分
-              </div>
-              
-              <Button
-                type="primary"
-                size="small"
-                block
-                disabled={userPoints < 100}
-                style={{ 
-                  height: 32, 
-                  borderRadius: 6,
-                  fontWeight: 500,
-                  fontSize: 12,
-                  background: '#52c41a',
-                  borderColor: '#52c41a'
-                }}
-                onClick={() => handleExchange('PRIVILEGE', 1, 100, '兑换特权')}
-              >
-                {userPoints >= 100 ? '立即兑换' : '积分不足'}
-              </Button>
-            </Card>
-          </Col>
-        </Row>
-      </Card>
+                {exchanging === goods.id ? '兑换中...' :
+                 !goods.can_exchange ? '已达限制' : 
+                 userPoints >= goods.points_cost ? '立即兑换' : '积分不足'}
+              </button>
+            </div>
+          </div>
+        ))}
+        
+        {/* 如果商品数量不足3个，添加空白占位 */}
+        {exchangeGoods.length < 3 && (
+          <div className="exchange-card-wrapper empty-slot">
+          </div>
+        )}
+      </div>
     </div>
   );
 
-  // 渲染兑换记录内容
-  const renderExchangeRecords = () => (
-    <Card 
-      title={
-        <Space>
-          <StarFilled style={{ color: '#fa8c16', fontSize: 14 }} />
-          <span style={{ fontSize: 14, fontWeight: 600 }}>兑换记录</span>
-          <Badge count={exchangeRecords.length} style={{ backgroundColor: '#1890ff', fontSize: 10 }} />
-        </Space>
-      }
-      style={{ borderRadius: 8 }}
-      headStyle={{ borderBottom: '1px solid #f0f0f0', padding: '0 16px', minHeight: 40 }}
-      bodyStyle={{ padding: '16px' }}
-    >
-      {exchangeRecords.length > 0 ? (
+  // 渲染积分明细内容
+  const renderTransactions = () => (
+    <div className="exchange-records-container">
+      
+      {transactions.length > 0 ? (
         <Table
-          dataSource={exchangeRecords}
+          className="exchange-records-table"
+          dataSource={transactions}
           columns={columns}
           onChange={handleTableChange}
           pagination={{
@@ -395,35 +451,41 @@ export default function PointsExchange() {
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
-            style: { marginTop: 12 },
             size: 'small'
           }}
           size="small"
           rowKey="id"
-          style={{ borderRadius: 6 }}
         />
       ) : (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px 0',
-          color: '#8c8c8c'
-        }}>
-          <GiftOutlined style={{ fontSize: 40, marginBottom: 12, opacity: 0.5 }} />
-          <Text type="secondary" style={{ fontSize: 14 }}>暂无兑换记录</Text>
+        <div className="empty-state-enhanced">
+          <div className="empty-state-icon">
+            <WalletOutlined />
+          </div>
+          <div className="empty-state-content">
+            <h3 className="empty-state-title">暂无积分明细</h3>
+            <p className="empty-state-description">
+              您还没有积分变动记录，完成以下操作即可获得积分：
+            </p>
+            <div className="empty-state-tips">
+              <div className="tip-item">
+                <GiftFilled className="tip-icon" />
+                <span>参与直播</span>
+              </div>
+              <div className="tip-item">
+                <StarFilled className="tip-icon" />
+                <span>完成新人勤奋度任务</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: 300 
-      }}>
-        <Spin size="default" indicator={<LoadingOutlined style={{ fontSize: 20 }} spin />} />
+      <div className="loading-container">
+        <Spin size="default" indicator={<LoadingOutlined className="loading-icon" spin />} />
       </div>
     );
   }
@@ -436,96 +498,202 @@ export default function PointsExchange() {
         type="error"
         showIcon
         action={
-          <Button size="small" danger onClick={() => profileId && loadExchangeRecords(profileId)}>
+          <Button size="small" danger onClick={() => profileId && loadTransactions(profileId)}>
             重试
           </Button>
         }
-        style={{ margin: 16 }}
+        className="alert-margin"
       />
     );
   }
 
   return (
-    <div style={{ padding: '16px', maxWidth: 1000, margin: '0 auto' }}>
+    <div className="points-exchange-container">
+
+      
       {/* 顶部积分统计 */}
-      <Card 
-        style={{ 
-          marginBottom: 16,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          border: 'none',
-          borderRadius: 8
-        }}
-        bodyStyle={{ padding: '16px 20px', textAlign: 'center' }}
-      >
-        <Row justify="center" align="middle">
-          <Col>
-            <WalletOutlined style={{ fontSize: 20, color: '#fff', marginBottom: 4 }} />
-            <Statistic
-              title={<span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>当前积分</span>}
-              value={userPoints}
-              valueStyle={{ color: '#fff', fontSize: 20, fontWeight: 'bold' }}
-              prefix={<span style={{ color: '#fff' }}>💰</span>}
-            />
-          </Col>
-        </Row>
-      </Card>
+      <div className="points-summary-card">
+        <div className="points-summary-content">
+          <div className="points-info">
+            <div className="points-value">
+              {coinAnimation && (
+                <Lottie 
+                  animationData={coinAnimation} 
+                  style={{ width: 50, height: 50, marginRight: 6, marginBottom: 12 }}
+                  loop={true}
+                  autoplay={true}
+                />
+              )}
+              {userPoints}
+            </div>
+            <div className="points-label">剩余积分</div>
+          </div>
+          <div 
+            className="points-icon-container"
+            onMouseEnter={() => {
+              if (!isHovering && !animationPlayedRef.current) {
+                setIsHovering(true);
+                animationPlayedRef.current = true;
+                if (lottieRef.current) {
+                  lottieRef.current.play();
+                }
+              }
+            }}
+            onMouseLeave={() => {
+              setIsHovering(false);
+              // 不立即停止，让动画自然完成
+            }}
+          >
+            {pointsAnimation && (
+              <Lottie 
+                lottieRef={lottieRef}
+                animationData={pointsAnimation} 
+                className="points-animation"
+                loop={false}
+                autoplay={false}
+                onComplete={() => {
+                  // 动画完成后重置状态
+                  animationPlayedRef.current = false;
+                  if (lottieRef.current) {
+                    lottieRef.current.goToAndStop(0, true);
+                  }
+                }}
+                onLoad={() => {
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* 标签页内容 */}
-      <Card 
-        style={{ 
-          borderRadius: 8,
-          border: '1px solid #f0f0f0',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
-        }}
-        bodyStyle={{ padding: '16px' }}
-      >
-        <Tabs 
-          activeKey={activeTab} 
-          onChange={setActiveTab}
-          size="small"
-          tabBarStyle={{ 
-            marginBottom: 16,
-            borderBottom: '1px solid #f0f0f0'
-          }}
-          tabBarGutter={4}
-        >
-          <TabPane 
-            tab={
-              <span style={{ fontSize: 13, fontWeight: 500 }}>
-                <TrophyFilled style={{ marginRight: 6, color: '#fa8c16', fontSize: 12 }} />
-                成就系统
+      <div className="main-content-card">
+        <div className="custom-tabs">
+          <div className="tab-nav">
+            <button 
+              className={`tab-button ${activeTab === 'achievements' ? 'active' : ''}`}
+              onClick={() => setActiveTab('achievements')}
+            >
+              <span className="tab-text">
+                <TrophyFilled className="tab-icon achievement" />
+                我的成就
               </span>
-            } 
-            key="achievements"
-          >
-            <AchievementSystem showHeader={false} compact={true} />
-          </TabPane>
-          
-          <TabPane 
-            tab={
-              <span style={{ fontSize: 13, fontWeight: 500 }}>
-                <GiftFilled style={{ marginRight: 6, color: '#722ed1', fontSize: 12 }} />
+            </button>
+            
+            <button 
+              className={`tab-button ${activeTab === 'exchange' ? 'active' : ''}`}
+              onClick={() => setActiveTab('exchange')}
+            >
+              <span className="tab-text">
+                <GiftFilled className="tab-icon exchange" />
                 积分兑换
               </span>
-            } 
-            key="exchange"
-          >
-            {renderPointsExchange()}
-          </TabPane>
-          
-          <TabPane 
-            tab={
-              <span style={{ fontSize: 13, fontWeight: 500 }}>
-                <StarFilled style={{ marginRight: 6, color: '#fa8c16', fontSize: 12 }} />
-                兑换记录
+            </button>
+            
+            <button 
+              className={`tab-button ${activeTab === 'records' ? 'active' : ''}`}
+              onClick={() => setActiveTab('records')}
+            >
+              <span className="tab-text">
+                <StarFilled className="tab-icon records" />
+                积分明细
               </span>
-            } 
-            key="records"
-          >
-            {renderExchangeRecords()}
-          </TabPane>
-        </Tabs>
-      </Card>
+            </button>
+          </div>
+          
+          <div className="tab-content">
+            {activeTab === 'achievements' && (
+              <div className="tab-pane active">
+                <AchievementSystem showHeader={false} />
+              </div>
+            )}
+            
+            {activeTab === 'exchange' && (
+              <div className="tab-pane active">
+                {renderPointsExchange()}
+              </div>
+            )}
+            
+            {activeTab === 'records' && (
+              <div className="tab-pane active">
+                {renderTransactions()}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 带看直通卡确认弹窗 */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ExclamationCircleOutlined style={{ color: '#faad14' }} />
+            <span>确认兑换</span>
+          </div>
+        }
+        open={confirmModal.visible}
+        onCancel={handleCancelExchange}
+        footer={null}
+        width={480}
+        className="confirm-modal-glass"
+        styles={{
+          mask: {
+            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)'
+          }
+        }}
+      >
+        <div style={{ padding: '16px 0' }}>
+          <div style={{ fontSize: '16px', fontWeight: 500, marginBottom: '16px', color: '#262626' }}>
+            是否使用 {confirmModal.pointsRequired} 积分兑换{confirmModal.goodsName}？
+          </div>
+          
+          <div style={{ 
+            backgroundColor: '#fff2f0', 
+            border: '1px solid #ffccc7', 
+            borderRadius: '6px', 
+            padding: '12px 16px',
+            marginBottom: '16px'
+          }}>
+            <div style={{ fontSize: '14px', color: '#ff4d4f', fontWeight: 500, marginBottom: '8px' }}>
+              ⚠️ 重要提醒
+            </div>
+            <div style={{ fontSize: '13px', color: '#666', lineHeight: '1.5' }}>
+              <div style={{ marginBottom: '6px' }}>• 带看佣金跳点为5%～15%</div>
+              <div>• 带看直通卡发送至组长账户内</div>
+            </div>
+          </div>
+          
+          <div style={{ fontSize: '12px', color: '#999', lineHeight: '1.4' }}>
+            兑换后将立即扣除相应积分，组长可在带看记录中查看自己的直通卡数量。
+          </div>
+          
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'flex-end', 
+            gap: '12px', 
+            marginTop: '24px'
+          }}>
+            <Button 
+              onClick={handleCancelExchange}
+              style={{ borderColor: '#d9d9d9' }}
+            >
+              取消
+            </Button>
+            <Button 
+              type="primary"
+              loading={exchanging === confirmModal.goodsId}
+              onClick={handleConfirmExchange}
+              style={{ backgroundColor: '#000000', borderColor: '#000000' }}
+            >
+              确认兑换
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+
     </div>
   );
 } 

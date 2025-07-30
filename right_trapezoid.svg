@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" width="200" height="120">
+  <!-- 直角梯形 -->
+  <polygon 
+    points="20,20 180,20 160,100 20,100" 
+    fill="#4a90e2" 
+    stroke="#2c5aa0" 
+    stroke-width="2"
+  />
+  
+  <!-- 标记直角 -->
+  <circle cx="20" cy="20" r="3" fill="#e74c3c"/>
+  <circle cx="20" cy="100" r="3" fill="#e74c3c"/>
+  
+  <!-- 添加尺寸标注 -->
+  <text x="100" y="15" text-anchor="middle" font-size="12" fill="#333">上底: 160</text>
+  <text x="10" y="60" text-anchor="middle" font-size="12" fill="#333" transform="rotate(-90, 10, 60)">高: 80</text>
+  <text x="100" y="115" text-anchor="middle" font-size="12" fill="#333">下底: 140</text>
+</svg> 

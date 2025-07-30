@@ -47,15 +47,6 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   const [search, setSearch] = React.useState('');
   const { hasPermission, hasRole } = useRolePermissions();
 
-  // 权限检查函数
-  const canAccessLeads = () => hasPermission('lead_manage');
-  const canAccessDataAnalysis = () => hasPermission('data_analysis');
-  const canAccessAllocation = () => hasPermission('allocation_manage');
-  const canAccessPointsSummary = () => hasPermission('points_manage');
-  const canAccessHonor = () => hasPermission('user_manage');
-  const canAccessSystem = () => hasRole('admin');
-  const canAccessApproval = () => hasPermission('approval_manage');
-
   const menuItems = [
     { 
       key: 'index', 
@@ -142,13 +133,6 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       label: '积分管理',
       className: 'main-menu-submenu-title',
       children: [
-        { 
-          key: 'points-dashboard', 
-          icon: <DatabaseOutlined />, 
-          label: '积分看板', 
-          path: '/points',
-          className: 'main-menu-item',
-        },
         { 
           key: 'points-summary', 
           icon: <WalletOutlined />, 
@@ -265,6 +249,14 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           icon: <BellOutlined />,
           label: '通知模板管理',
           path: '/notification-templates',
+          className: 'main-menu-item',
+          permission: 'admin',
+        },
+        {
+          key: 'achievement-card-test',
+          icon: <TrophyOutlined />,
+          label: '成就卡片测试',
+          path: '/achievement-card-test',
           className: 'main-menu-item',
           permission: 'admin',
         },

@@ -36,7 +36,7 @@ export const useTokenRefresh = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (session && isTokenExpiringSoon(session, 10)) { // 10分钟内过期
+      if (session && isTokenExpiringSoon(session, 15)) { // 15分钟内过期才刷新，减少刷新频率
         console.log('检测到token即将过期，主动刷新');
         await refreshToken();
       }
@@ -52,12 +52,12 @@ export const useTokenRefresh = () => {
       clearInterval(refreshIntervalRef.current);
     }
 
-    // 每5分钟检查一次token状态
+    // 每30分钟检查一次token状态（大幅减少检查频率）
     refreshIntervalRef.current = setInterval(() => {
       checkAndRefreshToken();
-    }, 5 * 60 * 1000);
+    }, 30 * 60 * 1000);
 
-    console.log('Token监控已启动');
+    console.log('Token监控已启动（低频率模式）');
   }, [checkAndRefreshToken]);
 
   // 停止token监控

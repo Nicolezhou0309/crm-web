@@ -567,14 +567,16 @@ const ApprovalDetails: React.FC = () => {
         onCancel={() => setPreviewVisible(false)}
         footer={null}
         width={undefined}
-        bodyStyle={{
-          textAlign: 'center',
-          padding: 0,
-          background: '#fff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '60vh'
+        styles={{ 
+          body: {
+            textAlign: 'center',
+            padding: 0,
+            background: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '60vh'
+          }
         }}
       >
         {previewImages.length > 0 && (
@@ -619,7 +621,7 @@ const ApprovalDetails: React.FC = () => {
         onClose={() => setLeadDrawerVisible(false)}
         title="线索与审批详情"
         width={900}
-        destroyOnClose
+        destroyOnHidden
       >
         <Tabs defaultActiveKey="flow" size="large">
           <Tabs.TabPane tab="审批流详情" key="flow">

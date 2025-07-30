@@ -35,7 +35,7 @@ const DepartmentPage = () => {
   const [setAdminForm] = Form.useForm();
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
-  const { canManageOrganization, canManageUser, isSuperAdmin, isDepartmentAdmin } = useRolePermissions();
+  const { canManageOrganization, canManageUser } = useRolePermissions();
 
   
   // 新增：树节点搜索关键词

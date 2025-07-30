@@ -441,7 +441,7 @@ const AnnouncementManagement: React.FC = () => {
         }}
         footer={null}
         width={800}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={form}

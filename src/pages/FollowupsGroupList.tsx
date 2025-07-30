@@ -3092,17 +3092,15 @@ const FollowupsGroupList: React.FC = () => {
     thumbUrl: item.preview,
   }));
 
-  const rollbackMenu = (
-    <Menu
-      items={[
-        {
-          key: 'rollback-list',
-          label: '回退列表',
-          onClick: () => setRollbackListVisible(true),
-        },
-      ]}
-    />
-  );
+  const rollbackMenu = {
+    items: [
+      {
+        key: 'rollback-list',
+        label: '回退列表',
+        onClick: () => setRollbackListVisible(true),
+      },
+    ]
+  };
 
 
 
@@ -3116,9 +3114,9 @@ const FollowupsGroupList: React.FC = () => {
         onCancel={() => setRollbackListVisible(false)}
         footer={null}
         width={900}
-        destroyOnClose
+        destroyOnHidden
         centered
-        bodyStyle={{ minHeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}
+        styles={{ body: { minHeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' } }}
       >
         <RollbackList />
       </Modal>
@@ -3179,7 +3177,7 @@ const FollowupsGroupList: React.FC = () => {
             }} className="page-btn">
               刷新
             </Button>
-            <Dropdown overlay={rollbackMenu}>
+            <Dropdown menu={rollbackMenu}>
               <Button
                 icon={<MoreOutlined style={{ marginLeft: '0px', transform: 'rotate(90deg)' }} />}
                 className="page-btn no-outline-btn"
@@ -3490,7 +3488,7 @@ const FollowupsGroupList: React.FC = () => {
           placement="bottom"
           open={drawerOpen}
           onClose={handleDrawerClose}
-          destroyOnClose
+          destroyOnHidden
           footer={null}
           className="lead-detail-drawer"
         >
@@ -4143,7 +4141,7 @@ const FollowupsGroupList: React.FC = () => {
           onClose={() => setLeadDetailDrawerOpen(false)}
           title="线索详情"
           width={800}
-          destroyOnClose
+          destroyOnHidden
           placement="right"
         >
           {leadDetailId && <LeadDetailDrawer leadid={leadDetailId} />}
@@ -4173,7 +4171,7 @@ const FollowupsGroupList: React.FC = () => {
           okText="确认回退"
           cancelText="取消"
           confirmLoading={rollbackUploading}
-          destroyOnClose
+          destroyOnHidden
         >
           <Form layout="vertical">
             <Form.Item label="回退理由" required>

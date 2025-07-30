@@ -1632,7 +1632,7 @@ const ShowingsList: React.FC = () => {
         }}
         title="线索详情"
         width={800}
-        destroyOnClose
+        destroyOnHidden
         placement="right"
       >
         {selectedLeadId && <LeadDetailDrawer leadid={selectedLeadId} />}
@@ -1718,7 +1718,7 @@ const ShowingsList: React.FC = () => {
         okText="确认回退"
         cancelText="取消"
         confirmLoading={rollbackUploading}
-        destroyOnClose
+        destroyOnHidden
         width={600}
       >
         <div style={{ marginBottom: 16 }}>

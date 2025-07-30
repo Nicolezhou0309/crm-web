@@ -2083,6 +2083,7 @@ const AllocationManagement: React.FC = () => {
         }}
         footer={null}
         width={600}
+        destroyOnHidden
       >
         <Form
           form={groupForm}

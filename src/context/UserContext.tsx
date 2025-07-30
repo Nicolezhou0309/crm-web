@@ -389,9 +389,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, profile]);
 
-  const refreshUser = useCallback(async () => {
+  const refreshUser = useCallback(async (skipLoading = false) => {
     try {
-      setLoading(true);
+      if (!skipLoading) {
+        setLoading(true);
+      }
       setError(null);
       
       // 检查缓存
@@ -409,10 +411,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentSessionUser &&
         cachedData.user?.id === currentSessionUser.id
       ) {
-        setUser(cachedData.user);
-        setProfile(cachedData.profile);
-        setPermissions(cachedData.permissions);
-        setLoading(false);
+        // 只有当数据真正发生变化时才更新状态
+        setUser((prevUser: any) => prevUser?.id === cachedData.user?.id ? prevUser : cachedData.user);
+        setProfile((prevProfile: any) => 
+          prevProfile?.id === cachedData.profile?.id ? prevProfile : cachedData.profile
+        );
+        setPermissions((prevPermissions: any) => 
+          JSON.stringify(prevPermissions) === JSON.stringify(cachedData.permissions) 
+            ? prevPermissions 
+            : cachedData.permissions
+        );
+        if (!skipLoading) {
+          setLoading(false);
+        }
         // 检查会话状态
         checkSessionTimeout();
         return;
@@ -499,17 +510,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (event === 'SIGNED_IN') {
         refreshUser();
       } else if (event === 'TOKEN_REFRESHED') {
-        // token刷新时，静默更新用户状态，不触发完整的refreshUser流程
+        // token刷新时，完全静默处理，不更新任何状态
         if (session?.user) {
-          setUser(session.user);
-          // 更新缓存中的用户信息
+          // 只更新缓存，不触发状态变化
           if (profile) {
             cacheManager.setUserCache(session.user, profile, permissions);
           }
-          // 重置会话超时
+          // 静默更新活动时间，不触发状态更新
           cacheManager.updateLastActivity();
-          setSessionTimeRemaining(SESSION_TIMEOUT);
-          setShowSessionWarning(false);
         }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);

@@ -157,7 +157,7 @@ const Profile = () => {
       message.success('头像上传成功');
       localStorage.setItem('avatar_refresh_token', Date.now().toString());
       window.dispatchEvent(new Event('avatar_refresh_token'));
-      refreshUser(); // 新增，刷新 context 缓存
+      // 移除refreshUser调用，避免不必要的全局状态更新
     }
   };
 
