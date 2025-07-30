@@ -6,7 +6,6 @@ import {
 } from '@ant-design/icons';
 import LottieLogo from './components/LottieLogo';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import TestSupabase from './pages/TestSupabase';
 import LeadsList from './pages/LeadsList';
 import ShowingsList from './pages/ShowingsList';
 
@@ -32,9 +31,6 @@ import AnnouncementManagement from './pages/AnnouncementManagement';
 import { HonorManagement } from './pages/HonorManagement';
 import { AchievementManagement } from './pages/AchievementManagement';
 import LoadingDemo from './pages/LoadingDemo';
-import TestTools from './pages/TestTools';
-import TestShowingsData from './pages/TestShowingsData';
-import EmailTest from './pages/EmailTest';
 import './App.css';
 import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
@@ -59,7 +55,6 @@ import ApprovalPerformance from './pages/ApprovalPerformance';
 import DataAnalysis from './pages/DataAnalysis';
 import PivotTableDemo from './pages/PivotTableDemo';
 import PivotDemo from './pages/PivotDemo';
-import { AchievementCardTest } from './pages/AchievementCardTest';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
 
 
@@ -129,19 +124,15 @@ const AppContent: React.FC = () => {
     'honor-management': '/honor',
     'achievement-management': '/achievement',
     'departments': '/departments',
-    'test-tools': '/test-tools',
     'roles': '/roles',
     'announcements': '/announcements',
-    'test': '/test',
     'banner-management': '/banner-management',
     'load-demo': '/loading-demo',
-    'email-test': '/email-test',
     'notification-templates': '/notification-templates',
     'approval-flows-list': '/approval-flows',
     'approval-details': '/approval-details',
     'approval-performance': '/approval-performance',
     'data-analysis': '/data-analysis',
-    'achievement-card-test': '/achievement-card-test',
   };
   // path-key 反查
   const pathKeyMap: Record<string, string> = {};
@@ -736,7 +727,6 @@ const AppContent: React.FC = () => {
                   } />
                   <Route path="/points/exchange" element={<PointsExchange />} />
 
-                  <Route path="/test" element={<TestSupabase />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/403" element={<Error403 />} />
                   <Route path="/departments" element={<DepartmentPage />} />
@@ -771,21 +761,6 @@ const AppContent: React.FC = () => {
                       <LoadingDemo />
                     </PermissionGate>
                   } />
-                  <Route path="/test-tools" element={
-                    <PermissionGate role="admin" fallback={<Error403 />}>
-                      <TestTools />
-                    </PermissionGate>
-                  } />
-                  <Route path="/test-showings-data" element={
-                    <PermissionGate role="admin" fallback={<Error403 />}>
-                      <TestShowingsData />
-                    </PermissionGate>
-                  } />
-                  <Route path="/email-test" element={
-                    <PermissionGate role="admin" fallback={<Error403 />}>
-                      <EmailTest />
-                    </PermissionGate>
-                  } />
                   <Route path="/notification-templates" element={
                     <PermissionGate role="admin" fallback={<Error403 />}>
                       <NotificationTemplateManager />
@@ -809,11 +784,6 @@ const AppContent: React.FC = () => {
                           } />
                           <Route path="/pivot-demo" element={<PivotTableDemo />} />
                           <Route path="/pivot-demo-new" element={<PivotDemo />} />
-                          <Route path="/achievement-card-test" element={
-                            <PermissionGate role="admin" fallback={<Error403 />}>
-                              <AchievementCardTest />
-                            </PermissionGate>
-                          } />
         <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>
