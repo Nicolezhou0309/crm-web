@@ -163,6 +163,7 @@ export default function PointsExchange() {
       const data = await getExchangeGoods(undefined, id);
       setExchangeGoods(data);
     } catch (err) {
+      console.error('加载兑换商品失败:', err);
     }
   };
 
@@ -520,7 +521,7 @@ export default function PointsExchange() {
               {coinAnimation && (
                 <Lottie 
                   animationData={coinAnimation} 
-                  style={{ width: 50, height: 50, marginRight: 6, marginBottom: 12 }}
+                  style={{ width: 50, height: 50, marginRight: 6}}
                   loop={true}
                   autoplay={true}
                 />

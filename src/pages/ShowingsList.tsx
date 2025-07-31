@@ -265,6 +265,7 @@ const ShowingsList: React.FC = () => {
       const sales = await getSalesOptions();
       setSalesOptions(sales.map((s: any) => ({ value: s.id, label: s.nickname })));
     } catch (error) {
+      console.error('获取销售选项失败:', error);
     }
   };
 
@@ -1564,7 +1565,7 @@ const ShowingsList: React.FC = () => {
                   placeholder="请输入预算" 
                   style={{ width: '100%' }}
                   formatter={value => `¥ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={value => value!.replace(/\¥\s?|(,*)/g, '')}
+                  parser={value => value!.replace(/¥\s?|(,*)/g, '')}
                 />
               </Form.Item>
             </Col>

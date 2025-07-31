@@ -1492,7 +1492,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
                   onClick={
                     area === 'filters' ? () => {
                       // 如果是日期范围筛选，需要设置dateRange
-                      let editingFilterData = filter || { field: field, operator: 'equals', value: '' };
+                      const editingFilterData = filter || { field: field, operator: 'equals', value: '' };
                       if (filter?.operator === 'date_between' && filter.value && filter.value2) {
                         editingFilterData.dateRange = [filter.value, filter.value2];
                       }
@@ -1968,7 +1968,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     }
   };
 
-  if (loading) {
+  if (loading && document.visibilityState === 'visible') {
     return <LoadingScreen type="data" />;
   }
 
@@ -2851,7 +2851,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
               const existingFilterIndex = newConfig.filters.findIndex(f => f.field === editingFilter.field);
               
               // 处理日期范围选择器的值
-              let processedValues = { ...values };
+              const processedValues = { ...values };
               if (values.operator === 'date_between' && values.dateRange) {
                 processedValues.value = values.dateRange[0];
                 processedValues.value2 = values.dateRange[1];

@@ -135,47 +135,4 @@ export interface SelectOption {
   children?: string;
 }
 
-// 重复通知类型
-export interface DuplicateNotification {
-  id: string;
-  type: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  user_id: number;
-  lead_id: string;
-  details?: any;
-  notification_status: 'pending' | 'sent' | 'read' | 'handled';
-  duplicate_type: string;
-  new_leadid: string;
-  original_leadid?: string;
-  handled_at?: string;
-  customer_phone?: string;
-  customer_wechat?: string;
-  new_lead_info?: {
-    source?: string;
-    leadtype?: string;
-    created_at?: string;
-  };
-  original_lead_info?: {
-    source?: string;
-    leadtype?: string;
-    created_at?: string;
-  };
-}
-
-// 通知状态常量
-export const NOTIFICATION_STATUSES = [
-  { value: 'pending', label: '待处理', color: 'orange', icon: '⏳' },
-  { value: 'processing', label: '处理中', color: 'blue', icon: '🔄' },
-  { value: 'completed', label: '已完成', color: 'green', icon: '✅' },
-  { value: 'failed', label: '失败', color: 'red', icon: '❌' }
-];
-
-// 重复类型常量
-export const DUPLICATE_TYPES = [
-  { value: 'phone', label: '手机号重复', icon: '📱' },
-  { value: 'email', label: '邮箱重复', icon: '📧' },
-  { value: 'wechat', label: '微信重复', icon: '💬' },
-  { value: 'name_phone', label: '姓名+手机号重复', icon: '👤📱' }
-]; 
+ 

@@ -99,7 +99,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
 
   // trendData 预处理，保证date字段为yyyy-MM-dd
   const normalizedTrendData = useMemo(() => trendData.map(item => {
-    let d = new Date(item.date);
+    const d = new Date(item.date);
     if (isNaN(d.getTime())) return item;
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -209,7 +209,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
       newRange[1] !== prevRange[1]
     ) {
       // 限制整体拖动不超界
-      let offset = newRange[0] - prevRange[0];
+      const offset = newRange[0] - prevRange[0];
       let start = prevRange[0] + offset;
       let end = prevRange[1] + offset;
       if (start < 0) {

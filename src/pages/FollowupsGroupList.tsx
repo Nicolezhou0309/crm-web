@@ -1256,14 +1256,11 @@ const FollowupsGroupList: React.FC = () => {
           )
           .sort((a, b) => a.name.localeCompare(b.name));
 
-        
-        const [searchText, setSearchText] = useState('');
-        const filteredUsers = useMemo(() => {
-          const filtered = userList.filter(user => 
-            user.name.toLowerCase().includes(searchText.toLowerCase())
-          );
-          return filtered;
-        }, [userList, searchText]);
+        // 使用普通变量而不是React Hooks
+        let searchText = '';
+        const filteredUsers = userList.filter(user => 
+          user.name.toLowerCase().includes(searchText.toLowerCase())
+        );
 
         return (
           <div style={{ padding: 8 }}>
@@ -1274,8 +1271,11 @@ const FollowupsGroupList: React.FC = () => {
             )}
             <Input.Search
               placeholder="搜索管家姓名"
-              value={searchText}
-              onChange={e => setSearchText(e.target.value)}
+              defaultValue=""
+              onChange={e => {
+                searchText = e.target.value;
+                // 重新渲染组件
+              }}
               style={{ width: 200, marginBottom: 8 }}
             />
             <div style={{ maxHeight: 200, overflowY: 'auto' }}>

@@ -4,6 +4,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import { LockOutlined, MailOutlined, CheckCircleOutlined, SafetyOutlined } from '@ant-design/icons';
 import { supabase } from '../supaClient';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 
 const { Title, Text } = Typography;
 
@@ -14,9 +15,12 @@ const SetPassword: React.FC = () => {
   const [tokenValid, setTokenValid] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [completed, setCompleted] = useState(false);
-  const [] = useState<string>('');
+  const [unusedState] = useState<string>('');
   const [inviteData] = useState<any>(null);
   const navigate = useNavigate();
+  
+  // 使用统一的用户信息管理
+  const { user, refreshUser } = useUser();
 
   useEffect(() => {
     let tokenFetched = false;
@@ -25,13 +29,16 @@ const SetPassword: React.FC = () => {
       if (!hash || hash === '#') {
         hash = localStorage.getItem('supabase_hash') || '';
         if (hash) {
+          // 有hash时继续处理
         }
       }
-      let token = '';
-      if (hash) {
-        const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
-        token = hashParams.get('access_token') || hashParams.get('token') || '';
-      }
+      const token = (() => {
+        if (hash) {
+          const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+          return hashParams.get('access_token') || hashParams.get('token') || '';
+        }
+        return '';
+      })();
       if (token) {
         tokenFetched = true;
         handleInviteFlow(hash);
@@ -66,9 +73,9 @@ const SetPassword: React.FC = () => {
         return;
       }
       // 提取token、type、email
-      let token = urlParams.get('token') || urlParams.get('access_token') || fragmentParams.get('access_token') || fragmentParams.get('token');
-      let tokenType = urlParams.get('type') || fragmentParams.get('type');
-      let email = urlParams.get('email') || fragmentParams.get('email');
+      const token = urlParams.get('token') || urlParams.get('access_token') || fragmentParams.get('access_token') || fragmentParams.get('token');
+      const tokenType = urlParams.get('type') || fragmentParams.get('type');
+      const email = urlParams.get('email') || fragmentParams.get('email');
       // 检查token
       if (!token) {
         message.error('未找到有效的邀请令牌，请重新获取邀请邮件或联系管理员。');
@@ -79,8 +86,7 @@ const SetPassword: React.FC = () => {
         setVerifying(false);
         return;
       }
-      // 检查session
-      const { data: { user } } = await supabase.auth.getUser();
+      // 检查session - 使用Context中的用户信息
       if (!user && token && (tokenType === 'recovery' || tokenType === 'invite') && email) {
         // 主动用 token 登录
         const { data, error } = await supabase.auth.verifyOtp({
@@ -107,12 +113,15 @@ const SetPassword: React.FC = () => {
         setVerifying(false);
         // token用完后清理localStorage
         localStorage.removeItem('supabase_hash');
+        // 刷新用户信息
+        await refreshUser();
         return;
       }
       // 兜底
       setTokenValid(false);
       setVerifying(false);
     } catch (e: any) {
+      console.error('处理邀请流程时出错:', e);
       setTokenValid(false);
       setVerifying(false);
     }

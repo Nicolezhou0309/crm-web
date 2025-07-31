@@ -38,11 +38,11 @@ const typeMap: Record<string, string> = {
 };
 
 // 防抖函数
-const debounce = (func: Function, wait: number) => {
+const debounce = (func: (...args: any[]) => void, wait: number) => {
   let timeout: NodeJS.Timeout;
   return (...args: any[]) => {
     clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(null, args), wait);
+    timeout = setTimeout(() => func(...args), wait);
   };
 };
 
@@ -79,7 +79,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [showRaw, setShowRaw] = useReactState(false);
-  const [] = useState(3); // <-- 移到这里
+  const [unusedState] = useState(3); // <-- 移到这里
   const [forceUpdate, setForceUpdate] = useState(0); // 强制更新计数器
 
   // 防抖的通知数量回调

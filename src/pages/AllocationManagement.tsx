@@ -114,6 +114,7 @@ const AllocationManagement: React.FC = () => {
         setRules(response.data);
       }
     } catch (error) {
+      console.error('加载规则失败:', error);
     } finally {
       setLoading(false);
     }
@@ -273,6 +274,7 @@ const AllocationManagement: React.FC = () => {
         setAllocationMethodOptions(allocationMethodResponse.data);
       }
     } catch (error) {
+      console.error('加载枚举选项失败:', error);
     }
   };
 
@@ -283,6 +285,7 @@ const AllocationManagement: React.FC = () => {
         setPointsCostRules(response.data);
       }
     } catch (error) {
+      console.error('加载积分成本规则失败:', error);
     }
   };
 
@@ -293,6 +296,7 @@ const AllocationManagement: React.FC = () => {
         setCommunityKeywords(response.data);
       }
     } catch (error) {
+      console.error('加载社区关键词失败:', error);
     }
   };
 
@@ -999,6 +1003,7 @@ const AllocationManagement: React.FC = () => {
         .eq('status', 'active');
       setAllUsers(data || []);
     } catch (error) {
+      console.error('加载所有用户失败:', error);
     }
   };
 
@@ -1008,8 +1013,8 @@ const AllocationManagement: React.FC = () => {
   }, []);
 
   // 部门和成员分组状态
-  const [] = useState<{ id: string; name: string }[]>([]);
-  const [] = useState<
+  const [deptGroups] = useState<{ id: string; name: string }[]>([]);
+  const [memberGroups] = useState<
     { deptId: string; deptName: string; members: { id: string; nickname: string }[] }[]
   >([]);
   // TreeSelect数据状态
@@ -1084,6 +1089,7 @@ const AllocationManagement: React.FC = () => {
       
       setTreeData(tree);
     } catch (error) {
+      console.error('加载部门树数据失败:', error);
     }
   };
 
@@ -1880,6 +1886,7 @@ const AllocationManagement: React.FC = () => {
           onFinish={handleSaveRule}
           onValuesChange={(changedValues) => {
             if (changedValues.user_groups) {
+              // 处理用户组变化
             }
           }}
         >
@@ -2090,7 +2097,7 @@ const AllocationManagement: React.FC = () => {
           layout="vertical"
           onValuesChange={(changedValues, allValues) => {
             // 当质量控制开关变化时，确保相关字段的禁用状态正确更新
-            if (changedValues.hasOwnProperty('enable_quality_control')) {
+            if (Object.prototype.hasOwnProperty.call(changedValues, 'enable_quality_control')) {
               // 强制重新渲染质量控制相关字段
               groupForm.setFieldsValue({
                 daily_lead_limit: allValues.daily_lead_limit,
@@ -2260,7 +2267,7 @@ const AllocationManagement: React.FC = () => {
                     
                     // 递归获取所有子部门的用户
                     const getAllUsersFromNode = (node: any): string[] => {
-                      let users: string[] = [];
+                      const users: string[] = [];
                       if (node.children) {
                         node.children.forEach((child: any) => {
                           if (child.isLeaf) {
@@ -2321,7 +2328,7 @@ const AllocationManagement: React.FC = () => {
                     
                     // 递归获取所有子部门的用户
                     const getAllUsersFromNode = (node: any): string[] => {
-                      let users: string[] = [];
+                      const users: string[] = [];
                       if (node.children) {
                         node.children.forEach((child: any) => {
                           if (child.isLeaf) {
@@ -2339,7 +2346,7 @@ const AllocationManagement: React.FC = () => {
                   
                   const deptUsers = getAllUsersInDeptRecursive(String(value));
                   
-                  let newSelectedUsers = selectedUsers.filter(id => !deptUsers.includes(id));
+                  const newSelectedUsers = selectedUsers.filter(id => !deptUsers.includes(id));
                   
                   setSelectedUsers(newSelectedUsers);
                   groupForm.setFieldsValue({ list: newSelectedUsers });
@@ -2363,7 +2370,7 @@ const AllocationManagement: React.FC = () => {
                     return undefined;
                   })(treeData);
                   if (!dept) return [];
-                  let allUsers: string[] = [];
+                  const allUsers: string[] = [];
                   const directUsers = dept.children?.filter((child: any) => child.isLeaf).map((child: any) => child.key) || [];
                   allUsers.push(...directUsers);
                   const subDepts = dept.children?.filter((child: any) => !child.isLeaf) || [];
@@ -2395,7 +2402,7 @@ const AllocationManagement: React.FC = () => {
                   
                   // 递归获取所有子部门的用户
                   const getAllUsersFromNode = (node: any): string[] => {
-                    let users: string[] = [];
+                    const users: string[] = [];
                     if (node.children) {
                       node.children.forEach((child: any) => {
                         if (child.isLeaf) {

@@ -478,7 +478,7 @@ const AllocationFlowChart: React.FC<AllocationFlowChartProps> = ({
 
       // 更新规则的 user_groups 数组
       const currentUserGroups = trigger.data.user_groups || [];
-      let updatedUserGroups = [...currentUserGroups];
+      const updatedUserGroups = [...currentUserGroups];
 
       if (editingList.insertIndex !== undefined) {
         // 插入操作

@@ -47,7 +47,7 @@ export default function ShowingsQueueManagement() {
       const opts = arr.map((v: string) => ({ label: v, value: v }));
       setCommunityOptions(opts);
     }).catch(() => message.error('获取社区列表失败'));
-    // eslint-disable-next-line
+     
   }, []);
 
   // 获取所有用户昵称映射（用于卡片显示）
@@ -184,7 +184,7 @@ export default function ShowingsQueueManagement() {
         }
         setLoading(false);
       });
-    // eslint-disable-next-line
+     
   }, [activeTab]);
 
   // 表格列定义
@@ -400,7 +400,7 @@ export default function ShowingsQueueManagement() {
                       })(treeData);
                       if (!dept) return [];
                       const getAllUsersFromNode = (node: any): string[] => {
-                        let users: string[] = [];
+                        const users: string[] = [];
                         if (node.children) {
                           node.children.forEach((child: any) => {
                             if (child.isLeaf) {
@@ -447,7 +447,7 @@ export default function ShowingsQueueManagement() {
                       })(treeData);
                       if (!dept) return [];
                       const getAllUsersFromNode = (node: any): string[] => {
-                        let users: string[] = [];
+                        const users: string[] = [];
                         if (node.children) {
                           node.children.forEach((child: any) => {
                             if (child.isLeaf) {
@@ -462,7 +462,7 @@ export default function ShowingsQueueManagement() {
                       return getAllUsersFromNode(dept);
                     };
                     const deptUsers = getAllUsersInDeptRecursive(String(value));
-                    let newSelectedUsers = selectedUsers.filter(id => !deptUsers.includes(id));
+                    const newSelectedUsers = selectedUsers.filter(id => !deptUsers.includes(id));
                     setSelectedUsers(newSelectedUsers);
                     form.setFieldsValue({ list: newSelectedUsers });
                     return;
@@ -486,7 +486,7 @@ export default function ShowingsQueueManagement() {
                     if (!dept) return [];
 
                     const getAllUsersFromNode = (node: any): string[] => {
-                      let users: string[] = [];
+                      const users: string[] = [];
                       if (node.children) {
                         node.children.forEach((child: any) => {
                           if (child.isLeaf) {

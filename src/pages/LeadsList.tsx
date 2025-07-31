@@ -252,13 +252,12 @@ const LeadsList: React.FC = () => {
       width: 120,
       filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => {
         const phoneFilters = getFilters('phone');
-        const filteredPhoneFilters = useMemo(() =>
-          phoneFilters.filter(filter => {
-            if (!phoneSearch) return true;
-            const val = String(filter.value || '').toLowerCase();
-            const text = String(filter.text || '').toLowerCase();
-            return val.includes(phoneSearch.toLowerCase()) || text.includes(phoneSearch.toLowerCase());
-          }), [phoneFilters, phoneSearch]);
+        const filteredPhoneFilters = phoneFilters.filter(filter => {
+          if (!phoneSearch) return true;
+          const val = String(filter.value || '').toLowerCase();
+          const text = String(filter.text || '').toLowerCase();
+          return val.includes(phoneSearch.toLowerCase()) || text.includes(phoneSearch.toLowerCase());
+        });
         return (
           <div style={{ padding: 8 }}>
             <Input.Search
@@ -330,13 +329,12 @@ const LeadsList: React.FC = () => {
       width: 120,
       filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => {
         const wechatFilters = getFilters('wechat');
-        const filteredWechatFilters = useMemo(() =>
-          wechatFilters.filter(filter => {
-            if (!wechatSearch) return true;
-            const val = String(filter.value || '').toLowerCase();
-            const text = String(filter.text || '').toLowerCase();
-            return val.includes(wechatSearch.toLowerCase()) || text.includes(wechatSearch.toLowerCase());
-          }), [wechatFilters, wechatSearch]);
+        const filteredWechatFilters = wechatFilters.filter(filter => {
+          if (!wechatSearch) return true;
+          const val = String(filter.value || '').toLowerCase();
+          const text = String(filter.text || '').toLowerCase();
+          return val.includes(wechatSearch.toLowerCase()) || text.includes(wechatSearch.toLowerCase());
+        });
         return (
           <div style={{ padding: 8 }}>
             <Input.Search

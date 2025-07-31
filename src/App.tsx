@@ -55,7 +55,8 @@ import ApprovalPerformance from './pages/ApprovalPerformance';
 import DataAnalysis from './pages/DataAnalysis';
 import PivotTableDemo from './pages/PivotTableDemo';
 import PivotDemo from './pages/PivotDemo';
-import { useTokenRefresh } from './hooks/useTokenRefresh';
+import OnboardingPage from './pages/OnboardingPage';
+import { useSilentAuth } from './hooks/useSilentAuth';
 
 
 const { Sider, Content, Header } = Layout;
@@ -65,6 +66,10 @@ const menuItems: MenuProps['items'] = [
   {
     label: '跟进记录',
     key: 'followups',
+  },
+  {
+    label: '新手入门',
+    key: 'onboarding',
   },
 ];
 
@@ -99,14 +104,32 @@ const App: React.FC = () => {
 const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading } = useUser();
+  const { user, loading: userLoading } = useUser();
   const { profile, isSessionExpired } = useUser();
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth] = React.useState(220);
   const minSiderWidth = 56;
   
+  // 合并所有loading状态
+  const loading = userLoading;
+  
   // 启用token刷新监控（低频率模式）
-  useTokenRefresh();
+  useSilentAuth();
+
+  // 处理路由重定向，确保刷新时能回到正确的页面
+  React.useEffect(() => {
+    // 如果用户已登录且当前在根路径，但URL不是根路径，则重定向到当前URL
+    if (user && !userLoading && location.pathname === '/' && window.location.pathname !== '/') {
+      console.log('🔄 [App] 路由重定向', {
+        timestamp: new Date().toISOString(),
+        currentPathname: location.pathname,
+        windowPathname: window.location.pathname,
+        user: !!user,
+        userLoading: userLoading
+      });
+      navigate(window.location.pathname, { replace: true });
+    }
+  }, [user, userLoading, location.pathname, navigate]);
 
   // 侧边栏 key-path 映射
   const keyPathMap: { [key: string]: string } = {
@@ -209,6 +232,7 @@ const AppContent: React.FC = () => {
       const data = await getUserPointsInfo(id);
       setUserPoints(data.wallet.total_points || 0);
     } catch (err) {
+      console.error('获取用户积分失败:', err);
     }
   }, []);
 
@@ -286,8 +310,76 @@ const AppContent: React.FC = () => {
   // 判断是否为公开页面（不需要登录）
   const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password';
 
-  // 如果正在加载用户信息，显示加载状态
-  if (loading) {
+  // 优化loading状态管理 - 使用useMemo减少重复计算
+  const shouldShowLoading = React.useMemo(() => {
+    // 如果是公开页面，不显示loading
+    if (isPublicPage) {
+      return false;
+    }
+    
+    // 只在真正需要loading时才显示
+    return loading && !user;
+  }, [loading, user, isPublicPage]);
+  
+  // 添加loading状态监控日志 - 减少日志频率
+  React.useEffect(() => {
+    if (loading) {
+      console.log('🔄 [App] Loading状态变化', {
+        timestamp: new Date().toISOString(),
+        url: window.location.href,
+        shouldShowLoading: shouldShowLoading,
+        loading: loading,
+        pathname: location.pathname,
+        isPublicPage: isPublicPage,
+        hasUser: !!user
+      });
+    }
+  }, [loading, shouldShowLoading, location.pathname, isPublicPage, user]);
+  
+  if (shouldShowLoading) {
+    const stack = new Error().stack;
+    const stackLines = stack?.split('\n') || [];
+    let callerInfo = 'App.tsx - shouldShowLoading条件';
+    let callerComponent = 'App';
+    let callerFile = 'App.tsx';
+    
+    // 分析调用栈，获取更详细的来源信息
+    for (let i = 1; i < stackLines.length; i++) {
+      const line = stackLines[i];
+      if (line.includes('App.tsx') || line.includes('useEffect')) {
+        continue; // 跳过App自身的调用
+      }
+      
+      // 提取文件名和行号
+      const fileMatch = line.match(/at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)/);
+      if (fileMatch) {
+        const functionName = fileMatch[1];
+        const filePath = fileMatch[2];
+        const lineNumber = fileMatch[3];
+        
+        // 提取文件名（去掉路径）
+        const fileName = filePath.split('/').pop()?.split('?')[0] || '未知文件';
+        
+        callerInfo = `${functionName} (${fileName}:${lineNumber})`;
+        callerComponent = functionName;
+        callerFile = fileName;
+        break;
+      }
+    }
+    
+    console.log('🔄 [App] 显示LoadingScreen', {
+      timestamp: new Date().toISOString(),
+      url: window.location.href,
+      visibilityState: document.visibilityState,
+      pathname: location.pathname,
+      callerInfo: callerInfo,
+      callerComponent: callerComponent,
+      callerFile: callerFile,
+      loading: loading,
+      shouldShowLoading: shouldShowLoading,
+      hasUser: !!user,
+      stack: stack?.split('\n').slice(1, 6).join('\n')
+    });
     return <LoadingScreen useRandomMessage={true} />;
   }
 
@@ -341,7 +433,7 @@ const AppContent: React.FC = () => {
           e.currentTarget.style.boxShadow = 'none';
           e.currentTarget.style.filter = 'brightness(1.03)';
           // 添加扫光元素
-          let shine = document.createElement('div');
+          const shine = document.createElement('div');
           shine.className = 'points-shine-effect';
           shine.style.position = 'absolute';
           shine.style.top = '0';
@@ -494,13 +586,16 @@ const AppContent: React.FC = () => {
           <Menu
             onClick={e => {
               if (e.key === 'followups') navigate('/followups');
+              if (e.key === 'onboarding') navigate('/onboarding');
             }}
-            selectedKeys={location.pathname === '/followups' ? ['followups'] : []}
+            selectedKeys={location.pathname === '/followups' ? ['followups'] : location.pathname === '/onboarding' ? ['onboarding'] : []}
             mode="horizontal"
             items={menuItems}
-            style={{ minWidth: 120, borderBottom: 'none', background: 'transparent', marginRight: 24 }}
+            style={{ minWidth: 240, borderBottom: 'none', background: 'transparent', marginRight: 24, fontSize: 16 }}
             className="custom-followup-menu"
           />
+          {/* 新手入门按钮 */}
+          {/* 移除原Button实现 */}
           <div
             className="app-title"
             style={{
@@ -784,6 +879,7 @@ const AppContent: React.FC = () => {
                           } />
                           <Route path="/pivot-demo" element={<PivotTableDemo />} />
                           <Route path="/pivot-demo-new" element={<PivotDemo />} />
+                          <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>

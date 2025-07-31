@@ -19,7 +19,9 @@ const TimeBlockSelector: React.FC<TimeBlockSelectorProps> = ({ value, onChange }
     const newBlocks = blocks.map(row => [...row]);
     newBlocks[d][h] = !newBlocks[d][h];
     setBlocks(newBlocks);
-    onChange && onChange(newBlocks);
+    if (onChange) {
+      onChange(newBlocks);
+    }
   };
 
   const handleCellMouseDown = (d: number, h: number) => {
@@ -28,7 +30,9 @@ const TimeBlockSelector: React.FC<TimeBlockSelectorProps> = ({ value, onChange }
     const newBlocks = blocks.map(row => [...row]);
     newBlocks[d][h] = !blocks[d][h];
     setBlocks(newBlocks);
-    onChange && onChange(newBlocks);
+    if (onChange) {
+      onChange(newBlocks);
+    }
   };
 
   const handleCellMouseOver = (d: number, h: number) => {
@@ -37,7 +41,9 @@ const TimeBlockSelector: React.FC<TimeBlockSelectorProps> = ({ value, onChange }
     if (newBlocks[d][h] !== dragValue) {
       newBlocks[d][h] = dragValue;
       setBlocks(newBlocks);
-      onChange && onChange(newBlocks);
+      if (onChange) {
+        onChange(newBlocks);
+      }
     }
   };
 

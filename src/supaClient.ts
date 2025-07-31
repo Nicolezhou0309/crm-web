@@ -9,7 +9,33 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false, // 禁用URL检测，避免页面刷新
-    flowType: 'pkce' // 使用PKCE流程，更安全且不会触发页面刷新
+    flowType: 'pkce', // 使用PKCE流程，更安全且不会触发页面刷新
+    debug: false, // 生产环境禁用调试
+    // 静默token刷新配置
+    storage: {
+      getItem: (key) => {
+        try {
+          return localStorage.getItem(key)
+        } catch (error) {
+          // 静默处理错误，不输出日志
+          return null
+        }
+      },
+      setItem: (key, value) => {
+        try {
+          localStorage.setItem(key, value)
+        } catch (error) {
+          // 静默处理错误，不输出日志
+        }
+      },
+      removeItem: (key) => {
+        try {
+          localStorage.removeItem(key)
+        } catch (error) {
+          // 静默处理错误，不输出日志
+        }
+      }
+    }
   },
   realtime: {
     params: {
@@ -20,6 +46,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     headers: {
       'X-Client-Info': 'crm-web'
     }
+  },
+  // 增加网络配置
+  db: {
+    schema: 'public'
   }
 })
 

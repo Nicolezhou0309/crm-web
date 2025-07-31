@@ -7,6 +7,35 @@ export interface RetryOptions {
   shouldRetry?: (error: any) => boolean;
 }
 
+// 网络连接状态监控
+let isOnline = navigator.onLine;
+const networkListeners: Array<() => void> = [];
+
+// 监听网络状态变化
+window.addEventListener('online', () => {
+  isOnline = true;
+  console.log('网络连接已恢复');
+  networkListeners.forEach(listener => listener());
+});
+
+window.addEventListener('offline', () => {
+  isOnline = false;
+  console.log('网络连接已断开');
+});
+
+export const getNetworkStatus = () => isOnline;
+
+export const addNetworkListener = (listener: () => void) => {
+  networkListeners.push(listener);
+};
+
+export const removeNetworkListener = (listener: () => void) => {
+  const index = networkListeners.indexOf(listener);
+  if (index > -1) {
+    networkListeners.splice(index, 1);
+  }
+};
+
 export class RetryManager {
   private static instance: RetryManager;
   private retryCache = new Map<string, { count: number; lastRetry: number }>();
@@ -35,6 +64,11 @@ export class RetryManager {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        // 检查网络状态
+        if (!isOnline) {
+          throw new Error('网络连接已断开');
+        }
+
         return await apiCall();
       } catch (error: any) {
         lastError = error;
@@ -124,6 +158,7 @@ export const supabaseRetryOptions: RetryOptions = {
       'Failed to fetch',
       'net::ERR_CONNECTION_TIMED_OUT',
       'net::ERR_NETWORK',
+      'net::ERR_CONNECTION_CLOSED',
       '500',
       '502',
       '503',
@@ -132,10 +167,38 @@ export const supabaseRetryOptions: RetryOptions = {
     
     return retryableErrors.some(pattern => 
       error.message?.includes(pattern) || 
-      error.code?.includes(pattern)
+      error.code?.includes(pattern) ||
+      error.status?.toString().includes(pattern)
     );
   },
   onRetry: (attempt, error) => {
     console.log(`Supabase API重试 ${attempt}:`, error.message);
   }
+};
+
+// 防抖函数
+export const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
+
+// 节流函数
+export const throttle = <T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): ((...args: Parameters<T>) => void) => {
+  let inThrottle: boolean;
+  return (...args: Parameters<T>) => {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
 }; 

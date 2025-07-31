@@ -123,6 +123,7 @@ const ShowingConversionRate: React.FC = () => {
       
       setData(processedData);
     } catch (error) {
+      console.error('获取转化率数据失败:', error);
     } finally {
       setLoading(false);
     }
@@ -579,7 +580,7 @@ const ShowingConversionRate: React.FC = () => {
         </div>
       </div>
       
-      {loading ? (
+      {loading && document.visibilityState === 'visible' ? (
         <LoadingScreen type="data" />
       ) : (
         <Table

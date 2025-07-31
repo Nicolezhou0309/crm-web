@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Row, Col, Modal, Card } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import AllocationStatusCard from '../components/AllocationStatusCard';
 import { fetchBanners } from '../api/bannersApi';
 import RankingBoard from '../components/RankingBoard';
@@ -8,6 +9,7 @@ import PerformanceDashboard from '../components/PerformanceDashboard';
 import LoadingScreen from '../components/LoadingScreen';
 
 const Index: React.FC = () => {
+  const navigate = useNavigate();
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [banners, setBanners] = useState<any[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -19,6 +21,16 @@ const Index: React.FC = () => {
 
   // 拉取 banners 数据
   useEffect(() => {
+    // 如果页面不可见，跳过数据加载
+    if (document.visibilityState !== 'visible') {
+      console.log('🔄 [Index] 页面不可见，跳过banner数据加载', {
+        timestamp: new Date().toISOString(),
+        visibilityState: document.visibilityState,
+        url: window.location.href
+      });
+      return;
+    }
+    
     setPageLoading(true);
     fetchBanners().then(data => {
       const arr = (data || []).filter((b: any) => b.is_active);
@@ -44,13 +56,14 @@ const Index: React.FC = () => {
     setCarouselIndex(idx);
   };
 
-  // 轮播点击跳转
+  // 轮播点击跳转 - 修复页面刷新问题
   const handleBannerClick = (banner: any) => {
     if (!banner.jump_type || banner.jump_type === 'none') return;
     if (banner.jump_type === 'url' && banner.jump_target) {
       window.open(banner.jump_target, '_blank');
     } else if (banner.jump_type === 'route' && banner.jump_target) {
-      window.location.href = banner.jump_target;
+      // 使用React Router导航，避免页面刷新
+      navigate(banner.jump_target);
     } else if (banner.jump_type === 'iframe' && banner.jump_target) {
       setIframeBanner(banner.jump_target);
     }
@@ -93,7 +106,7 @@ const Index: React.FC = () => {
           z-index: 10;
         }
       `}</style>
-      {pageLoading && <LoadingScreen type="data" />}
+      {pageLoading && document.visibilityState === 'visible' && <LoadingScreen type="data" />}
       <div style={{ background: '#f5f6fa', width: '100%', minHeight: '100%' }}>
         {/* 三栏布局：左栏（banner+业绩进度）、中栏（销售组+待办事项）、右栏（排行榜） */}
         <Row gutter={24} style={{ height: '80vh', padding: '16px' }}>

@@ -23,6 +23,7 @@ import {
   WalletOutlined,
   FileDoneOutlined,
   BarChartOutlined,
+  BookOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 import { useRolePermissions } from '../hooks/useRolePermissions';
@@ -281,6 +282,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
             }
           }
         } else {
+          // 没有权限要求，继续处理
         }
         
         // 检查子菜单

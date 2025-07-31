@@ -6,6 +6,7 @@ import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
 import './login.css';
 import LottieLogo from '../components/LottieLogo';
+import LoadingScreen from '../components/LoadingScreen';
 
 const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -163,23 +164,11 @@ const Login: React.FC = () => {
   };
 
   if (userLoading) {
-    return (
-      <div className="login-bg">
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '16px', marginBottom: '16px' }}>正在加载用户信息...</div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen type="auth" message="正在加载用户信息..." subtitle="请稍候，我们正在为您准备登录环境" />;
   }
 
   if (user) {
-    return (
-      <div className="login-bg">
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '16px', marginBottom: '16px' }}>登录成功，正在跳转...</div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen type="auth" message="登录成功，正在跳转..." subtitle="正在为您跳转到主页面" />;
   }
 
   return (

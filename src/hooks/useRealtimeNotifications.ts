@@ -19,11 +19,11 @@ interface Notification {
 }
 
 // 防抖函数
-const debounce = (func: Function, wait: number) => {
+const debounce = (func: (...args: any[]) => void, wait: number) => {
   let timeout: NodeJS.Timeout;
   return (...args: any[]) => {
     clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(null, args), wait);
+    timeout = setTimeout(() => func(...args), wait);
   };
 };
 

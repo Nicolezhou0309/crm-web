@@ -148,8 +148,10 @@ const Profile = () => {
         if (oldFilePath) {
           const { error } = await supabase.storage.from('avatars').remove([oldFilePath]);
           if (error) {
+            console.error('删除旧头像失败:', error);
           }
         } else {
+          console.warn('无法解析旧头像路径');
         }
       }
       await fetchAll(); // 上传后刷新头像

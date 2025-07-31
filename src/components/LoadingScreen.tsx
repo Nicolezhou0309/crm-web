@@ -16,6 +16,92 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
   type,
   useRandomMessage = false
 }) => {
+  // 优化组件生命周期监控
+  useEffect(() => {
+    // 只在组件真正挂载时才记录日志
+    const stack = new Error().stack;
+    const stackLines = stack?.split('\n') || [];
+    let callerInfo = 'LoadingScreen - 组件挂载';
+    let callerComponent = 'LoadingScreen';
+    let callerFile = 'LoadingScreen.tsx';
+    
+    // 分析调用栈，获取更详细的来源信息
+    for (let i = 1; i < stackLines.length; i++) {
+      const line = stackLines[i];
+      if (line.includes('LoadingScreen.tsx') || line.includes('useEffect')) {
+        continue; // 跳过LoadingScreen自身的调用
+      }
+      
+      // 提取文件名和行号
+      const fileMatch = line.match(/at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)/);
+      if (fileMatch) {
+        const functionName = fileMatch[1];
+        const filePath = fileMatch[2];
+        const lineNumber = fileMatch[3];
+        
+        // 提取文件名（去掉路径）
+        const fileName = filePath.split('/').pop()?.split('?')[0] || '未知文件';
+        
+        callerInfo = `${functionName} (${fileName}:${lineNumber})`;
+        callerComponent = functionName;
+        callerFile = fileName;
+        break;
+      }
+      
+      // 如果没有匹配到函数名，尝试提取文件信息
+      const simpleFileMatch = line.match(/at\s+(.+?):(\d+):(\d+)/);
+      if (simpleFileMatch) {
+        const filePath = simpleFileMatch[1];
+        const lineNumber = simpleFileMatch[2];
+        const fileName = filePath.split('/').pop()?.split('?')[0] || '未知文件';
+        
+        callerInfo = `匿名函数 (${fileName}:${lineNumber})`;
+        callerComponent = '匿名函数';
+        callerFile = fileName;
+        break;
+      }
+    }
+    
+    // 减少日志输出频率，只在开发环境下记录
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 [LoadingScreen] 组件被调用', {
+        timestamp: new Date().toISOString(),
+        url: window.location.href,
+        visibilityState: document.visibilityState,
+        type: type,
+        useRandomMessage: useRandomMessage,
+        message: message,
+        subtitle: subtitle,
+        showProgress: showProgress,
+        callerInfo: callerInfo,
+        callerComponent: callerComponent,
+        callerFile: callerFile,
+        stack: stack?.split('\n').slice(1, 8).join('\n') // 显示前8行调用栈
+      });
+    }
+    
+    const mountTime = Date.now();
+    
+    return () => {
+      const unmountTime = Date.now();
+      const duration = unmountTime - mountTime;
+      
+      // 减少日志输出频率，只在开发环境下记录
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ [LoadingScreen] 组件卸载', {
+          timestamp: new Date().toISOString(),
+          url: window.location.href,
+          visibilityState: document.visibilityState,
+          duration: duration + 'ms',
+          type: type,
+          callerInfo: callerInfo,
+          callerComponent: callerComponent,
+          callerFile: callerFile
+        });
+      }
+    };
+  }, []); // 移除所有依赖，只在组件挂载时执行一次
+
   const [loadingMessage, setLoadingMessage] = useState(() => {
     if (message && subtitle) {
       return { message, subtitle };
@@ -33,12 +119,14 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
   useEffect(() => {
     if (useRandomMessage) {
       const interval = setInterval(() => {
-        setLoadingMessage(getRandomLoadingMessage());
+        const newMessage = getRandomLoadingMessage();
+        setLoadingMessage(newMessage);
+        
       }, 5000); // 每5秒更换一次消息
 
       return () => clearInterval(interval);
     }
-  }, [useRandomMessage]);
+  }, [useRandomMessage, loadingMessage.message]);
 
   return (
     <div style={{ 
