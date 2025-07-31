@@ -9,6 +9,8 @@ import {
   LeftOutlined,
   RightOutlined
 } from '@ant-design/icons';
+import { supabase } from '../supaClient';
+import { getCurrentProfileId } from '../api/pointsApi';
 
 
 
@@ -57,6 +59,7 @@ const OnboardingPage: React.FC = () => {
   const [formalExamTimeLeft, setFormalExamTimeLeft] = useState(900); // 15分钟倒计时
   const [examTimer, setExamTimer] = useState<NodeJS.Timeout | null>(null);
   const [wrongQuestions, setWrongQuestions] = useState<Question[]>([]);
+  const [salesGroupInfo, setSalesGroupInfo] = useState<any>(null);
 
   // 考试题目数据
   const examQuestions: Question[] = [
@@ -954,49 +957,86 @@ const OnboardingPage: React.FC = () => {
     );
   };
 
+  // 检查用户是否已加入销售组
+  const checkUserSalesGroup = async () => {
+    try {
+      const profileId = await getCurrentProfileId();
+      if (!profileId) {
+        return false;
+      }
+      
+      const { data } = await supabase.rpc('get_user_allocation_status_multi', {
+        p_user_id: profileId,
+      });
+      
+      // 如果返回的数据是数组且有内容，说明用户已加入销售组
+      if (Array.isArray(data) && data.length > 0) {
+        // 保存销售组信息
+        setSalesGroupInfo(data[0]);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('检查用户销售组状态失败:', error);
+      return false;
+    }
+  };
+
   // 初始化
   useEffect(() => {
-    setQuestions(examQuestions);
-    const userStatus = getUserStatus();
-    setStatus(userStatus);
-    
-    // 恢复正式考试状态
-    if (userStatus.status === 'formal_exam' && userStatus.formalExamStartTime) {
-      const elapsedTime = Math.floor((Date.now() - userStatus.formalExamStartTime) / 1000);
-      const remainingTime = Math.max(0, 900 - elapsedTime); // 15分钟 = 900秒
+    const initializePage = async () => {
+      setQuestions(examQuestions);
+      const userStatus = getUserStatus();
+      setStatus(userStatus);
       
-      if (remainingTime > 0) {
-        setFormalExamMode(true);
-        setFormalExamTimeLeft(remainingTime);
-        setFormalExamQuestions(examQuestions.filter(q => userStatus.formalExamQuestions?.includes(q.id)));
-        setCurrentQuestionIndex(0);
+      // 检查是否已经加入销售组，如果是则直接跳转到步骤3
+      const hasSalesGroup = await checkUserSalesGroup();
+      if (hasSalesGroup) {
+        setCurrentStep(2); // 步骤3（索引为2）
+        setLoading(false);
+        return;
+      }
+      
+      // 恢复正式考试状态
+      if (userStatus.status === 'formal_exam' && userStatus.formalExamStartTime) {
+        const elapsedTime = Math.floor((Date.now() - userStatus.formalExamStartTime) / 1000);
+        const remainingTime = Math.max(0, 900 - elapsedTime); // 15分钟 = 900秒
         
-        // 恢复正式考试的用户答案
-        const savedAnswers = localStorage.getItem('formal_exam_answers');
-        if (savedAnswers) {
-          setUserAnswers(JSON.parse(savedAnswers));
-        }
-        
-        // 恢复正式考试的答题状态
-        if (userStatus.formalExamQuestions) {
-          setSubmittedQuestions(new Set(userStatus.formalExamQuestions));
+        if (remainingTime > 0) {
+          setFormalExamMode(true);
+          setFormalExamTimeLeft(remainingTime);
+          setFormalExamQuestions(examQuestions.filter(q => userStatus.formalExamQuestions?.includes(q.id)));
+          setCurrentQuestionIndex(0);
+          
+          // 恢复正式考试的用户答案
+          const savedAnswers = localStorage.getItem('formal_exam_answers');
+          if (savedAnswers) {
+            setUserAnswers(JSON.parse(savedAnswers));
+          }
+          
+          // 恢复正式考试的答题状态
+          if (userStatus.formalExamQuestions) {
+            setSubmittedQuestions(new Set(userStatus.formalExamQuestions));
+          }
+        } else {
+          // 时间已到，自动提交考试
+          message.error('考试时间已到，系统自动提交！');
+          finishFormalExam();
         }
       } else {
-        // 时间已到，自动提交考试
-        message.error('考试时间已到，系统自动提交！');
-        finishFormalExam();
+        // 非正式考试模式，恢复模拟考试进度
+        if (userStatus.answeredQuestions.length > 0) {
+          setSubmittedQuestions(new Set(userStatus.answeredQuestions));
+        }
       }
-    } else {
-      // 非正式考试模式，恢复模拟考试进度
-      if (userStatus.answeredQuestions.length > 0) {
-        setSubmittedQuestions(new Set(userStatus.answeredQuestions));
-      }
-    }
+      
+      // 无论什么情况，默认都隐藏答案
+      setShowAnswers(false);
+      
+      setLoading(false);
+    };
     
-    // 无论什么情况，默认都隐藏答案
-    setShowAnswers(false);
-    
-    setLoading(false);
+    initializePage();
   }, []);
 
   // 开始正式考试
@@ -1090,10 +1130,11 @@ const OnboardingPage: React.FC = () => {
       const newStatus: ExamStatus = {
         ...status!,
         status: 'completed' as const,
-        formalExamScore: score
+        formalExamScore: score,
+        assignedSalesGroupId: 1 // 自动加入销售组id=1
       };
       saveUserStatus(newStatus);
-      message.success(`恭喜！正式考试通过！得分：${score}分`);
+      message.success(`恭喜！正式考试通过！得分：${score}分，已自动加入销售组！`);
     } else {
       const newStatus: ExamStatus = {
         ...status!,
@@ -1174,7 +1215,7 @@ const OnboardingPage: React.FC = () => {
   const updateCurrentStep = useCallback(() => {
     if (!status) {
       setCurrentStep(0);
-    } else if (status.status === 'completed') {
+    } else if (status.status === 'completed' && status.assignedSalesGroupId) {
       setCurrentStep(2);
     } else if (status.status === 'formal_exam' || formalExamMode) {
       setCurrentStep(1);
@@ -1543,16 +1584,183 @@ const OnboardingPage: React.FC = () => {
       title: '加入销售组',
       icon: <TeamOutlined />,
       content: (
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          <TeamOutlined style={{ fontSize: 64, color: '#52c41a', marginBottom: 16 }} />
-          <Title level={3}>加入销售组</Title>
-          <Button 
-            type="primary" 
-            size="large"
-            disabled
-          >
-            等待分配
-          </Button>
+        <div style={{ 
+          maxWidth: 800, 
+          margin: '0 auto', 
+          padding: '0px 0px',
+          textAlign: 'center' 
+        }}>
+            {/* 单栏布局容器 */}
+            <div style={{
+              maxWidth: 600,
+              margin: '0 auto',
+              padding: '0 24px'
+            }}>
+              {/* 恭喜文案 */}
+              <div style={{
+                textAlign: 'center',
+                marginBottom: '24px',
+              }}>
+                <div style={{ 
+                  fontSize: '24px', 
+                  color: '#52c41a', 
+                  marginBottom: '12px',
+                  fontWeight: 600
+                }}>
+                  🎉 恭喜您成功加入销售组！
+                </div>
+                <div style={{ 
+                  fontSize: '16px', 
+                  color: '#595959',
+                  lineHeight: '1.5'
+                }}>
+                  您已成功通过新人培训考试，正式成为
+                  <span style={{ 
+                    color: '#52c41a', 
+                    fontWeight: 600,
+                    margin: '0 4px'
+                  }}>
+                    {salesGroupInfo?.groupname || '销售组 #1'}
+                  </span>
+                  的一员
+                </div>
+              </div>
+
+              {/* Banner图片 */}
+              <div style={{
+                width: '100%',
+                borderRadius: 12,
+                overflow: 'hidden',
+                marginBottom: '32px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+              }}>
+                <img
+                  src={`https://wteqgprgiylmxzszcnws.supabase.co/storage/v1/object/public/banners/banner/welcome.jpg?t=${Date.now()}`}
+                  alt="欢迎加入销售组"
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                    display: 'block'
+                  }}
+                />
+              </div>
+
+              {/* 操作指南 */}
+              <Card
+                style={{
+                  borderRadius: 12,
+                  border: '1px solid #f0f0f0',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+                }}
+                title={
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    fontSize: '16px',
+                    fontWeight: 600
+                  }}>
+                    <span style={{ fontSize: '18px' }}>💡</span>
+                    接下来您可以
+                  </div>
+                }
+                bodyStyle={{ padding: '24px' }}
+              >
+                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    padding: '16px',
+                    backgroundColor: '#fafafa',
+                    borderRadius: 8,
+                    border: '1px solid #f0f0f0'
+                  }}>
+                    <div style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      backgroundColor: '#e6f7ff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: '16px'
+                    }}>
+                      <span style={{ fontSize: '20px' }}>📋</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 500, color: '#262626', marginBottom: '4px' }}>
+                        查看并跟进线索
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                        及时处理新分配的客户线索，提高转化率
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    padding: '16px',
+                    backgroundColor: '#fafafa',
+                    borderRadius: 8,
+                    border: '1px solid #f0f0f0'
+                  }}>
+                    <div style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      backgroundColor: '#fff7e6',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: '16px'
+                    }}>
+                      <span style={{ fontSize: '20px' }}>🎁</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 500, color: '#262626', marginBottom: '4px' }}>
+                        完成更多任务
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                        获得积分奖励，兑换更多优质线索
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    padding: '16px',
+                    backgroundColor: '#fafafa',
+                    borderRadius: 8,
+                    border: '1px solid #f0f0f0'
+                  }}>
+                    <div style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      backgroundColor: '#f6ffed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: '16px'
+                    }}>
+                      <span style={{ fontSize: '20px' }}>🏆</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 500, color: '#262626', marginBottom: '4px' }}>
+                        查看成交数据
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                        分析销售漏斗，提升销售业绩
+                      </div>
+                    </div>
+                  </div>
+                </Space>
+              </Card>
+            </div>
+
+
         </div>
       )
     }
@@ -1569,7 +1777,7 @@ const OnboardingPage: React.FC = () => {
       setCurrentStep(0);
     } else if (step === 1 && (status?.progressPercentage || 0) >= 100) {
       setCurrentStep(1);
-    } else if (step === 2 && (status?.status === 'completed' || status?.status === 'exam_passed')) {
+    } else if (step === 2 && status?.status === 'completed' && status?.assignedSalesGroupId) {
       setCurrentStep(2);
     }
   };
@@ -1597,7 +1805,7 @@ const OnboardingPage: React.FC = () => {
                 },
                 {
                   title: '加入销售组',
-                  disabled: status?.status !== 'completed' && status?.status !== 'exam_passed'
+                  disabled: status?.status !== 'completed' || !status?.assignedSalesGroupId
                 }
               ]}
             />
