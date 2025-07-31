@@ -1012,11 +1012,7 @@ const AllocationManagement: React.FC = () => {
     loadAllUsers();
   }, []);
 
-  // 部门和成员分组状态
-  const [deptGroups] = useState<{ id: string; name: string }[]>([]);
-  const [memberGroups] = useState<
-    { deptId: string; deptName: string; members: { id: string; nickname: string }[] }[]
-  >([]);
+
   // TreeSelect数据状态
   const [treeData, setTreeData] = useState<any[]>([]);
   // 1. TreeSelect成员选择器相关状态

@@ -23,7 +23,6 @@ import {
   WalletOutlined,
   FileDoneOutlined,
   BarChartOutlined,
-  BookOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 import { useRolePermissions } from '../hooks/useRolePermissions';

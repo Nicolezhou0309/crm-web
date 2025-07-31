@@ -79,7 +79,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [showRaw, setShowRaw] = useReactState(false);
-  const [unusedState] = useState(3); // <-- 移到这里
   const [forceUpdate, setForceUpdate] = useState(0); // 强制更新计数器
 
   // 防抖的通知数量回调

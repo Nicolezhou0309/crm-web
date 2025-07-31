@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supaClient';
-import { silentTokenRefresh, isTokenExpiringSoon } from '../utils/authUtils';
+import { isTokenExpiringSoon } from '../utils/authUtils';
 
 export const useTokenRefresh = () => {
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
