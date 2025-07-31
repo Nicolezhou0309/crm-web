@@ -1148,18 +1148,42 @@ const OnboardingPage: React.FC = () => {
       try {
         const profileId = await getCurrentProfileId();
         if (profileId) {
-          // 调用分配API
-          const { data: allocationData, error: allocationError } = await supabase.rpc('allocate_user_to_sales_group', {
-            p_user_id: profileId,
-            p_sales_group_id: 1 // 默认分配到销售组1
-          });
+          console.log('开始分配用户到销售组，profileId:', profileId);
           
-          if (allocationError) {
-            console.error('分配销售组失败:', allocationError);
+          // 先获取销售组1的当前用户列表
+          const { data: currentGroup, error: fetchError } = await supabase
+            .from('users_list')
+            .select('list')
+            .eq('id', 1)
+            .single();
+          
+          if (fetchError) {
+            console.error('获取销售组信息失败:', fetchError);
             message.warning(`恭喜！正式考试通过！得分：${score}分，但销售组分配失败，请联系管理员。`);
-          } else {
-            console.log('成功分配销售组:', allocationData);
+            return;
+          }
+          
+          // 检查用户是否已经在列表中
+          const currentList = currentGroup.list || [];
+          if (currentList.includes(profileId)) {
+            console.log('用户已在销售组中');
             message.success(`恭喜！正式考试通过！得分：${score}分，已自动加入销售组！`);
+          } else {
+            // 添加用户到销售组
+            const newList = [...currentList, profileId];
+            const { data: updateData, error: updateError } = await supabase
+              .from('users_list')
+              .update({ list: newList })
+              .eq('id', 1)
+              .select();
+            
+            if (updateError) {
+              console.error('分配销售组失败:', updateError);
+              message.warning(`恭喜！正式考试通过！得分：${score}分，但销售组分配失败，请联系管理员。`);
+            } else {
+              console.log('成功分配销售组:', updateData);
+              message.success(`恭喜！正式考试通过！得分：${score}分，已自动加入销售组！`);
+            }
           }
         } else {
           console.error('无法获取用户profile ID');
