@@ -60,14 +60,54 @@ const SetPassword: React.FC = () => {
       setVerifying(true);
       console.log('🔍 [SetPassword] 开始处理邀请流程...');
       console.log('🔍 [SetPassword] 当前URL:', window.location.href);
+      
+      // 优先处理从localStorage恢复的hash
+      if (hashFromEffect) {
+        console.log('🔍 [SetPassword] 处理从localStorage恢复的hash:', hashFromEffect);
+        const hashParams = new URLSearchParams(hashFromEffect.replace(/^#/, ''));
+        const accessToken = hashParams.get('access_token');
+        const tokenType = hashParams.get('type');
+        
+        if (accessToken && tokenType === 'invite') {
+          console.log('🔍 [SetPassword] 找到有效的JWT token，尝试设置session...');
+          try {
+            // 直接设置session
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: hashParams.get('refresh_token') || ''
+            });
+            
+            if (error) {
+              console.error('❌ [SetPassword] setSession 错误:', error);
+              handleInviteError(error.message || '链接已失效或已被使用');
+              setTokenValid(false);
+              setVerifying(false);
+              return;
+            }
+            
+            if (data.user) {
+              console.log('✅ [SetPassword] 成功设置session，用户信息:', data.user);
+              setUserInfo(data.user);
+              setTokenValid(true);
+              setVerifying(false);
+              // token用完后清理localStorage
+              localStorage.removeItem('supabase_hash');
+              return;
+            }
+          } catch (sessionError) {
+            console.error('❌ [SetPassword] setSession 异常:', sessionError);
+          }
+        }
+      }
+      
       // 2. 从URL中提取token和参数（兼容search和hash）
       const urlParams = new URLSearchParams(window.location.search);
-      // 优先用传入的hash
-      const fragmentParams = new URLSearchParams((hashFromEffect ? hashFromEffect.replace(/^#/, '') : window.location.hash.substring(1)));
+      const fragmentParams = new URLSearchParams((window.location.hash.substring(1)));
       console.log('🔍 [SetPassword] urlParams:', Object.fromEntries(urlParams.entries()));
       console.log('🔍 [SetPassword] fragmentParams:', Object.fromEntries(fragmentParams.entries()));
       console.log('🔍 [SetPassword] window.location.hash:', window.location.hash);
       console.log('🔍 [SetPassword] window.location.search:', window.location.search);
+      
       // 检查错误信息
       const error = urlParams.get('error') || fragmentParams.get('error');
       const errorDescription = urlParams.get('error_description') || fragmentParams.get('error_description');
@@ -76,6 +116,7 @@ const SetPassword: React.FC = () => {
         handleInviteError(error, errorDescription || undefined);
         return;
       }
+      
       // 提取token、type、email
       let token = urlParams.get('token') || urlParams.get('access_token') || fragmentParams.get('access_token') || fragmentParams.get('token');
       let tokenType = urlParams.get('type') || fragmentParams.get('type');
@@ -83,6 +124,7 @@ const SetPassword: React.FC = () => {
       console.log('🔍 [SetPassword] 提取到的token:', token);
       console.log('🔍 [SetPassword] 提取到的tokenType:', tokenType);
       console.log('🔍 [SetPassword] 提取到的email:', email);
+      
       // 检查token
       if (!token) {
         message.error('未找到有效的邀请令牌，请重新获取邀请邮件或联系管理员。');
@@ -94,9 +136,11 @@ const SetPassword: React.FC = () => {
         setVerifying(false);
         return;
       }
+      
       // 检查session
       const { data: { user } } = await supabase.auth.getUser();
       console.log('🔍 [SetPassword] supabase.auth.getUser() 返回:', user);
+      
       if (!user && token && (tokenType === 'recovery' || tokenType === 'invite') && email) {
         // 主动用 token 登录
         console.log('🔍 [SetPassword] session 不存在，调用 verifyOtp 登录...');
@@ -119,6 +163,7 @@ const SetPassword: React.FC = () => {
         localStorage.removeItem('supabase_hash');
         return;
       }
+      
       if (user) {
         setUserInfo(user);
         setTokenValid(true);
@@ -127,6 +172,7 @@ const SetPassword: React.FC = () => {
         localStorage.removeItem('supabase_hash');
         return;
       }
+      
       // 兜底
       setTokenValid(false);
       setVerifying(false);
