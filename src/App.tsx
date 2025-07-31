@@ -118,16 +118,31 @@ const AppContent: React.FC = () => {
 
   // 处理路由重定向，确保刷新时能回到正确的页面
   React.useEffect(() => {
-    // 如果用户已登录且当前在根路径，但URL不是根路径，则重定向到当前URL
+    // 只在用户刚登录且当前在根路径时进行重定向
+    // 避免无限循环：只在特定条件下执行一次重定向
     if (user && !userLoading && location.pathname === '/' && window.location.pathname !== '/') {
-      console.log('🔄 [App] 路由重定向', {
-        timestamp: new Date().toISOString(),
-        currentPathname: location.pathname,
-        windowPathname: window.location.pathname,
-        user: !!user,
-        userLoading: userLoading
-      });
-      navigate(window.location.pathname, { replace: true });
+      // 检查是否已经重定向过，避免无限循环
+      const hasRedirected = sessionStorage.getItem('app_redirected');
+      if (!hasRedirected) {
+        console.log('🔄 [App] 路由重定向', {
+          timestamp: new Date().toISOString(),
+          currentPathname: location.pathname,
+          windowPathname: window.location.pathname,
+          user: !!user,
+          userLoading: userLoading
+        });
+        
+        // 标记已重定向，防止无限循环
+        sessionStorage.setItem('app_redirected', 'true');
+        
+        // 延迟执行重定向，确保状态稳定
+        setTimeout(() => {
+          navigate(window.location.pathname, { replace: true });
+        }, 100);
+      }
+    } else if (!user) {
+      // 用户未登录时清除重定向标记
+      sessionStorage.removeItem('app_redirected');
     }
   }, [user, userLoading, location.pathname, navigate]);
 
