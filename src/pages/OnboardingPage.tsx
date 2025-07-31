@@ -962,20 +962,33 @@ const OnboardingPage: React.FC = () => {
     try {
       const profileId = await getCurrentProfileId();
       if (!profileId) {
+        console.log('无法获取用户profile ID');
         return false;
       }
       
-      const { data } = await supabase.rpc('get_user_allocation_status_multi', {
+      console.log('检查用户销售组状态，profileId:', profileId);
+      
+      const { data, error } = await supabase.rpc('get_user_allocation_status_multi', {
         p_user_id: profileId,
       });
+      
+      if (error) {
+        console.error('获取用户销售组状态失败:', error);
+        return false;
+      }
+      
+      console.log('销售组状态查询结果:', data);
       
       // 如果返回的数据是数组且有内容，说明用户已加入销售组
       if (Array.isArray(data) && data.length > 0) {
         // 保存销售组信息
         setSalesGroupInfo(data[0]);
+        console.log('用户已加入销售组:', data[0]);
         return true;
+      } else {
+        console.log('用户未加入销售组或查询结果为空');
+        return false;
       }
-      return false;
     } catch (error) {
       console.error('检查用户销售组状态失败:', error);
       return false;
@@ -1021,7 +1034,9 @@ const OnboardingPage: React.FC = () => {
         } else {
           // 时间已到，自动提交考试
           message.error('考试时间已到，系统自动提交！');
-          finishFormalExam();
+          finishFormalExam().catch(error => {
+            console.error('初始化时自动提交考试失败:', error);
+          });
         }
       } else {
         // 非正式考试模式，恢复模拟考试进度
@@ -1060,7 +1075,9 @@ const OnboardingPage: React.FC = () => {
         if (prev <= 1) {
           clearInterval(timer);
           message.error('考试时间已到，系统自动提交！');
-          finishFormalExam();
+          finishFormalExam().catch(error => {
+            console.error('自动提交考试失败:', error);
+          });
           return 0;
         }
         return prev - 1;
@@ -1083,7 +1100,7 @@ const OnboardingPage: React.FC = () => {
   };
 
   // 完成正式考试
-  const finishFormalExam = () => {
+  const finishFormalExam = async () => {
     // 清除计时器
     if (examTimer) {
       clearInterval(examTimer);
@@ -1127,6 +1144,32 @@ const OnboardingPage: React.FC = () => {
     setWrongQuestions(wrongQuestionsList);
     
     if (score >= 95) {
+      // 自动分配用户到销售组
+      try {
+        const profileId = await getCurrentProfileId();
+        if (profileId) {
+          // 调用分配API
+          const { data: allocationData, error: allocationError } = await supabase.rpc('allocate_user_to_sales_group', {
+            p_user_id: profileId,
+            p_sales_group_id: 1 // 默认分配到销售组1
+          });
+          
+          if (allocationError) {
+            console.error('分配销售组失败:', allocationError);
+            message.warning(`恭喜！正式考试通过！得分：${score}分，但销售组分配失败，请联系管理员。`);
+          } else {
+            console.log('成功分配销售组:', allocationData);
+            message.success(`恭喜！正式考试通过！得分：${score}分，已自动加入销售组！`);
+          }
+        } else {
+          console.error('无法获取用户profile ID');
+          message.warning(`恭喜！正式考试通过！得分：${score}分，但销售组分配失败，请联系管理员。`);
+        }
+      } catch (error) {
+        console.error('分配销售组异常:', error);
+        message.warning(`恭喜！正式考试通过！得分：${score}分，但销售组分配失败，请联系管理员。`);
+      }
+      
       const newStatus: ExamStatus = {
         ...status!,
         status: 'completed' as const,
@@ -1134,7 +1177,9 @@ const OnboardingPage: React.FC = () => {
         assignedSalesGroupId: 1 // 自动加入销售组id=1
       };
       saveUserStatus(newStatus);
-      message.success(`恭喜！正式考试通过！得分：${score}分，已自动加入销售组！`);
+      
+      // 重新获取销售组信息
+      await checkUserSalesGroup();
     } else {
       const newStatus: ExamStatus = {
         ...status!,
@@ -1179,7 +1224,9 @@ const OnboardingPage: React.FC = () => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         message.error('页面失去焦点，考试自动结束！');
-        finishFormalExam();
+        finishFormalExam().catch(error => {
+          console.error('页面失去焦点时提交考试失败:', error);
+        });
       }
     };
 
@@ -1194,7 +1241,9 @@ const OnboardingPage: React.FC = () => {
     const handlePageHide = () => {
       if (formalExamMode) {
         message.error('页面被关闭，考试自动结束！');
-        finishFormalExam();
+        finishFormalExam().catch(error => {
+          console.error('页面关闭时提交考试失败:', error);
+        });
       }
     };
 
@@ -1229,6 +1278,18 @@ const OnboardingPage: React.FC = () => {
   useEffect(() => {
     updateCurrentStep();
   }, [updateCurrentStep]);
+
+  // 当进入步骤3（加入销售组）时，确保获取销售组信息
+  useEffect(() => {
+    if (currentStep === 2 && status?.status === 'completed' && status?.assignedSalesGroupId) {
+      // 如果还没有销售组信息，重新获取
+      if (!salesGroupInfo) {
+        checkUserSalesGroup().catch(error => {
+          console.error('获取销售组信息失败:', error);
+        });
+      }
+    }
+  }, [currentStep, status, salesGroupInfo]);
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '50px' }}>加载中...</div>;
