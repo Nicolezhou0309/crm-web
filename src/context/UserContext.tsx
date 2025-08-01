@@ -591,8 +591,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (shouldSetLoading) {
           setLoading(false);
         }
-        // 检查会话状态
-        checkSessionTimeout();
         return;
       } else if (cachedData) {
         // 缓存和当前用户不一致，清空缓存
@@ -643,9 +641,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // 获取权限信息
           await refreshPermissions();
           
-          // 检查会话状态
-          checkSessionTimeout();
-          
         } catch (profileErr) {
           setError('获取用户信息失败');
           setProfile(null);
@@ -671,7 +666,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
       }
     }
-  }, [checkSessionTimeout, isVisibilityCheck, isSilentMode, isPageVisible, user, profile, permissions]);
+  }, [isVisibilityCheck, isSilentMode, isPageVisible]);
 
   // 清除用户缓存
   const clearUserCache = useCallback(() => {
@@ -724,7 +719,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       subscription.unsubscribe();
     };
-  }, [refreshUser, isSilentMode, isVisibilityCheck, user, profile, permissions]);
+  }, [refreshUser, isSilentMode, isVisibilityCheck]);
 
   const value: UserContextType = {
     user,

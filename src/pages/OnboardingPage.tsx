@@ -1720,7 +1720,7 @@ const OnboardingPage: React.FC = () => {
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
               }}>
                 <img
-                  src={`https://wteqgprgiylmxzszcnws.supabase.co/storage/v1/object/public/banners/banner/welcome.jpg?t=${Date.now()}`}
+                  src={`https://wteqgprgiylmxzszcnws.supabase.co/storage/v1/object/public/banners/banner/welcome.jpg`}
                   alt="欢迎加入销售组"
                   style={{
                     width: '100%',

@@ -56,6 +56,8 @@ import DataAnalysis from './pages/DataAnalysis';
 import PivotTableDemo from './pages/PivotTableDemo';
 import PivotDemo from './pages/PivotDemo';
 import OnboardingPage from './pages/OnboardingPage';
+import LiveStreamRegistration from './pages/LiveStreamRegistration';
+import LiveStreamManagement from './pages/LiveStreamManagement';
 import { useSilentAuth } from './hooks/useSilentAuth';
 
 
@@ -171,6 +173,9 @@ const AppContent: React.FC = () => {
     'approval-details': '/approval-details',
     'approval-performance': '/approval-performance',
     'data-analysis': '/data-analysis',
+    'live-stream-registration': '/live-stream-registration',
+    'live-stream-management': '/live-stream-management',
+
   };
   // path-key 反查
   const pathKeyMap: Record<string, string> = {};
@@ -895,6 +900,13 @@ const AppContent: React.FC = () => {
                           <Route path="/pivot-demo" element={<PivotTableDemo />} />
                           <Route path="/pivot-demo-new" element={<PivotDemo />} />
                           <Route path="/onboarding" element={<OnboardingPage />} />
+                          <Route path="/live-stream-registration" element={<LiveStreamRegistration />} />
+                          <Route path="/live-stream-management" element={
+                            <PermissionGate permission="live_stream_manage" fallback={<Error403 />}>
+                              <LiveStreamManagement />
+                            </PermissionGate>
+                          } />
+
         <Route path="*" element={<Error404 />} />
                 </Routes>
               </PrivateRoute>

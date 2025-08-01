@@ -573,7 +573,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     } else {
       message.warning('无法获取操作编号，无法跳转到审批详情');
     }
-  }, [selectedNotification, extractOperationId, navigate]);
+  }, [selectedNotification, extractOperationId]);
 
   return (
     <div className="notification-center-main">

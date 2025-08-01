@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supaClient';
 import { Input, Button, message, Form, Modal } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
@@ -15,11 +15,13 @@ const Login: React.FC = () => {
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const hasNavigated = useRef(false);
 
 
 
   useEffect(() => {
-    if (user && !userLoading) {
+    if (user && !userLoading && !hasNavigated.current) {
+      hasNavigated.current = true;
       navigate('/');
     }
   }, [user, userLoading, navigate]);

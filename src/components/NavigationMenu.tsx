@@ -23,6 +23,7 @@ import {
   WalletOutlined,
   FileDoneOutlined,
   BarChartOutlined,
+  VideoCameraOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 import { useRolePermissions } from '../hooks/useRolePermissions';
@@ -98,6 +99,24 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       className: 'main-menu-item',
       permission: 'data_analysis',
     },
+    // 直播报名菜单
+    {
+      key: 'live-stream-registration',
+      icon: <VideoCameraOutlined />,
+      label: '直播报名',
+      path: '/live-stream-registration',
+      className: 'main-menu-item',
+    },
+    // 直播管理菜单
+    {
+      key: 'live-stream-management',
+      icon: <VideoCameraOutlined />,
+      label: '直播管理',
+      path: '/live-stream-management',
+      className: 'main-menu-item',
+      permission: 'live_stream_manage',
+    },
+
     // 分配管理一级菜单
     {
       key: 'allocation-manage',
@@ -204,7 +223,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
         {
           key: 'banner-management',
           icon: <HomeOutlined />,
-          label: '首页管理',
+          label: '资源位管理',
           path: '/banner-management',
           className: 'main-menu-item',
           permission: 'admin',

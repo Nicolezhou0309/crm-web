@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Modal, Form, Input, Switch, InputNumber, Upload, message, Image, Select } from 'antd';
+import { Table, Button, Modal, Form, Input, Switch, InputNumber, Upload, message, Image, Select, Tabs } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
-import { fetchBanners, createBanner, updateBanner, deleteBanner } from '../api/bannersApi';
+import { fetchBanners, fetchBannersByPageType, createBanner, updateBanner, deleteBanner } from '../api/bannersApi';
 import { supabase } from '../supaClient';
 import ImgCrop from 'antd-img-crop';
 
@@ -12,28 +12,44 @@ interface Banner {
   image_url: string;
   sort_order: number;
   is_active: boolean;
+  page_type?: string;
   jump_type?: string;
   jump_target?: string;
 }
 
-// 压缩图片为2x精度（3840x1000）
-async function compressImageTo2x(file: File): Promise<Blob> {
+// 3x精度压缩图片
+async function compressImageTo3x(file: File, pageType: string): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = 3840;
-      canvas.height = 1000;
+      
+      // 根据页面类型设置不同的3x尺寸
+      let targetWidth, targetHeight, targetRatio;
+      if (pageType === 'live_stream_registration') {
+        targetWidth = 5760; // 1920 * 3
+        targetHeight = 600;  // 200 * 3
+        targetRatio = 9.6; // 5760/600
+      } else {
+        // 默认首页3x尺寸
+        targetWidth = 5760; // 1920 * 3
+        targetHeight = 1500; // 500 * 3
+        targetRatio = 3.84; // 5760/1500
+      }
+      
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) return reject('canvas context error');
+      
       // 填充白底
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
       // 计算目标区域
       let sx = 0, sy = 0, sw = img.width, sh = img.height;
-      // 保证比例
-      const targetRatio = 3.84;
       const imgRatio = img.width / img.height;
+      
       if (imgRatio > targetRatio) {
         // 图片太宽，裁掉两边
         sw = img.height * targetRatio;
@@ -43,6 +59,7 @@ async function compressImageTo2x(file: File): Promise<Blob> {
         sh = img.width / targetRatio;
         sy = (img.height - sh) / 2;
       }
+      
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
       canvas.toBlob(blob => {
         if (blob) resolve(blob);
@@ -63,11 +80,20 @@ const BannerManagement: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [formReady, setFormReady] = useState(false);
+  const [activeTab, setActiveTab] = useState('home');
 
-  const loadBanners = async () => {
+  const pageTypeOptions = [
+    { key: 'home', label: '首页轮播图', description: '首页顶部轮播图展示' },
+    { key: 'live_stream_registration', label: '直播报名页', description: '直播报名页面顶部banner' },
+    { key: 'other', label: '其他页面', description: '其他页面的banner' }
+  ];
+
+  const loadBanners = async (pageType?: string) => {
     setLoading(true);
     try {
-      const data = await fetchBanners();
+      const data = pageType 
+        ? await fetchBannersByPageType(pageType)
+        : await fetchBanners();
       setBanners(data);
     } catch (e) {
       message.error('获取轮播图失败');
@@ -76,8 +102,8 @@ const BannerManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    loadBanners();
-  }, []);
+    loadBanners(activeTab);
+  }, [activeTab]);
 
   const handleAdd = () => {
     setEditingBanner(null);
@@ -102,6 +128,7 @@ const BannerManagement: React.FC = () => {
           description: editingBanner.description || '',
           sort_order: editingBanner.sort_order ?? 0,
           is_active: editingBanner.is_active ?? true,
+          page_type: editingBanner.page_type || activeTab,
           jump_type: editingBanner.jump_type || 'none',
           jump_target: editingBanner.jump_target || ''
         });
@@ -111,13 +138,14 @@ const BannerManagement: React.FC = () => {
           description: '',
           sort_order: 0,
           is_active: true,
+          page_type: activeTab,
           jump_type: 'none',
           jump_target: ''
         });
       }
       setFormReady(true);
     }
-  }, [modalVisible, editingBanner, form, formReady]);
+  }, [modalVisible, editingBanner, form, formReady, activeTab]);
 
   // Modal 关闭时重置 imageUrl 和表单
   const handleModalCancel = () => {
@@ -131,6 +159,7 @@ const BannerManagement: React.FC = () => {
     description: '',
     sort_order: 0,
     is_active: true,
+    page_type: activeTab,
     jump_type: 'none',
     jump_target: ''
   };
@@ -145,7 +174,7 @@ const BannerManagement: React.FC = () => {
   const handleDelete = async (id: number) => {
     await deleteBanner(id);
     message.success('删除成功');
-    loadBanners();
+    loadBanners(activeTab);
   };
 
   const handleOk = async () => {
@@ -166,18 +195,18 @@ const BannerManagement: React.FC = () => {
       setModalVisible(false);
       setImageUrl('');
       form.resetFields();
-      loadBanners();
+      loadBanners(activeTab);
     } catch (err) { 
       // 校验失败，不做处理，antd 会自动高亮错误项
     }
   };
 
-  // Supabase Storage 上传图片，先裁剪再压缩为2x精度
+  // Supabase Storage 上传图片，使用3x精度压缩
   const beforeUpload = async (file: File) => {
     setUploading(true);
     try {
-      // 压缩为2x精度
-      const blob = await compressImageTo2x(file);
+      // 使用3x精度压缩
+      const blob = await compressImageTo3x(file, activeTab);
       const fileExt = 'jpg';
       const filePath = `banner/${Date.now()}.${fileExt}`;
       const { error } = await supabase.storage.from('banners').upload(filePath, blob, { upsert: true, contentType: 'image/jpeg' });
@@ -195,6 +224,10 @@ const BannerManagement: React.FC = () => {
   const columns = [
     { title: '图片', dataIndex: 'image_url', render: (url: string, record: Banner) => { console.log('[Table render] 图片', record); return <Image src={url} width={120} />; } },
     { title: '标题', dataIndex: 'title', render: (text: string, record: Banner) => { console.log('[Table render] 标题', record); return text; } },
+    { title: '页面类型', dataIndex: 'page_type', render: (text: string, record: Banner) => { 
+      const option = pageTypeOptions.find(opt => opt.key === text);
+      return option ? option.label : text;
+    }},
     { title: '排序', dataIndex: 'sort_order', render: (text: number, record: Banner) => { console.log('[Table render] 排序', record); return text; } },
     { title: '状态', dataIndex: 'is_active', render: (v: boolean, record: Banner) => { console.log('[Table render] 状态', record); return v ? '上架' : '下架'; } },
     { title: '点击后动作', dataIndex: 'jump_type', render: (v: string, record: Banner) => { console.log('[Table render] 点击后动作', record); return v === 'none' || !v ? '无' : `${v}：${record.jump_target || ''}`; } },
@@ -208,8 +241,27 @@ const BannerManagement: React.FC = () => {
 
   return (
     <div style={{ padding: 24 }}>
-      <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} style={{ marginBottom: 16 }}>新建轮播图</Button>
-      <Table rowKey="id" columns={columns} dataSource={banners} loading={loading} />
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={pageTypeOptions.map(option => ({
+          key: option.key,
+          label: (
+            <div>
+              <div style={{ fontWeight: '600' }}>{option.label}</div>
+              <div style={{ fontSize: '12px', color: '#999' }}>{option.description}</div>
+            </div>
+          ),
+          children: (
+            <div>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} style={{ marginBottom: 16 }}>
+                新建{option.label}
+              </Button>
+              <Table rowKey="id" columns={columns} dataSource={banners} loading={loading} />
+            </div>
+          )
+        }))}
+      />
       <Modal
         title={editingBanner ? '编辑轮播图' : '新建轮播图'}
         open={modalVisible}
@@ -223,6 +275,15 @@ const BannerManagement: React.FC = () => {
           </Form.Item>
           <Form.Item label="描述" name="description">
             <Input.TextArea />
+          </Form.Item>
+          <Form.Item label="页面类型" name="page_type" rules={[{ required: true, message: '请选择页面类型' }]}> 
+            <Select> 
+              {pageTypeOptions.map(option => (
+                <Select.Option key={option.key} value={option.key}>
+                  {option.label}
+                </Select.Option>
+              ))}
+            </Select> 
           </Form.Item>
           <Form.Item label="排序（越大越靠前）" name="sort_order" rules={[{ required: true, message: '请输入排序' }]}> 
             <InputNumber min={0} style={{ width: '100%' }} />
@@ -242,8 +303,13 @@ const BannerManagement: React.FC = () => {
             <Input placeholder="如 https://example.com 或 /internal/page" />
           </Form.Item>
           {/* 图片上传项不加 name，只做展示和上传按钮 */}
-          <Form.Item label="图片（1920x500，建议裁剪）">
-            <ImgCrop aspect={3.84} quality={1} modalTitle="裁剪图片为1920x500比例" showGrid>
+                      <Form.Item label={`图片（${activeTab === 'live_stream_registration' ? '3x精度5760x600' : '3x精度5760x1500'}，支持裁剪）`}>
+              <ImgCrop 
+                aspect={activeTab === 'live_stream_registration' ? 9.6 : 3.84} 
+                quality={1} 
+                modalTitle={`裁剪图片为${activeTab === 'live_stream_registration' ? '5760x600' : '5760x1500'}比例`}  
+              showGrid
+            >
               <Upload
                 name="file"
                 showUploadList={false}
