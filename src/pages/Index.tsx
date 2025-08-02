@@ -21,16 +21,6 @@ const Index: React.FC = () => {
 
   // 拉取 banners 数据
   useEffect(() => {
-    // 如果页面不可见，跳过数据加载
-    if (document.visibilityState !== 'visible') {
-      console.log('🔄 [Index] 页面不可见，跳过banner数据加载', {
-        timestamp: new Date().toISOString(),
-        visibilityState: document.visibilityState,
-        url: window.location.href
-      });
-      return;
-    }
-    
     setPageLoading(true);
     fetchBanners().then(data => {
       const arr = (data || []).filter((b: any) => b.is_active);
@@ -106,7 +96,7 @@ const Index: React.FC = () => {
           z-index: 10;
         }
       `}</style>
-      {pageLoading && document.visibilityState === 'visible' && <LoadingScreen type="data" />}
+      {pageLoading && <LoadingScreen type="data" />}
       <div style={{ background: '#f5f6fa', width: '100%', minHeight: '100%' }}>
         {/* 三栏布局：左栏（banner+业绩进度）、中栏（销售组+待办事项）、右栏（排行榜） */}
         <Row gutter={24} style={{ height: '80vh', padding: '16px' }}>

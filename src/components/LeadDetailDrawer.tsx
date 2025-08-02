@@ -256,7 +256,7 @@ const LeadDetailDrawer: React.FC<{ leadid: string }> = ({ leadid }) => {
     return colorMap[source] || 'default';
   };
 
-  if (loading && document.visibilityState === 'visible') {
+  if (loading) {
     return <LoadingScreen type="data" />;
   }
   if (!leadData) {

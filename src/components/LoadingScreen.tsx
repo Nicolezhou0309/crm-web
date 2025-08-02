@@ -62,22 +62,32 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
       }
     }
     
-    // 减少日志输出频率，只在开发环境下记录
+    // 减少日志输出频率，只在开发环境下记录，并且添加防抖
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔄 [LoadingScreen] 组件被调用', {
-        timestamp: new Date().toISOString(),
-        url: window.location.href,
-        visibilityState: document.visibilityState,
-        type: type,
-        useRandomMessage: useRandomMessage,
-        message: message,
-        subtitle: subtitle,
-        showProgress: showProgress,
-        callerInfo: callerInfo,
-        callerComponent: callerComponent,
-        callerFile: callerFile,
-        stack: stack?.split('\n').slice(1, 8).join('\n') // 显示前8行调用栈
-      });
+      // 使用防抖机制，避免频繁的日志输出
+      const timeoutId = setTimeout(() => {
+        // 只在真正需要时才记录日志
+        if (type === 'auth' || type === 'data') {
+          console.log('🔄 [LoadingScreen] 组件被调用', {
+            timestamp: new Date().toISOString(),
+            url: window.location.href,
+            visibilityState: document.visibilityState,
+            type: type,
+            useRandomMessage: useRandomMessage,
+            message: message,
+            subtitle: subtitle,
+            showProgress: showProgress,
+            callerInfo: callerInfo,
+            callerComponent: callerComponent,
+            callerFile: callerFile,
+            stack: stack?.split('\n').slice(1, 8).join('\n') // 显示前8行调用栈
+          });
+        }
+      }, 200); // 增加延迟到200ms，进一步减少日志
+      
+      return () => {
+        clearTimeout(timeoutId);
+      };
     }
     
     const mountTime = Date.now();
@@ -88,16 +98,6 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
       
       // 减少日志输出频率，只在开发环境下记录
       if (process.env.NODE_ENV === 'development') {
-        console.log('✅ [LoadingScreen] 组件卸载', {
-          timestamp: new Date().toISOString(),
-          url: window.location.href,
-          visibilityState: document.visibilityState,
-          duration: duration + 'ms',
-          type: type,
-          callerInfo: callerInfo,
-          callerComponent: callerComponent,
-          callerFile: callerFile
-        });
       }
     };
   }, []); // 移除所有依赖，只在组件挂载时执行一次

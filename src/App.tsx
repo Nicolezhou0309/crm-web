@@ -57,7 +57,8 @@ import PivotTableDemo from './pages/PivotTableDemo';
 import PivotDemo from './pages/PivotDemo';
 import OnboardingPage from './pages/OnboardingPage';
 import LiveStreamRegistration from './pages/LiveStreamRegistration';
-import LiveStreamManagement from './pages/LiveStreamManagement';
+// import LiveStreamManagement from './pages/LiveStreamManagement';
+import TestAuth from './pages/TestAuth';
 import { useSilentAuth } from './hooks/useSilentAuth';
 
 
@@ -115,38 +116,41 @@ const AppContent: React.FC = () => {
   // 合并所有loading状态
   const loading = userLoading;
   
-  // 启用token刷新监控（低频率模式）
-  useSilentAuth();
+  // 暂时禁用token刷新监控，避免认证问题
+  // useSilentAuth();
 
-  // 处理路由重定向，确保刷新时能回到正确的页面
+  // 简化loading状态管理 - 直接使用userLoading，避免额外的状态变化
+  // const [globalLoading, setGlobalLoading] = React.useState(false);
+  // const loadingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // 防抖的loading状态更新 - 暂时禁用，避免频繁状态变化
+  // React.useEffect(() => {
+  //   if (loadingTimeoutRef.current) {
+  //     clearTimeout(loadingTimeoutRef.current);
+  //   }
+
+  //   if (loading) {
+  //     setGlobalLoading(true);
+  //   } else {
+  //     // 延迟设置loading为false，避免频繁切换
+  //     loadingTimeoutRef.current = setTimeout(() => {
+  //       setGlobalLoading(false);
+  //     }, 300);
+  //   }
+
+  //   return () => {
+  //     if (loadingTimeoutRef.current) {
+  //       clearTimeout(loadingTimeoutRef.current);
+  //     }
+  //   };
+  // }, [loading]);
+
+  // 简化路由重定向逻辑
   React.useEffect(() => {
-    // 只在用户刚登录且当前在根路径时进行重定向
-    // 避免无限循环：只在特定条件下执行一次重定向
-    if (user && !userLoading && location.pathname === '/' && window.location.pathname !== '/') {
-      // 检查是否已经重定向过，避免无限循环
-      const hasRedirected = sessionStorage.getItem('app_redirected');
-      if (!hasRedirected) {
-        console.log('🔄 [App] 路由重定向', {
-          timestamp: new Date().toISOString(),
-          currentPathname: location.pathname,
-          windowPathname: window.location.pathname,
-          user: !!user,
-          userLoading: userLoading
-        });
-        
-        // 标记已重定向，防止无限循环
-        sessionStorage.setItem('app_redirected', 'true');
-        
-        // 延迟执行重定向，确保状态稳定
-        setTimeout(() => {
-          navigate(window.location.pathname, { replace: true });
-        }, 100);
-      }
-    } else if (!user) {
-      // 用户未登录时清除重定向标记
-      sessionStorage.removeItem('app_redirected');
+    if (user && !userLoading && location.pathname === '/') {
+      // 用户已登录且在根路径，不需要特殊处理
     }
-  }, [user, userLoading, location.pathname, navigate]);
+  }, [user, userLoading, location.pathname]);
 
   // 侧边栏 key-path 映射
   const keyPathMap: { [key: string]: string } = {
@@ -330,77 +334,9 @@ const AppContent: React.FC = () => {
   // 判断是否为公开页面（不需要登录）
   const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password';
 
-  // 优化loading状态管理 - 使用useMemo减少重复计算
-  const shouldShowLoading = React.useMemo(() => {
-    // 如果是公开页面，不显示loading
-    if (isPublicPage) {
-      return false;
-    }
-    
-    // 只在真正需要loading时才显示
-    return loading && !user;
-  }, [loading, user, isPublicPage]);
-  
-  // 添加loading状态监控日志 - 减少日志频率
-  React.useEffect(() => {
-    if (loading) {
-      console.log('🔄 [App] Loading状态变化', {
-        timestamp: new Date().toISOString(),
-        url: window.location.href,
-        shouldShowLoading: shouldShowLoading,
-        loading: loading,
-        pathname: location.pathname,
-        isPublicPage: isPublicPage,
-        hasUser: !!user
-      });
-    }
-  }, [loading, shouldShowLoading, location.pathname, isPublicPage, user]);
-  
-  if (shouldShowLoading) {
-    const stack = new Error().stack;
-    const stackLines = stack?.split('\n') || [];
-    let callerInfo = 'App.tsx - shouldShowLoading条件';
-    let callerComponent = 'App';
-    let callerFile = 'App.tsx';
-    
-    // 分析调用栈，获取更详细的来源信息
-    for (let i = 1; i < stackLines.length; i++) {
-      const line = stackLines[i];
-      if (line.includes('App.tsx') || line.includes('useEffect')) {
-        continue; // 跳过App自身的调用
-      }
-      
-      // 提取文件名和行号
-      const fileMatch = line.match(/at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)/);
-      if (fileMatch) {
-        const functionName = fileMatch[1];
-        const filePath = fileMatch[2];
-        const lineNumber = fileMatch[3];
-        
-        // 提取文件名（去掉路径）
-        const fileName = filePath.split('/').pop()?.split('?')[0] || '未知文件';
-        
-        callerInfo = `${functionName} (${fileName}:${lineNumber})`;
-        callerComponent = functionName;
-        callerFile = fileName;
-        break;
-      }
-    }
-    
-    console.log('🔄 [App] 显示LoadingScreen', {
-      timestamp: new Date().toISOString(),
-      url: window.location.href,
-      visibilityState: document.visibilityState,
-      pathname: location.pathname,
-      callerInfo: callerInfo,
-      callerComponent: callerComponent,
-      callerFile: callerFile,
-      loading: loading,
-      shouldShowLoading: shouldShowLoading,
-      hasUser: !!user,
-      stack: stack?.split('\n').slice(1, 6).join('\n')
-    });
-    return <LoadingScreen useRandomMessage={true} />;
+  // 简化loading状态管理
+  if (loading && !isPublicPage) {
+    return <LoadingScreen type="auth" message="正在加载用户信息..." subtitle="请稍候，我们正在为您准备登录环境" />;
   }
 
   // 公开页面（登录页面和设置密码页面）不需要用户认证，直接渲染
@@ -901,11 +837,12 @@ const AppContent: React.FC = () => {
                           <Route path="/pivot-demo-new" element={<PivotDemo />} />
                           <Route path="/onboarding" element={<OnboardingPage />} />
                           <Route path="/live-stream-registration" element={<LiveStreamRegistration />} />
-                          <Route path="/live-stream-management" element={
+                          <Route path="/test-auth" element={<TestAuth />} />
+                          {/* <Route path="/live-stream-management" element={
                             <PermissionGate permission="live_stream_manage" fallback={<Error403 />}>
                               <LiveStreamManagement />
                             </PermissionGate>
-                          } />
+                          } /> */}
 
         <Route path="*" element={<Error404 />} />
                 </Routes>

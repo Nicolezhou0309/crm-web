@@ -1968,7 +1968,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     }
   };
 
-  if (loading && document.visibilityState === 'visible') {
+  if (loading) {
     return <LoadingScreen type="data" />;
   }
 

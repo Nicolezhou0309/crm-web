@@ -580,7 +580,7 @@ const ShowingConversionRate: React.FC = () => {
         </div>
       </div>
       
-      {loading && document.visibilityState === 'visible' ? (
+      {loading ? (
         <LoadingScreen type="data" />
       ) : (
         <Table

@@ -119,9 +119,9 @@ const LiveStreamManagement: React.FC<LiveStreamManagementProps> = () => {
       const scheduleData = {
         date: values.date.format('YYYY-MM-DD'),
         timeSlotId: values.timeSlot,
-        managerIds: values.managers,
-        locationId: values.location,
-        propertyTypeId: values.propertyType,
+        managers: managers.filter(m => values.managers.includes(m.id)),
+        location: locations.find(l => l.id === values.location)!,
+        propertyType: propertyTypes.find(p => p.id === values.propertyType)!,
         status: values.status || 'available',
       };
 

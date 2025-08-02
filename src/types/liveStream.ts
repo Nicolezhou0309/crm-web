@@ -34,9 +34,17 @@ export interface LiveStreamManager {
     managers: LiveStreamManager[];
     location: LiveStreamLocation;
     propertyType: LiveStreamPropertyType;
-    status: 'available' | 'booked' | 'completed' | 'cancelled';
+    status: 'available' | 'booked' | 'completed' | 'cancelled' | 'editing' | 'locked';
     createdAt: string;
     updatedAt: string;
+    createdBy?: number | null; // 记录创建者ID
+    // 并发控制相关字段
+    editingBy?: number | null;
+    editingAt?: string | null;
+    editingExpiresAt?: string | null;
+    lockType?: 'none' | 'manual' | 'system' | 'maintenance';
+    lockReason?: string | null;
+    lockEndTime?: string | null;
   }
   
   export interface WeeklySchedule {

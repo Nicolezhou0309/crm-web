@@ -32,61 +32,11 @@
         let refreshCount = 0;
         let lastRefreshTime = 0;
         
-        // 记录页面加载信息
-        console.log('🚀 [页面监控] 页面开始加载', {
-          sessionId: sessionId,
-          timestamp: new Date().toISOString(),
-          url: window.location.href,
-          userAgent: navigator.userAgent,
-          referrer: document.referrer
-        });
-        
-        // 监控页面可见性变化
-        let visibilityChangeTimeout = null;
-        let lastVisibilityState = document.visibilityState;
-        
-        document.addEventListener('visibilitychange', function() {
-          const currentVisibilityState = document.visibilityState;
-          const now = Date.now();
-          
-          // 避免重复处理相同的可见性状态
-          if (currentVisibilityState === lastVisibilityState) {
-            return;
-          }
-          
-          // 清除之前的定时器
-          if (visibilityChangeTimeout) {
-            clearTimeout(visibilityChangeTimeout);
-          }
-          
-          // 延迟处理，避免频繁切换
-          visibilityChangeTimeout = setTimeout(function() {
-            console.log('👁️ [页面监控] 可见性变化', {
-              sessionId: sessionId,
-              timestamp: new Date().toISOString(),
-              visibilityState: currentVisibilityState,
-              timeSinceLastChange: now - lastRefreshTime,
-              duration: now - startTime,
-              previousState: lastVisibilityState
-            });
-            lastRefreshTime = now;
-            lastVisibilityState = currentVisibilityState;
-          }, 300); // 300ms防抖延迟
-        });
-        
         // 监控页面即将卸载
         window.addEventListener('beforeunload', function(event) {
           const now = Date.now();
           refreshCount++;
           
-          console.log('🔄 [页面监控] 页面即将卸载', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString(),
-            refreshCount: refreshCount,
-            duration: now - startTime,
-            url: window.location.href,
-            stack: new Error().stack
-          });
           
           // 保存会话信息到localStorage
           try {
@@ -105,41 +55,20 @@
         
         // 监控页面卸载
         window.addEventListener('unload', function() {
-          console.log('📤 [页面监控] 页面卸载', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString(),
-            duration: Date.now() - startTime
-          });
         });
         
         // 监控页面隐藏
         window.addEventListener('pagehide', function() {
-          console.log('👻 [页面监控] 页面隐藏', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString(),
-            duration: Date.now() - startTime
-          });
         });
         
         // 页面加载完成时检查是否有上次的会话信息
         window.addEventListener('load', function() {
           const loadTime = Date.now();
-          console.log('✅ [页面监控] 页面加载完成', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString(),
-            loadDuration: loadTime - startTime,
-            url: window.location.href
-          });
           
           try {
             const lastSession = localStorage.getItem('last_session_info');
             if (lastSession) {
               const sessionInfo = JSON.parse(lastSession);
-              console.log('📋 [页面监控] 检测到上次会话:', {
-                currentSessionId: sessionId,
-                lastSession: sessionInfo,
-                timeSinceLastSession: Date.now() - new Date(sessionInfo.timestamp).getTime()
-              });
               localStorage.removeItem('last_session_info');
             }
           } catch (e) {
@@ -149,55 +78,25 @@
         
         // 监控DOM内容加载完成
         document.addEventListener('DOMContentLoaded', function() {
-          console.log('📄 [页面监控] DOM内容加载完成', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString(),
-            duration: Date.now() - startTime
-          });
         });
         
         // 监控页面焦点变化
         window.addEventListener('focus', function() {
-          console.log('🎯 [页面监控] 页面获得焦点', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString(),
-            duration: Date.now() - startTime
-          });
         });
         
         window.addEventListener('blur', function() {
-          console.log('💤 [页面监控] 页面失去焦点', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString(),
-            duration: Date.now() - startTime
-          });
         });
         
         // 监控网络状态变化
         window.addEventListener('online', function() {
-          console.log('🌐 [页面监控] 网络连接恢复', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString()
-          });
         });
         
         window.addEventListener('offline', function() {
-          console.log('📡 [页面监控] 网络连接断开', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString()
-          });
         });
         
         // 定期记录页面状态（每30秒）
         setInterval(function() {
-          console.log('⏰ [页面监控] 定期状态检查', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString(),
-            duration: Date.now() - startTime,
-            visibilityState: document.visibilityState,
-            hasFocus: document.hasFocus(),
-            online: navigator.onLine
-          });
+
         }, 30000);
         
       })();

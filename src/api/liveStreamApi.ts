@@ -19,13 +19,19 @@ interface DBLiveStreamSchedule {
   id: number;
   date: string;
   time_slot_id: string;
-  participant_ids: number[];
-  location: string;
+  participant_ids: number[] | null;
+  location: string | null;
   notes: string | null;
-  status: 'available' | 'booked' | 'completed' | 'cancelled';
+  status: 'available' | 'booked' | 'completed' | 'cancelled' | 'editing' | 'locked';
   created_by: number | null;
   created_at: string;
   updated_at: string;
+  editing_by: number | null;
+  editing_at: string | null;
+  editing_expires_at: string | null;
+  lock_type: 'none' | 'manual' | 'system' | 'maintenance';
+  lock_reason: string | null;
+  lock_end_time: string | null;
 }
 
 interface DBUserProfile {
@@ -98,7 +104,9 @@ export const getWeeklySchedule = async (weekStart: string, weekEnd: string): Pro
     // 获取所有参与者的详细信息
     const participantIds = new Set<number>();
     (data || []).forEach(schedule => {
-      schedule.participant_ids.forEach((id: number) => participantIds.add(id));
+      if (schedule.participant_ids && Array.isArray(schedule.participant_ids)) {
+        schedule.participant_ids.forEach((id: number) => participantIds.add(id));
+      }
     });
 
     let participantsMap = new Map();
@@ -120,18 +128,18 @@ export const getWeeklySchedule = async (weekStart: string, weekEnd: string): Pro
       id: schedule.id.toString(),
       date: schedule.date,
       timeSlotId: schedule.time_slot_id,
-      managers: schedule.participant_ids.map((id: number) => {
+      managers: (schedule.participant_ids && Array.isArray(schedule.participant_ids) ? schedule.participant_ids : []).map((id: number) => {
         const participant = participantsMap.get(id);
         return {
           id: id.toString(),
-          name: participant?.nickname || participant?.email || '未知用户',
-          department: '',
+          name: participant ? (participant.nickname || participant.email) : '未知用户',
+          department: '', // 暂时为空，后续可以从organizations表获取
           avatar: undefined
         };
       }),
       location: {
-        id: schedule.location,
-        name: schedule.location
+        id: schedule.location || 'default',
+        name: schedule.location || ''
       },
       propertyType: {
         id: schedule.notes || 'default',
@@ -140,6 +148,14 @@ export const getWeeklySchedule = async (weekStart: string, weekEnd: string): Pro
       status: schedule.status,
       createdAt: schedule.created_at,
       updatedAt: schedule.updated_at,
+      createdBy: schedule.created_by, // 添加创建者ID
+      // 添加并发控制相关字段
+      editingBy: schedule.editing_by,
+      editingAt: schedule.editing_at,
+      editingExpiresAt: schedule.editing_expires_at,
+      lockType: schedule.lock_type,
+      lockReason: schedule.lock_reason,
+      lockEndTime: schedule.lock_end_time,
     }));
   } catch (error) {
     console.error('获取直播安排失败:', error);
@@ -165,9 +181,9 @@ export const createLiveStreamSchedule = async (schedule: Omit<LiveStreamSchedule
     const scheduleData = {
       date: schedule.date,
       time_slot_id: schedule.timeSlotId,
-      participant_ids: schedule.managers.map(m => parseInt(m.id)),
-      location: schedule.location.name,
-      notes: schedule.propertyType.name,
+      participant_ids: schedule.managers && schedule.managers.length > 0 ? schedule.managers.map(m => parseInt(m.id)) : null,
+      location: schedule.location?.name || null,
+      notes: schedule.propertyType?.name || null,
       status: schedule.status,
       created_by: userProfile.id,
     };
@@ -191,6 +207,14 @@ export const createLiveStreamSchedule = async (schedule: Omit<LiveStreamSchedule
       status: data.status,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
+      createdBy: data.created_by, // 添加创建者ID
+      // 添加并发控制相关字段
+      editingBy: data.editing_by,
+      editingAt: data.editing_at,
+      editingExpiresAt: data.editing_expires_at,
+      lockType: data.lock_type,
+      lockReason: data.lock_reason,
+      lockEndTime: data.lock_end_time,
     };
   } catch (error) {
     console.error('创建直播安排失败:', error);
@@ -207,13 +231,13 @@ export const updateLiveStreamSchedule = async (
     const updateData: any = {};
     
     if (updates.managers) {
-      updateData.participant_ids = updates.managers.map(m => parseInt(m.id));
+      updateData.participant_ids = updates.managers.length > 0 ? updates.managers.map(m => parseInt(m.id)) : [];
     }
     if (updates.location) {
-      updateData.location = updates.location.name;
+      updateData.location = updates.location.name || null;
     }
     if (updates.propertyType) {
-      updateData.notes = updates.propertyType.name;
+      updateData.notes = updates.propertyType.name || null;
     }
     if (updates.status) {
       updateData.status = updates.status;
@@ -224,9 +248,12 @@ export const updateLiveStreamSchedule = async (
       .update(updateData)
       .eq('id', parseInt(scheduleId))
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      throw new Error('未找到要更新的直播安排');
+    }
 
     // 获取更新后的完整数据
     const updatedSchedule = await getWeeklySchedule(data.date, data.date);
@@ -234,12 +261,25 @@ export const updateLiveStreamSchedule = async (
       id: data.id.toString(),
       date: data.date,
       timeSlotId: data.time_slot_id,
-      managers: [],
-      location: { id: data.location, name: data.location },
+      managers: (data.participant_ids && Array.isArray(data.participant_ids) ? data.participant_ids : []).map((id: number) => ({
+        id: id.toString(),
+        name: '未知用户',
+        department: '',
+        avatar: undefined
+      })),
+      location: { id: data.location || 'default', name: data.location || '' },
       propertyType: { id: data.notes || 'default', name: data.notes || '默认户型' },
       status: data.status,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
+      createdBy: data.created_by, // 添加创建者ID
+      // 添加并发控制相关字段
+      editingBy: data.editing_by,
+      editingAt: data.editing_at,
+      editingExpiresAt: data.editing_expires_at,
+      lockType: data.lock_type,
+      lockReason: data.lock_reason,
+      lockEndTime: data.lock_end_time,
     };
   } catch (error) {
     console.error('更新直播安排失败:', error);
