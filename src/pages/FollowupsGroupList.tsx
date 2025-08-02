@@ -875,7 +875,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('leadid');
               // 不调用confirm，直接执行重置
             }}>
@@ -931,7 +931,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('followupstage');
               // 不调用confirm，直接执行重置
             }}>
@@ -974,7 +974,9 @@ const FollowupsGroupList: React.FC = () => {
               if (isPending) {
                 followupstageEnum.forEach((enumItem) => {
                   if (typeof enumItem === 'object') {
+                    // 处理对象类型的枚举项
                   } else {
+                    // 处理字符串类型的枚举项
                   }
                 });
                 // 兼容字符串和对象两种情况
@@ -1049,7 +1051,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('phone');
               // 不调用confirm，直接执行重置
             }}>
@@ -1095,7 +1097,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('wechat');
               // 不调用confirm，直接执行重置
             }}>
@@ -1144,7 +1146,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('created_at');
               // 不调用confirm，直接执行重置
             }}>
@@ -1188,7 +1190,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('source');
               // 不调用confirm，直接执行重置
             }}>
@@ -1226,7 +1228,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('leadtype');
               // 不调用confirm，直接执行重置
             }}>
@@ -1314,7 +1316,7 @@ const FollowupsGroupList: React.FC = () => {
               </Button>
               <Button size="small" onClick={() => { 
                 setSelectedKeys([]); // 清空当前选中的值
-                clearFilters && clearFilters(); 
+                if (clearFilters) clearFilters(); 
                 resetFilter('interviewsales_user_id');
                 // 不调用confirm，直接执行重置
               }}>
@@ -1359,7 +1361,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('remark');
               // 不调用confirm，直接执行重置
             }}>
@@ -1393,7 +1395,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('customerprofile');
               // 不调用confirm，直接执行重置
             }}>
@@ -1512,7 +1514,7 @@ const FollowupsGroupList: React.FC = () => {
                 size="small" 
                 onClick={() => { 
                   setSelectedKeys([]); // 清空当前选中的值
-                  clearFilters && clearFilters(); 
+                  if (clearFilters) clearFilters(); 
                   resetFilter('worklocation');
                   // 不调用confirm，直接执行重置
                 }}
@@ -1611,7 +1613,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('userbudget');
               // 不调用confirm，直接执行重置
             }}>
@@ -1650,7 +1652,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('moveintime');
               // 不调用confirm，直接执行重置
             }}>
@@ -1703,7 +1705,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('userrating');
               // 不调用confirm，直接执行重置
             }}>
@@ -1838,7 +1840,7 @@ const FollowupsGroupList: React.FC = () => {
                 size="small" 
                 onClick={() => { 
                   setSelectedKeys([]); // 清空当前选中的值
-                  clearFilters && clearFilters(); 
+                  if (clearFilters) clearFilters(); 
                   resetFilter('majorcategory');
                   // 不调用confirm，直接执行重置
                 }}
@@ -1910,7 +1912,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('followupresult');
               // 不调用confirm，直接执行重置
             }}>
@@ -1945,7 +1947,7 @@ const FollowupsGroupList: React.FC = () => {
             </Button>
             <Button size="small" onClick={() => { 
               setSelectedKeys([]); // 清空当前选中的值
-              clearFilters && clearFilters(); 
+              if (clearFilters) clearFilters(); 
               resetFilter('scheduledcommunity');
               // 不调用confirm，直接执行重置
             }}>

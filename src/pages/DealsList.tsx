@@ -233,7 +233,7 @@ const DealsList: React.FC = () => {
               </Button>
               <Button
                 onClick={() => {
-                  clearFilters && clearFilters();
+                  if (clearFilters) clearFilters();
                   confirm();
                 }}
                 size="small"
@@ -277,7 +277,7 @@ const DealsList: React.FC = () => {
               </Button>
               <Button
                 onClick={() => {
-                  clearFilters && clearFilters();
+                  if (clearFilters) clearFilters();
                   confirm();
                 }}
                 size="small"
@@ -360,7 +360,7 @@ const DealsList: React.FC = () => {
             />
             <Space>
               <Button type="primary" size="small" onClick={() => confirm()} style={{ width: 60 }}>筛选</Button>
-              <Button onClick={() => { clearFilters && clearFilters(); confirm(); }} size="small" style={{ width: 60 }}>重置</Button>
+              <Button onClick={() => { if (clearFilters) clearFilters(); confirm(); }} size="small" style={{ width: 60 }}>重置</Button>
             </Space>
           </div>
         );
@@ -388,7 +388,7 @@ const DealsList: React.FC = () => {
             />
             <Space>
               <Button type="primary" size="small" onClick={() => confirm()} style={{ width: 60 }}>筛选</Button>
-              <Button onClick={() => { clearFilters && clearFilters(); confirm(); }} size="small" style={{ width: 60 }}>重置</Button>
+              <Button onClick={() => { if (clearFilters) clearFilters(); confirm(); }} size="small" style={{ width: 60 }}>重置</Button>
             </Space>
           </div>
         );

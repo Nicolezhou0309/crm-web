@@ -361,7 +361,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   // 调试信息
   React.useEffect(() => {
     if (!permissionsLoading) {
-      
+      // 权限加载完成后的处理逻辑可以在这里添加
     }
   }, [permissionsLoading, isSuperAdmin, hasPermission, hasRole, filteredMenuItems.length]);
 

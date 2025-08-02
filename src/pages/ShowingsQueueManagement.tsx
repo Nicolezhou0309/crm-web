@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Tabs, Table, Button, Select, Modal, Form, Input, message, Popconfirm, TreeSelect, Tag, InputNumber } from 'antd';
+import { Tabs, Table, Button, Select, Modal, Form, Input, message, Popconfirm, InputNumber } from 'antd';
 import { allocationApi } from '../utils/allocationApi';
 import { supabase, fetchEnumValues } from '../supaClient';
 import type { UserGroup } from '../types/allocation';
+import UserTreeSelect from '../components/UserTreeSelect';
 
 const { TabPane } = Tabs;
 
@@ -36,8 +37,6 @@ export default function ShowingsQueueManagement() {
   const [editModal, setEditModal] = useState<EditModalState>({ visible: false, type: '', record: null });
   const [form] = Form.useForm();
   const [userMap, setUserMap] = useState<Record<number, string>>({});
-  const [treeData, setTreeData] = useState<any[]>([]);
-  const [userProfileCache, setUserProfileCache] = useState<Record<string, any>>({});
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [communityFilter, setCommunityFilter] = useState<string | null>(null);
 
@@ -60,72 +59,7 @@ export default function ShowingsQueueManagement() {
     }
   };
 
-  // 动态加载部门树和成员（不依赖社区）
-  useEffect(() => {
-    // 只要弹窗打开就加载
-    if (!editModal.visible) return;
-    // 获取部门
-    supabase.from('organizations').select('id, name, parent_id').then(async ({ data: orgs }) => {
-      // 获取所有 active 成员
-      const { data: users } = await supabase
-        .from('users_profile')
-        .select('id, nickname, organization_id');
-      // 用户缓存
-      if (users && users.length > 0) {
-        const newCache = users.reduce((acc, user) => ({
-          ...acc,
-          [String(user.id)]: { nickname: user.nickname || `用户${user.id}`, status: 'active' }
-        }), {});
-        setUserProfileCache(newCache);
-        // userMap 也同步
-        const map: Record<number, string> = {};
-        users.forEach((u: any) => { map[u.id] = u.nickname; });
-        setUserMap(map);
-      }
-      // 递归组装部门树
-      const buildTree = (parentId: string | null): any[] => {
-        return (orgs || [])
-          .filter(dep => dep.parent_id === parentId)
-          .map(dep => {
-            const deptUsers = (users || []).filter(u => u.organization_id === dep.id);
-            const subDepts = buildTree(dep.id);
-            return {
-              title: `${dep.name} (${deptUsers.length}人)`,
-              value: `dept_${dep.id}`,
-              key: `dept_${dep.id}`,
-              children: [
-                ...deptUsers.map(u => ({
-                  title: u.nickname,
-                  value: String(u.id),
-                  key: String(u.id),
-                  isLeaf: true
-                })),
-                ...subDepts
-              ]
-            };
-          });
-      };
-      // 未分配部门成员
-      const ungrouped = (users || [])
-        .filter(u => !u.organization_id)
-        .map(u => ({
-          title: u.nickname,
-          value: String(u.id),
-          key: String(u.id),
-          isLeaf: true
-        }));
-      const tree = buildTree(null);
-      if (ungrouped.length > 0) {
-        tree.push({
-          title: `未分配部门 (${ungrouped.length}人)`,
-          value: 'dept_none',
-          key: 'dept_none',
-          children: ungrouped
-        });
-      }
-      setTreeData(tree);
-    });
-  }, [editModal]);
+
 
   // 编辑弹窗初始值同步selectedUsers
   useEffect(() => {
@@ -204,7 +138,7 @@ export default function ShowingsQueueManagement() {
       render: (_: any, row: UserGroup) => {
         if (!row.list || !Array.isArray(row.list)) return '-';
         return row.list.map((id: number | string) =>
-          userMap[Number(id)] || userProfileCache[String(id)]?.nickname || `用户${id}`
+          userMap[Number(id)] || `用户${id}`
         ).join('，');
       }
     },
@@ -378,193 +312,29 @@ export default function ShowingsQueueManagement() {
               label="成员ID列表"
               rules={[{ required: true, message: '请选择成员' }]}
             >
-              <TreeSelect
-                treeData={treeData}
+              <UserTreeSelect
                 value={selectedUsers}
-                treeCheckable
-                showCheckedStrategy={TreeSelect.SHOW_CHILD}
-                treeCheckStrictly={false}
-                onSelect={(value) => {
-                  if (String(value).startsWith('dept_')) {
-                    const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
-                      const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
-                      const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
-                        for (const n of nodes) {
-                          if (n.key === deptKey) return n;
-                          if (n.children) {
-                            const found = find(n.children);
-                            if (found) return found;
-                          }
-                        }
-                        return undefined;
-                      })(treeData);
-                      if (!dept) return [];
-                      const getAllUsersFromNode = (node: any): string[] => {
-                        const users: string[] = [];
-                        if (node.children) {
-                          node.children.forEach((child: any) => {
-                            if (child.isLeaf) {
-                              users.push(child.key);
-                            } else {
-                              users.push(...getAllUsersFromNode(child));
-                            }
-                          });
-                        }
-                        return users;
-                      };
-                      return getAllUsersFromNode(dept);
-                    };
-                    const deptUsers = getAllUsersInDeptRecursive(String(value));
-                    const allSelected = deptUsers.length > 0 && deptUsers.every((id: string) => selectedUsers.includes(id));
-                    let newSelectedUsers = [...selectedUsers];
-                    if (allSelected) {
-                      newSelectedUsers = newSelectedUsers.filter(id => !deptUsers.includes(id));
-                    } else {
-                      deptUsers.forEach((id: string) => {
-                        if (!newSelectedUsers.includes(id)) {
-                          newSelectedUsers.push(id);
-                        }
-                      });
-                    }
-                    setSelectedUsers(newSelectedUsers);
-                    form.setFieldsValue({ list: newSelectedUsers });
-                    return;
-                  }
-                }}
-                onDeselect={(value) => {
-                  if (String(value).startsWith('dept_')) {
-                    const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
-                      const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
-                      const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
-                        for (const n of nodes) {
-                          if (n.key === deptKey) return n;
-                          if (n.children) {
-                            const found = find(n.children);
-                            if (found) return found;
-                          }
-                        }
-                        return undefined;
-                      })(treeData);
-                      if (!dept) return [];
-                      const getAllUsersFromNode = (node: any): string[] => {
-                        const users: string[] = [];
-                        if (node.children) {
-                          node.children.forEach((child: any) => {
-                            if (child.isLeaf) {
-                              users.push(child.key);
-                            } else {
-                              users.push(...getAllUsersFromNode(child));
-                            }
-                          });
-                        }
-                        return users;
-                      };
-                      return getAllUsersFromNode(dept);
-                    };
-                    const deptUsers = getAllUsersInDeptRecursive(String(value));
-                    const newSelectedUsers = selectedUsers.filter(id => !deptUsers.includes(id));
-                    setSelectedUsers(newSelectedUsers);
-                    form.setFieldsValue({ list: newSelectedUsers });
-                    return;
-                  }
-                }}
-                onChange={(val) => {
-                  const values = Array.isArray(val) ? val : [];
-                  // 递归获取部门下所有成员（包括子部门）
-                  const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
-                    const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
-                    const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
-                      for (const n of nodes) {
-                        if (n.key === deptKey) return n;
-                        if (n.children) {
-                          const found = find(n.children);
-                          if (found) return found;
-                        }
-                      }
-                      return undefined;
-                    })(treeData);
-                    if (!dept) return [];
-
-                    const getAllUsersFromNode = (node: any): string[] => {
-                      const users: string[] = [];
-                      if (node.children) {
-                        node.children.forEach((child: any) => {
-                          if (child.isLeaf) {
-                            users.push(child.key);
-                          } else {
-                            users.push(...getAllUsersFromNode(child));
-                          }
-                        });
-                      }
-                      return users;
-                    };
-                    return getAllUsersFromNode(dept);
-                  };
-                  let finalSelectedUsers: string[] = [];
-                  const deptSelections = values.filter((value: any) => String(value).startsWith('dept_'));
-                  const userSelections = values.filter((value: any) => !String(value).startsWith('dept_'));
-                  deptSelections.forEach(deptId => {
-                    const deptUsers = getAllUsersInDeptRecursive(deptId);
-                    deptUsers.forEach(id => {
-                      if (!finalSelectedUsers.includes(id)) {
-                        finalSelectedUsers.push(id);
-                      }
-                    });
-                  });
-                  userSelections.forEach(userId => {
-                    const userIdStr = String(userId);
-                    if (!finalSelectedUsers.includes(userIdStr)) {
-                      finalSelectedUsers.push(userIdStr);
-                    }
-                  });
-                  // 只保留叶子节点成员id
-                  finalSelectedUsers = finalSelectedUsers.filter(id => treeData.some(dept => {
-                    const findLeaf = (nodes: any[]): boolean => nodes.some(n => (n.isLeaf && n.key === id) || (n.children && findLeaf(n.children)));
-                    return findLeaf([dept]);
-                  }));
-                  setSelectedUsers(finalSelectedUsers);
-                  form.setFieldsValue({ list: finalSelectedUsers });
-                }}
-                tagRender={({ value, closable, onClose }) => {
-                  const userInfo = userProfileCache?.[String(value)];
-                  const nickname = userInfo?.nickname || `用户${value}`;
-                  return <Tag closable={closable} onClose={onClose}>{nickname}</Tag>;
+                onChange={(value) => {
+                  setSelectedUsers(value);
+                  form.setFieldsValue({ list: value });
                 }}
                 placeholder="请选择成员"
-                showSearch
-                filterTreeNode={(input, node) =>
-                  (node.title as string).toLowerCase().includes(input.toLowerCase())
-                }
                 style={{ width: '100%' }}
-                allowClear
-                treeDefaultExpandAll
-                maxTagCount="responsive"
-                popupMatchSelectWidth={false}
               />
             </Form.Item>
             <Form.Item label="描述" name="description"><Input.TextArea /></Form.Item>
           </>}
           {!isBase && <>
             <Form.Item label="用户ID" name="user_id" rules={[{ required: true, message: '请选择用户' }] }>
-              <TreeSelect
-                treeData={treeData}
+              <UserTreeSelect
                 value={form.getFieldValue('user_id') ? [String(form.getFieldValue('user_id'))] : []}
-                treeCheckable={false}
-                showSearch
-                placeholder="请选择用户"
-                allowClear
                 onChange={val => {
                   // 只允许单选
                   const userId = Array.isArray(val) ? val[0] : val;
                   form.setFieldsValue({ user_id: userId });
                 }}
-                filterTreeNode={(input, node) =>
-                  (node.title as string).toLowerCase().includes(input.toLowerCase())
-                }
-                treeDefaultExpandAll
+                placeholder="请选择用户"
                 style={{ width: '100%' }}
-                maxTagCount="responsive"
-                popupMatchSelectWidth={false}
               />
             </Form.Item>
             <Form.Item label="添加数量" name="add_count" initialValue={1} rules={[{ required: true, type: 'number', min: 1, message: '请输入大于0的数量' }] }>

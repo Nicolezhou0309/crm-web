@@ -298,7 +298,7 @@ const LeadsList: React.FC = () => {
               <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
                 筛选
               </Button>
-              <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+              <Button size="small" onClick={() => { if (clearFilters) clearFilters(); if (confirm) confirm(); }}>
                 重置
               </Button>
             </div>
@@ -375,7 +375,7 @@ const LeadsList: React.FC = () => {
               <Button type="primary" size="small" onClick={() => confirm()} style={{ marginRight: 8 }}>
                 筛选
               </Button>
-              <Button size="small" onClick={() => { clearFilters && clearFilters(); confirm && confirm(); }}>
+              <Button size="small" onClick={() => { if (clearFilters) clearFilters(); if (confirm) confirm(); }}>
                 重置
               </Button>
             </div>
@@ -504,7 +504,7 @@ const LeadsList: React.FC = () => {
               <Button
                 size="small"
                 onClick={() => {
-                  clearFilters && clearFilters();
+                  if (clearFilters) clearFilters();
                   setDateRange(null);
                 }}
               >

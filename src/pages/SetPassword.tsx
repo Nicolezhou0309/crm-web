@@ -14,8 +14,8 @@ const SetPassword: React.FC = () => {
   const [tokenValid, setTokenValid] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [completed, setCompleted] = useState(false);
-  const [] = useState<string>('');
   const [inviteData] = useState<any>(null);
+
   const navigate = useNavigate();
   const { user } = useUser();
 
@@ -120,9 +120,9 @@ const SetPassword: React.FC = () => {
       }
       
       // 提取token、type、email
-      let token = urlParams.get('token') || urlParams.get('access_token') || fragmentParams.get('access_token') || fragmentParams.get('token');
-      let tokenType = urlParams.get('type') || fragmentParams.get('type');
-      let email = urlParams.get('email') || fragmentParams.get('email');
+      const token = urlParams.get('token') || urlParams.get('access_token') || fragmentParams.get('access_token') || fragmentParams.get('token');
+      const tokenType = urlParams.get('type') || fragmentParams.get('type');
+      const email = urlParams.get('email') || fragmentParams.get('email');
       console.log('🔍 [SetPassword] 提取到的token:', token);
       console.log('🔍 [SetPassword] 提取到的tokenType:', tokenType);
       console.log('🔍 [SetPassword] 提取到的email:', email);

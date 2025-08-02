@@ -62,7 +62,9 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { TabPane } = Tabs;
 
-interface LiveStreamManagementProps {}
+interface LiveStreamManagementProps {
+  // 组件属性定义，用于扩展性
+}
 
 const LiveStreamManagement: React.FC<LiveStreamManagementProps> = () => {
   const [schedules, setSchedules] = useState<LiveStreamSchedule[]>([]);

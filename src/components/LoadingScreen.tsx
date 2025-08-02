@@ -98,6 +98,7 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
       
       // 减少日志输出频率，只在开发环境下记录
       if (process.env.NODE_ENV === 'development') {
+        // 开发环境下的清理逻辑可以在这里添加
       }
     };
   }, []); // 移除所有依赖，只在组件挂载时执行一次

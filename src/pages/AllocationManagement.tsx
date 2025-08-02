@@ -18,8 +18,7 @@ import {
   Switch,
   InputNumber,
   Alert,
-  Tooltip,
-  TreeSelect
+  Tooltip
 } from 'antd';
 import {
   PlusOutlined,
@@ -44,6 +43,7 @@ import type {
   UserGroup} from '../types/allocation';
 import { ALLOCATION_METHODS, WEEKDAY_OPTIONS } from '../types/allocation';
 import AllocationFlowChart from '../components/AllocationFlowChart';
+import UserTreeSelect from '../components/UserTreeSelect';
 import { supabase } from '../supaClient';
 import dayjs from 'dayjs';
 import { validateRuleForm, validateGroupForm } from '../utils/validationUtils';
@@ -1012,84 +1012,8 @@ const AllocationManagement: React.FC = () => {
     loadAllUsers();
   }, []);
 
-
-  // TreeSelect数据状态
-  const [treeData, setTreeData] = useState<any[]>([]);
-  // 1. TreeSelect成员选择器相关状态
+  // TreeSelect成员选择器相关状态
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-
-  // 加载部门树和成员
-  const loadDeptTreeData = async () => {
-    try {
-      const { data: orgs } = await supabase.from('organizations').select('id, name, parent_id');
-      const { data: users } = await supabase
-        .from('users_profile')
-        .select('id, nickname, organization_id')
-        .eq('status', 'active');
-
-      // 同时加载用户信息到缓存
-      if (users && users.length > 0) {
-        const newCache = users.reduce((acc, user) => ({
-          ...acc,
-          [String(user.id)]: { nickname: user.nickname || `用户${user.id}`, status: 'active' }
-        }), {});
-        setUserProfileCache(prev => ({ ...prev, ...newCache }));
-      }
-
-      // 递归组装部门树
-      const buildTree = (parentId: string | null): any[] => {
-        return (orgs || [])
-          .filter(dep => dep.parent_id === parentId)
-          .map(dep => {
-            const deptUsers = (users || []).filter(u => u.organization_id === dep.id);
-            const subDepts = buildTree(dep.id);
-            
-            return {
-              title: `${dep.name} (${deptUsers.length}人)`,
-              value: `dept_${dep.id}`,
-              key: `dept_${dep.id}`,
-              children: [
-                // 部门下成员
-                ...deptUsers.map(u => ({
-                  title: u.nickname,
-                  value: String(u.id),
-                  key: String(u.id),
-                  isLeaf: true
-                })),
-                // 递归子部门
-                ...subDepts
-              ]
-            };
-          });
-      };
-
-          // 未分配部门成员
-    const ungrouped = (users || [])
-      .filter(u => !u.organization_id)
-      .map(u => ({
-        title: u.nickname,
-        value: String(u.id),
-        key: String(u.id),
-        isLeaf: true
-      }));
-
-    const tree = buildTree(null);
-    if (ungrouped.length > 0) {
-      tree.push({
-        title: `未分配部门 (${ungrouped.length}人)`,
-        value: 'dept_none',
-        key: 'dept_none',
-        children: ungrouped
-      });
-    }
-      
-      setTreeData(tree);
-    } catch (error) {
-      console.error('加载部门树数据失败:', error);
-    }
-  };
-
-  useEffect(() => { loadDeptTreeData(); }, []);
 
   // 编辑时同步选中成员
   useEffect(() => {
@@ -2236,243 +2160,14 @@ const AllocationManagement: React.FC = () => {
             label="成员ID列表"
             rules={[{ required: true, message: '请选择成员' }]}
           >
-            <TreeSelect
-              treeData={treeData}
+            <UserTreeSelect
               value={selectedUsers}
-              treeCheckable
-              showCheckedStrategy={TreeSelect.SHOW_CHILD}
-              treeCheckStrictly={false}
-              onSelect={(value) => {
-                // 如果是部门节点，处理全选/全不选
-                if (String(value).startsWith('dept_')) {
-                  // 递归获取部门下所有成员（包括子部门）
-                  const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
-                    const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
-                    const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
-                      for (const n of nodes) {
-                        if (n.key === deptKey) return n;
-                        if (n.children) {
-                          const found = find(n.children);
-                          if (found) return found;
-                        }
-                      }
-                      return undefined;
-                    })(treeData);
-                    
-                    if (!dept) return [];
-                    
-                    // 递归获取所有子部门的用户
-                    const getAllUsersFromNode = (node: any): string[] => {
-                      const users: string[] = [];
-                      if (node.children) {
-                        node.children.forEach((child: any) => {
-                          if (child.isLeaf) {
-                            users.push(child.key);
-                          } else {
-                            users.push(...getAllUsersFromNode(child));
-                          }
-                        });
-                      }
-                      return users;
-                    };
-                    
-                    return getAllUsersFromNode(dept);
-                  };
-                  
-                  const deptUsers = getAllUsersInDeptRecursive(String(value));
-                  
-                  // 检查该部门是否已经全部选中
-                  const allSelected = deptUsers.length > 0 && deptUsers.every((id: string) => selectedUsers.includes(id));
-                  
-                  let newSelectedUsers = [...selectedUsers];
-                  
-                  if (allSelected) {
-                    // 如果部门已全部选中，则全不选
-                    newSelectedUsers = newSelectedUsers.filter(id => !deptUsers.includes(id));
-                  } else {
-                    // 如果部门未全部选中，则全选
-                    deptUsers.forEach((id: string) => {
-                      if (!newSelectedUsers.includes(id)) {
-                        newSelectedUsers.push(id);
-                      }
-                    });
-                  }
-                  
-                  setSelectedUsers(newSelectedUsers);
-                  groupForm.setFieldsValue({ list: newSelectedUsers });
-                  return; // 阻止默认的onChange处理
-                }
-              }}
-              onDeselect={(value) => {
-                // 如果是部门节点，处理全不选
-                if (String(value).startsWith('dept_')) {
-                  // 递归获取部门下所有成员（包括子部门）
-                  const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
-                    const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
-                    const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
-                      for (const n of nodes) {
-                        if (n.key === deptKey) return n;
-                        if (n.children) {
-                          const found = find(n.children);
-                          if (found) return found;
-                        }
-                      }
-                      return undefined;
-                    })(treeData);
-                    
-                    if (!dept) return [];
-                    
-                    // 递归获取所有子部门的用户
-                    const getAllUsersFromNode = (node: any): string[] => {
-                      const users: string[] = [];
-                      if (node.children) {
-                        node.children.forEach((child: any) => {
-                          if (child.isLeaf) {
-                            users.push(child.key);
-                          } else {
-                            users.push(...getAllUsersFromNode(child));
-                          }
-                        });
-                      }
-                      return users;
-                    };
-                    
-                    return getAllUsersFromNode(dept);
-                  };
-                  
-                  const deptUsers = getAllUsersInDeptRecursive(String(value));
-                  
-                  const newSelectedUsers = selectedUsers.filter(id => !deptUsers.includes(id));
-                  
-                  setSelectedUsers(newSelectedUsers);
-                  groupForm.setFieldsValue({ list: newSelectedUsers });
-                  return; // 阻止默认的onChange处理
-                }
-              }}
               onChange={(val) => {
-                const values = Array.isArray(val) ? val : [];
-                
-                // 递归获取部门下所有成员id（字符串）
-                const getAllUsersInDept = (deptKey: string): string[] => {
-                  const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
-                  const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
-                    for (const n of nodes) {
-                      if (n.key === deptKey) return n;
-                      if (n.children) {
-                        const found = find(n.children);
-                        if (found) return found;
-                      }
-                    }
-                    return undefined;
-                  })(treeData);
-                  if (!dept) return [];
-                  const allUsers: string[] = [];
-                  const directUsers = dept.children?.filter((child: any) => child.isLeaf).map((child: any) => child.key) || [];
-                  allUsers.push(...directUsers);
-                  const subDepts = dept.children?.filter((child: any) => !child.isLeaf) || [];
-                  subDepts.forEach((subDept: any) => {
-                    const subUsers = getAllUsersInDept(subDept.key);
-                    allUsers.push(...subUsers);
-                  });
-                  return allUsers;
-                };
-                
-                // 使用新增逻辑 + 递归全选/全不选
-                
-                // 递归获取部门下所有成员（包括子部门）
-                const getAllUsersInDeptRecursive = (deptKey: string): string[] => {
-                  const findDept = (nodes: any[]): any | undefined => nodes.find(n => n.key === deptKey);
-                  const dept = findDept(treeData) || (function find(nodes: any[]): any | undefined {
-                    for (const n of nodes) {
-                      if (n.key === deptKey) return n;
-                      if (n.children) {
-                        const found = find(n.children);
-                        if (found) return found;
-                      }
-                    }
-                    return undefined;
-                  })(treeData);
-                  
-                  if (!dept) return [];
-                  
-                  
-                  // 递归获取所有子部门的用户
-                  const getAllUsersFromNode = (node: any): string[] => {
-                    const users: string[] = [];
-                    if (node.children) {
-                      node.children.forEach((child: any) => {
-                        if (child.isLeaf) {
-                          users.push(child.key);
-                        } else {
-                          users.push(...getAllUsersFromNode(child));
-                        }
-                      });
-                    }
-                    return users;
-                  };
-                  
-                  return getAllUsersFromNode(dept);
-                };
-                
-                // 分离处理：部门选择和人员选择
-                let finalSelectedUsers: string[] = [];
-                
-                // 分离部门选择和人员选择
-                const deptSelections = values.filter((value: any) => String(value).startsWith('dept_'));
-                const userSelections = values.filter((value: any) => !String(value).startsWith('dept_'));
-                
-                // 1. 处理部门选择：只有全选/全不选
-                deptSelections.forEach(deptId => {
-                  const deptUsers = getAllUsersInDeptRecursive(deptId);
-                  
-                  // 全选该部门的所有成员
-                  deptUsers.forEach(id => {
-                    if (!finalSelectedUsers.includes(id)) {
-                      finalSelectedUsers.push(id);
-                    }
-                  });
-                });
-                
-                // 2. 处理人员选择：单独处理
-                userSelections.forEach(userId => {
-                  const userIdStr = String(userId);
-                  if (!finalSelectedUsers.includes(userIdStr)) {
-                    finalSelectedUsers.push(userIdStr);
-                  }
-                });
-                
-                // 只保留叶子节点成员id
-                finalSelectedUsers = finalSelectedUsers.filter(id => treeData.some(dept => {
-                  const findLeaf = (nodes: any[]): boolean => nodes.some(n => (n.isLeaf && n.key === id) || (n.children && findLeaf(n.children)));
-                  return findLeaf([dept]);
-                }));
-                
-                setSelectedUsers(finalSelectedUsers);
-                groupForm.setFieldsValue({ list: finalSelectedUsers });
-              }}
-              tagRender={({ value, closable, onClose }) => {
-                const userInfo = userProfileCache?.[String(value)];
-                const nickname = userInfo?.nickname || `用户${value}`;
-                return <Tag closable={closable} onClose={onClose}>{nickname}</Tag>;
+                setSelectedUsers(val);
+                groupForm.setFieldsValue({ list: val });
               }}
               placeholder="请选择成员"
-              showSearch
-              filterTreeNode={(input, node) =>
-                (node.title as string).toLowerCase().includes(input.toLowerCase())
-              }
               style={{ width: '100%' }}
-              allowClear
-              treeDefaultExpandAll
-              maxTagCount="responsive"
-              styles={{
-                popup: {
-                  root: {
-                    maxHeight: 400,
-                    overflow: 'auto'
-                  }
-                }
-              }}
-              popupMatchSelectWidth={false}
             />
           </Form.Item>
 

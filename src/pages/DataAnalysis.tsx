@@ -103,7 +103,9 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
-interface DataAnalysisProps {}
+interface DataAnalysisProps {
+  // 空接口，用于扩展性
+}
 
 interface PivotConfig {
   id?: string;
@@ -327,9 +329,6 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       }
 
       if (pivotData) {
-        
-                    if (pivotData.sql) {
-            }
         
         if (pivotData.error) {
           message.error('透视表计算失败: ' + pivotData.error);
@@ -986,7 +985,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       case 'columns':
         config.columnFields = fields;
         break;
-      case 'values':
+      case 'values': {
         // 保持原有的valueFields结构
         const valueFields = fields.map(field => {
           const existing = config.valueFields.find(vf => vf.field === field);
@@ -994,7 +993,8 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
         });
         config.valueFields = valueFields;
         break;
-      case 'filters':
+      }
+      case 'filters': {
         // 保持原有的filters结构
         const filters = fields.map(field => {
           const existing = config.filters.find(f => f.field === field);
@@ -1002,6 +1002,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
         });
         config.filters = filters;
         break;
+      }
     }
   };
 
@@ -1477,6 +1478,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
                         handleConfigFieldDrop(dragData, area, index);
                       }
                     } catch (error) {
+                      console.error('处理拖拽数据失败:', error);
                     }
                   }}
                   style={{ 

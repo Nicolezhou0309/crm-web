@@ -4,9 +4,7 @@ import type {
   LiveStreamRegistration, 
   LiveStreamManager, 
   LiveStreamLocation, 
-  LiveStreamPropertyType,
-  WeeklySchedule
-} from '../types/liveStream';
+  LiveStreamPropertyType} from '../types/liveStream';
 import { 
   TIME_SLOTS,
   SAMPLE_MANAGERS,
@@ -450,20 +448,18 @@ export const checkTimeSlotAvailability = async (date: string, timeSlotId: string
 };
 
 // 以下函数暂时保留，用于兼容性
-export const createLiveStreamRegistration = async (registration: Omit<LiveStreamRegistration, 'id' | 'createdAt' | 'updatedAt'>): Promise<LiveStreamRegistration> => {
+export const createLiveStreamRegistration = async (_registration: Omit<LiveStreamRegistration, 'id' | 'createdAt' | 'updatedAt'>): Promise<LiveStreamRegistration> => {
   // 这个功能现在通过 createLiveStreamSchedule 实现
   throw new Error('此功能已废弃，请使用 createLiveStreamSchedule');
 };
 
 export const updateRegistrationStatus = async (
-  registrationId: string, 
-  status: 'pending' | 'approved' | 'rejected'
-): Promise<LiveStreamRegistration> => {
+  _registrationId: string): Promise<LiveStreamRegistration> => {
   // 这个功能现在通过 updateLiveStreamSchedule 实现
   throw new Error('此功能已废弃，请使用 updateLiveStreamSchedule');
 };
 
-export const getUserRegistrations = async (userId: string): Promise<LiveStreamRegistration[]> => {
+export const getUserRegistrations = async (_userId: string): Promise<LiveStreamRegistration[]> => {
   // 这个功能现在通过 getWeeklySchedule 实现
   throw new Error('此功能已废弃，请使用 getWeeklySchedule');
 };

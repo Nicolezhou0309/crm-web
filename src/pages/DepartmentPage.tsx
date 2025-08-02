@@ -112,6 +112,7 @@ const DepartmentPage = () => {
         
         pointsData = points || [];
       } else {
+        // 没有用户时的处理逻辑
       }
       
       // 获取销售组信息 - 使用 profile.id (bigint) 而不是 user_id (uuid)
@@ -189,6 +190,7 @@ const DepartmentPage = () => {
       
       pointsData = points || [];
     } else {
+      // 没有用户时的处理逻辑
     }
     
     // 获取销售组信息 - 使用 profile.id (bigint) 而不是 user_id (uuid)
