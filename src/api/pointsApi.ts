@@ -2,6 +2,8 @@ import { supabase } from '../supaClient';
 
 // 获取当前登录用户的 users_profile int8 id
 export async function getCurrentProfileId() {
+  // 注意：这个函数在API层面，无法直接使用useUser Hook
+  // 保持原有的实现，但在组件层面应该使用useUser
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data, error } = await supabase

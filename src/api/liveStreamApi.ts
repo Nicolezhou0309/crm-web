@@ -142,14 +142,13 @@ export const getWeeklySchedule = async (weekStart: string, weekEnd: string): Pro
         name: schedule.location || ''
       },
       propertyType: {
-        id: schedule.notes || 'default',
-        name: schedule.notes || '默认户型'
+        id: schedule.notes || '',
+        name: schedule.notes || ''
       },
       status: schedule.status,
       createdAt: schedule.created_at,
       updatedAt: schedule.updated_at,
-      createdBy: schedule.created_by, // 添加创建者ID
-      // 添加并发控制相关字段
+      createdBy: schedule.created_by,
       editingBy: schedule.editing_by,
       editingAt: schedule.editing_at,
       editingExpiresAt: schedule.editing_expires_at,
@@ -167,7 +166,8 @@ export const getWeeklySchedule = async (weekStart: string, weekEnd: string): Pro
 export const createLiveStreamSchedule = async (schedule: Omit<LiveStreamSchedule, 'id' | 'createdAt' | 'updatedAt'>): Promise<LiveStreamSchedule> => {
   try {
     // 获取当前用户ID
-    const { data: { user } } = await supabase.auth.getUser();
+          // 注意：这个函数在API层面，无法直接使用useUser Hook
+      const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('用户未登录');
 
     const { data: userProfile, error: profileError } = await supabase
@@ -181,11 +181,17 @@ export const createLiveStreamSchedule = async (schedule: Omit<LiveStreamSchedule
     const scheduleData = {
       date: schedule.date,
       time_slot_id: schedule.timeSlotId,
-      participant_ids: schedule.managers && schedule.managers.length > 0 ? schedule.managers.map(m => parseInt(m.id)) : null,
+      participant_ids: schedule.managers && schedule.managers.length > 0 ? schedule.managers.map(m => parseInt(m.id)) : [],
       location: schedule.location?.name || null,
       notes: schedule.propertyType?.name || null,
-      status: schedule.status,
+      status: schedule.status || undefined, // 如果没有明确指定状态，使用数据库默认值
       created_by: userProfile.id,
+      // 如果状态为editing，设置编辑者
+      ...(schedule.status === 'editing' && {
+        editing_by: userProfile.id,
+        editing_at: new Date().toISOString(),
+        editing_expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5分钟后过期
+      })
     };
 
     const { data, error } = await supabase
@@ -228,61 +234,150 @@ export const updateLiveStreamSchedule = async (
   updates: Partial<LiveStreamSchedule>
 ): Promise<LiveStreamSchedule> => {
   try {
+    console.log('🔄 API: 开始更新直播安排');
+    console.log('  - 记录ID:', scheduleId);
+    console.log('  - 更新数据:', updates);
+    console.log('  - 目标状态:', updates.status);
+    
     const updateData: any = {};
     
     if (updates.managers) {
+      // 将manager IDs转换为数字数组
       updateData.participant_ids = updates.managers.length > 0 ? updates.managers.map(m => parseInt(m.id)) : [];
+      console.log('  - 参与者IDs:', updateData.participant_ids);
     }
     if (updates.location) {
       updateData.location = updates.location.name || null;
+      console.log('  - 地点:', updateData.location);
     }
     if (updates.propertyType) {
       updateData.notes = updates.propertyType.name || null;
+      console.log('  - 户型:', updateData.notes);
     }
     if (updates.status) {
       updateData.status = updates.status;
+      console.log('  - 状态:', updateData.status);
+      
+      // 如果状态变为editing，设置编辑者
+      if (updates.status === 'editing') {
+        // 获取当前用户ID
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: userProfile, error: profileError } = await supabase
+            .from('users_profile')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (!profileError && userProfile) {
+            updateData.editing_by = userProfile.id;
+            updateData.editing_at = new Date().toISOString();
+            updateData.editing_expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5分钟后过期
+            console.log('  - 设置编辑者:', userProfile.id);
+          }
+        }
+      }
+      
+      // 如果状态变为booked，清除编辑者信息
+      if (updates.status === 'booked') {
+        updateData.editing_by = null;
+        updateData.editing_at = null;
+        updateData.editing_expires_at = null;
+        console.log('  - 清除编辑者信息（完成编辑）');
+      }
     }
+
+    console.log('📊 准备更新到数据库的数据:', updateData);
 
     const { data, error } = await supabase
       .from('live_stream_schedules')
       .update(updateData)
-      .eq('id', parseInt(scheduleId))
+      .eq('id', scheduleId)
       .select()
       .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ 数据库更新失败:', error);
+      throw error;
+    }
+    
+    console.log('✅ 数据库更新成功');
+    console.log('  - 更新结果:', data);
+    
     if (!data) {
+      console.error('❌ 未找到要更新的直播安排');
       throw new Error('未找到要更新的直播安排');
     }
 
-    // 获取更新后的完整数据
-    const updatedSchedule = await getWeeklySchedule(data.date, data.date);
-    return updatedSchedule.find(s => s.id === scheduleId) || {
-      id: data.id.toString(),
-      date: data.date,
-      timeSlotId: data.time_slot_id,
-      managers: (data.participant_ids && Array.isArray(data.participant_ids) ? data.participant_ids : []).map((id: number) => ({
-        id: id.toString(),
-        name: '未知用户',
+    console.log('🔄 获取更新后的完整数据');
+    // 获取更新后的完整数据，包括关联信息
+    const { data: fullData, error: fullError } = await supabase
+      .from('live_stream_schedules')
+      .select('*')
+      .eq('id', scheduleId)
+      .single();
+
+    if (fullError) {
+      console.error('❌ 获取完整数据失败:', fullError);
+      throw fullError;
+    }
+
+    console.log('✅ 获取完整数据成功');
+    console.log('  - 完整数据:', fullData);
+    console.log('  - 数据库中的状态:', fullData.status);
+
+    // 获取manager信息
+    const participantIds = fullData.participant_ids || [];
+    let managers: any[] = [];
+    
+    if (participantIds.length > 0) {
+      console.log('🔄 获取参与者信息');
+      const { data: participantData } = await supabase
+        .from('users_profile')
+        .select('id, nickname, email')
+        .in('id', participantIds);
+      
+      managers = (participantData || []).map(p => ({
+        id: p.id.toString(),
+        name: p.nickname || p.email,
         department: '',
         avatar: undefined
-      })),
-      location: { id: data.location || 'default', name: data.location || '' },
-      propertyType: { id: data.notes || 'default', name: data.notes || '默认户型' },
-      status: data.status,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-      createdBy: data.created_by, // 添加创建者ID
-      // 添加并发控制相关字段
-      editingBy: data.editing_by,
-      editingAt: data.editing_at,
-      editingExpiresAt: data.editing_expires_at,
-      lockType: data.lock_type,
-      lockReason: data.lock_reason,
-      lockEndTime: data.lock_end_time,
+      }));
+      console.log('  - 参与者信息:', managers);
+    }
+
+    const result = {
+      id: fullData.id.toString(),
+      date: fullData.date,
+      timeSlotId: fullData.time_slot_id,
+      managers: managers,
+      location: { 
+        id: fullData.location || 'default', 
+        name: fullData.location || '' 
+      },
+      propertyType: { 
+        id: fullData.notes || '', 
+        name: fullData.notes || '' 
+      },
+      status: fullData.status,
+      createdAt: fullData.created_at,
+      updatedAt: fullData.updated_at,
+      createdBy: fullData.created_by,
+      editingBy: fullData.editing_by,
+      editingAt: fullData.editing_at,
+      editingExpiresAt: fullData.editing_expires_at,
+      lockType: fullData.lock_type,
+      lockReason: fullData.lock_reason,
+      lockEndTime: fullData.lock_end_time,
     };
+
+    console.log('✅ API返回结果:');
+    console.log('  - 最终状态:', result.status);
+    console.log('  - 完整结果:', result);
+    
+    return result;
   } catch (error) {
-    console.error('更新直播安排失败:', error);
+    console.error('❌ 更新直播安排失败:', error);
     throw error;
   }
 };
@@ -371,4 +466,33 @@ export const updateRegistrationStatus = async (
 export const getUserRegistrations = async (userId: string): Promise<LiveStreamRegistration[]> => {
   // 这个功能现在通过 getWeeklySchedule 实现
   throw new Error('此功能已废弃，请使用 getWeeklySchedule');
+};
+
+// 清理过期的编辑状态
+export const cleanupExpiredEditingStatus = async (): Promise<void> => {
+  try {
+    console.log('🧹 开始清理过期的编辑状态');
+    
+    const { data, error } = await supabase
+      .from('live_stream_schedules')
+      .update({
+        status: 'available',
+        editing_by: null,
+        editing_at: null,
+        editing_expires_at: null
+      })
+      .eq('status', 'editing')
+      .lt('editing_expires_at', new Date().toISOString())
+      .select();
+
+    if (error) {
+      console.error('❌ 清理过期编辑状态失败:', error);
+      throw error;
+    }
+
+    console.log('✅ 清理过期编辑状态成功，清理记录数:', data?.length || 0);
+  } catch (error) {
+    console.error('❌ 清理过期编辑状态时发生异常:', error);
+    throw error;
+  }
 };

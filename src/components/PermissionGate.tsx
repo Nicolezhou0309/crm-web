@@ -116,25 +116,4 @@ export const AdminOnly: React.FC<{ children: React.ReactNode; fallback?: React.R
   </PermissionGate>
 );
 
-// 权限检查Hook
-export const usePermissionCheck = () => {
-  const { 
-    hasPermission, 
-    hasAnyPermission, 
-    hasAllPermissions,
-    hasRole,
-    hasAnyRole,
-    isSuperAdmin,
-    isSystemAdmin
-  } = useRolePermissions();
-
-  return {
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions,
-    hasRole,
-    hasAnyRole,
-    isSuperAdmin,
-    isSystemAdmin
-  };
-}; 
+ 

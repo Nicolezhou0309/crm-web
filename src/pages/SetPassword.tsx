@@ -3,6 +3,7 @@ import { Form, Input, Button, message, Card, Typography, Spin, Alert } from 'ant
 import { LockOutlined, MailOutlined, CheckCircleOutlined, SafetyOutlined } from '@ant-design/icons';
 import { supabase } from '../supaClient';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 
 const { Title, Text } = Typography;
 
@@ -16,6 +17,7 @@ const SetPassword: React.FC = () => {
   const [] = useState<string>('');
   const [inviteData] = useState<any>(null);
   const navigate = useNavigate();
+  const { user } = useUser();
 
   useEffect(() => {
     let tokenFetched = false;
@@ -137,9 +139,8 @@ const SetPassword: React.FC = () => {
         return;
       }
       
-      // 检查session
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('🔍 [SetPassword] supabase.auth.getUser() 返回:', user);
+      // 检查session - 使用统一的用户上下文
+      console.log('🔍 [SetPassword] 使用统一的用户上下文:', user);
       
       if (!user && token && (tokenType === 'recovery' || tokenType === 'invite') && email) {
         // 主动用 token 登录

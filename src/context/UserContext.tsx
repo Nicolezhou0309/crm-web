@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supaClient';
 import SessionTimeoutWarning from '../components/SessionTimeoutWarning';
+// import { useUnifiedAuth } from '../hooks/useUnifiedAuth';
+
 
 interface UserProfile {
   id: number;
@@ -48,9 +50,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [showSessionWarning, setShowSessionWarning] = useState(false);
   const [loading, setLoading] = useState(true);
   
+  // 使用统一的认证Hook - 暂时注释掉未使用的变量
+  // const { smartTokenRefresh } = useUnifiedAuth();
+  
   // 使用 useRef 来避免循环依赖
   const userRef = useRef(user);
-  const isProcessingAuthRef = useRef(false);
   userRef.current = user;
 
   // 处理登出
@@ -238,40 +242,27 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 初始化时获取用户信息
     refreshUser();
     
-    // 监听认证状态变化
+    // 监听认证状态变化 - 简化版本，避免重复处理
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state change:', event, session?.user?.id);
-      
-      // 防止重复处理
-      if (isProcessingAuthRef.current) {
-        return;
-      }
-      
-      if (event === 'SIGNED_IN') {
-        // 如果用户已经存在且ID相同，不重复刷新
-        if (userRef.current && userRef.current.id === session?.user?.id) {
-          return;
+      if (event === 'SIGNED_IN' && session?.user) {
+        // 只在用户ID不同时刷新
+        if (!userRef.current || userRef.current.id !== session.user.id) {
+          refreshUser();
         }
-        
-        isProcessingAuthRef.current = true;
-        refreshUser().finally(() => {
-          isProcessingAuthRef.current = false;
-        });
       } else if (event === 'SIGNED_OUT') {
-        isProcessingAuthRef.current = true;
         setUser(null);
         setProfile(null);
         setPermissions(null);
         setSessionTimeRemaining(0);
         setShowSessionWarning(false);
-        isProcessingAuthRef.current = false;
       }
+      // 移除TOKEN_REFRESHED处理，由useUnifiedAuth统一处理
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []); // 移除 user 依赖，避免循环
+  }, [refreshUser]);
 
   const value: UserContextType = {
     user,

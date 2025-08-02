@@ -224,7 +224,7 @@ const BannerManagement: React.FC = () => {
   const columns = [
     { title: '图片', dataIndex: 'image_url', render: (url: string, record: Banner) => { console.log('[Table render] 图片', record); return <Image src={url} width={120} />; } },
     { title: '标题', dataIndex: 'title', render: (text: string, record: Banner) => { console.log('[Table render] 标题', record); return text; } },
-    { title: '页面类型', dataIndex: 'page_type', render: (text: string, record: Banner) => { 
+    { title: '页面类型', dataIndex: 'page_type', render: (text: string, _record: Banner) => { 
       const option = pageTypeOptions.find(opt => opt.key === text);
       return option ? option.label : text;
     }},

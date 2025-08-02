@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supaClient';
 
 interface UserRole {
@@ -40,6 +40,11 @@ export const useRolePermissions = () => {
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [isDepartmentAdmin, setIsDepartmentAdmin] = useState(false);
   const [manageableOrganizations, setManageableOrganizations] = useState<OrganizationInfo[]>([]);
+  
+  // 权限缓存
+  const permissionCacheRef = useRef<Map<string, { value: boolean; timestamp: number }>>(new Map());
+  const roleCacheRef = useRef<Map<string, { value: boolean; timestamp: number }>>(new Map());
+  const cacheTTL = 5 * 60 * 1000; // 5分钟缓存
 
   useEffect(() => {
     fetchUserData();
@@ -172,12 +177,28 @@ export const useRolePermissions = () => {
     }
   };
 
-  // 检查是否有特定权限
+  // 检查是否有特定权限（带缓存）
   const hasPermission = useCallback((permission: string): boolean => {
+    // 检查缓存
+    const cached = permissionCacheRef.current.get(permission);
+    if (cached && Date.now() - cached.timestamp < cacheTTL) {
+      return cached.value;
+    }
     
     const hasPerm = isSuperAdmin || userPermissions.some((p: any) => p.permission_name === permission);
+    
+    // 缓存结果
+    permissionCacheRef.current.set(permission, {
+      value: hasPerm,
+      timestamp: Date.now()
+    });
+    
+    // 调试信息 - 只在开发环境显示
+    if (process.env.NODE_ENV === 'development') {
+    }
+    
     return hasPerm;
-  }, [userPermissions, isSuperAdmin]);
+  }, [userPermissions, isSuperAdmin, cacheTTL]);
 
   // 检查是否有多个权限中的任意一个
   const hasAnyPermission = useCallback((permissions: string[]): boolean => {
@@ -191,11 +212,28 @@ export const useRolePermissions = () => {
     return hasAll;
   }, [hasPermission, isSuperAdmin]);
 
-  // 检查是否有特定角色
+  // 检查是否有特定角色（带缓存）
   const hasRole = useCallback((roleName: string): boolean => {
+    // 检查缓存
+    const cached = roleCacheRef.current.get(roleName);
+    if (cached && Date.now() - cached.timestamp < cacheTTL) {
+      return cached.value;
+    }
+    
     const hasRolePerm = userRoles.some(role => role.role_name === roleName);
+    
+    // 缓存结果
+    roleCacheRef.current.set(roleName, {
+      value: hasRolePerm,
+      timestamp: Date.now()
+    });
+    
+    // 调试信息 - 只在开发环境显示
+    if (process.env.NODE_ENV === 'development') {
+    }
+    
     return hasRolePerm;
-  }, [userRoles]);
+  }, [userRoles, cacheTTL]);
 
   // 检查是否有多个角色中的任意一个
   const hasAnyRole = useCallback((roleNames: string[]): boolean => {
@@ -230,7 +268,16 @@ export const useRolePermissions = () => {
 
   // 刷新权限数据
   const refreshPermissions = useCallback(() => {
+    // 清除缓存
+    permissionCacheRef.current.clear();
+    roleCacheRef.current.clear();
     fetchUserData();
+  }, []);
+
+  // 清除权限缓存
+  const clearPermissionCache = useCallback(() => {
+    permissionCacheRef.current.clear();
+    roleCacheRef.current.clear();
   }, []);
 
   // 组织管理权限方法
@@ -268,10 +315,17 @@ export const useRolePermissions = () => {
     getPermissionsByCategory,
     getExpiringRoles,
     refreshPermissions,
+    clearPermissionCache,
     // 组织管理权限
     canManageOrganization,
     canManageUser,
     getManageableOrganizationIds,
     getManageableOrganizations,
+    // 便捷方法
+    checkPermission: hasPermission,
+    checkRole: hasRole,
+    checkAnyPermission: hasAnyPermission,
+    checkAllPermissions: hasAllPermissions,
+    checkAnyRole: hasAnyRole,
   };
 }; 

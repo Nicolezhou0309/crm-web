@@ -90,11 +90,11 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
       };
     }
     
-    const mountTime = Date.now();
+    // const mountTime = Date.now();
     
     return () => {
-      const unmountTime = Date.now();
-      const duration = unmountTime - mountTime;
+      // const unmountTime = Date.now();
+      // const duration = unmountTime - mountTime;
       
       // 减少日志输出频率，只在开发环境下记录
       if (process.env.NODE_ENV === 'development') {

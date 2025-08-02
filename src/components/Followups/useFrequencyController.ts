@@ -54,7 +54,8 @@ export function useFrequencyController() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      // 注意：这个函数在Hook层面，但无法直接使用useUser Hook
+    const { data: { user } } = await supabase.auth.getUser();
       if (user && user.id) {
         const { data: profileData, error: profileError } = await supabase
           .from('users_profile')

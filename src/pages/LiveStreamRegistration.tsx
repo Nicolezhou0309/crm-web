@@ -1,53 +1,549 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Button, Table, Tag, Modal, Form, Select, message, Tooltip, Space } from 'antd';
-import { UserOutlined, EnvironmentOutlined, HomeOutlined, PlusOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { UserOutlined, EnvironmentOutlined, HomeOutlined, PlusOutlined, CheckCircleOutlined, VideoCameraAddOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import type { LiveStreamSchedule, LiveStreamManager, LiveStreamLocation, LiveStreamPropertyType } from '../types/liveStream';
 import { TIME_SLOTS } from '../types/liveStream';
-import { getLiveStreamManagers, getLiveStreamLocations, getLiveStreamPropertyTypes, createLiveStreamSchedule, updateLiveStreamSchedule, getWeeklySchedule } from '../api/liveStreamApi';
+import { getLiveStreamManagers, getLiveStreamLocations, getLiveStreamPropertyTypes, createLiveStreamSchedule, updateLiveStreamSchedule, getWeeklySchedule, cleanupExpiredEditingStatus } from '../api/liveStreamApi';
 import { fetchBannersByPageType } from '../api/bannersApi';
 import { supabase } from '../supaClient';
 import { useRealtimeConcurrencyControl } from '../hooks/useRealtimeConcurrencyControl';
+import { useUser } from '../context/UserContext';
 const { Option } = Select;
 
-// 编辑倒计时组件
-const EditCountdown: React.FC<{ scheduleId: string }> = ({ scheduleId }) => {
-  const [timeLeft, setTimeLeft] = useState<number>(0);
-  const { getEditLockInfo } = useRealtimeConcurrencyControl();
 
-  useEffect(() => {
-    const updateTimeLeft = () => {
-      const lockInfo = getEditLockInfo(scheduleId);
-      if (lockInfo && lockInfo.editing_expires_at) {
-        const expiresAt = new Date(lockInfo.editing_expires_at);
-        const now = new Date();
-        const remaining = Math.floor((expiresAt.getTime() - now.getTime()) / 1000);
-        setTimeLeft(remaining);
-      }
-    };
 
-    // 立即更新一次
-    updateTimeLeft();
-
-    // 每秒更新一次
-    const interval = setInterval(updateTimeLeft, 1000);
-
-    return () => clearInterval(interval);
-  }, [scheduleId, getEditLockInfo]);
-
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  // 即使时间到了也继续显示倒计时，直到真正释放
-  if (timeLeft <= 0) {
-    return <span>即将释放</span>;
+// 独立的卡片组件，使用memo优化性能
+const ScheduleCard = memo<{
+  schedule: LiveStreamSchedule | undefined;
+  timeSlot: any;
+  dateInfo: any;
+  onCardClick: (schedule: LiveStreamSchedule | undefined, timeSlot: any, dateInfo: any) => void;
+  userAvatars: { [key: number]: string };
+  avatarFrames: { [key: number]: string };
+  isConnected: boolean;
+  getCardColor: (id: string) => { bg: string; text: string };
+  cardUpdateKey?: number;
+  currentUserId?: string;
+  currentProfileId?: number;
+}>(({ 
+  schedule, 
+  timeSlot, 
+  dateInfo, 
+  onCardClick, 
+  userAvatars, 
+  avatarFrames, 
+  isConnected, 
+  getCardColor,
+  cardUpdateKey,
+  currentUserId,
+  currentProfileId
+}) => {
+  // 检查是否可以编辑：无记录、状态为available、或状态为空（排除editing状态）
+  const canEdit = !schedule || schedule.status === 'available' || (!schedule.status && schedule.status !== 'editing');
+  
+  // 检查是否是当前用户报名的 - 使用profile.id进行比较
+  const isMyBooking = schedule && currentProfileId && (
+    schedule.createdBy === currentProfileId || 
+    schedule.managers.some(manager => parseInt(manager.id) === currentProfileId)
+  );
+  
+  // 添加调试信息
+  if (schedule && currentProfileId) {
+    console.log('🔍 状态栏调试信息:', {
+      scheduleId: schedule.id,
+      currentProfileId: currentProfileId,
+      createdBy: schedule.createdBy,
+      managers: schedule.managers.map(m => ({ id: m.id, parsedId: parseInt(m.id) })),
+      isMyBooking: isMyBooking,
+      isCreator: schedule.createdBy === currentProfileId,
+      isParticipant: schedule.managers.some(manager => parseInt(manager.id) === currentProfileId)
+    });
   }
   
-  return <span>距离释放还有 {formatTime(timeLeft)}</span>;
-};
+  if (canEdit) {
+    return (
+      <div
+        key={`${schedule?.id || 'empty'}-${cardUpdateKey || 0}`}
+        onClick={() => onCardClick(schedule, timeSlot, dateInfo)}
+        style={{
+          background: 'white',
+          border: '1px solid #1890ff',
+          borderRadius: '8px',
+          margin: '2px',
+          boxShadow: 'none',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          height: '100px',
+          width: '160px',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          position: 'relative'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.transform = 'translateY(-1px)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.transform = 'translateY(0)';
+        }}
+      >
+        {/* 上半部分容器 - 人名区域 */}
+        <div style={{
+          background: '#ffffff',
+          padding: '2px 2px',
+          margin: '0',
+          borderBottom: '1px solid #1890ff',
+          width: '100%',
+          minHeight: '48px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1px',
+          overflow: 'hidden',
+          boxSizing: 'border-box'
+        }}>
+          {/* Icon + 立即报名 - 居中显示 */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            flex: 1,
+            width: '100%'
+          }}>
+            <PlusOutlined style={{ color: '#1890ff', fontSize: '14px' }} />
+            <span style={{ 
+              fontSize: '12px', 
+              color: '#1890ff',
+              fontWeight: '600',
+              lineHeight: '1.2'
+            }}>
+              立即报名
+            </span>
+          </div>
+        </div>
+        
+        {/* 下半部分容器 - 双栏布局 */}
+        <div style={{ 
+          padding: '8px 8px', 
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          background: 'white',
+          gap: '8px'
+        }}>
+          {/* 左侧 - Location */}
+          <div style={{ 
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <span style={{ 
+              fontSize: '12px', 
+              color: '#999', 
+              lineHeight: '1.2',
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+            title={schedule?.location?.name || ''}>
+              {schedule?.location?.name || ''}
+            </span>
+          </div>
+          
+          {/* 右侧 - Notes (PropertyType) */}
+          <div style={{ 
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {schedule?.propertyType?.name && schedule.propertyType.name !== '' && (
+              <span style={{ 
+                fontSize: '12px', 
+                color: '#999', 
+                lineHeight: '1.2',
+                display: 'block',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+              title={schedule.propertyType.name}>
+                {schedule.propertyType.name}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {/* 状态栏 */}
+        {isMyBooking && (
+          <div style={{
+            background: '#faad14',
+            color: 'white',
+            fontSize: '10px',
+            padding: '2px 2px 2px 2px',
+            textAlign: 'left',
+            fontWeight: '500',
+            lineHeight: '1.2',
+            borderBottomLeftRadius: '7px',
+            borderBottomRightRadius: '7px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            <span style={{
+              width: '4px',
+              height: '4px',
+              borderRadius: '50%',
+              background: 'white',
+              flexShrink: 0
+            }}></span>
+            我报名的
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Tooltip
+      title={
+        <div>
+          <div><strong>直播管家:</strong> {schedule.managers.map(m => m.name).join(', ')}</div>
+          <div><strong>地点:</strong> {schedule.location.name}</div>
+          {schedule.propertyType.name && schedule.propertyType.name !== '' && (
+            <div><strong>户型:</strong> {schedule.propertyType.name}</div>
+          )}
+        </div>
+      }
+      placement="top"
+    >
+      <div 
+        key={`${schedule.id}-${cardUpdateKey || 0}`}
+        onClick={() => onCardClick(schedule, timeSlot, dateInfo)}
+        style={{
+          background: 'white',
+          border: schedule.status === 'editing' ? '1px solid #52c41a' : 
+                  (schedule.status === 'available' || !schedule.status) ? '2px solid #1890ff' : '1px solid #e8e8e8',
+          borderRadius: '8px',
+          margin: '2px',
+          boxShadow: 'none',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          height: '100px',
+          width: '160px',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          position: 'relative'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.transform = 'translateY(-1px)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.transform = 'translateY(0)';
+        }}
+      >
+        {/* 连接状态指示器 */}
+        {!isConnected && (
+          <div style={{
+            position: 'absolute',
+            top: '2px',
+            left: '2px',
+            background: '#ff4d4f',
+            color: 'white',
+            fontSize: '8px',
+            padding: '1px 3px',
+            borderRadius: '2px',
+            zIndex: 10
+          }}>
+            ⚠️ 离线
+          </div>
+        )}
+
+        {/* 上半部分容器 - 人名区域 */}
+        <div style={{
+          background: (schedule.status === 'available' || !schedule.status || schedule.status === 'editing') ? '#ffffff' : getCardColor(schedule.id).bg,
+          padding: '2px 2px',
+          margin: '0',
+          borderBottom: schedule.status === 'editing' ? '1px solid #52c41a' :
+                       (schedule.status === 'available' || !schedule.status) ? '1px solid #1890ff' : '1px solid #e8e8e8',
+          width: '100%',
+          minHeight: '48px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1px',
+          overflow: 'hidden',
+          boxSizing: 'border-box'
+        }}>
+          {/* Icon + 立即报名 或 头像组 */}
+          {(schedule.status === 'available' || !schedule.status) ? (
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              flex: 1,
+              width: '100%'
+            }}>
+              <PlusOutlined style={{ color: '#1890ff', fontSize: '14px' }} />
+              <span style={{ 
+                fontSize: '12px', 
+                color: '#1890ff',
+                fontWeight: '600',
+                lineHeight: '1.2'
+              }}>
+                立即报名
+              </span>
+            </div>
+          ) : schedule.status === 'editing' ? (
+            // editing状态不显示头像，只显示编辑中文本
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              flex: 1,
+              width: '100%'
+            }}>
+              <span style={{ 
+                fontSize: '12px', 
+                color: '#52c41a',
+                fontWeight: '600',
+                lineHeight: '1.2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <VideoCameraAddOutlined style={{ marginRight: '4px', fontSize: '20px', color: '#52c41a' }} />
+                报名中
+                <span style={{
+                  display: 'inline-block',
+                  marginLeft: '2px'
+                }}>
+                  <span style={{
+                    animation: 'wave 1.5s infinite',
+                    display: 'inline-block',
+                    animationDelay: '0s'
+                  }}>.</span>
+                  <span style={{
+                    animation: 'wave 1.5s infinite',
+                    display: 'inline-block',
+                    animationDelay: '0.2s'
+                  }}>.</span>
+                  <span style={{
+                    animation: 'wave 1.5s infinite',
+                    display: 'inline-block',
+                    animationDelay: '0.4s'
+                  }}>.</span>
+                </span>
+              </span>
+            </div>
+          ) : (
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              gap: '2px',
+              flexShrink: 0,
+              width: 'auto',
+              marginLeft: '2px',
+              marginRight: '2px'
+            }}>
+              {schedule.managers.slice(0, 2).map((manager, index) => {
+                const managerId = parseInt(manager.id);
+                const avatarUrl = userAvatars[managerId] || '';
+                const frameUrl = avatarFrames[managerId] || '';
+
+                return (
+                  <div
+                    key={manager.id}
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      background: '#f0f0f0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      position: 'relative',
+                      border: '1px solid #e8e8e8',
+                      zIndex: 1,
+                      transform: index === 1 ? 'translateX(-6px)' : 'translateX(0)'
+                    }}
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={manager.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          borderRadius: '50%',
+                          objectFit: 'cover',
+                          background: '#fff',
+                          zIndex: 1,
+                        }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span style={{ 
+                        fontSize: '12px',
+                        color: '#999',
+                        fontWeight: '500',
+                        zIndex: 1,
+                      }}>
+                        {manager.name.charAt(0)}
+                      </span>
+                    )}
+                    {/* 头像框 */}
+                    {frameUrl && (
+                      <img
+                        src={frameUrl}
+                        alt="头像框"
+                        style={{
+                          width: '56px',
+                          height: '56px',
+                          borderRadius: '50%',
+                          position: 'absolute',
+                          left: '50%',
+                          top: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          zIndex: 2,
+                        }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* 人名文本 - 填满剩余空间 */}
+          {(schedule.status === 'available' || !schedule.status || schedule.status === 'editing') ? null : (
+            <div 
+              style={{ 
+                fontSize: '12px', 
+                color: getCardColor(schedule.id).text, 
+                fontWeight: '500', 
+                lineHeight: '1.2',
+                flex: 1,
+                textAlign: 'left',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                minWidth: 0,
+                width: '100%',
+                display: 'block',
+                maxWidth: 'none'
+              }}
+              title={schedule.managers.map(m => m.name).join(' / ')}
+            >
+              {schedule.managers.map(m => m.name).join(' / ')}
+            </div>
+          )}
+        </div>
+        
+        {/* 下半部分容器 - 双栏布局 */}
+        <div style={{ 
+          padding: '8px 8px', 
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          background: 'white',
+          gap: '8px'
+        }}>
+          {/* 左侧 - Location */}
+          <div style={{ 
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <span style={{ 
+              fontSize: '12px', 
+              color: '#999', 
+              lineHeight: '1.2',
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+            title={schedule.location.name}>
+              {schedule.location.name}
+            </span>
+          </div>
+          
+          {/* 右侧 - Notes (PropertyType) */}
+          <div style={{ 
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {schedule?.propertyType?.name && schedule.propertyType.name !== '' && (
+              <span style={{ 
+                fontSize: '12px', 
+                color: '#999', 
+                lineHeight: '1.2',
+                display: 'block',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+              title={schedule.propertyType.name}>
+                {schedule.propertyType.name}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {/* 状态栏 */}
+        {isMyBooking && (
+          <div style={{
+            background: '#faad14',
+            color: 'white',
+            fontSize: '10px',
+            padding: '2px 6px 2px 10px',
+            textAlign: 'left',
+            fontWeight: '500',
+            lineHeight: '1.2',
+            borderBottomLeftRadius: '7px',
+            borderBottomRightRadius: '7px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            <span style={{
+              width: '4px',
+              height: '4px',
+              borderRadius: '50%',
+              background: 'white',
+              flexShrink: 0
+            }}></span>
+            我报名的
+          </div>
+        )}
+      </div>
+    </Tooltip>
+  );
+});
+
+ScheduleCard.displayName = 'ScheduleCard';
 
 const LiveStreamRegistration: React.FC = () => {
   const [currentView] = useState<'registration' | 'management'>('registration');
@@ -62,6 +558,8 @@ const LiveStreamRegistration: React.FC = () => {
   const [form] = Form.useForm();
   const [banners, setBanners] = useState<any[]>([]);
   const [bannerIndex, setBannerIndex] = useState(0);
+  const { user } = useUser();
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   // 头像相关状态
   const [userAvatars, setUserAvatars] = useState<{ [key: number]: string }>({});
@@ -73,26 +571,158 @@ const LiveStreamRegistration: React.FC = () => {
   const [confirmModalTitle, setConfirmModalTitle] = useState('');
   const [confirmModalCallback, setConfirmModalCallback] = useState<(() => void) | null>(null);
 
+  // 添加卡片级别的更新状态
+  const [cardUpdateKeys, setCardUpdateKeys] = useState<{ [key: string]: number }>({});
 
   // 使用realtime并发控制
   const { 
-    acquireEditLock, 
-    releaseEditLock, 
-    isBeingEdited, 
-    isLocked,
-    isBeingEditedByCurrentUser,
-    isConnected,
-    checkUserRegisterLimit
+    isConnected
   } = useRealtimeConcurrencyControl();
+
+  // 自动清理过期的编辑状态
+  useEffect(() => {
+    const performCleanup = async () => {
+      try {
+        console.log('🧹 开始自动清理过期的编辑状态');
+        await cleanupExpiredEditingStatus();
+        console.log('✅ 自动清理完成');
+      } catch (error) {
+        console.error('❌ 自动清理过期编辑状态失败:', error);
+      }
+    };
+    
+    // 页面加载时立即清理一次
+    performCleanup();
+    
+    // 每5分钟自动清理一次
+    const interval = setInterval(performCleanup, 5 * 60 * 1000);
+    
+    console.log('⏰ 自动清理定时器已启动，间隔：5分钟');
+    
+    return () => {
+      console.log('🛑 清理自动清理定时器');
+      clearInterval(interval);
+    };
+  }, []);
+
+  // 统一的权限检查函数
+  const checkEditPermission = async (schedule: LiveStreamSchedule): Promise<{ hasPermission: boolean; message?: string }> => {
+    console.log('🔐 开始统一权限检查');
+    console.log('📋 检查记录:', {
+      id: schedule.id,
+      status: schedule.status,
+      editingBy: schedule.editingBy,
+      createdBy: schedule.createdBy,
+      managersCount: schedule.managers.length
+    });
+
+    // 检查用户登录状态
+    if (!user) {
+      console.error('❌ 用户未登录');
+      return { hasPermission: false, message: '用户未登录' };
+    }
+
+    console.log('👤 当前用户ID:', user.id);
+
+    try {
+      // 获取当前用户的profile ID
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users_profile')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('❌ 获取用户profile失败:', profileError);
+        return { hasPermission: false, message: '用户信息不完整' };
+      }
+
+      if (!userProfile) {
+        console.error('❌ 用户profile不存在');
+        return { hasPermission: false, message: '用户信息不完整' };
+      }
+
+      console.log('📋 用户profile ID:', userProfile.id);
+
+      // 根据记录状态进行不同的权限检查
+      if (schedule.status === 'booked') {
+        // booked状态：检查是否是创建者或参与者
+        const isCreator = schedule.createdBy === userProfile.id;
+        const isParticipant = schedule.managers.some(m => parseInt(m.id) === userProfile.id);
+        
+        console.log('🔍 booked权限检查结果:', {
+          isCreator,
+          isParticipant,
+          createdBy: schedule.createdBy,
+          participantIds: schedule.managers.map(m => m.id)
+        });
+        
+        if (!isCreator && !isParticipant) {
+          return { 
+            hasPermission: false, 
+            message: '只有记录创建者或报名人可以编辑已报名的记录' 
+          };
+        }
+        
+        console.log('✅ booked权限检查通过');
+        return { hasPermission: true };
+        
+      } else if (schedule.status === 'editing') {
+        // editing状态：检查是否是编辑者本人
+        // 如果editingBy为null，可能是数据库字段未正确设置，允许编辑
+        const isEditor = schedule.editingBy === userProfile.id;
+        const isNullEditingBy = schedule.editingBy === null;
+        
+        console.log('🔍 editing权限检查结果:', {
+          isEditor,
+          isNullEditingBy,
+          editingBy: schedule.editingBy,
+          currentUserId: userProfile.id
+        });
+        
+        // 如果editingBy为null，允许编辑（可能是数据库字段未正确设置）
+        if (isNullEditingBy) {
+          console.log('✅ editingBy为null，允许编辑');
+          return { hasPermission: true };
+        }
+        
+        if (!isEditor) {
+          return { 
+            hasPermission: false, 
+            message: '该记录正在被其他用户编辑，请稍后再试' 
+          };
+        }
+        
+        console.log('✅ editing权限检查通过');
+        return { hasPermission: true };
+        
+      } else if (schedule.status === 'available' || !schedule.status) {
+        // available状态或无状态：任何人都可以编辑
+        console.log('✅ available状态或无状态，允许编辑');
+        return { hasPermission: true };
+        
+      } else {
+        // 其他状态：默认不允许编辑
+        console.log('⚠️ 其他状态，不允许编辑');
+        return { 
+          hasPermission: false, 
+          message: '该记录状态不允许编辑' 
+        };
+      }
+      
+    } catch (error) {
+      console.error('❌ 权限检查失败:', error);
+      return { hasPermission: false, message: '权限检查失败' };
+    }
+  };
 
   // 获取用户头像的函数
   const fetchUserAvatars = async (userIds: number[]) => {
     try {
-      // 过滤掉临时用户ID（ID为0的用户）
+      // 过滤掉无效值
       const validUserIds = userIds.filter(id => id > 0);
       
       if (validUserIds.length === 0) {
-        console.log('没有有效的用户ID需要查询头像');
         return;
       }
       
@@ -121,7 +751,7 @@ const LiveStreamRegistration: React.FC = () => {
     try {
       const frameMap: { [key: number]: string } = {};
       
-      // 过滤掉临时用户ID（ID为0的用户）
+      // 过滤掉无效值
       const validUserIds = userIds.filter(id => id > 0);
       
       if (validUserIds.length === 0) {
@@ -183,6 +813,14 @@ const LiveStreamRegistration: React.FC = () => {
     }
   };
 
+  // 更新单个卡片的函数
+  const updateSingleCard = (scheduleId: string) => {
+    setCardUpdateKeys(prev => ({
+      ...prev,
+      [scheduleId]: (prev[scheduleId] || 0) + 1
+    }));
+  };
+
   // 随机颜色数组
   const cardColors = [
     { bg: '#e6f7ff', text: '#1890ff' }, // 浅蓝
@@ -212,6 +850,184 @@ const LiveStreamRegistration: React.FC = () => {
   // 加载数据
   useEffect(() => {
     loadData();
+    // 测试数据库记录
+    testDatabaseRecords();
+  }, [selectedWeek]);
+
+  // 添加realtime订阅，监听数据变化
+  useEffect(() => {
+    if (!selectedWeek) return;
+
+    // 测试实时连接
+    const testChannel = supabase.channel('test-connection')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'live_stream_schedules'
+      }, (payload) => {
+      })
+      .subscribe((status) => {
+      });
+    
+    const channel = supabase.channel('live-stream-schedules')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'live_stream_schedules'
+      }, async (payload) => {
+        console.log('🎯 主通道收到事件:', payload);
+        console.log('🎯 事件类型:', payload.eventType);
+        console.log('🎯 事件ID:', (payload.new as any)?.id);
+        console.log('🎯 事件状态:', (payload.new as any)?.status);
+        console.log('🎯 事件参与者:', (payload.new as any)?.participant_ids);
+        
+        if (payload.eventType === 'INSERT') {
+          const newSchedule = payload.new;
+          console.log('📝 收到INSERT事件，新增记录:', {
+            id: newSchedule.id,
+            date: newSchedule.date,
+            time_slot_id: newSchedule.time_slot_id,
+            status: newSchedule.status,
+            participant_ids: newSchedule.participant_ids
+          });
+          
+          // 检查是否在当前选中的周范围内
+          const weekStart = selectedWeek.startOf('week').utc().format('YYYY-MM-DD');
+          const weekEnd = selectedWeek.endOf('week').utc().format('YYYY-MM-DD');
+          
+          if (newSchedule.date >= weekStart && newSchedule.date <= weekEnd) {
+            console.log('✅ 新记录在当前周范围内，添加到本地状态');
+            
+            // 构建新的schedule对象
+            const scheduleToAdd: LiveStreamSchedule = {
+              id: newSchedule.id.toString(),
+              date: newSchedule.date,
+              timeSlotId: newSchedule.time_slot_id,
+              status: newSchedule.status,
+              managers: newSchedule.participant_ids 
+                ? newSchedule.participant_ids.map((id: number) => ({
+                    id: id.toString(),
+                    name: '未知用户',
+                    department: '',
+                    avatar: undefined
+                  }))
+                : [],
+              location: {
+                id: newSchedule.location || '',
+                name: newSchedule.location || ''
+              },
+              propertyType: {
+                id: newSchedule.notes || '',
+                name: newSchedule.notes || ''
+              },
+              createdAt: newSchedule.created_at,
+              updatedAt: newSchedule.updated_at,
+              createdBy: newSchedule.created_by,
+              editingBy: newSchedule.editing_by,
+              editingAt: newSchedule.editing_at,
+              editingExpiresAt: newSchedule.editing_expires_at,
+              lockType: newSchedule.lock_type,
+              lockReason: newSchedule.lock_reason,
+              lockEndTime: newSchedule.lock_end_time,
+            };
+            
+            // 添加到本地状态
+            setSchedules(prev => {
+              const updated = [...prev, scheduleToAdd];
+              console.log('🔄 本地状态已更新，当前记录数:', updated.length);
+              return updated;
+            });
+            
+            // 更新特定卡片
+            const cardKey = newSchedule.id.toString();
+            console.log('🔄 更新卡片:', cardKey);
+            updateSingleCard(cardKey);
+          } else {
+            console.log('ℹ️ 新记录不在当前周范围内，忽略');
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const updatedSchedule = payload.new;
+          console.log('📊 收到UPDATE事件详情:');
+          console.log('  - 记录ID:', updatedSchedule.id);
+          console.log('  - 旧状态:', (payload.old as any)?.status);
+          console.log('  - 新状态:', updatedSchedule.status);
+          console.log('  - 参与者IDs:', updatedSchedule.participant_ids);
+          console.log('  - 地点:', updatedSchedule.location);
+          console.log('  - 户型:', updatedSchedule.notes);
+          
+          // 简单更新本地状态
+          setSchedules(prev => {
+            const updated = prev.map(schedule => 
+              schedule.id === updatedSchedule.id.toString() 
+                ? {
+                    ...schedule,
+                    status: updatedSchedule.status,
+                    managers: updatedSchedule.participant_ids 
+                      ? updatedSchedule.participant_ids.map((id: number) => ({
+                          id: id.toString(),
+                          name: '未知用户',
+                          department: '',
+                          avatar: undefined
+                        }))
+                      : schedule.managers,
+                    location: {
+                      id: updatedSchedule.location || 'default',
+                      name: updatedSchedule.location || ''
+                    },
+                                  propertyType: {
+                id: updatedSchedule.notes || '',
+                name: updatedSchedule.notes || ''
+              },
+                    createdAt: schedule.createdAt,
+                    updatedAt: schedule.updatedAt,
+                    createdBy: schedule.createdBy,
+                    editingBy: schedule.editingBy,
+                    editingAt: schedule.editingAt,
+                    editingExpiresAt: schedule.editingExpiresAt,
+                    lockType: schedule.lockType,
+                    lockReason: schedule.lockReason,
+                    lockEndTime: schedule.lockEndTime,
+                  }
+                : schedule
+            );
+            console.log('🔄 本地状态已更新');
+            console.log('  - 更新后的状态:', updatedSchedule.status);
+            return updated;
+          });
+          
+          // 更新特定卡片
+          const cardKey = updatedSchedule.id.toString();
+          console.log('🔄 更新卡片:', cardKey);
+          updateSingleCard(cardKey);
+        } else if (payload.eventType === 'DELETE') {
+          const deletedSchedule = payload.old;
+          console.log('🗑️ 收到DELETE事件，删除记录:', {
+            id: deletedSchedule.id,
+            date: deletedSchedule.date,
+            time_slot_id: deletedSchedule.time_slot_id
+          });
+          
+          // 从本地状态中移除
+          setSchedules(prev => {
+            const updated = prev.filter(schedule => schedule.id !== deletedSchedule.id.toString());
+            console.log('🔄 本地状态已更新，移除记录后剩余:', updated.length);
+            return updated;
+          });
+          
+          // 更新特定卡片
+          const cardKey = deletedSchedule.id.toString();
+          console.log('🔄 更新卡片:', cardKey);
+          updateSingleCard(cardKey);
+        }
+      })
+      .subscribe((status) => {
+        console.log('LiveStream实时订阅状态:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(testChannel);
+    };
   }, [selectedWeek]);
 
   // 加载banner数据
@@ -240,8 +1056,9 @@ const LiveStreamRegistration: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const weekStart = selectedWeek.startOf('week').format('YYYY-MM-DD');
-      const weekEnd = selectedWeek.endOf('week').format('YYYY-MM-DD');
+      // 使用UTC时间，避免时区问题
+      const weekStart = selectedWeek.startOf('week').utc().format('YYYY-MM-DD');
+      const weekEnd = selectedWeek.endOf('week').utc().format('YYYY-MM-DD');
       
       const [managersData, locationsData, propertyTypesData, schedulesData] = await Promise.all([
         getLiveStreamManagers(),
@@ -280,6 +1097,31 @@ const LiveStreamRegistration: React.FC = () => {
     }
   };
 
+  // 测试函数：检查数据库中的记录
+  const testDatabaseRecords = async () => {
+    try {
+      // 使用UTC时间，避免时区问题
+      const weekStart = selectedWeek.startOf('week').utc().format('YYYY-MM-DD');
+      const weekEnd = selectedWeek.endOf('week').utc().format('YYYY-MM-DD');
+      
+      
+      const { data, error } = await supabase
+        .from('live_stream_schedules')
+        .select('*')
+        .gte('date', weekStart)
+        .lte('date', weekEnd)
+        .order('date, time_slot_id');
+      
+      if (error) {
+        console.error('❌ 查询数据库失败:', error);
+        return;
+      }
+      
+    } catch (error) {
+      console.error('❌ 测试数据库记录失败:', error);
+    }
+  };
+
   // 获取本周的日期列表
   const getWeekDates = () => {
     const dates = [];
@@ -300,7 +1142,34 @@ const LiveStreamRegistration: React.FC = () => {
 
   // 获取指定日期和时间段的安排
   const getSchedule = (date: string, timeSlotId: string) => {
-    return schedules.find(s => s.date === date && s.timeSlotId === timeSlotId);
+    const schedule = schedules.find(s => s.date === date && s.timeSlotId === timeSlotId);
+    return schedule;
+  };
+
+  // 验证报名状态是否正确
+  const validateBookingStatus = (scheduleId: string, expectedStatus: string = 'booked') => {
+    console.log('🔍 开始验证报名状态');
+    console.log('  - 记录ID:', scheduleId);
+    console.log('  - 期望状态:', expectedStatus);
+    console.log('  - 当前schedules数量:', schedules.length);
+    
+    const schedule = schedules.find(s => s.id === scheduleId);
+    if (!schedule) {
+      console.warn('❌ 未找到对应的安排记录');
+      console.log('  - 可用的记录IDs:', schedules.map(s => s.id));
+      return false;
+    }
+    
+    console.log('  - 找到记录:', schedule);
+    console.log('  - 记录状态:', schedule.status);
+    
+    if (schedule.status !== expectedStatus) {
+      console.warn(`❌ 状态不匹配：期望 ${expectedStatus}，实际 ${schedule.status}`);
+      return false;
+    }
+    
+    console.log('✅ 状态验证通过');
+    return true;
   };
 
 
@@ -309,6 +1178,21 @@ const LiveStreamRegistration: React.FC = () => {
   const handleScheduleSubmit = async (values: any) => {
     try {
       setLoading(true);
+      
+      // 权限检查：确保用户有权限提交编辑
+      if (editingSchedule) {
+        console.log('🔐 提交前进行权限检查');
+        const permissionResult = await checkEditPermission(editingSchedule);
+        
+        if (!permissionResult.hasPermission) {
+          console.warn('⚠️ 提交权限检查失败:', permissionResult.message);
+          message.warning(permissionResult.message || '无权限提交此编辑');
+          setLoading(false);
+          return;
+        }
+        
+        console.log('✅ 提交权限检查通过');
+      }
       
       // 验证管家数量
       if (!values.managers || values.managers.length !== 2) {
@@ -320,47 +1204,110 @@ const LiveStreamRegistration: React.FC = () => {
         date: editingSchedule ? editingSchedule.date : dayjs().format('YYYY-MM-DD'),
         timeSlotId: values.timeSlot,
         managers: managers.filter(m => values.managers.includes(m.id)),
-        location: locations.find(l => l.id === values.location)!,
-        propertyType: propertyTypes.find(p => p.id === values.propertyType)!,
+        location: { id: '', name: '' },
+        propertyType: { id: '', name: '' },
         status: 'booked' as const, // 报名成功后状态变为booked
       };
 
+
       if (editingSchedule) {
         // 检查是否是临时记录（用于创建新安排）
-        const isTempSchedule = editingSchedule.managers.length === 0 && 
-                              editingSchedule.location.name === '' && 
-                              editingSchedule.propertyType.name === '';
+        const isTempSchedule = editingSchedule.managers.length === 0;
         
-        if (isTempSchedule) {
-          // 更新临时记录为真实数据
-          await updateLiveStreamSchedule(editingSchedule.id, scheduleData);
-          message.success('报名成功');
-        } else {
-          // 更新现有记录
-          await updateLiveStreamSchedule(editingSchedule.id, scheduleData);
-          message.success('报名更新成功');
+        
+        try {
+          if (isTempSchedule) {
+            // 更新临时记录为真实数据，确保状态为booked
+            const updateResult = await updateLiveStreamSchedule(editingSchedule.id, {
+              ...scheduleData,
+              status: 'booked' // 明确设置状态为booked
+            });
+            
+            
+            if (updateResult && updateResult.status === 'booked') {
+              message.success('报名成功！');
+            } else {
+              console.error('❌ 报名状态更新失败');
+              console.error('  - 期望状态: booked');
+              console.error('  - 实际状态:', updateResult?.status);
+              throw new Error('报名状态更新失败');
+            }
+          } else {
+            // 更新现有记录，确保状态为booked
+            const updateResult = await updateLiveStreamSchedule(editingSchedule.id, {
+              ...scheduleData,
+              status: 'booked' // 明确设置状态为booked
+            });
+            
+            
+            if (updateResult && updateResult.status === 'booked') {
+              message.success('报名更新成功！');
+            } else {
+              console.error('❌ 报名状态更新失败');
+              console.error('  - 期望状态: booked');
+              console.error('  - 实际状态:', updateResult?.status);
+              throw new Error('报名状态更新失败');
+            }
+          }
+          
+          // 保存记录ID用于验证
+          const recordId = editingSchedule.id;
+          
+          // 关闭弹窗并清理状态
+          setModalVisible(false);
+          setEditingSchedule(null);
+          form.resetFields();
+          
+          // 重新加载数据以显示最新状态
+          await loadData();
+          
+          // 验证报名状态是否正确
+          setTimeout(() => {
+            console.log('🔍 延迟验证报名状态');
+            console.log('  - 验证记录ID:', recordId);
+            if (validateBookingStatus(recordId, 'booked')) {
+              console.log('✅ 状态验证成功');
+            } else {
+              console.error('❌ 状态验证失败');
+              // 如果第一次验证失败，再延迟2秒重试一次
+              setTimeout(() => {
+                console.log('🔄 重试验证报名状态');
+                if (validateBookingStatus(recordId, 'booked')) {
+                  console.log('✅ 重试验证成功');
+                } else {
+                  console.error('❌ 重试验证仍然失败');
+                }
+              }, 2000);
+            }
+          }, 2000); // 延迟2秒验证，确保数据已更新
+          
+        } catch (updateError) {
+          console.error('❌ 更新直播安排失败:', updateError);
+          console.error('  - 错误详情:', updateError);
+          
+          // 根据错误类型显示不同的错误信息
+          if (updateError instanceof Error) {
+            if (updateError.message.includes('权限')) {
+              message.error('权限不足，无法报名');
+            } else if (updateError.message.includes('网络')) {
+              message.error('网络连接失败，请检查网络后重试');
+            } else {
+              message.error(`报名失败：${updateError.message}`);
+            }
+          } else {
+            message.error('报名失败，请重试');
+          }
+          return;
         }
-        
-        // 释放编辑锁定
-        await releaseEditLock(editingSchedule.id);
-        
-        // 关闭弹窗并清理状态
-        setModalVisible(false);
-        setEditingSchedule(null);
-        form.resetFields();
-        loadData(); // 重新加载数据
       } else {
+        console.error('❌ 编辑状态异常');
         // 这种情况不应该发生，因为创建新安排时都会设置editingSchedule
-        message.error('编辑状态异常');
+        message.error('编辑状态异常，请刷新页面重试');
       }
 
-      setModalVisible(false);
-      form.resetFields();
-      setEditingSchedule(null);
-      loadData(); // 重新加载数据
     } catch (error) {
-      message.error('操作失败');
-      console.error('操作失败:', error);
+      console.error('❌ 报名操作失败:', error);
+      message.error('报名失败，请检查网络连接后重试');
     } finally {
       setLoading(false);
     }
@@ -368,75 +1315,52 @@ const LiveStreamRegistration: React.FC = () => {
 
   // 处理编辑安排
   const handleEditSchedule = async (schedule: LiveStreamSchedule) => {
+    console.log('📝 开始编辑安排');
+    console.log('📋 要编辑的记录:', {
+      id: schedule.id,
+      status: schedule.status,
+      managers: schedule.managers.map(m => ({ id: m.id, name: m.name })),
+      location: schedule.location,
+      propertyType: schedule.propertyType
+    });
+    
     try {
-      // 验证可编辑状态
-      if (isLocked(schedule.id)) {
-        message.warning('该时间段已被锁定，无法编辑');
-        return;
-      }
-
-      if (isBeingEdited(schedule.id) && !isBeingEditedByCurrentUser(schedule.id)) {
-        message.warning('该时间段正在被其他用户编辑');
-        return;
-      }
-
-      // 检查booked状态的权限
-      if (schedule.status === 'booked') {
-        // 获取当前用户信息
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          message.error('用户未登录');
-          return;
-        }
-
-        // 获取当前用户的profile ID
-        const { data: userProfile } = await supabase
-          .from('users_profile')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (!userProfile) {
-          message.error('用户信息不完整');
-          return;
-        }
-
-        // 检查是否是记录创建者或报名人
-        const isCreator = schedule.createdBy === userProfile.id;
-        const isParticipant = schedule.managers.some(m => parseInt(m.id) === userProfile.id);
-        
-        if (!isCreator && !isParticipant) {
-          message.warning('只有记录创建者或报名人可以编辑已报名的记录');
-          return;
-        }
-      }
-
-      // 尝试获取编辑锁定
-      const lockResult = await acquireEditLock(schedule.id);
+      // 使用统一的权限检查函数
+      const permissionResult = await checkEditPermission(schedule);
       
-      if (!lockResult.success) {
-        message.warning(lockResult.error);
+      if (!permissionResult.hasPermission) {
+        console.warn('⚠️ 权限检查失败:', permissionResult.message);
+        message.warning(permissionResult.message || '无权限编辑此记录');
         return;
       }
+      
+      console.log('✅ 权限检查通过');
 
-      // 立即设置编辑状态，不等待弹窗打开
+      // 设置编辑状态
+      console.log('🎨 设置编辑状态并打开弹窗');
       setEditingSchedule(schedule);
-      form.setFieldsValue({
-        timeSlot: schedule.timeSlotId,
-        managers: schedule.managers.length > 0 ? schedule.managers.map(m => m.id) : [],
-        location: schedule.location.id || undefined,
-        propertyType: schedule.propertyType.id || undefined,
-      });
+      setModalVisible(true);
       
-      // 显示成功消息
-      message.success('已进入编辑状态，请完成编辑');
-      
-      // 延迟打开弹窗，让用户看到编辑状态变化
+      // 延迟设置表单值，确保Form组件已经渲染
       setTimeout(() => {
-        setModalVisible(true);
-      }, 500);
+        console.log('📝 设置表单值');
+        const formValues = {
+          timeSlot: schedule.timeSlotId,
+          managers: schedule.managers.length > 0 ? schedule.managers.map(m => m.id) : [],
+          location: schedule.location.id || undefined,
+          propertyType: schedule.propertyType.id || undefined,
+        };
+        console.log('📋 表单值:', formValues);
+        form.setFieldsValue(formValues);
+        console.log('✅ 表单值设置完成');
+      }, 100);
       
     } catch (error) {
+      console.error('❌ 获取编辑权限失败:', error);
+      console.error('🔍 错误详情:', {
+        message: error instanceof Error ? error.message : '未知错误',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       message.error('获取编辑权限失败');
     }
   };
@@ -534,7 +1458,7 @@ const LiveStreamRegistration: React.FC = () => {
         key: 'timeSlot',
         width: 100,
         fixed: 'left' as const,
-        render: (timeSlot: any, _record: any, index: number) => {
+        render: (timeSlot: any, _record: any, _index: number) => {
           return (
             <div style={{ fontSize: '14px', lineHeight: '1.2' }}>
               <div style={{ fontWeight: '600', marginBottom: '2px' }}>
@@ -564,535 +1488,20 @@ const LiveStreamRegistration: React.FC = () => {
         key: dateInfo.date,
         width: 170,
         render: (schedule: LiveStreamSchedule | undefined, record: any) => {
-          // 检查是否可以编辑：无记录、状态为available、或状态为空
-          const canEdit = !schedule || schedule.status === 'available' || !schedule.status;
-          
-          if (canEdit) {
             return (
-            <div
-              onClick={async () => {
-                // 检查是否被锁定
-                if (isLocked(record.timeSlot.id)) {
-                  message.warning('该时间段已被锁定，无法报名');
-                  return;
-                }
-
-                // 检查用户报名限制
-                const limitCheck = await checkUserRegisterLimit();
-                if (!limitCheck.success) {
-                  message.error(limitCheck.error);
-                  return;
-                }
-
-                // 如果有现有schedule，直接编辑；否则创建临时记录
-                if (schedule) {
-                  // 直接编辑现有记录
-                  handleEditSchedule(schedule);
-                } else {
-                  // 创建临时记录以获取锁定
-                  try {
-                    // 获取正确的日期（从列信息中获取）
-                    const tempScheduleData = {
-                      date: dateInfo.date, // 使用列对应的日期
-                      timeSlotId: record.timeSlot.id,
-                      managers: [], // 设置为空数组，表示未选择人员
-                      location: { id: '', name: '' }, // 设置为空，表示未选择位置
-                      propertyType: { id: '', name: '' }, // 设置为空，表示未选择户型
-                      status: 'available' as const,
-                    };
-
-                    console.log('创建临时记录:', tempScheduleData);
-
-                    const tempSchedule = await createLiveStreamSchedule(tempScheduleData);
-                    
-                    console.log('临时记录创建成功:', tempSchedule);
-                    
-                    // 尝试获取编辑锁定（使用临时记录的ID）
-                    const lockResult = await acquireEditLock(tempSchedule.id);
-                    if (!lockResult.success) {
-                      message.warning(lockResult.error);
-                      // 如果获取锁定失败，删除临时记录
-                      try {
-                        await supabase
-                          .from('live_stream_schedules')
-                          .delete()
-                          .eq('id', tempSchedule.id);
-                      } catch (deleteError) {
-                        console.error('删除临时记录失败:', deleteError);
-                      }
-                      return;
-                    }
-
-                    form.setFieldsValue({
-                      timeSlot: record.timeSlot.id
-                    });
-                    setEditingSchedule(tempSchedule);
-                    setModalVisible(true);
-                  } catch (error) {
-                    console.error('创建临时记录失败:', error);
-                    message.error('创建临时记录失败');
-                  }
-                }
-              }}
-              style={{
-                background: 'white',
-                border: '1px solid #1890ff',
-                borderRadius: '8px',
-                margin: '2px',
-                boxShadow: 'none',
-                cursor: isLocked(record.timeSlot.id) ? 'not-allowed' : 'pointer',
-                transition: 'all 0.3s ease',
-                height: '100px',
-                width: '160px',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                position: 'relative',
-                opacity: isLocked(record.timeSlot.id) ? 0.5 : 1
-              }}
-              onMouseEnter={(e) => {
-                if (!isLocked(record.timeSlot.id)) {
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isLocked(record.timeSlot.id)) {
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }
-              }}
-                          >
-                {/* 锁定指示器 */}
-                {isLocked(record.timeSlot.id) && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '4px',
-                    right: '4px',
-                    background: '#ff4d4f',
-                    color: 'white',
-                    fontSize: '10px',
-                    padding: '2px 4px',
-                    borderRadius: '4px',
-                    zIndex: 10
-                  }}>
-                    🔒 已锁定
-                  </div>
-                )}
-
-                {/* 上半部分容器 - 人名区域 */}
-                <div style={{
-                  background: '#ffffff', // 改为白色底色
-                  padding: '2px 2px',
-                  margin: '0',
-                  borderBottom: '1px solid #1890ff', // 立即报名卡片使用蓝色分割线
-                  width: '100%',
-                  minHeight: '48px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1px',
-                  overflow: 'hidden',
-                  boxSizing: 'border-box'
-                }}>
-                  {/* Icon + 立即报名 - 居中显示 */}
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    flex: 1,
-                    width: '100%'
-                  }}>
-                    <PlusOutlined style={{ color: '#1890ff', fontSize: '14px' }} />
-                    <span style={{ 
-                      fontSize: '12px', 
-                      color: '#1890ff', // 改为蓝色文字
-                      fontWeight: '600',
-                      lineHeight: '1.2'
-                    }}>
-                      立即报名
-                    </span>
-                  </div>
-                </div>
-                
-                {/* 下半部分容器 - 其他信息 */}
-                <div style={{ 
-                  padding: '8px 8px', 
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                }}>
-                  <div style={{ marginBottom: '4px' }}>
-                    <span style={{ 
-                      fontSize: '12px', 
-                      color: '#999', 
-                      lineHeight: '1.2',
-                      display: 'block'
-                    }}>
-                      {/* 如果有schedule数据，显示地点，否则不显示 */}
-                      {schedule?.location?.name || ''}
-                    </span>
-                  </div>
-                  <div>
-                    <span style={{ 
-                      fontSize: '12px', 
-                      color: '#999', 
-                      lineHeight: '1.2',
-                      display: 'block'
-                    }}>
-                      {/* 如果有schedule数据且户型不为空，显示户型，否则不显示 */}
-                      {schedule?.propertyType?.name && schedule.propertyType.name !== '' ? schedule.propertyType.name : ''}
-                    </span>
-                  </div>
-                </div>
-              </div>
-          );
-          }
-
-          return (
-            <Tooltip
-              title={
-                <div>
-                  <div><strong>直播管家:</strong> {schedule.managers.map(m => m.name).join(', ')}</div>
-                  <div><strong>地点:</strong> {schedule.location.name}</div>
-                  {schedule.propertyType.name && schedule.propertyType.name !== '' && (
-                    <div><strong>户型:</strong> {schedule.propertyType.name}</div>
-                  )}
-                </div>
-              }
-              placement="top"
-            >
-              <div 
-                onClick={() => {
-                  // 如果当前用户正在编辑这个卡片，直接打开弹窗
-                  if (isBeingEditedByCurrentUser(schedule.id)) {
-                    setModalVisible(true);
-                    return;
-                  }
-                  
-                  // 否则尝试获取编辑锁定
-                  handleEditSchedule(schedule);
-                }}
-                style={{
-                  background: isBeingEditedByCurrentUser(schedule.id) ? '#f6ffed' : 'white',
-                  border: isBeingEditedByCurrentUser(schedule.id) ? '2px solid #52c41a' : 
-                          isBeingEdited(schedule.id) ? '2px solid #faad14' : 
-                          (schedule.status === 'available' || !schedule.status) ? '2px solid #1890ff' : '1px solid #e8e8e8',
-                  borderRadius: '8px',
-                  margin: '2px',
-                  boxShadow: isBeingEditedByCurrentUser(schedule.id) ? '0 0 8px rgba(82, 196, 26, 0.3)' : 'none',
-                  cursor: (isLocked(schedule.id) || (isBeingEdited(schedule.id) && !isBeingEditedByCurrentUser(schedule.id))) ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.3s ease',
-                  height: '100px',
-                  width: '160px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                  position: 'relative',
-                  opacity: (isLocked(schedule.id) || (isBeingEdited(schedule.id) && !isBeingEditedByCurrentUser(schedule.id))) ? 0.5 : 1
-                }}
-                onMouseEnter={(e) => {
-                  if (!isLocked(schedule.id) && !(isBeingEdited(schedule.id) && !isBeingEditedByCurrentUser(schedule.id))) {
-                    e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isLocked(schedule.id) && !(isBeingEdited(schedule.id) && !isBeingEditedByCurrentUser(schedule.id))) {
-                    e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }
-                }}
-              >
-                {/* 连接状态指示器 */}
-                {!isConnected && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '2px',
-                    left: '2px',
-                    background: '#ff4d4f',
-                    color: 'white',
-                    fontSize: '8px',
-                    padding: '1px 3px',
-                    borderRadius: '2px',
-                    zIndex: 10
-                  }}>
-                    ⚠️ 离线
-                  </div>
-                )}
-
-                {/* 锁定指示器 */}
-                {isLocked(schedule.id) && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '4px',
-                    right: '4px',
-                    background: '#ff4d4f',
-                    color: 'white',
-                    fontSize: '10px',
-                    padding: '2px 4px',
-                    borderRadius: '4px',
-                    zIndex: 10
-                  }}>
-                    🔒 已锁定
-                  </div>
-                )}
-
-                {/* 编辑中指示器 */}
-                {isBeingEdited(schedule.id) && !isBeingEditedByCurrentUser(schedule.id) && !isLocked(schedule.id) && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '4px',
-                    right: '4px',
-                    background: '#faad14',
-                    color: 'white',
-                    fontSize: '10px',
-                    padding: '2px 4px',
-                    borderRadius: '4px',
-                    zIndex: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '2px'
-                  }}>
-                    ✏️ 编辑中
-                  </div>
-                )}
-
-                {/* 其他用户编辑中倒计时指示器 */}
-                {isBeingEdited(schedule.id) && !isBeingEditedByCurrentUser(schedule.id) && !isLocked(schedule.id) && (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '4px',
-                    left: '4px',
-                    right: '4px',
-                    background: 'rgba(250, 173, 20, 0.9)',
-                    color: 'white',
-                    fontSize: '8px',
-                    padding: '2px 4px',
-                    borderRadius: '2px',
-                    zIndex: 10,
-                    textAlign: 'center',
-                    fontWeight: '500'
-                  }}>
-                    <EditCountdown scheduleId={schedule.id} />
-                  </div>
-                )}
-
-                {/* 当前用户编辑中指示器 */}
-                {isBeingEditedByCurrentUser(schedule.id) && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '4px',
-                    right: '4px',
-                    background: '#52c41a',
-                    color: 'white',
-                    fontSize: '10px',
-                    padding: '2px 4px',
-                    borderRadius: '4px',
-                    zIndex: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '2px'
-                  }}>
-                    ✏️ 编辑中...
-                  </div>
-                )}
-
-                {/* 当前用户编辑倒计时指示器 */}
-                {isBeingEditedByCurrentUser(schedule.id) && (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '4px',
-                    left: '4px',
-                    right: '4px',
-                    background: 'rgba(82, 196, 26, 0.9)',
-                    color: 'white',
-                    fontSize: '8px',
-                    padding: '2px 4px',
-                    borderRadius: '2px',
-                    zIndex: 10,
-                    textAlign: 'center',
-                    fontWeight: '500'
-                  }}>
-                    <EditCountdown scheduleId={schedule.id} />
-                  </div>
-                )}
-                {/* 上半部分容器 - 人名区域 */}
-                <div style={{
-                  background: (schedule.status === 'available' || !schedule.status) ? '#ffffff' : getCardColor(schedule.id).bg, // 改为白色底色
-                  padding: '2px 2px', // 增加内边距
-                  margin: '0',
-                  borderBottom: (schedule.status === 'available' || !schedule.status) ? '1px solid #1890ff' : '1px solid #e8e8e8', // 立即报名状态使用蓝色分割线，其他状态使用灰色
-                  width: '100%',
-                  minHeight: '48px', // 增加最小高度
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1px', // 减少间距
-                  overflow: 'hidden',
-                  boxSizing: 'border-box' // 确保内边距计算正确
-                }}>
-                  {/* Icon + 立即报名 或 头像组 */}
-                  {(schedule.status === 'available' || !schedule.status) ? (
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      flex: 1,
-                      width: '100%'
-                    }}>
-                      <PlusOutlined style={{ color: '#1890ff', fontSize: '14px' }} />
-                      <span style={{ 
-                        fontSize: '12px', 
-                        color: '#1890ff', // 改为蓝色文字
-                        fontWeight: '600',
-                        lineHeight: '1.2'
-                      }}>
-                        立即报名
-                      </span>
-                    </div>
-                  ) : (
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      gap: '2px', // 增加间距
-                      flexShrink: 0,
-                      width: 'auto',
-                      marginLeft: '2px', // 调整为4px
-                      marginRight: '2px' // 减少右边距
-                    }}>
-                      {schedule.managers.slice(0, 2).map((manager, index) => {
-                        const managerId = parseInt(manager.id);
-                        const avatarUrl = userAvatars[managerId];
-                        const frameUrl = avatarFrames[managerId];
-
-                        
-                        return (
-                          <div
-                            key={manager.id}
-                            style={{
-                              width: '28px', // 放大头像尺寸
-                              height: '28px', // 放大头像尺寸
-                              borderRadius: '50%',
-                              background: '#f0f0f0',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              position: 'relative',
-                              border: '1px solid #e8e8e8',
-                              zIndex: 1,
-                              transform: index === 1 ? 'translateX(-6px)' : 'translateX(0)' // 调整重叠距离
-                            }}
-                          >
-                            {avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt={manager.name}
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  borderRadius: '50%',
-                                  objectFit: 'cover',
-                                  background: '#fff',
-                                  zIndex: 1,
-                                }}
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            ) : (
-                              <span style={{ 
-                                fontSize: '12px', // 放大字体
-                                color: '#999',
-                                fontWeight: '500',
-                                zIndex: 1,
-                              }}>
-                                {manager.name.charAt(0)}
-                              </span>
-                            )}
-                            {/* 头像框 - 参考App.tsx的比例关系 */}
-                            {frameUrl && (
-                              <img
-                                src={frameUrl}
-                                alt="头像框"
-                                style={{
-                                  width: '56px', // 头像框是头像的2倍大小 (28px * 2)
-                                  height: '56px', // 头像框是头像的2倍大小 (28px * 2)
-                                  borderRadius: '50%',
-                                  position: 'absolute',
-                                  left: '50%',
-                                  top: '50%',
-                                  transform: 'translate(-50%, -50%)',
-                                  zIndex: 2,
-                                }}
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  
-                  {/* 人名文本 - 填满剩余空间 */}
-                  {(schedule.status === 'available' || !schedule.status) ? null : (
-                    <div 
-                      style={{ 
-                        fontSize: '12px', 
-                        color: getCardColor(schedule.id).text, 
-                        fontWeight: '500', 
-                        lineHeight: '1.2',
-                        flex: 1,
-                        textAlign: 'left',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        minWidth: 0,
-                        width: '100%',
-                        display: 'block',
-                        maxWidth: 'none'
-                      }}
-                      title={schedule.managers.map(m => m.name).join(' / ')}
-                    >
-                      {schedule.managers.map(m => m.name).join(' / ')}
-                    </div>
-                  )}
-                </div>
-                
-                {/* 下半部分容器 - 其他信息 */}
-                <div style={{ 
-                  padding: '8px 8px', 
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                }}>
-                  <div style={{ marginBottom: '4px' }}>
-                    <span style={{ 
-                      fontSize: '12px', 
-                      color: '#999', 
-                      lineHeight: '1.2',
-                      display: 'block'
-                    }}>
-                      {schedule.location.name}
-                    </span>
-                  </div>
-                  <div>
-                    <span style={{ 
-                      fontSize: '12px', 
-                      color: '#999', 
-                      lineHeight: '1.2',
-                      display: 'block'
-                    }}>
-                      {schedule.propertyType.name && schedule.propertyType.name !== '' ? schedule.propertyType.name : ''}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Tooltip>
+            <ScheduleCard
+              schedule={schedule}
+              timeSlot={record.timeSlot}
+              dateInfo={dateInfo}
+              onCardClick={handleCardClick}
+              userAvatars={userAvatars}
+              avatarFrames={avatarFrames}
+              isConnected={isConnected}
+              getCardColor={getCardColor}
+              cardUpdateKey={cardUpdateKeys[schedule?.id || `${dateInfo.date}-${record.timeSlot.id}`] || 0}
+              currentUserId={user?.id}
+              currentProfileId={userProfile?.id}
+            />
           );
         }
       }))
@@ -1127,14 +1536,253 @@ const LiveStreamRegistration: React.FC = () => {
     );
   };
 
+  // 处理弹窗关闭的统一函数
+  const handleModalClose = async () => {
+    console.log('🚪 开始关闭弹窗');
+    console.log('📋 当前编辑的记录:', editingSchedule ? {
+      id: editingSchedule.id,
+      status: editingSchedule.status,
+      managers: editingSchedule.managers,
+      location: editingSchedule.location,
+      propertyType: editingSchedule.propertyType
+    } : '无');
+    
+    if (editingSchedule) {
+      // 检查是否是临时记录或editing状态的记录
+      const isTempSchedule = editingSchedule.managers.length === 0;
+      const isEditingSchedule = editingSchedule.status === 'editing';
+      
+      console.log('🔍 检查记录类型:', {
+        isTempSchedule,
+        isEditingSchedule,
+        status: editingSchedule.status
+      });
+      console.log('📊 检查条件:', {
+        managersEmpty: editingSchedule.managers.length === 0
+      });
+      
+      // 对于临时记录，直接删除
+      if (isTempSchedule) {
+        console.log('🗑️ 开始删除临时记录');
+        console.log('📋 要删除的记录ID:', editingSchedule.id);
+        console.log('📋 删除原因: 临时记录');
+        
+        try {
+          console.log('🔄 执行数据库删除操作...');
+          console.log('📋 删除记录详情:', {
+            id: editingSchedule.id,
+            idType: typeof editingSchedule.id,
+            status: editingSchedule.status,
+            managers: editingSchedule.managers.length
+          });
+          
+          // 检查ID是否为有效数字
+          const recordId = parseInt(editingSchedule.id);
+          if (isNaN(recordId)) {
+            console.error('❌ 记录ID无效:', editingSchedule.id);
+            throw new Error('记录ID无效');
+          }
+          
+          console.log('📋 使用数字ID进行删除:', recordId);
+          
+          const { data, error } = await supabase
+            .from('live_stream_schedules')
+            .delete()
+            .eq('id', recordId)
+            .select();
+          
+          if (error) {
+            console.error('❌ 删除记录失败:', error);
+            console.error('🔍 错误详情:', {
+              message: error.message,
+              details: error.details,
+              hint: error.hint,
+              code: error.code
+            });
+          } else {
+            console.log('✅ 记录删除成功');
+            console.log('📊 删除结果:', data);
+            
+            // 验证删除是否真的成功
+            if (data && data.length > 0) {
+              console.log('⚠️ 删除操作返回了数据，可能删除失败');
+              console.log('📊 返回的数据:', data);
+            } else {
+              console.log('✅ 删除操作成功，没有返回数据');
+            }
+            
+            // 手动从本地状态中移除记录，确保UI立即更新
+            console.log('🔄 手动更新本地状态');
+            setSchedules(prev => {
+              const updated = prev.filter(schedule => schedule.id !== editingSchedule.id);
+              console.log('🔄 本地状态已更新，移除记录后剩余:', updated.length);
+              return updated;
+            });
+            
+            // 手动触发卡片更新
+            console.log('🔄 手动更新卡片:', editingSchedule.id);
+            updateSingleCard(editingSchedule.id);
+          }
+        } catch (error) {
+          console.error('❌ 删除记录时发生异常:', error);
+          console.error('🔍 异常详情:', {
+            message: error instanceof Error ? error.message : '未知错误',
+            stack: error instanceof Error ? error.stack : undefined
+          });
+        }
+      } else {
+        // 对于其他记录（包括editing状态的已报名记录），进行权限检查
+        console.log('🔐 对其他记录进行权限检查');
+        const permissionResult = await checkEditPermission(editingSchedule);
+        
+        if (!permissionResult.hasPermission) {
+          console.warn('⚠️ 删除权限检查失败:', permissionResult.message);
+          message.warning(permissionResult.message || '无权限删除此记录');
+          // 即使没有权限，也要清理状态
+          setModalVisible(false);
+          setEditingSchedule(null);
+          form.resetFields();
+          return;
+        }
+        
+        console.log('✅ 删除权限检查通过');
+        
+        // 权限检查通过后，如果是editing状态记录，也删除
+        if (isEditingSchedule) {
+          console.log('🗑️ 删除editing状态记录');
+          try {
+            const recordId = parseInt(editingSchedule.id);
+            if (isNaN(recordId)) {
+              console.error('❌ 记录ID无效:', editingSchedule.id);
+              throw new Error('记录ID无效');
+            }
+            
+            const { data, error } = await supabase
+              .from('live_stream_schedules')
+              .delete()
+              .eq('id', recordId)
+              .select();
+            
+            if (error) {
+              console.error('❌ 删除editing状态记录失败:', error);
+            } else {
+              console.log('✅ editing状态记录删除成功');
+              
+              // 手动从本地状态中移除记录
+              setSchedules(prev => {
+                const updated = prev.filter(schedule => schedule.id !== editingSchedule.id);
+                console.log('🔄 本地状态已更新，移除记录后剩余:', updated.length);
+                return updated;
+              });
+              
+              // 手动触发卡片更新
+              updateSingleCard(editingSchedule.id);
+            }
+          } catch (error) {
+            console.error('❌ 删除editing状态记录时发生异常:', error);
+          }
+        }
+      }
+    } else {
+      console.log('ℹ️ 没有编辑记录，无需删除');
+    }
+    
+    console.log('🧹 清理状态...');
+    setModalVisible(false);
+    setEditingSchedule(null);
+    form.resetFields();
+    message.info('已取消编辑');
+    
+    console.log('🔄 重新加载数据...');
+    await loadData(); // 重新加载数据
+    console.log('✅ 弹窗关闭流程完成');
+  };
+
+  // 处理卡片点击
+  const handleCardClick = async (schedule: LiveStreamSchedule | undefined, timeSlot: any, dateInfo: any) => {
+    if (!schedule) {
+      // 创建临时记录
+      console.log('🎯 开始创建临时记录');
+      console.log('📅 日期信息:', dateInfo);
+      console.log('⏰ 时间段信息:', timeSlot);
+      
+      try {
+        const tempScheduleData = {
+          date: dateInfo.date,
+          timeSlotId: timeSlot.id,
+          managers: [], // 设置为空数组，表示未选择人员
+          location: { id: '', name: '' }, // 设置为空，表示未选择位置
+          propertyType: { id: '', name: '' }, // 设置为空，表示未选择户型
+          status: 'editing' as const, // 明确指定为editing状态
+        };
+
+        console.log('📊 准备创建的临时记录数据:', tempScheduleData);
+        console.log('🔄 调用 createLiveStreamSchedule API...');
+        
+        const tempSchedule = await createLiveStreamSchedule(tempScheduleData);
+        
+        console.log('✅ 临时记录创建成功');
+        console.log('📋 创建的记录详情:', {
+          id: tempSchedule.id,
+          date: tempSchedule.date,
+          timeSlotId: tempSchedule.timeSlotId,
+          status: tempSchedule.status,
+          managers: tempSchedule.managers,
+          location: tempSchedule.location,
+          propertyType: tempSchedule.propertyType
+        });
+        
+        setEditingSchedule(tempSchedule);
+        setModalVisible(true);
+        
+        console.log('🎨 弹窗已激活，设置编辑状态');
+        
+        // 延迟设置表单值，确保Form组件已经渲染
+        setTimeout(() => {
+          console.log('📝 设置表单初始值');
+          form.setFieldsValue({
+            timeSlot: timeSlot.id
+          });
+          console.log('✅ 表单初始值设置完成');
+        }, 100);
+      } catch (error) {
+        console.error('❌ 创建临时记录失败:', error);
+        console.error('🔍 错误详情:', {
+          message: error instanceof Error ? error.message : '未知错误',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        message.error('创建临时记录失败');
+      }
+    } else {
+      // 编辑现有记录 - 使用统一的权限检查
+      console.log('📝 编辑现有记录:', {
+        id: schedule.id,
+        status: schedule.status,
+        managers: schedule.managers.map(m => m.name),
+        location: schedule.location.name,
+        propertyType: schedule.propertyType.name
+      });
+      
+      // 先进行权限检查
+      const permissionResult = await checkEditPermission(schedule);
+      
+      if (!permissionResult.hasPermission) {
+        console.warn('⚠️ 权限检查失败:', permissionResult.message);
+        message.warning(permissionResult.message || '无权限编辑此记录');
+        return;
+      }
+      
+      // 权限检查通过后，调用编辑函数
+      handleEditSchedule(schedule);
+    }
+  };
+
   // 确认弹窗处理函数
   const showConfirmModal = (title: string, content: string, callback: () => void) => {
-    console.log('showConfirmModal被调用:', { title, content }); // 添加调试日志
     setConfirmModalTitle(title);
     setConfirmModalContent(content);
     setConfirmModalCallback(() => callback);
     setConfirmModalVisible(true);
-    console.log('确认弹窗状态已设置为显示'); // 添加调试日志
   };
 
   const handleConfirmModalOk = () => {
@@ -1149,6 +1797,37 @@ const LiveStreamRegistration: React.FC = () => {
     setConfirmModalVisible(false);
     setConfirmModalCallback(null);
   };
+
+  // 获取用户profile信息
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) {
+        setUserProfile(null);
+        return;
+      }
+
+      try {
+        const { data: profile, error } = await supabase
+          .from('users_profile')
+          .select('id, nickname, avatar_url')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.error('获取用户profile失败:', error);
+          setUserProfile(null);
+        } else {
+          console.log('✅ 获取用户profile成功:', profile);
+          setUserProfile(profile);
+        }
+      } catch (error) {
+        console.error('获取用户profile异常:', error);
+        setUserProfile(null);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
 
   return (
     <div>
@@ -1170,30 +1849,7 @@ const LiveStreamRegistration: React.FC = () => {
         {isConnected ? '🟢 实时同步' : '🔴 离线模式'}
       </div>
 
-      {/* 编辑状态指示器 */}
-      {editingSchedule && (
-        <div style={{
-          position: 'fixed',
-          top: '120px',
-          right: '20px',
-          background: '#52c41a',
-          color: 'white',
-          padding: '8px 12px',
-          borderRadius: '4px',
-          fontSize: '12px',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          boxShadow: '0 2px 8px rgba(82, 196, 26, 0.3)'
-        }}>
-          <span>✏️ 正在编辑</span>
-          <span style={{ fontSize: '10px', opacity: 0.8 }}>
-            {editingSchedule.date} {editingSchedule.timeSlotId}
-          </span>
-          <EditCountdown scheduleId={editingSchedule.id} />
-        </div>
-      )}
+
 
       <style>
         {`
@@ -1222,9 +1878,17 @@ const LiveStreamRegistration: React.FC = () => {
           .compact-row td {
             padding: 4px 8px !important;
             vertical-align: top !important;
-          }
-        `}
-      </style>
+                      }
+            @keyframes wave {
+              0%, 60%, 100% {
+                transform: translateY(0);
+              }
+              30% {
+                transform: translateY(-4px);
+              }
+            }
+          `}
+        </style>
       {currentView === 'registration' ? (
         <>
           <div style={{ marginBottom: '16px' }}>
@@ -1276,120 +1940,28 @@ const LiveStreamRegistration: React.FC = () => {
         open={modalVisible}
         maskClosable={false}
         onCancel={async () => {
-          console.log('Modal被关闭（X按钮或点击外部）'); // 添加调试日志
           
           // 检查表单是否有未保存的更改
           const formValues = form.getFieldsValue();
-          console.log('表单值:', formValues); // 添加调试日志
           
-          const hasUnsavedChanges = (formValues.managers && formValues.managers.length > 0) ||
-                                   formValues.location ||
-                                   formValues.propertyType;
-          
-          console.log('是否有未保存更改:', hasUnsavedChanges); // 添加调试日志
+          const hasUnsavedChanges = (formValues.managers && formValues.managers.length > 0);
           
           if (hasUnsavedChanges) {
-            console.log('显示有更改的确认弹窗'); // 添加调试日志
-            // 如果有未保存的更改，显示详细确认弹窗
+            // 有未保存的更改
             showConfirmModal(
               '确认关闭编辑',
-              '您有未保存的更改，确定要关闭吗？\n\n关闭后：\n1. 编辑锁定将被释放\n2. 其他用户可以编辑此时间段\n3. 未保存的更改将丢失',
+              '您有未保存的更改，确定要关闭吗？\n\n关闭后：\n1. 未保存的更改将丢失',
               async () => {
-                console.log('用户确认关闭（有更改）'); // 添加调试日志
-                // 用户确认关闭，执行清理操作
-                if (editingSchedule) {
-                  // 检查是否是临时记录，如果是则删除
-                  const isTempSchedule = editingSchedule.managers.length === 0 && 
-                                        editingSchedule.location.name === '' && 
-                                        editingSchedule.propertyType.name === '';
-                  
-                  if (isTempSchedule) {
-                    // 删除临时记录
-                    try {
-                      await supabase
-                        .from('live_stream_schedules')
-                        .delete()
-                        .eq('id', editingSchedule.id);
-                    } catch (error) {
-                      console.error('删除临时记录失败:', error);
-                    }
-                  } else {
-                    // 根据当前状态决定是否回退状态
-                    const currentStatus = editingSchedule.status;
-                    if (currentStatus === 'editing') {
-                      // editing状态退出时，回退为available
-                      try {
-                        await updateLiveStreamSchedule(editingSchedule.id, {
-                          status: 'available'
-                        });
-                        console.log('editing状态退出，回退为available');
-                      } catch (error) {
-                        console.error('回退状态失败:', error);
-                      }
-                    }
-                    // booked状态退出时，保持booked状态不变
-                    
-                    // 释放编辑锁定
-                    await releaseEditLock(editingSchedule.id);
-                  }
-                }
-                setModalVisible(false);
-                setEditingSchedule(null);
-                form.resetFields();
-                message.info('已取消编辑');
-                loadData(); // 重新加载数据
+                await handleModalClose();
               }
             );
           } else {
-            console.log('显示无更改的确认弹窗'); // 添加调试日志
-            // 如果没有更改，显示简单确认弹窗
+            // 没有未保存的更改
             showConfirmModal(
               '确认取消编辑',
-              '确定要取消编辑吗？这将释放编辑锁定。',
+              '确定要取消编辑吗？',
               async () => {
-                console.log('用户确认关闭（无更改）'); // 添加调试日志
-                // 用户确认关闭，执行清理操作
-                if (editingSchedule) {
-                  // 检查是否是临时记录，如果是则删除
-                  const isTempSchedule = editingSchedule.managers.length === 0 && 
-                                        editingSchedule.location.name === '' && 
-                                        editingSchedule.propertyType.name === '';
-                  
-                  if (isTempSchedule) {
-                    // 删除临时记录
-                    try {
-                      await supabase
-                        .from('live_stream_schedules')
-                        .delete()
-                        .eq('id', editingSchedule.id);
-                    } catch (error) {
-                      console.error('删除临时记录失败:', error);
-                    }
-                  } else {
-                    // 根据当前状态决定是否回退状态
-                    const currentStatus = editingSchedule.status;
-                    if (currentStatus === 'editing') {
-                      // editing状态退出时，回退为available
-                      try {
-                        await updateLiveStreamSchedule(editingSchedule.id, {
-                          status: 'available'
-                        });
-                        console.log('editing状态退出，回退为available');
-                      } catch (error) {
-                        console.error('回退状态失败:', error);
-                      }
-                    }
-                    // booked状态退出时，保持booked状态不变
-                    
-                    // 释放编辑锁定
-                    await releaseEditLock(editingSchedule.id);
-                  }
-                }
-                setModalVisible(false);
-                setEditingSchedule(null);
-                form.resetFields();
-                message.info('已取消编辑');
-                loadData(); // 重新加载数据
+                await handleModalClose();
               }
             );
           }
@@ -1452,7 +2024,13 @@ const LiveStreamRegistration: React.FC = () => {
                 return String(optionText || '').toLowerCase().includes(input.toLowerCase());
               }}
               style={{ width: '100%' }}
-              dropdownStyle={{ maxWidth: '400px' }}
+              styles={{
+                popup: {
+                  root: {
+                    maxWidth: '400px'
+                  }
+                }
+              }}
               tagRender={(props) => {
                 const { label, closable, onClose } = props;
                 return (
@@ -1510,63 +2088,48 @@ const LiveStreamRegistration: React.FC = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item
-            label="直播地点"
-            name="location"
-            rules={[{ required: true, message: '请选择直播地点' }]}
-          >
-            <Select
-              placeholder="请选择直播地点"
-              showSearch
-              filterOption={(input, option) => {
-                const optionText = option?.label || option?.children;
-                return String(optionText || '').toLowerCase().includes(input.toLowerCase());
-              }}
-            >
-              {locations.map(location => (
-                <Option key={location.id} value={location.id}>
-                  <Space>
-                    <EnvironmentOutlined />
-                    {location.name}
-                  </Space>
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="直播户型"
-            name="propertyType"
-            rules={[{ required: true, message: '请选择直播户型' }]}
-          >
-            <Select
-              placeholder="请选择直播户型"
-              showSearch
-              filterOption={(input, option) => {
-                const optionText = option?.label || option?.children;
-                return String(optionText || '').toLowerCase().includes(input.toLowerCase());
-              }}
-            >
-              {propertyTypes.map(type => (
-                <Option key={type.id} value={type.id}>
-                  <Space>
-                    <HomeOutlined />
-                    {type.name}
-                  </Space>
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
           <Form.Item>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
-              loading={loading}
-              icon={<CheckCircleOutlined />}
-            >
-              {editingSchedule ? '更新' : '创建'}
-            </Button>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <Button 
+                onClick={async () => {
+                  // 检查表单是否有未保存的更改
+                  const formValues = form.getFieldsValue();
+                  
+                  const hasUnsavedChanges = (formValues.managers && formValues.managers.length > 0);
+                  
+                  if (hasUnsavedChanges) {
+                    // 有未保存的更改
+                    showConfirmModal(
+                      '确认取消编辑',
+                      '您有未保存的更改，确定要取消吗？\n\n取消后：\n1. 未保存的更改将丢失\n2. 临时记录将被删除',
+                      async () => {
+                        await handleModalClose();
+                      }
+                    );
+                  } else {
+                    // 没有未保存的更改
+                    showConfirmModal(
+                      '确认取消编辑',
+                      '确定要取消编辑吗？',
+                      async () => {
+                        await handleModalClose();
+                      }
+                    );
+                  }
+                }}
+                disabled={loading}
+              >
+                取消
+              </Button>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={loading}
+                icon={<CheckCircleOutlined />}
+              >
+                {editingSchedule ? '更新' : '创建'}
+              </Button>
+            </div>
           </Form.Item>
         </Form>
       </Modal>

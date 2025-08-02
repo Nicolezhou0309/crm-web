@@ -21,7 +21,7 @@ export interface TrendData {
  */
 export const fetchPerformanceStats = async (): Promise<PerformanceStats> => {
   try {
-    // 获取当前用户ID
+    // 获取当前用户ID - 注意：这个函数在API层面，无法直接使用useUser Hook
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       throw new Error('用户未登录');
@@ -123,6 +123,7 @@ export const fetchPerformanceStats = async (): Promise<PerformanceStats> => {
  */
 export const fetchTrendData = async (days: number = 7): Promise<TrendData[]> => {
   try {
+    // 注意：这个函数在API层面，无法直接使用useUser Hook
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       throw new Error('用户未登录');

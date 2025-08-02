@@ -43,7 +43,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   onCollapse
 }) => {
   const [search, setSearch] = React.useState('');
-  const { hasPermission, hasRole } = useRolePermissions();
+  const { hasPermission, hasRole, loading: permissionsLoading, isSuperAdmin } = useRolePermissions();
 
   const menuItems = [
     { 
@@ -283,14 +283,20 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   // 递归过滤菜单项，包含权限检查
   function filterMenu(items: any[], keyword: string): any[] {
     
+    // 如果权限还在加载中，返回空数组
+    if (permissionsLoading) {
+      return [];
+    }
+    
     if (!keyword) {
       const filtered = items.filter(item => {
         
         // 检查权限或角色
         if (item.permission) {
           if (item.permission === 'admin') {
-            const hasAdminRole = hasRole('admin');
-            if (!hasAdminRole) {
+            // 检查是否有管理员角色
+            const hasAdminRole = hasRole('admin') || hasRole('super_admin') || hasRole('system_admin');
+            if (!hasAdminRole && !isSuperAdmin) {
               return false;
             }
           } else {
@@ -326,7 +332,8 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
         // 检查权限或角色
         if (item.permission) {
           if (item.permission === 'admin') {
-            if (!hasRole('admin')) {
+            const hasAdminRole = hasRole('admin') || hasRole('super_admin') || hasRole('system_admin');
+            if (!hasAdminRole && !isSuperAdmin) {
               return null;
             }
           } else if (!hasPermission(item.permission)) {
@@ -350,6 +357,13 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
   }
 
   const filteredMenuItems = filterMenu(menuItems, search);
+
+  // 调试信息
+  React.useEffect(() => {
+    if (!permissionsLoading) {
+      
+    }
+  }, [permissionsLoading, isSuperAdmin, hasPermission, hasRole, filteredMenuItems.length]);
 
   return (
     <div style={{ 
@@ -381,6 +395,17 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
         width: '100%',
         padding: '0 8px', // 只在这里加左右间距
       }}>
+        {/* 权限加载状态 */}
+        {permissionsLoading && (
+          <div style={{
+            padding: '16px',
+            textAlign: 'center',
+            color: '#999',
+            fontSize: '12px'
+          }}>
+            正在加载权限...
+          </div>
+        )}
         <Menu
           mode="inline"
           selectedKeys={[selectedKey]}

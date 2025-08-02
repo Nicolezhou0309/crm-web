@@ -13,8 +13,8 @@ const TestAuth: React.FC = () => {
   };
 
   const handleRefresh = async () => {
-    const { data: { user: sessionUser } } = await supabase.auth.getUser();
-    console.log('Current session user:', sessionUser);
+    // 使用统一的用户上下文，不需要直接调用supabase.auth.getUser()
+    console.log('Current session user:', user);
   };
 
   if (loading) {

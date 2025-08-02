@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supaClient';
 import { message } from 'antd';
+import { useUser } from '../context/UserContext';
 
 interface EditLock {
   editing_by: number;
@@ -22,6 +23,7 @@ export const useRealtimeConcurrencyControl = () => {
   const [isConnected, setIsConnected] = useState(false);
   const lockTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { user } = useUser();
 
   // 添加连接状态变化的调试
   useEffect(() => {
@@ -38,9 +40,8 @@ export const useRealtimeConcurrencyControl = () => {
     }, 1000); // 1秒防抖
   }, []);
 
-  // 获取当前用户ID
+  // 获取当前用户ID - 使用统一的用户上下文
   const getCurrentUserId = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
     const { data: userProfile } = await supabase
@@ -149,35 +150,76 @@ export const useRealtimeConcurrencyControl = () => {
   // 释放编辑锁定
   const releaseEditLock = useCallback(async (scheduleId: string) => {
     try {
+      console.log('🔓 开始释放编辑锁定');
+      console.log('  - 记录ID:', scheduleId);
+      
       const currentUserId = await getCurrentUserId();
-      if (!currentUserId) return;
+      if (!currentUserId) {
+        console.log('❌ 用户未登录，无法释放锁定');
+        return;
+      }
+
+      console.log('  - 当前用户ID:', currentUserId);
 
       // 清除定时器
       if (lockTimeouts.current[scheduleId]) {
+        console.log('  - 清除定时器');
         clearTimeout(lockTimeouts.current[scheduleId]);
         delete lockTimeouts.current[scheduleId];
       }
 
-      // 更新数据库
-      await supabase
+      // 先获取当前记录状态
+      const { data: currentRecord } = await supabase
         .from('live_stream_schedules')
-        .update({
-          status: 'available',
-          editing_by: null,
-          editing_at: null,
-          editing_expires_at: null
-        })
+        .select('status')
         .eq('id', scheduleId)
-        .eq('editing_by', currentUserId);
+        .single();
+
+      console.log('  - 当前记录状态:', currentRecord?.status);
+
+      // 根据当前状态决定是否重置状态
+      const shouldResetStatus = currentRecord?.status !== 'booked';
+      
+      console.log('🔄 更新数据库，释放编辑锁定');
+      console.log('  - 是否重置状态:', shouldResetStatus);
+      
+      // 更新数据库
+      const updateData: any = {
+        editing_by: null,
+        editing_at: null,
+        editing_expires_at: null
+      };
+
+      // 只有非booked状态才重置为available
+      if (shouldResetStatus) {
+        updateData.status = 'available';
+      }
+
+      const { data, error } = await supabase
+        .from('live_stream_schedules')
+        .update(updateData)
+        .eq('id', scheduleId)
+        .eq('editing_by', currentUserId)
+        .select();
+
+      if (error) {
+        console.error('❌ 释放编辑锁定失败:', error);
+        throw error;
+      }
+
+      console.log('✅ 编辑锁定释放成功');
+      console.log('  - 更新结果:', data);
+      console.log('  - 新状态:', shouldResetStatus ? 'available' : '保持原状态');
 
       // 更新本地状态
       setCurrentUserLocks(prev => {
         const newSet = new Set(prev);
         newSet.delete(scheduleId);
+        console.log('  - 更新本地锁定状态:', Array.from(newSet));
         return newSet;
       });
     } catch (error) {
-      console.error('释放锁定失败:', error);
+      console.error('❌ 释放锁定失败:', error);
     }
   }, []);
 
@@ -264,6 +306,33 @@ export const useRealtimeConcurrencyControl = () => {
 
         // 显示通知
         message.success(`${schedule.date} ${schedule.time_slot_id} 已可编辑`);
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'live_stream_schedules',
+        filter: 'status=eq.booked'
+      }, async (payload) => {
+        const schedule = payload.new;
+
+        // 清除编辑锁定
+        setEditLocks(prev => {
+          const newLocks = { ...prev };
+          delete newLocks[schedule.id];
+          return newLocks;
+        });
+
+        // 获取报名用户信息
+        const { data: userProfile } = await supabase
+          .from('users_profile')
+          .select('nickname, email')
+          .eq('id', schedule.created_by)
+          .single();
+
+        const userName = userProfile?.nickname || userProfile?.email || '未知用户';
+
+        // 显示通知
+        message.success(`${userName} 报名了 ${schedule.date} ${schedule.time_slot_id}`);
       })
       .on('postgres_changes', {
         event: 'UPDATE',

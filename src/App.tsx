@@ -59,7 +59,8 @@ import OnboardingPage from './pages/OnboardingPage';
 import LiveStreamRegistration from './pages/LiveStreamRegistration';
 // import LiveStreamManagement from './pages/LiveStreamManagement';
 import TestAuth from './pages/TestAuth';
-import { useSilentAuth } from './hooks/useSilentAuth';
+import AuthOptimizationTest from './pages/AuthOptimizationTest';
+
 
 
 const { Sider, Content, Header } = Layout;
@@ -838,6 +839,7 @@ const AppContent: React.FC = () => {
                           <Route path="/onboarding" element={<OnboardingPage />} />
                           <Route path="/live-stream-registration" element={<LiveStreamRegistration />} />
                           <Route path="/test-auth" element={<TestAuth />} />
+                          <Route path="/auth-optimization-test" element={<AuthOptimizationTest />} />
                           {/* <Route path="/live-stream-management" element={
                             <PermissionGate permission="live_stream_manage" fallback={<Error403 />}>
                               <LiveStreamManagement />
