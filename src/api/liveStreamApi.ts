@@ -6,39 +6,12 @@ import type {
   LiveStreamLocation, 
   LiveStreamPropertyType} from '../types/liveStream';
 import { 
-  TIME_SLOTS,
   SAMPLE_MANAGERS,
   SAMPLE_LOCATIONS,
   SAMPLE_PROPERTY_TYPES
 } from '../types/liveStream';
 
-// 数据库类型定义
-interface DBLiveStreamSchedule {
-  id: number;
-  date: string;
-  time_slot_id: string;
-  participant_ids: number[] | null;
-  location: string | null;
-  notes: string | null;
-  status: 'available' | 'booked' | 'completed' | 'cancelled' | 'editing' | 'locked';
-  created_by: number | null;
-  created_at: string;
-  updated_at: string;
-  editing_by: number | null;
-  editing_at: string | null;
-  editing_expires_at: string | null;
-  lock_type: 'none' | 'manual' | 'system' | 'maintenance';
-  lock_reason: string | null;
-  lock_end_time: string | null;
-}
 
-interface DBUserProfile {
-  id: number;
-  user_id: string;
-  nickname: string;
-  email: string;
-  status: string;
-}
 
 // 获取直播管家列表（从users_profile表获取）
 export const getLiveStreamManagers = async (): Promise<LiveStreamManager[]> => {
