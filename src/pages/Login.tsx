@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../supaClient';
 import { Input, Button, message, Form, Modal } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useUser } from '../context/UserContext';
+import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import './login.css';
 import LottieLogo from '../components/LottieLogo';
 import LoadingScreen from '../components/LoadingScreen';
+import { tokenManager } from '../utils/tokenManager';
+import { supabase } from '../supaClient';
+
 
 const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { user, loading: userLoading } = useUser();
+  const { isAuthenticated, login: authLogin } = useAuth();
   const navigate = useNavigate();
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -20,11 +24,16 @@ const Login: React.FC = () => {
 
 
   useEffect(() => {
-    if (user && !userLoading && !hasNavigated.current) {
+    // 使用统一的认证Hook进行跳转逻辑
+    console.log('Login useEffect - isAuthenticated:', isAuthenticated, 'userLoading:', userLoading, 'hasNavigated:', hasNavigated.current);
+    
+    if (isAuthenticated && !userLoading && !hasNavigated.current) {
+      console.log('触发登录成功跳转');
+      // 立即跳转，减少延迟
       hasNavigated.current = true;
-      navigate('/');
+      navigate('/', { replace: true });
     }
-  }, [user, userLoading, navigate]);
+  }, [isAuthenticated, userLoading, navigate]);
 
   // 从 localStorage 获取失败计数
   const getLoginAttempts = (email: string) => {
@@ -63,20 +72,21 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      // 使用统一的认证Hook进行登录
+      const { success, error } = await authLogin(email, password);
       
-      if (error) {
+      if (!success) {
         // 增加失败计数
         const attempts = getLoginAttempts(email);
         attempts.count += 1;
         
         // 保留原有的错误处理逻辑
-        if (error.code === 'user_banned') {
+        if (error && error.includes('user_banned')) {
           message.error('您的账号已被禁用或离职，如有疑问请联系管理员');
-        } else if (error.message === 'Invalid login credentials') {
+        } else if (error && error.includes('Invalid login credentials')) {
           message.error('账号或密码错误，请重新输入');
         } else {
-          message.error(error.message);
+          message.error(error || '登录失败');
         }
         
         // 如果失败次数达到5次，锁定账户15分钟
@@ -85,7 +95,7 @@ const Login: React.FC = () => {
           message.error('登录失败次数过多，账户已被临时锁定15分钟');
         } else {
           // 显示剩余尝试次数（仅在密码错误时）
-          if (error.message === 'Invalid login credentials') {
+          if (error && error.includes('Invalid login credentials')) {
             message.error(`账号或密码错误，还可尝试${5 - attempts.count}次`);
           }
         }
@@ -94,7 +104,11 @@ const Login: React.FC = () => {
       } else {
         // 登录成功，清除失败计数
         saveLoginAttempts(email, { count: 0, blockedUntil: null });
-        message.success('登录成功！');
+        message.success('登录成功！正在跳转...');
+        
+        console.log('登录成功，等待状态更新和跳转...');
+        console.log('当前状态 - user:', user, 'userLoading:', userLoading, 'isAuthenticated:', isAuthenticated);
+        // 登录成功后，让UserContext的认证状态监听器自动处理用户状态更新和重定向
       }
     } catch (e) {
       message.error('登录异常，请重试');
@@ -147,14 +161,12 @@ const Login: React.FC = () => {
       
       // 发送重置密码邮件
       const redirectTo = window.location.origin + '/set-password';
-      console.log('重置密码 redirectTo:', redirectTo);
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo,
-      });
+      // 重置密码 redirectTo: redirectTo
+      const { error } = await tokenManager.resetPasswordForEmail(resetEmail, redirectTo);
       
-      if (error) {
-        message.error(error.message || '重置邮件发送失败');
-      } else {
+              if (error) {
+          message.error(error instanceof Error ? error.message : '重置邮件发送失败');
+        } else {
         message.success('重置密码邮件已发送，请查收邮箱！');
         setResetModalVisible(false);
       }
@@ -165,12 +177,24 @@ const Login: React.FC = () => {
     }
   };
 
-  if (userLoading) {
-    return <LoadingScreen type="auth" message="正在加载用户信息..." subtitle="请稍候，我们正在为您准备登录环境" />;
-  }
-
-  if (user) {
-    return <LoadingScreen type="auth" message="登录成功，正在跳转..." subtitle="正在为您跳转到主页面" />;
+  // 显示LoadingScreen的情况：
+  // 1. 用户正在加载
+  // 2. 用户已存在（登录成功，正在跳转）
+  // 3. 正在登录中
+  if (userLoading || user || loading) {
+    const message = user 
+      ? "登录成功，正在跳转..." 
+      : loading 
+        ? "正在验证登录信息..." 
+        : "正在加载用户信息...";
+    
+    const subtitle = user 
+      ? "正在为您跳转到主页面" 
+      : loading 
+        ? "请稍候，我们正在验证您的身份" 
+        : "请稍候，我们正在为您准备登录环境";
+    
+    return <LoadingScreen type="auth" message={message} subtitle={subtitle} />;
   }
 
   return (
@@ -225,6 +249,20 @@ const Login: React.FC = () => {
             <Input.Password autoComplete="current-password" prefix={<LockOutlined />} placeholder="请输入密码" />
           </Form.Item>
           <Button type="primary" htmlType="submit" loading={loading} block className="login-btn">立即登录</Button>
+          {/* 测试按钮 - 仅在开发环境显示 */}
+          {process.env.NODE_ENV === 'development' && (
+            <Button 
+              type="dashed" 
+              block 
+              style={{ marginTop: 8 }}
+              onClick={() => {
+                console.log('测试登录状态 - user:', user, 'userLoading:', userLoading);
+                console.log('当前localStorage:', Object.keys(localStorage));
+              }}
+            >
+              测试登录状态
+            </Button>
+          )}
           <div style={{ textAlign: 'right', marginTop: 8 }}>
             <Button type="link" size="small" onClick={() => setResetModalVisible(true)} style={{ padding: 0 }} className="login-btn-forgot">忘记密码？</Button>
           </div>

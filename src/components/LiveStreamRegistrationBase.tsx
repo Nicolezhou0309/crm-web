@@ -2,13 +2,14 @@ import React, { useState, useEffect, memo } from 'react';
 import { Button, Table, Modal, Form, Select, message, Tooltip } from 'antd';
 import { PlusOutlined, CheckCircleOutlined, VideoCameraAddOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
-import type { LiveStreamSchedule } from '../types/liveStream';
-import { TIME_SLOTS } from '../types/liveStream';
-import { createLiveStreamSchedule, updateLiveStreamSchedule, getWeeklySchedule, cleanupExpiredEditingStatus } from '../api/liveStreamApi';
+import type { LiveStreamSchedule, TimeSlot } from '../types/liveStream';
+import { createLiveStreamSchedule, updateLiveStreamSchedule, getWeeklySchedule, cleanupExpiredEditingStatus, getTimeSlots } from '../api/liveStreamApi';
 
 import { supabase } from '../supaClient';
 import { useUser } from '../context/UserContext';
 import UserTreeSelect from './UserTreeSelect';
+import LiveStreamCardContextMenu from './LiveStreamCardContextMenu';
+import LiveStreamHistoryDrawer from './LiveStreamHistoryDrawer';
 const { Option } = Select;
 
 
@@ -25,6 +26,11 @@ const ScheduleCard = memo<{
   cardUpdateKey?: number;
   currentUserId?: string;
   currentProfileId?: number;
+  timeSlots: TimeSlot[];
+  onContextMenuEdit?: (schedule: LiveStreamSchedule) => void;
+  onContextMenuHistory?: (schedule: LiveStreamSchedule) => void;
+  onContextMenuRate?: (schedule: LiveStreamSchedule) => void;
+  onContextMenuRelease?: (schedule: LiveStreamSchedule) => void;
 }>(({ 
   schedule, 
   timeSlot, 
@@ -34,22 +40,32 @@ const ScheduleCard = memo<{
   avatarFrames, 
   getCardColor,
   cardUpdateKey,
-  currentProfileId
+  currentProfileId,
+  timeSlots,
+  onContextMenuEdit,
+  onContextMenuHistory,
+  onContextMenuRate,
+  onContextMenuRelease
 }) => {
-  // 检查是否可以编辑：无记录、状态为available、或状态为空（排除editing状态）
-  const canEdit = !schedule || schedule.status === 'available' || (!schedule.status && schedule.status !== 'editing');
+  // 检查是否可以编辑：无记录、状态为available、状态为空、或状态为editing
+  // 对于available状态且没有参与者的卡片，应该显示为可报名状态
+  const canEdit = !schedule || 
+                  schedule.status === 'available' || 
+                  schedule.status === 'editing' ||
+                  (!schedule.status && schedule.status !== 'editing');
   
   // 检查是否是当前用户报名的 - 使用profile.id进行比较
-  const isMyBooking = schedule && currentProfileId && (
+  // 对于available状态且没有参与者的卡片，不应该显示为"我报名的"
+  const isMyBooking = schedule && currentProfileId && schedule.status !== 'available' && (
     schedule.createdBy === currentProfileId || 
-    schedule.managers.some(manager => parseInt(manager.id) === currentProfileId)
+    schedule.managers.some((manager: any) => parseInt(manager.id) === currentProfileId)
   );
   
   // 检查是否是当前时间的直播场次
   const isCurrentLiveStream = schedule && schedule.status === 'booked' && (() => {
     const now = dayjs();
     const scheduleDate = dayjs(schedule.date);
-    const timeSlot = TIME_SLOTS.find(ts => ts.id === schedule.timeSlotId);
+    const timeSlot = timeSlots.find((ts: TimeSlot) => ts.id === schedule.timeSlotId);
     
     if (!timeSlot) return false;
     
@@ -65,104 +81,136 @@ const ScheduleCard = memo<{
   const showLiveStreamStatus = isCurrentLiveStream;
   const showMyBookingStatus = isMyBooking && !isCurrentLiveStream;
   
-  // 添加调试信息
-  if (schedule && currentProfileId) {
-    console.log('🔍 状态栏调试信息:', {
-      scheduleId: schedule.id,
-      currentProfileId: currentProfileId,
-      createdBy: schedule.createdBy,
-      managers: schedule.managers.map(m => ({ id: m.id, parsedId: parseInt(m.id) })),
-      isMyBooking: isMyBooking,
-      isCurrentLiveStream: isCurrentLiveStream,
-      showLiveStreamStatus: showLiveStreamStatus,
-      showMyBookingStatus: showMyBookingStatus,
-      isCreator: schedule.createdBy === currentProfileId,
-      isParticipant: schedule.managers.some(manager => parseInt(manager.id) === currentProfileId)
-    });
-  }
-  
-  if (canEdit) {
+  // 统一的卡片渲染函数
+  const renderCard = (cardContent: React.ReactNode) => {
+    // 如果没有schedule，或者available状态且没有参与者，或者editing状态，不显示右键菜单
+    if (!schedule || 
+        (schedule.status === 'available' && schedule.managers.length === 0) ||
+        schedule.status === 'editing') {
+      return (
+        <div
+          key={`${schedule?.id || 'empty'}-${cardUpdateKey || 0}`}
+          onClick={() => onCardClick(schedule, timeSlot, dateInfo)}
+          style={{
+            background: 'white',
+            border: schedule?.status === 'editing' ? '1px solid #52c41a' : '1px solid #1890ff',
+            borderRadius: '8px',
+            margin: '1px',
+            boxShadow: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            height: '100px',
+            width: '160px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            position: 'relative'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = 'none';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = 'none';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          {cardContent}
+        </div>
+      );
+    }
+
+    // 有schedule时，直接使用右键菜单包裹
     return (
-      <div
-        key={`${schedule?.id || 'empty'}-${cardUpdateKey || 0}`}
-        onClick={() => onCardClick(schedule, timeSlot, dateInfo)}
-        style={{
-          background: 'white',
-          border: '1px solid #1890ff',
-          borderRadius: '8px',
-          margin: '1px',
-          boxShadow: 'none',
-          cursor: 'pointer',
-          transition: 'all 0.3s ease',
-          height: '100px',
-          width: '160px',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          position: 'relative'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.boxShadow = 'none';
-          e.currentTarget.style.transform = 'translateY(-1px)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow = 'none';
-          e.currentTarget.style.transform = 'translateY(0)';
-        }}
+      <LiveStreamCardContextMenu
+        onEdit={() => onContextMenuEdit?.(schedule)}
+        onHistory={() => onContextMenuHistory?.(schedule)}
+        onRate={() => onContextMenuRate?.(schedule)}
+        onRelease={() => onContextMenuRelease?.(schedule)}
       >
-        {/* 上半部分容器 - 人名区域 */}
-        <div style={{
-          background: '#ffffff',
-          padding: '2px 2px',
-          margin: '0',
-          borderBottom: '1px solid #1890ff',
-          width: '100%',
-          minHeight: '48px',
-          display: 'flex',
+        {cardContent}
+      </LiveStreamCardContextMenu>
+    );
+  };
+
+  // 统一的空状态/释放状态卡片内容渲染函数
+  const renderEmptyOrAvailableCardContent = () => (
+    <>
+      {/* 上半部分容器 - 人名区域 */}
+      <div style={{
+        background: '#ffffff',
+        padding: '2px 2px',
+        margin: '0',
+        borderBottom: '1px solid #1890ff',
+        width: '100%',
+        minHeight: '48px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1px',
+        overflow: 'hidden',
+        boxSizing: 'border-box'
+      }}>
+        {/* Icon + 立即报名 - 居中显示 */}
+        <div style={{ 
+          display: 'flex', 
           alignItems: 'center',
-          gap: '1px',
-          overflow: 'hidden',
-          boxSizing: 'border-box'
+          justifyContent: 'center',
+          gap: '6px',
+          flex: 1,
+          width: '100%'
         }}>
-          {/* Icon + 立即报名 - 居中显示 */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            flex: 1,
-            width: '100%'
+          <PlusOutlined style={{ color: '#1890ff', fontSize: '14px' }} />
+          <span style={{ 
+            fontSize: '12px', 
+            color: '#1890ff',
+            fontWeight: '600',
+            lineHeight: '1.2'
           }}>
-            <PlusOutlined style={{ color: '#1890ff', fontSize: '14px' }} />
-            <span style={{ 
-              fontSize: '12px', 
-              color: '#1890ff',
-              fontWeight: '600',
-              lineHeight: '1.2'
-            }}>
-              立即报名
-            </span>
-          </div>
+            立即报名
+          </span>
+        </div>
+      </div>
+      
+      {/* 下半部分容器 - 双栏布局 */}
+      <div style={{ 
+        padding: '8px 8px', 
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        background: 'white',
+        gap: '8px'
+      }}>
+        {/* 左侧 - Location */}
+        <div style={{ 
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <span style={{ 
+            fontSize: '12px', 
+            color: '#999', 
+            lineHeight: '1.2',
+            display: 'block',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+          title={schedule?.location?.name || ''}>
+            {schedule?.location?.name || ''}
+          </span>
         </div>
         
-        {/* 下半部分容器 - 双栏布局 */}
+        {/* 右侧 - Notes (PropertyType) */}
         <div style={{ 
-          padding: '8px 8px', 
           flex: 1,
+          minWidth: 0,
           display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          background: 'white',
-          gap: '8px'
+          flexDirection: 'column'
         }}>
-          {/* 左侧 - Location */}
-          <div style={{ 
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
+          {schedule?.propertyType?.name && schedule.propertyType.name !== '' && (
             <span style={{ 
               fontSize: '12px', 
               color: '#999', 
@@ -172,95 +220,192 @@ const ScheduleCard = memo<{
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
             }}
-            title={schedule?.location?.name || ''}>
-              {schedule?.location?.name || ''}
+            title={schedule.propertyType.name}>
+              {schedule.propertyType.name}
             </span>
-          </div>
-          
-          {/* 右侧 - Notes (PropertyType) */}
-          <div style={{ 
-            flex: 1,
-            minWidth: 0,
+          )}
+        </div>
+      </div>
+      
+      {/* 状态栏 */}
+      {showLiveStreamStatus && (
+        <div style={{
+          background: '#1890ff',
+          color: 'white',
+          fontSize: '10px',
+          padding: '2px 6px 2px 10px',
+          textAlign: 'left',
+          fontWeight: '500',
+          lineHeight: '1.2',
+          borderBottomLeftRadius: '7px',
+          borderBottomRightRadius: '7px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          <span style={{
+            width: '4px',
+            height: '4px',
+            borderRadius: '50%',
+            background: 'white',
+            flexShrink: 0
+          }}></span>
+          正在直播中...
+        </div>
+      )}
+      {showMyBookingStatus && (
+        <div style={{
+          background: '#faad14',
+          color: 'white',
+          fontSize: '10px',
+          padding: '2px 6px 2px 10px',
+          textAlign: 'left',
+          fontWeight: '500',
+          lineHeight: '1.2',
+          borderBottomLeftRadius: '7px',
+          borderBottomRightRadius: '7px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          <span style={{
+            width: '4px',
+            height: '4px',
+            borderRadius: '50%',
+            background: 'white',
+            flexShrink: 0
+          }}></span>
+          我报名的
+        </div>
+      )}
+    </>
+  );
+
+  // 统一的编辑状态卡片内容渲染函数
+  const renderEditingCardContent = () => (
+    <>
+      {/* 上半部分容器 - 人名区域 */}
+      <div style={{
+        background: '#ffffff',
+        padding: '2px 2px',
+        margin: '0',
+        borderBottom: '1px solid #52c41a',
+        width: '100%',
+        minHeight: '48px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1px',
+        overflow: 'hidden',
+        boxSizing: 'border-box'
+      }}>
+        {/* 编辑中状态显示 */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+          flex: 1,
+          width: '100%'
+        }}>
+          <span style={{ 
+            fontSize: '12px', 
+            color: '#52c41a',
+            fontWeight: '600',
+            lineHeight: '1.2',
             display: 'flex',
-            flexDirection: 'column'
+            alignItems: 'center',
+            justifyContent: 'center'
           }}>
-            {schedule?.propertyType?.name && schedule.propertyType.name !== '' && (
-              <span style={{ 
-                fontSize: '12px', 
-                color: '#999', 
-                lineHeight: '1.2',
-                display: 'block',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}
-              title={schedule.propertyType.name}>
-                {schedule.propertyType.name}
-              </span>
-            )}
-          </div>
+            <VideoCameraAddOutlined style={{ marginRight: '4px', fontSize: '20px', color: '#52c41a' }} />
+            报名中
+            <span style={{
+              display: 'inline-block',
+              marginLeft: '2px'
+            }}>
+              <span style={{
+                animation: 'wave 1.5s infinite',
+                display: 'inline-block',
+                animationDelay: '0s'
+              }}>.</span>
+              <span style={{
+                animation: 'wave 1.5s infinite',
+                display: 'inline-block',
+                animationDelay: '0.2s'
+              }}>.</span>
+              <span style={{
+                animation: 'wave 1.5s infinite',
+                display: 'inline-block',
+                animationDelay: '0.4s'
+              }}>.</span>
+            </span>
+          </span>
+        </div>
+      </div>
+      
+      {/* 下半部分容器 - 双栏布局 */}
+      <div style={{ 
+        padding: '8px 8px', 
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        background: 'white',
+        gap: '8px'
+      }}>
+        {/* 左侧 - Location */}
+        <div style={{ 
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <span style={{ 
+            fontSize: '12px', 
+            color: '#999', 
+            lineHeight: '1.2',
+            display: 'block',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+          title={schedule?.location?.name || ''}>
+            {schedule?.location?.name || ''}
+          </span>
         </div>
         
-        {/* 状态栏 */}
-        {showLiveStreamStatus && (
-          <div style={{
-            background: '#1890ff',
-            color: 'white',
-            fontSize: '10px',
-            padding: '2px 6px 2px 10px',
-            textAlign: 'left',
-            fontWeight: '500',
-            lineHeight: '1.2',
-            borderBottomLeftRadius: '7px',
-            borderBottomRightRadius: '7px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}>
-            <span style={{
-              width: '4px',
-              height: '4px',
-              borderRadius: '50%',
-              background: 'white',
-              flexShrink: 0
-            }}></span>
-            正在直播中...
-          </div>
-        )}
-        {showMyBookingStatus && (
-          <div style={{
-            background: '#faad14',
-            color: 'white',
-            fontSize: '10px',
-            padding: '2px 6px 2px 10px',
-            textAlign: 'left',
-            fontWeight: '500',
-            lineHeight: '1.2',
-            borderBottomLeftRadius: '7px',
-            borderBottomRightRadius: '7px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}>
-            <span style={{
-              width: '4px',
-              height: '4px',
-              borderRadius: '50%',
-              background: 'white',
-              flexShrink: 0
-            }}></span>
-            我报名的
-          </div>
-        )}
+        {/* 右侧 - Notes (PropertyType) */}
+        <div style={{ 
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          {schedule?.propertyType?.name && schedule.propertyType.name !== '' && (
+            <span style={{ 
+              fontSize: '12px', 
+              color: '#999', 
+              lineHeight: '1.2',
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+            title={schedule.propertyType.name}>
+              {schedule.propertyType.name}
+            </span>
+          )}
+        </div>
       </div>
-    );
-  }
+    </>
+  );
 
-  return (
+  // 统一的已报名卡片内容渲染函数
+  const renderBookedCardContent = () => (
     <Tooltip
       title={
         <div>
-          <div><strong>直播管家:</strong> {schedule.managers.map(m => m.name).join(', ')}</div>
+          <div><strong>直播管家:</strong> {schedule.managers.map((m: any) => m.name).join(', ')}</div>
           <div><strong>地点:</strong> {schedule.location.name}</div>
           {schedule.propertyType.name && schedule.propertyType.name !== '' && (
             <div><strong>户型:</strong> {schedule.propertyType.name}</div>
@@ -313,7 +458,7 @@ const ScheduleCard = memo<{
           boxSizing: 'border-box'
         }}>
           {/* Icon + 立即报名 或 头像组 */}
-          {(schedule.status === 'available' || !schedule.status) ? (
+          {(schedule.status === 'available' || !schedule.status || schedule.managers.length === 0) ? (
             <div style={{ 
               display: 'flex', 
               alignItems: 'center',
@@ -385,7 +530,7 @@ const ScheduleCard = memo<{
               marginLeft: '2px',
               marginRight: '2px'
             }}>
-              {schedule.managers.slice(0, 2).map((manager, index) => {
+              {schedule.managers.slice(0, 2).map((manager: any, index: number) => {
                 const managerId = parseInt(manager.id);
                 const avatarUrl = userAvatars[managerId] || '';
                 const frameUrl = avatarFrames[managerId] || '';
@@ -477,9 +622,9 @@ const ScheduleCard = memo<{
                 display: 'block',
                 maxWidth: 'none'
               }}
-              title={schedule.managers.map(m => m.name).join(' / ')}
+              title={schedule.managers.map((m: any) => m.name).join(' / ')}
             >
-              {schedule.managers.map(m => m.name).join(' / ')}
+              {schedule.managers.map((m: any) => m.name).join(' / ')}
             </div>
           )}
         </div>
@@ -594,13 +739,25 @@ const ScheduleCard = memo<{
       </div>
     </Tooltip>
   );
+
+  // 根据状态渲染不同的卡片内容
+  if (canEdit) {
+    // 如果是编辑状态，使用专门的编辑状态渲染函数
+    if (schedule && schedule.status === 'editing') {
+      return renderCard(renderEditingCardContent());
+    }
+    // 其他可编辑状态（空状态、available状态）
+    return renderCard(renderEmptyOrAvailableCardContent());
+  }
+
+  return renderCard(renderBookedCardContent());
 });
 
 ScheduleCard.displayName = 'ScheduleCard';
 
 const LiveStreamRegistrationBase: React.FC = () => {
-  const [currentView] = useState<'registration' | 'management'>('registration');
   const [schedules, setSchedules] = useState<LiveStreamSchedule[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -621,20 +778,68 @@ const LiveStreamRegistrationBase: React.FC = () => {
   const [confirmModalTitle, setConfirmModalTitle] = useState('');
   const [confirmModalCallback, setConfirmModalCallback] = useState<(() => void) | null>(null);
 
+  // 历史记录抽屉状态
+  const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
+  const [selectedScheduleForHistory, setSelectedScheduleForHistory] = useState<LiveStreamSchedule | null>(null);
+
   // 添加卡片级别的更新状态
   const [cardUpdateKeys, setCardUpdateKeys] = useState<{ [key: string]: number }>({});
 
+  // UserTreeSelect相关状态 - 参考AllocationManagement的实现
+  const [selectedManagers, setSelectedManagers] = useState<string[]>([]);
 
+  // 右键菜单回调函数
+  const handleContextMenuEdit = (schedule: LiveStreamSchedule) => {
+    handleEditSchedule(schedule);
+  };
+
+  const handleContextMenuHistory = (schedule: LiveStreamSchedule) => {
+    setSelectedScheduleForHistory(schedule);
+    setHistoryDrawerVisible(true);
+  };
+
+  const handleContextMenuRate = () => {
+    message.info('直播评分功能开发中...');
+    // TODO: 实现直播评分功能
+  };
+
+  const handleContextMenuRelease = async (schedule: LiveStreamSchedule) => {
+    try {
+      // 检查权限
+      const permissionResult = await checkEditPermission(schedule);
+      if (!permissionResult.hasPermission) {
+        message.warning(permissionResult.message || '无权限释放此场次');
+        return;
+      }
+
+      // 更新状态为available，只清除participant_ids，保留location和notes
+      const updatedSchedule = await updateLiveStreamSchedule(schedule.id, {
+        ...schedule,
+        status: 'available',
+        managers: [] // 清除参与者信息
+      });
+
+      if (updatedSchedule) {
+        // 更新本地状态
+        setSchedules(prev => 
+          prev.map(s => s.id === schedule.id ? updatedSchedule : s)
+        );
+        message.success('场次释放成功');
+        // 更新卡片
+        updateSingleCard(schedule.id);
+      }
+    } catch (error) {
+      console.error('释放场次失败:', error);
+      message.error('释放场次失败');
+    }
+  };
 
   // 自动清理过期的编辑状态
   useEffect(() => {
     const performCleanup = async () => {
       try {
-        console.log('🧹 开始自动清理过期的编辑状态');
         await cleanupExpiredEditingStatus();
-        console.log('✅ 自动清理完成');
       } catch (error) {
-        console.error('❌ 自动清理过期编辑状态失败:', error);
       }
     };
     
@@ -644,24 +849,15 @@ const LiveStreamRegistrationBase: React.FC = () => {
     // 每5分钟自动清理一次
     const interval = setInterval(performCleanup, 5 * 60 * 1000);
     
-    console.log('⏰ 自动清理定时器已启动，间隔：5分钟');
     
     return () => {
-      console.log('🛑 清理自动清理定时器');
       clearInterval(interval);
     };
   }, []);
 
   // 统一的权限检查函数
   const checkEditPermission = async (schedule: LiveStreamSchedule): Promise<{ hasPermission: boolean; message?: string }> => {
-    console.log('🔐 开始统一权限检查');
-    console.log('📋 检查记录:', {
-      id: schedule.id,
-      status: schedule.status,
-      editingBy: schedule.editingBy,
-      createdBy: schedule.createdBy,
-      managersCount: schedule.managers.length
-    });
+
 
     // 检查用户登录状态
     if (!user) {
@@ -669,7 +865,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
       return { hasPermission: false, message: '用户未登录' };
     }
 
-    console.log('👤 当前用户ID:', user.id);
+
 
     try {
       // 获取当前用户的profile ID
@@ -689,21 +885,13 @@ const LiveStreamRegistrationBase: React.FC = () => {
         return { hasPermission: false, message: '用户信息不完整' };
       }
 
-      console.log('📋 用户profile ID:', userProfile.id);
-
       // 根据记录状态进行不同的权限检查
       if (schedule.status === 'booked') {
         // booked状态：检查是否是创建者或参与者
         const isCreator = schedule.createdBy === userProfile.id;
-        const isParticipant = schedule.managers.some(m => parseInt(m.id) === userProfile.id);
+        const isParticipant = schedule.managers.some((m: any) => parseInt(m.id) === userProfile.id);
         
-        console.log('🔍 booked权限检查结果:', {
-          isCreator,
-          isParticipant,
-          createdBy: schedule.createdBy,
-          participantIds: schedule.managers.map(m => m.id)
-        });
-        
+
         if (!isCreator && !isParticipant) {
           return { 
             hasPermission: false, 
@@ -711,7 +899,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
           };
         }
         
-        console.log('✅ booked权限检查通过');
         return { hasPermission: true };
         
       } else if (schedule.status === 'editing') {
@@ -720,16 +907,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
         const isEditor = schedule.editingBy === userProfile.id;
         const isNullEditingBy = schedule.editingBy === null;
         
-        console.log('🔍 editing权限检查结果:', {
-          isEditor,
-          isNullEditingBy,
-          editingBy: schedule.editingBy,
-          currentUserId: userProfile.id
-        });
         
         // 如果editingBy为null，允许编辑（可能是数据库字段未正确设置）
         if (isNullEditingBy) {
-          console.log('✅ editingBy为null，允许编辑');
           return { hasPermission: true };
         }
         
@@ -740,17 +920,14 @@ const LiveStreamRegistrationBase: React.FC = () => {
           };
         }
         
-        console.log('✅ editing权限检查通过');
         return { hasPermission: true };
         
       } else if (schedule.status === 'available' || !schedule.status) {
         // available状态或无状态：任何人都可以编辑
-        console.log('✅ available状态或无状态，允许编辑');
         return { hasPermission: true };
         
       } else {
         // 其他状态：默认不允许编辑
-        console.log('⚠️ 其他状态，不允许编辑');
         return { 
           hasPermission: false, 
           message: '该记录状态不允许编辑' 
@@ -918,28 +1095,15 @@ const LiveStreamRegistrationBase: React.FC = () => {
           schema: 'public',
           table: 'live_stream_schedules'
         }, async (payload) => {
-          console.log('🎯 主通道收到事件:', payload);
-          console.log('🎯 事件类型:', payload.eventType);
-          console.log('🎯 事件ID:', (payload.new as any)?.id);
-          console.log('🎯 事件状态:', (payload.new as any)?.status);
-          console.log('🎯 事件参与者:', (payload.new as any)?.participant_ids);
           
           if (payload.eventType === 'INSERT') {
             const newSchedule = payload.new;
-            console.log('📝 收到INSERT事件，新增记录:', {
-              id: newSchedule.id,
-              date: newSchedule.date,
-              time_slot_id: newSchedule.time_slot_id,
-              status: newSchedule.status,
-              participant_ids: newSchedule.participant_ids
-            });
             
             // 检查是否在当前选中的周范围内
             const weekStart = selectedWeek.startOf('week').utc().format('YYYY-MM-DD');
             const weekEnd = selectedWeek.endOf('week').utc().format('YYYY-MM-DD');
             
             if (newSchedule.date >= weekStart && newSchedule.date <= weekEnd) {
-              console.log('✅ 新记录在当前周范围内，添加到本地状态');
               
               // 构建新的schedule对象
               const scheduleToAdd: LiveStreamSchedule = {
@@ -977,26 +1141,17 @@ const LiveStreamRegistrationBase: React.FC = () => {
               // 添加到本地状态
               setSchedules(prev => {
                 const updated = [...prev, scheduleToAdd];
-                console.log('🔄 本地状态已更新，当前记录数:', updated.length);
                 return updated;
               });
               
               // 更新特定卡片
               const cardKey = newSchedule.id.toString();
-              console.log('🔄 更新卡片:', cardKey);
               updateSingleCard(cardKey);
             } else {
-              console.log('ℹ️ 新记录不在当前周范围内，忽略');
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedSchedule = payload.new;
-            console.log('📊 收到UPDATE事件详情:');
-            console.log('  - 记录ID:', updatedSchedule.id);
-            console.log('  - 旧状态:', (payload.old as any)?.status);
-            console.log('  - 新状态:', updatedSchedule.status);
-            console.log('  - 参与者IDs:', updatedSchedule.participant_ids);
-            console.log('  - 地点:', updatedSchedule.location);
-            console.log('  - 户型:', updatedSchedule.notes);
+            
             
             // 简单更新本地状态
             setSchedules(prev => {
@@ -1033,61 +1188,55 @@ const LiveStreamRegistrationBase: React.FC = () => {
                     }
                   : schedule
               );
-              console.log('🔄 本地状态已更新');
-              console.log('  - 更新后的状态:', updatedSchedule.status);
+              
               return updated;
             });
             
             // 更新特定卡片
             const cardKey = updatedSchedule.id.toString();
-            console.log('🔄 更新卡片:', cardKey);
+            
             updateSingleCard(cardKey);
           } else if (payload.eventType === 'DELETE') {
             const deletedSchedule = payload.old;
-            console.log('🗑️ 收到DELETE事件，删除记录:', {
-              id: deletedSchedule.id,
-              date: deletedSchedule.date,
-              time_slot_id: deletedSchedule.time_slot_id
-            });
+            
             
             // 从本地状态中移除
             setSchedules(prev => {
               const updated = prev.filter(schedule => schedule.id !== deletedSchedule.id.toString());
-              console.log('🔄 本地状态已更新，移除记录后剩余:', updated.length);
+              
               return updated;
             });
             
             // 更新特定卡片
             const cardKey = deletedSchedule.id.toString();
-            console.log('🔄 更新卡片:', cardKey);
+            
             updateSingleCard(cardKey);
           }
         })
         .on('system', { event: 'disconnect' }, () => {
-          console.log('🔴 实时连接断开');
+          
         })
         .on('system', { event: 'reconnect' }, () => {
-          console.log('🟢 实时连接重连成功');
+          
           reconnectAttempts = 0; // 重置重连计数
         })
         .subscribe((status) => {
-          console.log('LiveStream实时订阅状态:', status);
           
           // 如果连接失败，尝试重新连接
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.log('⚠️ 连接失败，尝试重新连接...');
+            
             if (reconnectAttempts < maxReconnectAttempts) {
               reconnectAttempts++;
-              console.log(`🔄 第 ${reconnectAttempts} 次重连尝试...`);
+              
               setTimeout(() => {
-                console.log('🔄 重新建立连接...');
+                
                 establishConnection();
               }, reconnectDelay);
             } else {
               console.error('❌ 重连失败，已达到最大重试次数');
             }
           } else if (status === 'SUBSCRIBED') {
-            console.log('✅ 实时连接建立成功');
+            
             reconnectAttempts = 0; // 重置重连计数
           }
         });
@@ -1111,16 +1260,18 @@ const LiveStreamRegistrationBase: React.FC = () => {
       const weekStart = selectedWeek.startOf('week').utc().format('YYYY-MM-DD');
       const weekEnd = selectedWeek.endOf('week').utc().format('YYYY-MM-DD');
       
-      const [schedulesData] = await Promise.all([
-        getWeeklySchedule(weekStart, weekEnd)
+      const [schedulesData, timeSlotsData] = await Promise.all([
+        getWeeklySchedule(weekStart, weekEnd),
+        getTimeSlots()
       ]);
 
       setSchedules(schedulesData);
+      setTimeSlots(timeSlotsData);
 
       // 获取所有参与者的头像 - 从managers中提取ID
       const participantIds = new Set<number>();
-      schedulesData.forEach(schedule => {
-        schedule.managers.forEach(manager => {
+      schedulesData.forEach((schedule: any) => {
+        schedule.managers.forEach((manager: any) => {
           const managerId = parseInt(manager.id);
           if (!isNaN(managerId)) {
             participantIds.add(managerId);
@@ -1193,27 +1344,18 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   // 验证报名状态是否正确
   const validateBookingStatus = (scheduleId: string, expectedStatus: string = 'booked') => {
-    console.log('🔍 开始验证报名状态');
-    console.log('  - 记录ID:', scheduleId);
-    console.log('  - 期望状态:', expectedStatus);
-    console.log('  - 当前schedules数量:', schedules.length);
-    
     const schedule = schedules.find(s => s.id === scheduleId);
     if (!schedule) {
       console.warn('❌ 未找到对应的安排记录');
-      console.log('  - 可用的记录IDs:', schedules.map(s => s.id));
       return false;
     }
-    
-    console.log('  - 找到记录:', schedule);
-    console.log('  - 记录状态:', schedule.status);
     
     if (schedule.status !== expectedStatus) {
       console.warn(`❌ 状态不匹配：期望 ${expectedStatus}，实际 ${schedule.status}`);
       return false;
     }
     
-    console.log('✅ 状态验证通过');
+    
     return true;
   };
 
@@ -1226,7 +1368,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
       
       // 权限检查：确保用户有权限提交编辑
       if (editingSchedule) {
-        console.log('🔐 提交前进行权限检查');
+        
         const permissionResult = await checkEditPermission(editingSchedule);
         
         if (!permissionResult.hasPermission) {
@@ -1236,24 +1378,40 @@ const LiveStreamRegistrationBase: React.FC = () => {
           return;
         }
         
-        console.log('✅ 提交权限检查通过');
+        
       }
       
       // 验证管家数量
-      if (!values.managers || values.managers.length !== 2) {
+      // 验证管家数量 - 使用独立状态
+      if (!selectedManagers || selectedManagers.length !== 2) {
         message.error('请选择2名直播管家');
         return;
       }
+
+      // 检查是否有undefined值
+      const validManagers = selectedManagers.filter((userId: any) => userId && userId !== 'undefined' && userId !== 'null');
+      if (validManagers.length !== 2) {
+        console.warn('⚠️ 检测到无效的管家数据:', selectedManagers);
+        message.error('请选择2名有效的直播管家');
+        return;
+      }
+
+      console.log('✅ 有效的管家数据:', validManagers);
+
       
       const scheduleData = {
         date: editingSchedule ? editingSchedule.date : dayjs().format('YYYY-MM-DD'),
         timeSlotId: values.timeSlot,
-        managers: values.managers.map((userId: string) => ({
-          id: userId,
-          name: `用户${userId}`, // 这里可以根据需要从用户缓存中获取真实姓名
-          department: '',
-          avatar: undefined
-        })),
+        managers: validManagers.map((userId: string) => {
+          // 尝试从用户缓存中获取真实姓名
+          const userInfo = userAvatars[parseInt(userId)] ? { nickname: `用户${userId}` } : null;
+          return {
+            id: userId,
+            name: userInfo?.nickname || `用户${userId}`,
+            department: '',
+            avatar: undefined
+          };
+        }),
         location: { id: '', name: '' },
         propertyType: { id: '', name: '' },
         status: 'booked' as const, // 报名成功后状态变为booked
@@ -1306,30 +1464,29 @@ const LiveStreamRegistrationBase: React.FC = () => {
           // 关闭弹窗并清理状态
           setModalVisible(false);
           setEditingSchedule(null);
+          setSelectedManagers([]);
           form.resetFields();
           
           // 重新加载数据以显示最新状态
           await loadData();
           
+          // 等待一个微任务周期，确保状态更新完成
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           // 验证报名状态是否正确
-          setTimeout(() => {
-            console.log('🔍 延迟验证报名状态');
-            console.log('  - 验证记录ID:', recordId);
-            if (validateBookingStatus(recordId, 'booked')) {
-              console.log('✅ 状态验证成功');
-            } else {
-              console.error('❌ 状态验证失败');
-              // 如果第一次验证失败，再延迟2秒重试一次
-              setTimeout(() => {
-                console.log('🔄 重试验证报名状态');
-                if (validateBookingStatus(recordId, 'booked')) {
-                  console.log('✅ 重试验证成功');
-                } else {
-                  console.error('❌ 重试验证仍然失败');
-                }
-              }, 2000);
-            }
-          }, 2000); // 延迟2秒验证，确保数据已更新
+          if (validateBookingStatus(recordId, 'booked')) {
+          } else {
+            // 如果第一次验证失败，再延迟1秒重试一次
+            setTimeout(async () => {
+              await loadData(); // 再次加载数据
+              await new Promise(resolve => setTimeout(resolve, 100)); // 等待状态更新
+              
+              if (validateBookingStatus(recordId, 'booked')) {
+              } else {
+                console.error('❌ 重试验证仍然失败');
+              }
+            }, 1000);
+          }
           
         } catch (updateError) {
           console.error('❌ 更新直播安排失败:', updateError);
@@ -1365,14 +1522,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   // 处理编辑安排
   const handleEditSchedule = async (schedule: LiveStreamSchedule) => {
-    console.log('📝 开始编辑安排');
-    console.log('📋 要编辑的记录:', {
-      id: schedule.id,
-      status: schedule.status,
-      managers: schedule.managers.map(m => ({ id: m.id, name: m.name })),
-      location: schedule.location,
-      propertyType: schedule.propertyType
-    });
+    
     
     try {
       // 使用统一的权限检查函数
@@ -1384,25 +1534,39 @@ const LiveStreamRegistrationBase: React.FC = () => {
         return;
       }
       
-      console.log('✅ 权限检查通过');
+      
 
       // 设置编辑状态
-      console.log('🎨 设置编辑状态并打开弹窗');
+      
       setEditingSchedule(schedule);
       setModalVisible(true);
       
       // 延迟设置表单值，确保Form组件已经渲染
       setTimeout(() => {
-        console.log('📝 设置表单值');
+        
+        // 过滤有效的manager ID
+        const validManagerIds = schedule.managers
+          .filter((m: any) => m && m.id && m.id !== 'undefined' && m.id !== 'null')
+          .map((m: any) => String(m.id));
+        
+        console.log('📋 设置表单值:', {
+          timeSlot: schedule.timeSlotId,
+          managers: validManagerIds,
+          originalManagers: schedule.managers
+        });
+        
+        // 设置独立的状态
+        setSelectedManagers(validManagerIds);
+        
         const formValues = {
           timeSlot: schedule.timeSlotId,
-          managers: schedule.managers.length > 0 ? schedule.managers.map(m => m.id) : [],
+          managers: validManagerIds,
           location: schedule.location.id || undefined,
           propertyType: schedule.propertyType.id || undefined,
         };
-        console.log('📋 表单值:', formValues);
+          
         form.setFieldsValue(formValues);
-        console.log('✅ 表单值设置完成');
+        
       }, 100);
       
     } catch (error) {
@@ -1474,13 +1638,18 @@ const LiveStreamRegistrationBase: React.FC = () => {
               cardUpdateKey={cardUpdateKeys[schedule?.id || `${dateInfo.date}-${record.timeSlot.id}`] || 0}
               currentUserId={user?.id}
               currentProfileId={userProfile?.id}
+              timeSlots={timeSlots}
+              onContextMenuEdit={handleContextMenuEdit}
+              onContextMenuHistory={handleContextMenuHistory}
+              onContextMenuRate={handleContextMenuRate}
+              onContextMenuRelease={handleContextMenuRelease}
             />
           );
         }
       }))
     ];
 
-    const dataSource = TIME_SLOTS.map(timeSlot => {
+    const dataSource = timeSlots.map((timeSlot: TimeSlot) => {
       const row: any = { timeSlot, key: timeSlot.id };
       weekDates.forEach(dateInfo => {
         row[dateInfo.date] = getSchedule(dateInfo.date, timeSlot.id);
@@ -1511,43 +1680,21 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   // 处理弹窗关闭的统一函数
   const handleModalClose = async () => {
-    console.log('🚪 开始关闭弹窗');
-    console.log('📋 当前编辑的记录:', editingSchedule ? {
-      id: editingSchedule.id,
-      status: editingSchedule.status,
-      managers: editingSchedule.managers,
-      location: editingSchedule.location,
-      propertyType: editingSchedule.propertyType
-    } : '无');
+
     
     if (editingSchedule) {
       // 检查是否是临时记录或editing状态的记录
       const isTempSchedule = editingSchedule.managers.length === 0;
       const isEditingSchedule = editingSchedule.status === 'editing';
       
-      console.log('🔍 检查记录类型:', {
-        isTempSchedule,
-        isEditingSchedule,
-        status: editingSchedule.status
-      });
-      console.log('📊 检查条件:', {
-        managersEmpty: editingSchedule.managers.length === 0
-      });
+
       
       // 对于临时记录，直接删除
       if (isTempSchedule) {
-        console.log('🗑️ 开始删除临时记录');
-        console.log('📋 要删除的记录ID:', editingSchedule.id);
-        console.log('📋 删除原因: 临时记录');
+
         
         try {
-          console.log('🔄 执行数据库删除操作...');
-          console.log('📋 删除记录详情:', {
-            id: editingSchedule.id,
-            idType: typeof editingSchedule.id,
-            status: editingSchedule.status,
-            managers: editingSchedule.managers.length
-          });
+
           
           // 检查ID是否为有效数字
           const recordId = parseInt(editingSchedule.id);
@@ -1556,7 +1703,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
             throw new Error('记录ID无效');
           }
           
-          console.log('📋 使用数字ID进行删除:', recordId);
           
           const { data, error } = await supabase
             .from('live_stream_schedules')
@@ -1573,27 +1719,19 @@ const LiveStreamRegistrationBase: React.FC = () => {
               code: error.code
             });
           } else {
-            console.log('✅ 记录删除成功');
-            console.log('📊 删除结果:', data);
             
             // 验证删除是否真的成功
             if (data && data.length > 0) {
-              console.log('⚠️ 删除操作返回了数据，可能删除失败');
-              console.log('📊 返回的数据:', data);
             } else {
-              console.log('✅ 删除操作成功，没有返回数据');
             }
             
             // 手动从本地状态中移除记录，确保UI立即更新
-            console.log('🔄 手动更新本地状态');
             setSchedules(prev => {
               const updated = prev.filter(schedule => schedule.id !== editingSchedule.id);
-              console.log('🔄 本地状态已更新，移除记录后剩余:', updated.length);
               return updated;
             });
             
             // 手动触发卡片更新
-            console.log('🔄 手动更新卡片:', editingSchedule.id);
             updateSingleCard(editingSchedule.id);
           }
         } catch (error) {
@@ -1605,7 +1743,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
         }
       } else {
         // 对于其他记录（包括editing状态的已报名记录），进行权限检查
-        console.log('🔐 对其他记录进行权限检查');
         const permissionResult = await checkEditPermission(editingSchedule);
         
         if (!permissionResult.hasPermission) {
@@ -1618,11 +1755,10 @@ const LiveStreamRegistrationBase: React.FC = () => {
           return;
         }
         
-        console.log('✅ 删除权限检查通过');
         
         // 权限检查通过后，如果是editing状态记录，也删除
         if (isEditingSchedule) {
-          console.log('🗑️ 删除editing状态记录');
+          
           try {
             const recordId = parseInt(editingSchedule.id);
             if (isNaN(recordId)) {
@@ -1639,12 +1775,12 @@ const LiveStreamRegistrationBase: React.FC = () => {
             if (error) {
               console.error('❌ 删除editing状态记录失败:', error);
             } else {
-              console.log('✅ editing状态记录删除成功');
+              
               
               // 手动从本地状态中移除记录
               setSchedules(prev => {
                 const updated = prev.filter(schedule => schedule.id !== editingSchedule.id);
-                console.log('🔄 本地状态已更新，移除记录后剩余:', updated.length);
+                
                 return updated;
               });
               
@@ -1657,27 +1793,28 @@ const LiveStreamRegistrationBase: React.FC = () => {
         }
       }
     } else {
-      console.log('ℹ️ 没有编辑记录，无需删除');
+      
     }
     
-    console.log('🧹 清理状态...');
+    
     setModalVisible(false);
     setEditingSchedule(null);
+    setSelectedManagers([]);
     form.resetFields();
     message.info('已取消编辑');
     
-    console.log('🔄 重新加载数据...');
+    
     await loadData(); // 重新加载数据
-    console.log('✅ 弹窗关闭流程完成');
+    
   };
 
   // 处理卡片点击
   const handleCardClick = async (schedule: LiveStreamSchedule | undefined, timeSlot: any, dateInfo: any) => {
     if (!schedule) {
       // 创建临时记录
-      console.log('🎯 开始创建临时记录');
-      console.log('📅 日期信息:', dateInfo);
-      console.log('⏰ 时间段信息:', timeSlot);
+      
+      
+      
       
       try {
         const tempScheduleData = {
@@ -1689,34 +1826,24 @@ const LiveStreamRegistrationBase: React.FC = () => {
           status: 'editing' as const, // 明确指定为editing状态
         };
 
-        console.log('📊 准备创建的临时记录数据:', tempScheduleData);
-        console.log('🔄 调用 createLiveStreamSchedule API...');
+        
+        
         
         const tempSchedule = await createLiveStreamSchedule(tempScheduleData);
         
-        console.log('✅ 临时记录创建成功');
-        console.log('📋 创建的记录详情:', {
-          id: tempSchedule.id,
-          date: tempSchedule.date,
-          timeSlotId: tempSchedule.timeSlotId,
-          status: tempSchedule.status,
-          managers: tempSchedule.managers,
-          location: tempSchedule.location,
-          propertyType: tempSchedule.propertyType
-        });
+        
         
         setEditingSchedule(tempSchedule);
         setModalVisible(true);
-        
-        console.log('🎨 弹窗已激活，设置编辑状态');
+        setSelectedManagers([]); // 清空选中的管家
         
         // 延迟设置表单值，确保Form组件已经渲染
         setTimeout(() => {
-          console.log('📝 设置表单初始值');
+          
           form.setFieldsValue({
             timeSlot: timeSlot.id
           });
-          console.log('✅ 表单初始值设置完成');
+          
         }, 100);
       } catch (error) {
         console.error('❌ 创建临时记录失败:', error);
@@ -1728,13 +1855,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
       }
     } else {
       // 编辑现有记录 - 使用统一的权限检查
-      console.log('📝 编辑现有记录:', {
-        id: schedule.id,
-        status: schedule.status,
-        managers: schedule.managers.map(m => m.name),
-        location: schedule.location.name,
-        propertyType: schedule.propertyType.name
-      });
+      
       
       // 先进行权限检查
       const permissionResult = await checkEditPermission(schedule);
@@ -1775,6 +1896,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user) {
+        
         setUserProfile(null);
         return;
       }
@@ -1787,14 +1909,13 @@ const LiveStreamRegistrationBase: React.FC = () => {
           .single();
 
         if (error) {
-          console.error('获取用户profile失败:', error);
+          console.error('❌ 获取用户profile失败:', error);
           setUserProfile(null);
         } else {
-          console.log('✅ 获取用户profile成功:', profile);
           setUserProfile(profile);
         }
       } catch (error) {
-        console.error('获取用户profile异常:', error);
+        console.error('❌ 获取用户profile异常:', error);
         setUserProfile(null);
       }
     };
@@ -1842,45 +1963,37 @@ const LiveStreamRegistrationBase: React.FC = () => {
             }
           `}
         </style>
-      {currentView === 'registration' ? (
-        <>
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              marginBottom: '16px'
-            }}>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
-                直播报名表 W{getWeekNumber(selectedWeek)}
-              </h2>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <Button 
-                  onClick={() => setSelectedWeek(selectedWeek.subtract(1, 'week'))}
-                >
-                  上一周
-                </Button>
-                <Button 
-                  onClick={() => setSelectedWeek(dayjs())}
-                >
-                  本周
-                </Button>
-                <Button 
-                  onClick={() => setSelectedWeek(selectedWeek.add(1, 'week'))}
-                >
-                  下一周
-                </Button>
-              </div>
-            </div>
-            
-
-            
-            {renderScheduleTable()}
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: '16px'
+        }}>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+            直播报名表 W{getWeekNumber(selectedWeek)}
+          </h2>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <Button 
+              onClick={() => setSelectedWeek(selectedWeek.subtract(1, 'week'))}
+            >
+              上一周
+            </Button>
+            <Button 
+              onClick={() => setSelectedWeek(dayjs())}
+            >
+              本周
+            </Button>
+            <Button 
+              onClick={() => setSelectedWeek(selectedWeek.add(1, 'week'))}
+            >
+              下一周
+            </Button>
           </div>
-        </>
-      ) : (
-        <div>直播管理功能（待实现）</div>
-      )}
+        </div>
+        
+        {renderScheduleTable()}
+      </div>
 
       {/* 创建/编辑安排弹窗 */}
       <Modal
@@ -1898,7 +2011,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
           
           // 比较当前表单值与原始数据
           const currentManagers = formValues.managers || [];
-          const originalManagers = editingSchedule?.managers?.map(m => m.id) || [];
+          const originalManagers = editingSchedule?.managers?.map((m: any) => m.id) || [];
           
           // 检查是否有实际更改
           const hasUnsavedChanges = (
@@ -1906,14 +2019,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
             currentManagers.some((id: string) => !originalManagers.includes(id)) ||
             originalManagers.some((id: string) => !currentManagers.includes(id))
           );
-          
-          // 添加调试信息
-          console.log('🔍 取消按钮调试信息:', {
-            currentManagers,
-            originalManagers,
-            hasUnsavedChanges,
-            editingScheduleId: editingSchedule?.id
-          });
           
           if (hasUnsavedChanges) {
             // 有未保存的更改，弹出确认弹窗
@@ -1948,7 +2053,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
               disabled={true}
               style={{ backgroundColor: '#f5f5f5' }}
             >
-              {TIME_SLOTS.map(slot => {
+              {timeSlots.map((slot: TimeSlot) => {
                 // 获取当前编辑记录的日期
                 const currentDate = editingSchedule?.date || dayjs().format('YYYY-MM-DD');
                 const dateInfo = dayjs(currentDate);
@@ -1967,16 +2072,20 @@ const LiveStreamRegistrationBase: React.FC = () => {
           <Form.Item
             label="直播管家"
             name="managers"
+            extra="请选择2名直播管家（最多2名）"
             rules={[
               { 
                 validator: (_, value) => {
-                  if (!value || value.length === 0) {
+                  // 使用selectedManagers进行验证，而不是form的value
+                  const managersToValidate = selectedManagers.length > 0 ? selectedManagers : (value || []);
+                  
+                  if (!managersToValidate || managersToValidate.length === 0) {
                     return Promise.reject(new Error('请选择直播管家'));
                   }
-                  if (value.length < 2) {
+                  if (managersToValidate.length < 2) {
                     return Promise.reject(new Error('请选择2名直播管家'));
                   }
-                  if (value.length > 2) {
+                  if (managersToValidate.length > 2) {
                     return Promise.reject(new Error('最多只能选择2名直播管家'));
                   }
                   return Promise.resolve();
@@ -1985,6 +2094,23 @@ const LiveStreamRegistrationBase: React.FC = () => {
             ]}
           >
             <UserTreeSelect
+              value={selectedManagers}
+              onChange={(val) => {
+                console.log('🔄 UserTreeSelect onChange:', val);
+                
+                // 限制只能选择2名直播管家
+                const limitedVal = val.slice(0, 2);
+                
+                // 如果被截断了，显示提示
+                if (val.length > 2) {
+                  console.log('⚠️ 用户尝试选择超过2名管家，已自动限制为前2名');
+                  message.warning('最多只能选择2名直播管家，已自动保留前2名');
+                }
+                
+                console.log('✅ 最终选择的管家:', limitedVal);
+                setSelectedManagers(limitedVal);
+                form.setFieldsValue({ managers: limitedVal });
+              }}
               placeholder="请选择2名直播管家"
               maxTagCount={2}
               style={{ width: '100%' }}
@@ -2000,7 +2126,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
                   
                   // 比较当前表单值与原始数据
                   const currentManagers = formValues.managers || [];
-                  const originalManagers = editingSchedule?.managers?.map(m => m.id) || [];
+                  const originalManagers = editingSchedule?.managers?.map((m: any) => m.id) || [];
                   
                   // 检查是否有实际更改
                   const hasUnsavedChanges = (
@@ -2064,6 +2190,20 @@ const LiveStreamRegistrationBase: React.FC = () => {
           {confirmModalContent}
         </div>
       </Modal>
+
+      {/* 历史记录抽屉 */}
+      <LiveStreamHistoryDrawer
+        scheduleId={selectedScheduleForHistory?.id || ''}
+        visible={historyDrawerVisible}
+        onClose={() => {
+          setHistoryDrawerVisible(false);
+          setSelectedScheduleForHistory(null);
+        }}
+        scheduleTitle={selectedScheduleForHistory ? 
+          `${selectedScheduleForHistory.date} ${selectedScheduleForHistory.managers.map((m: any) => m.name).join(' / ')} 的历史记录` : 
+          '直播场次历史记录'
+        }
+      />
     </div>
   );
 };

@@ -40,17 +40,36 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
   const [treeData, setTreeData] = useState<any[]>([]);
   const [userProfileCache, setUserProfileCache] = useState<UserProfileCache>({});
   const [loading, setLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // 加载部门树和成员
   const loadDeptTreeData = async () => {
     try {
       setLoading(true);
-      const { data: orgs } = await supabase.from('organizations').select('id, name, parent_id');
-      const { data: users } = await supabase
+      
+      // 加载组织数据
+      const { data: orgs, error: orgError } = await supabase
+        .from('organizations')
+        .select('id, name, parent_id');
+      
+      if (orgError) {
+        console.error('❌ 加载组织数据失败:', orgError);
+        throw orgError;
+      }
+      
+      
+      // 加载用户数据 - 确保只加载活跃用户
+      const { data: users, error: userError } = await supabase
         .from('users_profile')
         .select('id, nickname, organization_id, status')
         .eq('status', 'active');
-
+      
+      if (userError) {
+        console.error('❌ 加载用户数据失败:', userError);
+        throw userError;
+      }
+      
+      
       // 同时加载用户信息到缓存
       if (users && users.length > 0) {
         const newCache = users.reduce((acc, user) => ({
@@ -69,7 +88,13 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
         return (orgs || [])
           .filter(dep => dep.parent_id === parentId)
           .map(dep => {
-            const deptUsers = (users || []).filter(u => u.organization_id === dep.id);
+            // 过滤该部门下的用户 - 确保organization_id匹配
+            const deptUsers = (users || []).filter(u => {
+              // 处理organization_id可能为null的情况
+              if (!u.organization_id) return false;
+              return u.organization_id === dep.id;
+            });
+            
             const subDepts = buildTree(dep.id);
             
             return {
@@ -77,29 +102,30 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
               value: `dept_${dep.id}`,
               key: `dept_${dep.id}`,
               children: [
-                // 部门下成员
+                // 部门下成员 - 确保每个用户都有有效的 key
                 ...deptUsers.map(u => ({
-                  title: u.nickname,
-                  value: String(u.id),
-                  key: String(u.id),
+                  title: u.nickname || `用户${u.id}`,
+                  value: String(u.id), // 确保转换为字符串
+                  key: String(u.id),   // 确保转换为字符串
                   isLeaf: true
-                })),
+                })).filter(node => node.key && node.key !== 'undefined' && node.key !== 'null'),
                 // 递归子部门
                 ...subDepts
-              ]
+              ].filter(child => child.key && child.key !== 'undefined' && child.key !== 'null')
             };
           });
       };
 
-      // 未分配部门成员
+      // 未分配部门成员 - 确保每个用户都有有效的 key
       const ungrouped = (users || [])
-        .filter(u => !u.organization_id)
+        .filter(u => !u.organization_id) // 没有organization_id的用户
         .map(u => ({
-          title: u.nickname,
-          value: String(u.id),
-          key: String(u.id),
+          title: u.nickname || `用户${u.id}`,
+          value: String(u.id), // 确保转换为字符串
+          key: String(u.id),   // 确保转换为字符串
           isLeaf: true
-        }));
+        }))
+        .filter(node => node.key && node.key !== 'undefined' && node.key !== 'null');
 
       const tree = buildTree(null);
       if (ungrouped.length > 0) {
@@ -111,9 +137,24 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
         });
       }
       
-      setTreeData(tree);
+      // 最终过滤，确保所有节点都有有效的 key
+      const filteredTree = tree.filter(node => 
+        node.key && 
+        node.key !== 'undefined' && 
+        node.key !== 'null' &&
+        (!node.children || node.children.every((child: any) => 
+          child.key && 
+          child.key !== 'undefined' && 
+          child.key !== 'null'
+        ))
+      );
+      
+      setTreeData(filteredTree);
+      setDataLoaded(true);
     } catch (error) {
-      console.error('加载部门树数据失败:', error);
+      console.error('❌ 加载部门树数据失败:', error);
+      setTreeData([]); // 出错时设置为空数组
+      setDataLoaded(true);
     } finally {
       setLoading(false);
     }
@@ -140,9 +181,9 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
       const users: string[] = [];
       if (node.children) {
         node.children.forEach((child: any) => {
-          if (child.isLeaf) {
+          if (child.isLeaf && child.key) {
             users.push(child.key);
-          } else {
+          } else if (child.children) {
             users.push(...getAllUsersFromNode(child));
           }
         });
@@ -204,19 +245,40 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
       }
     });
     
-    // 只保留叶子节点成员id
-    finalSelectedUsers = finalSelectedUsers.filter(id => treeData.some(dept => {
-      const findLeaf = (nodes: any[]): boolean => nodes.some(n => (n.isLeaf && n.key === id) || (n.children && findLeaf(n.children)));
-      return findLeaf([dept]);
-    }));
+    // 只保留叶子节点成员id，并确保这些id在树中存在
+    finalSelectedUsers = finalSelectedUsers.filter(id => {
+      // 过滤掉无效的ID
+      if (!id || id === 'undefined' || id === 'null') {
+        console.warn('⚠️ 过滤掉无效的ID:', id);
+        return false;
+      }
+      
+      const findLeaf = (nodes: any[]): boolean => 
+        nodes.some(n => (n.isLeaf && n.key === id) || (n.children && findLeaf(n.children)));
+      return treeData.some(dept => findLeaf([dept]));
+    });
     
-    onChange?.(finalSelectedUsers);
+    
+    // 确保所有用户ID都是有效的
+    const validUsers = finalSelectedUsers.filter(id => id && id !== 'undefined' && id !== 'null');
+    if (validUsers.length !== finalSelectedUsers.length) {
+      console.warn('⚠️ 检测到无效的用户ID，已过滤');
+    }
+    
+    onChange?.(validUsers);
   };
 
   // 自定义标签渲染
   const tagRender = ({ value, closable, onClose }: any) => {
+    // 确保value是有效的
+    if (!value || value === 'undefined' || value === 'null') {
+      console.warn('⚠️ 检测到无效的value:', value);
+      return <Tag closable={closable} onClose={onClose}>无效用户</Tag>;
+    }
+    
     const userInfo = userProfileCache?.[String(value)];
     const nickname = userInfo?.nickname || `用户${value}`;
+    
     return <Tag closable={closable} onClose={onClose}>{nickname}</Tag>;
   };
 
@@ -225,10 +287,61 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
     loadDeptTreeData();
   }, []);
 
+  // 添加数据验证的useEffect
+  useEffect(() => {
+    if (dataLoaded && treeData.length > 0) {
+      
+      let totalUsers = 0;
+      const validateTree = (nodes: any[], level = 0) => {
+        nodes.forEach(node => {
+          const indent = '  '.repeat(level);
+          if (node.isLeaf) {
+            totalUsers++;
+          } else {
+            if (node.children) {
+              validateTree(node.children, level + 1);
+            }
+          }
+        });
+      };
+      
+      validateTree(treeData);
+    }
+  }, [dataLoaded, treeData]);
+
+  // 如果数据还没加载完成，显示加载状态
+  if (!dataLoaded) {
+    return (
+      <div style={{ 
+        ...style, 
+        padding: '8px 12px', 
+        border: '1px solid #d9d9d9', 
+        borderRadius: '6px',
+        backgroundColor: '#fafafa',
+        color: '#999'
+      }}>
+        正在加载用户数据...
+      </div>
+    );
+  }
+
+  // 过滤有效的value值
+  const validValues = value.filter(v => {
+    if (!v || v === 'undefined' || v === 'null') {
+      console.warn('⚠️ 过滤掉无效的value:', v);
+      return false;
+    }
+    // 确保所有 value 都在树中存在
+    const findValue = (nodes: any[]): boolean => 
+      nodes.some(n => n.value === v || (n.children && findValue(n.children)));
+    return treeData.some(dept => findValue([dept]));
+  });
+
+
   return (
     <TreeSelect
       treeData={treeData}
-      value={value}
+      value={validValues}
       treeCheckable
       showCheckedStrategy={TreeSelect.SHOW_CHILD}
       treeCheckStrictly={false}

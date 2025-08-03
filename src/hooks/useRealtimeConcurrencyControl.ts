@@ -150,20 +150,15 @@ export const useRealtimeConcurrencyControl = () => {
   // 释放编辑锁定
   const releaseEditLock = useCallback(async (scheduleId: string) => {
     try {
-      console.log('🔓 开始释放编辑锁定');
-      console.log('  - 记录ID:', scheduleId);
       
       const currentUserId = await getCurrentUserId();
       if (!currentUserId) {
-        console.log('❌ 用户未登录，无法释放锁定');
         return;
       }
 
-      console.log('  - 当前用户ID:', currentUserId);
 
       // 清除定时器
       if (lockTimeouts.current[scheduleId]) {
-        console.log('  - 清除定时器');
         clearTimeout(lockTimeouts.current[scheduleId]);
         delete lockTimeouts.current[scheduleId];
       }
@@ -175,13 +170,10 @@ export const useRealtimeConcurrencyControl = () => {
         .eq('id', scheduleId)
         .single();
 
-      console.log('  - 当前记录状态:', currentRecord?.status);
 
       // 根据当前状态决定是否重置状态
       const shouldResetStatus = currentRecord?.status !== 'booked';
       
-      console.log('🔄 更新数据库，释放编辑锁定');
-      console.log('  - 是否重置状态:', shouldResetStatus);
       
       // 更新数据库
       const updateData: any = {
@@ -207,15 +199,11 @@ export const useRealtimeConcurrencyControl = () => {
         throw error;
       }
 
-      console.log('✅ 编辑锁定释放成功');
-      console.log('  - 更新结果:', data);
-      console.log('  - 新状态:', shouldResetStatus ? 'available' : '保持原状态');
 
       // 更新本地状态
       setCurrentUserLocks(prev => {
         const newSet = new Set(prev);
         newSet.delete(scheduleId);
-        console.log('  - 更新本地锁定状态:', Array.from(newSet));
         return newSet;
       });
     } catch (error) {

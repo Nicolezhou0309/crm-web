@@ -92,7 +92,6 @@ class NotificationApi {
       
       if (!session) {
         // 静默处理未登录状态，返回空数据而不是抛出错误
-        console.log('用户未登录，跳过通知请求');
         return { data: [], total: 0 };
       }
 
@@ -108,7 +107,6 @@ class NotificationApi {
       if (!response.ok) {
         // 对于401错误，静默处理而不是抛出异常
         if (response.status === 401) {
-          console.log('认证失败，跳过通知请求');
           return { data: [], total: 0 };
         }
         
@@ -334,19 +332,15 @@ class NotificationApi {
 
   // 删除公告 - 清除相关缓存
   async deleteAnnouncement(announcementId: string): Promise<void> {
-    console.log('notificationApi.deleteAnnouncement 开始，ID:', announcementId);
     
     try {
-      console.log('发送删除请求，URL参数:', `delete_announcement&id=${announcementId}`);
       const response = await this.request(`delete_announcement&id=${announcementId}`, {
         method: 'DELETE',
       });
       
-      console.log('deleteAnnouncement API 响应:', response);
       
       // 清除相关缓存
       this.cache.clearByPattern('announcements');
-      console.log('公告删除成功，缓存已清除');
     } catch (error) {
       console.error('deleteAnnouncement API 错误:', error);
       throw error;

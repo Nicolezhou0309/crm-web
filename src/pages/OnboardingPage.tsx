@@ -962,11 +962,9 @@ const OnboardingPage: React.FC = () => {
     try {
       const profileId = await getCurrentProfileId();
       if (!profileId) {
-        console.log('无法获取用户profile ID');
         return false;
       }
       
-      console.log('检查用户销售组状态，profileId:', profileId);
       
       const { data, error } = await supabase.rpc('get_user_allocation_status_multi', {
         p_user_id: profileId,
@@ -977,16 +975,13 @@ const OnboardingPage: React.FC = () => {
         return false;
       }
       
-      console.log('销售组状态查询结果:', data);
       
       // 如果返回的数据是数组且有内容，说明用户已加入销售组
       if (Array.isArray(data) && data.length > 0) {
         // 保存销售组信息
         setSalesGroupInfo(data[0]);
-        console.log('用户已加入销售组:', data[0]);
         return true;
       } else {
-        console.log('用户未加入销售组或查询结果为空');
         return false;
       }
     } catch (error) {
@@ -1148,7 +1143,6 @@ const OnboardingPage: React.FC = () => {
       try {
         const profileId = await getCurrentProfileId();
         if (profileId) {
-          console.log('开始分配用户到销售组，profileId:', profileId);
           
           // 先获取销售组1的当前用户列表
           const { data: currentGroup, error: fetchError } = await supabase
@@ -1166,7 +1160,6 @@ const OnboardingPage: React.FC = () => {
           // 检查用户是否已经在列表中
           const currentList = currentGroup.list || [];
           if (currentList.includes(profileId)) {
-            console.log('用户已在销售组中');
             message.success(`恭喜！正式考试通过！得分：${score}分，已自动加入销售组！`);
           } else {
             // 添加用户到销售组
@@ -1181,7 +1174,6 @@ const OnboardingPage: React.FC = () => {
               console.error('分配销售组失败:', updateError);
               message.warning(`恭喜！正式考试通过！得分：${score}分，但销售组分配失败，请联系管理员。`);
             } else {
-              console.log('成功分配销售组:', updateData);
               message.success(`恭喜！正式考试通过！得分：${score}分，已自动加入销售组！`);
             }
           }

@@ -116,7 +116,6 @@ const AvatarFrameCropper: React.FC<{
     if (!image || !croppedAreaPixels) return;
     setLoading(true);
     try {
-      console.log('[AvatarFrameCropper] 点击确定，开始裁剪导出');
       const blob = await getCroppedImg(image, croppedAreaPixels);
       onCropComplete(blob);
     } catch (e) {
@@ -295,7 +294,6 @@ const AvatarFrameUploadButton: React.FC<{
       image={cropperImage}
       onClose={() => setCropperVisible(false)}
       onCropComplete={(blob) => {
-        console.log('[AvatarFrameUploadButton] AvatarFrameCropper onCropComplete 被调用', blob);
         handleCropComplete(blob);
       }}
     />
@@ -355,7 +353,6 @@ export const HonorManagement: React.FC = () => {
       const file = new File([croppedBlob], `avatar-frame-add-${Date.now()}.png`, { type: 'image/png' });
       const fileName = `avatar-frame-add-${Date.now()}.png`;
       const filePath = `avatar-frames/${fileName}`;
-      console.log('[handleAddCropComplete] 裁剪完成，开始上传', { file, fileName, filePath });
       const { error } = await supabase.storage
         .from('achievement-icons')
         .upload(filePath, file);
@@ -396,7 +393,6 @@ export const HonorManagement: React.FC = () => {
 
   // 裁剪完成后处理
   const handleCropComplete = async (croppedBlob: Blob) => {
-    console.log('[handleCropComplete] called, pendingFrameId:', pendingFrameId, 'croppedBlob:', croppedBlob);
     if (!pendingFrameId) {
       console.warn('[handleCropComplete] pendingFrameId is null, abort upload');
       return;
@@ -405,7 +401,6 @@ export const HonorManagement: React.FC = () => {
     try {
       // 保证输出为 PNG
       const file = new File([croppedBlob], `avatar-frame-${pendingFrameId}.png`, { type: 'image/png' });
-      console.log('[handleCropComplete] ready to upload, file:', file, 'pendingFrameId:', pendingFrameId);
       await handleFrameImageUpload(file, pendingFrameId);
     } catch (e) {
       message.error('图片上传失败');
@@ -492,7 +487,6 @@ export const HonorManagement: React.FC = () => {
   };
 
   const handleFrameImageUpload = async (file: File, frameId: string) => {
-    console.log('[handleFrameImageUpload] called, file:', file, 'frameId:', frameId);
     setUploading(frameId);
     try {
       // 先查找当前头像框的原图片URL
@@ -514,8 +508,6 @@ export const HonorManagement: React.FC = () => {
         }
       }
       // 打印原始文件类型
-      console.log('[头像框上传] 原始文件:', file);
-      console.log('[头像框上传] 原始文件类型:', file.type);
       // 压缩图片（不设置 fileType，保持原格式）
       const options = {
         maxSizeMB: 0.2,
@@ -523,7 +515,6 @@ export const HonorManagement: React.FC = () => {
         fileType: 'image/png' // 保证透明通道
       };
       const compressedFile = await imageCompression(file, options);
-      console.log('[头像框上传] 压缩后文件类型:', compressedFile.type);
 
       // 上传到 Supabase Storage
       const fileExt = compressedFile.name.split('.').pop() || 'png';
@@ -663,11 +654,6 @@ export const HonorManagement: React.FC = () => {
       // 批量发放头像框
       const grantPromises = selectedUsers.flatMap(userId =>
         selectedFrames.map(async frameId => {
-          console.log('[发放头像框] 请求参数:', {
-            user_id: userId,
-            frame_id: frameId,
-            unlocked_at: new Date().toISOString()
-          });
           const { data, error, status, statusText } = await supabase
             .from('user_avatar_frames')
             .upsert({
@@ -684,7 +670,6 @@ export const HonorManagement: React.FC = () => {
               frame_id: frameId
             });
           } else {
-            console.log('[发放头像框] 插入成功:', data);
           }
           return { data, error };
         })
@@ -694,13 +679,6 @@ export const HonorManagement: React.FC = () => {
       const logPromises = selectedUsers.flatMap(userId =>
         selectedFrames.map(async frameId => {
           const frame = avatarFrames.find(f => f.id === frameId);
-          console.log('[发放头像框] 写入发放日志:', {
-            user_id: userId,
-            frame_id: frameId,
-            frame_name: frame?.name,
-            granted_by: grantedBy,
-            notes: grantNotes
-          });
           try {
             await AchievementTriggers.onHonorGranted(
               userId,
@@ -709,7 +687,6 @@ export const HonorManagement: React.FC = () => {
               Number(grantedBy) || 0,
               grantNotes
             );
-            console.log('[发放头像框] 发放日志写入成功');
           } catch (err) {
             console.error('[发放头像框] 发放日志写入失败:', err);
           }
@@ -1268,7 +1245,6 @@ export const HonorManagement: React.FC = () => {
               cropperImage={addCropperImage}
               setCropperImage={setAddCropperImage}
               handleCropComplete={(blob) => {
-                console.log('[新增头像框Modal] AvatarFrameUploadButton handleCropComplete 被调用', blob);
                 handleAddCropComplete(blob);
               }}
               renderFramePreview={() =>

@@ -134,7 +134,6 @@ export const useRealtimeNotifications = () => {
     if (!arr || arr.length === 0) {
       // 只在调试模式下显示警告
       if (process.env.NODE_ENV === 'development') {
-        console.log('[updateUnreadCount] 通知数组为空，跳过未读数更新');
       }
       return;
     }
@@ -176,7 +175,6 @@ export const useRealtimeNotifications = () => {
       } else {
         // 静默处理，不显示警告
         if (process.env.NODE_ENV === 'development') {
-          console.log('[loadNotifications] 服务器和缓存都没有通知数据');
         }
       }
     } finally {

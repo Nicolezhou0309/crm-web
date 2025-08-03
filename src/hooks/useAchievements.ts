@@ -84,7 +84,6 @@ export const useAchievements = () => {
         // 如果成就完成，显示通知
         if (result.is_completed && result.points_reward && result.points_reward > 0) {
           // 这里可以触发成就完成通知
-          console.log(`🎉 成就完成！获得 ${result.points_reward} 积分`); 
         }
       }
 

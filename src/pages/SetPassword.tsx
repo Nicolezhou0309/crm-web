@@ -26,16 +26,13 @@ const SetPassword: React.FC = () => {
       if (!hash || hash === '#') {
         hash = localStorage.getItem('supabase_hash') || '';
         if (hash) {
-          console.log('【SetPassword】从localStorage恢复hash:', hash);
         }
       }
       let token = '';
       if (hash) {
         const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
         token = hashParams.get('access_token') || hashParams.get('token') || '';
-        console.log('【SetPassword】页面初始 hashParams:', Object.fromEntries(hashParams.entries()));
       } else {
-        console.log('【SetPassword】页面初始 hashParams: 无 hash');
       }
       if (token) {
         tokenFetched = true;
@@ -49,7 +46,6 @@ const SetPassword: React.FC = () => {
     if (!gotToken) {
       setTimeout(() => {
         if (!tokenFetched) {
-          console.log('【SetPassword】延迟重试localStorage兜底hash...');
           tryGetHashAndHandle();
         }
       }, 100);
@@ -60,18 +56,14 @@ const SetPassword: React.FC = () => {
   const handleInviteFlow = async (hashFromEffect?: string) => {
     try {
       setVerifying(true);
-      console.log('🔍 [SetPassword] 开始处理邀请流程...');
-      console.log('🔍 [SetPassword] 当前URL:', window.location.href);
       
       // 优先处理从localStorage恢复的hash
       if (hashFromEffect) {
-        console.log('🔍 [SetPassword] 处理从localStorage恢复的hash:', hashFromEffect);
         const hashParams = new URLSearchParams(hashFromEffect.replace(/^#/, ''));
         const accessToken = hashParams.get('access_token');
         const tokenType = hashParams.get('type');
         
         if (accessToken && tokenType === 'invite') {
-          console.log('🔍 [SetPassword] 找到有效的JWT token，尝试设置session...');
           try {
             // 直接设置session
             const { data, error } = await supabase.auth.setSession({
@@ -88,7 +80,6 @@ const SetPassword: React.FC = () => {
             }
             
             if (data.user) {
-              console.log('✅ [SetPassword] 成功设置session，用户信息:', data.user);
               setUserInfo(data.user);
               setTokenValid(true);
               setVerifying(false);
@@ -105,10 +96,6 @@ const SetPassword: React.FC = () => {
       // 2. 从URL中提取token和参数（兼容search和hash）
       const urlParams = new URLSearchParams(window.location.search);
       const fragmentParams = new URLSearchParams((window.location.hash.substring(1)));
-      console.log('🔍 [SetPassword] urlParams:', Object.fromEntries(urlParams.entries()));
-      console.log('🔍 [SetPassword] fragmentParams:', Object.fromEntries(fragmentParams.entries()));
-      console.log('🔍 [SetPassword] window.location.hash:', window.location.hash);
-      console.log('🔍 [SetPassword] window.location.search:', window.location.search);
       
       // 检查错误信息
       const error = urlParams.get('error') || fragmentParams.get('error');
@@ -123,15 +110,11 @@ const SetPassword: React.FC = () => {
       const token = urlParams.get('token') || urlParams.get('access_token') || fragmentParams.get('access_token') || fragmentParams.get('token');
       const tokenType = urlParams.get('type') || fragmentParams.get('type');
       const email = urlParams.get('email') || fragmentParams.get('email');
-      console.log('🔍 [SetPassword] 提取到的token:', token);
-      console.log('🔍 [SetPassword] 提取到的tokenType:', tokenType);
-      console.log('🔍 [SetPassword] 提取到的email:', email);
       
       // 检查token
       if (!token) {
         message.error('未找到有效的邀请令牌，请重新获取邀请邮件或联系管理员。');
         setTimeout(() => {
-          console.log('[SetPassword] 自动跳转到 /login（未找到token）');
           navigate('/login');
         }, 1500);
         setTokenValid(false);
@@ -140,11 +123,9 @@ const SetPassword: React.FC = () => {
       }
       
       // 检查session - 使用统一的用户上下文
-      console.log('🔍 [SetPassword] 使用统一的用户上下文:', user);
       
       if (!user && token && (tokenType === 'recovery' || tokenType === 'invite') && email) {
         // 主动用 token 登录
-        console.log('🔍 [SetPassword] session 不存在，调用 verifyOtp 登录...');
         const { data, error } = await supabase.auth.verifyOtp({
           email,
           type: tokenType, // 支持 'invite' 和 'recovery'
@@ -213,7 +194,6 @@ const SetPassword: React.FC = () => {
       setLoading(true);
       const { password } = values;
       
-      console.log('🔑 [SetPassword] 开始设置密码...');
       
       // 修正：直接用 userInfo.email，去除 accessToken 校验
       if (!userInfo || !userInfo.email) {
@@ -245,7 +225,6 @@ const SetPassword: React.FC = () => {
   // 处理自定义邀请密码设置
   const handleCustomInvitePassword = async (password: string) => {
     try {
-      console.log('🔑 [SetPassword] 处理自定义邀请密码设置...');
       if (!inviteData) {
         message.error('邀请数据无效');
         return;
@@ -269,7 +248,6 @@ const SetPassword: React.FC = () => {
         message.error('账户创建失败: ' + signUpError.message);
         return;
       }
-      console.log('✅ [SetPassword] 用户注册成功:', signUpData.user?.email);
       // 更新用户档案状态
       const { error: updateError } = await supabase
         .from('users_profile')
@@ -284,7 +262,6 @@ const SetPassword: React.FC = () => {
       }
       // 自动调用activate-user函数
       try {
-        console.log('🚀 [SetPassword] 即将调用activate-user函数...');
         const res = await fetch('/functions/v1/activate-user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -295,9 +272,7 @@ const SetPassword: React.FC = () => {
             template_vars: { name: inviteData.email.split('@')[0] }
           })
         });
-        console.log('🚀 [SetPassword] activate-user响应状态:', res.status);
         const result = await res.json();
-        console.log('🚀 [SetPassword] activate-user响应内容:', result);
         if (result.success) {
           message.success('账户已激活，正在登录...');
           // 自动登录
@@ -333,8 +308,6 @@ const SetPassword: React.FC = () => {
   // 处理Supabase邀请密码设置
   const handleSupabaseInvitePassword = async (password: string) => {
     try {
-      console.log('🔑 [SetPassword] 处理Supabase邀请密码设置...');
-      console.log('🔑 [SetPassword] 当前userInfo:', userInfo);
       // 使用管理员API更新用户密码
       const { error } = await supabase.auth.updateUser({
         password: password,
@@ -350,7 +323,6 @@ const SetPassword: React.FC = () => {
         return;
       }
 
-      console.log('✅ [SetPassword] 密码设置成功');
       message.success('密码设置成功！正在登录...');
       // 自动登录
       const { error: loginError } = await supabase.auth.signInWithPassword({
@@ -362,14 +334,12 @@ const SetPassword: React.FC = () => {
         message.error('自动登录失败，请手动登录');
         setCompleted(true);
         setTimeout(() => {
-          console.log('[SetPassword] 自动跳转到 /login（自动登录失败）');
           navigate('/login');
         }, 2000);
         return;
       }
       setCompleted(true);
       setTimeout(() => {
-        console.log('[SetPassword] 自动跳转到 /（设置密码成功）');
         navigate('/');
       }, 2000);
       
@@ -401,7 +371,6 @@ const SetPassword: React.FC = () => {
 
   // 令牌无效
   if (!tokenValid) {
-    console.log('[SetPassword] 跳转到 /login（令牌无效）');
     return (
       <div style={{ 
         minHeight: '100vh', 
@@ -421,7 +390,6 @@ const SetPassword: React.FC = () => {
             type="primary" 
             style={{ marginTop: 16 }}
             onClick={() => {
-              console.log('[SetPassword] 用户点击返回登录，跳转到 /login');
               navigate('/login');
             }}
           >

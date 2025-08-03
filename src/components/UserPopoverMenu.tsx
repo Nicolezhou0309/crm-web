@@ -1,16 +1,17 @@
 import React from 'react';
 import { Menu } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { safeSignOut } from '../utils/authUtils';
+import { useAuth } from '../hooks/useAuth';
 
 const UserPopoverMenu: React.FC = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const handleClick = async (e: any) => {
     if (e.key === 'profile') {
       navigate('/profile');
     } else if (e.key === 'logout') {
-      await safeSignOut(navigate);
+      await logout(navigate);
     }
   };
 

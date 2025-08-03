@@ -14,13 +14,11 @@ const networkListeners: Array<() => void> = [];
 // 监听网络状态变化
 window.addEventListener('online', () => {
   isOnline = true;
-  console.log('网络连接已恢复');
   networkListeners.forEach(listener => listener());
 });
 
 window.addEventListener('offline', () => {
   isOnline = false;
-  console.log('网络连接已断开');
 });
 
 export const getNetworkStatus = () => isOnline;
@@ -172,7 +170,6 @@ export const supabaseRetryOptions: RetryOptions = {
     );
   },
   onRetry: (attempt, error) => {
-    console.log(`Supabase API重试 ${attempt}:`, error.message);
   }
 };
 

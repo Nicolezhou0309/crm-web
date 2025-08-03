@@ -80,19 +80,6 @@ export async function getApprovalInstances(params: ApprovalInstancesParams = {})
       dateTo
     } = params;
 
-    console.log('[getApprovalInstances] 调用参数:', {
-      page,
-      pageSize,
-      sortField,
-      sortOrder,
-      statusFilter,
-      targetIdFilter,
-      flowNameFilter,
-      creatorNameFilter,
-      dateFrom,
-      dateTo
-    });
-
     // 确保参数类型正确
     const rpcParams = {
       p_page: page,
@@ -107,7 +94,6 @@ export async function getApprovalInstances(params: ApprovalInstancesParams = {})
       p_date_to: dateTo || null
     };
 
-    console.log('[getApprovalInstances] RPC参数:', rpcParams);
 
     // 并行获取数据和总数
     const [dataResult, countResult] = await Promise.all([
@@ -122,8 +108,6 @@ export async function getApprovalInstances(params: ApprovalInstancesParams = {})
       })
     ]);
 
-    console.log('[getApprovalInstances] 数据结果:', dataResult);
-    console.log('[getApprovalInstances] 计数结果:', countResult);
 
     if (dataResult.error) {
       console.error('获取审批实例失败:', dataResult.error);

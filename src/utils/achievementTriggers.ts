@@ -31,7 +31,6 @@ export class AchievementTriggers {
         followupData
       );
 
-      console.log('✅ 跟进成就进度已更新');
     } catch (error) {
       console.error('❌ 更新跟进成就失败:', error);
     }
@@ -61,7 +60,6 @@ export class AchievementTriggers {
         dealData
       );
 
-      console.log('✅ 成交成就进度已更新');
     } catch (error) {
       console.error('❌ 更新成交成就失败:', error);
     }
@@ -84,7 +82,6 @@ export class AchievementTriggers {
         );
       }
 
-      console.log('✅ 转化率成就检查完成');
     } catch (error) {
       console.error('❌ 更新转化率成就失败:', error);
     }
@@ -107,7 +104,6 @@ export class AchievementTriggers {
         );
       }
 
-      console.log('✅ 积分成就检查完成');
     } catch (error) {
       console.error('❌ 更新积分成就失败:', error);
     }
@@ -130,7 +126,6 @@ export class AchievementTriggers {
         );
       }
 
-      console.log('✅ 签到成就检查完成');
     } catch (error) {
       console.error('❌ 更新签到成就失败:', error);
     }
@@ -151,7 +146,6 @@ export class AchievementTriggers {
         helpData
       );
 
-      console.log('✅ 团队助手成就进度已更新');
     } catch (error) {
       console.error('❌ 更新团队助手成就失败:', error);
     }
@@ -174,7 +168,6 @@ export class AchievementTriggers {
         }
       );
 
-      console.log('✅ 荣誉发放记录已创建');
     } catch (error) {
       console.error('❌ 创建荣誉发放记录失败:', error);
     }
@@ -196,7 +189,6 @@ export class AchievementTriggers {
         }
       );
 
-      console.log('✅ 活动参与记录已创建');
     } catch (error) {
       console.error('❌ 创建活动参与记录失败:', error);
     }
@@ -216,7 +208,6 @@ export class AchievementTriggers {
         }
       );
 
-      console.log('✅ 首次登录成就已记录');
     } catch (error) {
       console.error('❌ 记录首次登录失败:', error);
     }
@@ -236,7 +227,6 @@ export class AchievementTriggers {
         }
       );
 
-      console.log('✅ 资料完善成就已记录');
     } catch (error) {
       console.error('❌ 记录资料完善失败:', error);
     }
@@ -257,7 +247,6 @@ export class AchievementTriggers {
         }
       );
 
-      console.log('✅ 推荐成功成就已记录');
     } catch (error) {
       console.error('❌ 记录推荐成功失败:', error);
     }
@@ -278,7 +267,6 @@ export class AchievementTriggers {
         }
       );
 
-      console.log('✅ 手动发放记录已创建');
     } catch (error) {
       console.error('❌ 创建手动发放记录失败:', error);
     }
@@ -292,7 +280,6 @@ export class AchievementTriggers {
     try {
       // 这里可以添加批量检查逻辑
       // 例如检查用户的跟进数量、成交数量等
-      console.log('✅ 批量成就检查完成');
     } catch (error) {
       console.error('❌ 批量成就检查失败:', error);
     }

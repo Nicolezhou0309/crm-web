@@ -556,7 +556,6 @@ const ApprovalDetails: React.FC = () => {
               scroll={{ x: 'max-content' }}
               onChange={(_pagination, _filters, _sorter) => {
                 // 这里可以根据filters和sorter做本地排序和筛选，或触发后端请求
-                // 示例：console.log('Table change:', filters, sorter);
               }}
             />,
           },

@@ -5,7 +5,7 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons';
 import LottieLogo from './components/LottieLogo';
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import LeadsList from './pages/LeadsList';
 import ShowingsList from './pages/ShowingsList';
 
@@ -30,7 +30,7 @@ import PointsExchange from './pages/PointsExchange';
 import AnnouncementManagement from './pages/AnnouncementManagement';
 import { HonorManagement } from './pages/HonorManagement';
 import { AchievementManagement } from './pages/AchievementManagement';
-import LoadingDemo from './pages/LoadingDemo';
+
 import './App.css';
 import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
@@ -38,7 +38,6 @@ import { NotificationCenter } from './components/NotificationCenter';
 import { PermissionGate } from './components/PermissionGate';
 import { Badge, Popover, Drawer } from 'antd';
 import { useAchievements } from './hooks/useAchievements';
-import { supabase } from './supaClient';
 import { getUserPointsInfo } from './api/pointsApi';
 import { useRealtimeNotifications } from './hooks/useRealtimeNotifications';
 import ShowingsQueueManagement from './pages/ShowingsQueueManagement';
@@ -46,21 +45,19 @@ import BannerManagement from './pages/BannerManagement';
 import { Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import { UserProvider, useUser } from './context/UserContext';
-import LoadingScreen from './components/LoadingScreen';
+import { useAuth } from './hooks/useAuth';
 import NotificationTemplateManager from './pages/NotificationTemplateManager';
 import ApprovalFlowManagement from './pages/ApprovalFlowManagement';
 import PointsSummary from './pages/PointsSummary';
 import ApprovalDetails from './pages/ApprovalDetails';
 import ApprovalPerformance from './pages/ApprovalPerformance';
 import DataAnalysis from './pages/DataAnalysis';
-import PivotTableDemo from './pages/PivotTableDemo';
-import PivotDemo from './pages/PivotDemo';
 import OnboardingPage from './pages/OnboardingPage';
 import LiveStreamRegistration from './pages/LiveStreamRegistration';
+import ScoringDemo from './pages/ScoringDemo';
 // import LiveStreamManagement from './pages/LiveStreamManagement';
-import TestAuth from './pages/TestAuth';
-import AuthOptimizationTest from './pages/AuthOptimizationTest';
-
+// 暂时移除AuthErrorHandler，避免循环
+// import { AuthErrorHandler } from './components/AuthErrorHandler';
 
 
 const { Sider, Content, Header } = Layout;
@@ -108,50 +105,14 @@ const App: React.FC = () => {
 const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: userLoading } = useUser();
-  const { profile, isSessionExpired } = useUser();
+  const { profile } = useUser();
+  const { logout } = useAuth();
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth] = React.useState(220);
   const minSiderWidth = 56;
   
-  // 合并所有loading状态
-  const loading = userLoading;
-  
-  // 暂时禁用token刷新监控，避免认证问题
-  // useSilentAuth();
-
-  // 简化loading状态管理 - 直接使用userLoading，避免额外的状态变化
-  // const [globalLoading, setGlobalLoading] = React.useState(false);
-  // const loadingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  // 防抖的loading状态更新 - 暂时禁用，避免频繁状态变化
-  // React.useEffect(() => {
-  //   if (loadingTimeoutRef.current) {
-  //     clearTimeout(loadingTimeoutRef.current);
-  //   }
-
-  //   if (loading) {
-  //     setGlobalLoading(true);
-  //   } else {
-  //     // 延迟设置loading为false，避免频繁切换
-  //     loadingTimeoutRef.current = setTimeout(() => {
-  //       setGlobalLoading(false);
-  //     }, 300);
-  //   }
-
-  //   return () => {
-  //     if (loadingTimeoutRef.current) {
-  //       clearTimeout(loadingTimeoutRef.current);
-  //     }
-  //   };
-  // }, [loading]);
-
-  // 简化路由重定向逻辑
-  React.useEffect(() => {
-    if (user && !userLoading && location.pathname === '/') {
-      // 用户已登录且在根路径，不需要特殊处理
-    }
-  }, [user, userLoading, location.pathname]);
+  // 使用统一的认证Hook，让PrivateRoute处理认证逻辑
+  // 只保留UI相关的状态管理
 
   // 侧边栏 key-path 映射
   const keyPathMap: { [key: string]: string } = {
@@ -179,6 +140,7 @@ const AppContent: React.FC = () => {
     'approval-performance': '/approval-performance',
     'data-analysis': '/data-analysis',
     'live-stream-registration': '/live-stream-registration',
+    'scoring-demo': '/scoring-demo',
     'live-stream-management': '/live-stream-management',
 
   };
@@ -335,11 +297,6 @@ const AppContent: React.FC = () => {
   // 判断是否为公开页面（不需要登录）
   const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password';
 
-  // 简化loading状态管理
-  if (loading && !isPublicPage) {
-    return <LoadingScreen type="auth" message="正在加载用户信息..." subtitle="请稍候，我们正在为您准备登录环境" />;
-  }
-
   // 公开页面（登录页面和设置密码页面）不需要用户认证，直接渲染
   if (isPublicPage) {
     return (
@@ -350,10 +307,7 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // 如果用户未登录且不是公开页面，跳转到登录页面
-  if (!user || isSessionExpired) {
-    return <Navigate to="/login" replace />;
-  }
+  // 非公开页面由PrivateRoute统一处理认证逻辑
 
   // 悬浮卡片内容
   const userCardContent = (
@@ -492,8 +446,7 @@ const AppContent: React.FC = () => {
           size="small"
           icon={<LogoutOutlined />}
           onClick={async () => {
-            await supabase.auth.signOut();
-            navigate('/login');
+            await logout(navigate);
           }}
           style={{
             flex: 1,
@@ -808,11 +761,7 @@ const AppContent: React.FC = () => {
                       <BannerManagement />
                     </PermissionGate>
                   } />
-                  <Route path="/loading-demo" element={
-                    <PermissionGate role="admin" fallback={<Error403 />}>
-                      <LoadingDemo />
-                    </PermissionGate>
-                  } />
+
                   <Route path="/notification-templates" element={
                     <PermissionGate role="admin" fallback={<Error403 />}>
                       <NotificationTemplateManager />
@@ -834,12 +783,9 @@ const AppContent: React.FC = () => {
                               <DataAnalysis />
                             </PermissionGate>
                           } />
-                          <Route path="/pivot-demo" element={<PivotTableDemo />} />
-                          <Route path="/pivot-demo-new" element={<PivotDemo />} />
                           <Route path="/onboarding" element={<OnboardingPage />} />
                           <Route path="/live-stream-registration" element={<LiveStreamRegistration />} />
-                          <Route path="/test-auth" element={<TestAuth />} />
-                          <Route path="/auth-optimization-test" element={<AuthOptimizationTest />} />
+        <Route path="/scoring-demo" element={<ScoringDemo />} />
                           {/* <Route path="/live-stream-management" element={
                             <PermissionGate permission="live_stream_manage" fallback={<Error403 />}>
                               <LiveStreamManagement />
@@ -861,7 +807,10 @@ const AppContent: React.FC = () => {
 export default function AppWithBoundary() {
   return (
     <ErrorBoundary>
-      <App />
+      {/* 暂时禁用AuthErrorHandler，避免循环 */}
+      {/* <AuthErrorHandler> */}
+        <App />
+      {/* </AuthErrorHandler> */}
       {/* 扫光动画全局样式 */}
       <style>{`
         @keyframes shine-move {

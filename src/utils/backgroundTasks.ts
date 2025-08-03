@@ -29,9 +29,7 @@ class BackgroundTaskManager {
     
     for (const [taskId, task] of this.tasks) {
       try {
-        console.log(`执行后台任务: ${taskId}`);
         await task();
-        console.log(`后台任务完成: ${taskId}`);
       } catch (error) {
         console.error(`后台任务失败: ${taskId}`, error);
       } finally {
@@ -59,7 +57,6 @@ export const addEdgeFunctionTask = (exchangeRecordId: number) => {
     const { supabase } = await import('../supaClient');
     
     try {
-      console.log(`后台执行边缘函数调用: ${exchangeRecordId}`);
       const { data, error } = await supabase.functions.invoke('issue-direct-card', {
         body: { exchange_record_id: exchangeRecordId }
       });
@@ -69,7 +66,6 @@ export const addEdgeFunctionTask = (exchangeRecordId: number) => {
         throw error;
       }
       
-      console.log('后台边缘函数调用成功:', data);
     } catch (error) {
       console.error('后台边缘函数调用异常:', error);
       throw error;

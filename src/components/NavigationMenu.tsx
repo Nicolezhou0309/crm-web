@@ -24,6 +24,7 @@ import {
   FileDoneOutlined,
   BarChartOutlined,
   VideoCameraOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 import { useRolePermissions } from '../hooks/useRolePermissions';
@@ -105,6 +106,14 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       icon: <VideoCameraOutlined />,
       label: '直播报名',
       path: '/live-stream-registration',
+      className: 'main-menu-item',
+    },
+    // 直播评分演示菜单
+    {
+      key: 'scoring-demo',
+      icon: <StarOutlined />,
+      label: '评分演示',
+      path: '/scoring-demo',
       className: 'main-menu-item',
     },
     // 直播管理菜单

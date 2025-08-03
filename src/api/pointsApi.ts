@@ -68,22 +68,10 @@ export async function getExchangeGoods(category?: string, userId?: number) {
 
 // 兑换商品
 export async function exchangeGoodsItem(userId: number, goodsId: string, description?: string) {
-  console.log('=== exchangeGoodsItem API 调用开始 ===');
-  console.log('API参数:', {
-    userId,
-    goodsId,
-    description
-  });
-  
   const { data, error } = await supabase.rpc('exchange_goods_item', {
     p_user_id: userId,
     p_goods_id: goodsId,
     p_description: description
-  });
-  
-  console.log('Supabase RPC 调用结果:', {
-    data,
-    error
   });
   
   if (error) {
@@ -93,33 +81,22 @@ export async function exchangeGoodsItem(userId: number, goodsId: string, descrip
   
   // 如果兑换成功且是带看卡类型，调用issue-direct-card函数
   if (data.success && data.exchange_record_id) {
-    console.log('兑换成功，检查是否需要调用边缘函数...');
-    console.log('exchange_record_id:', data.exchange_record_id);
-    
     // 直接调用issue-direct-card函数（取消后台任务模式）
     try {
-      console.log('调用issue-direct-card函数...');
       const { data: directCardData, error: directCardError } = await supabase.functions.invoke('issue-direct-card', {
         body: { exchange_record_id: data.exchange_record_id }
       });
       
       if (directCardError) {
-        console.log('调用失败:', directCardError);
+        console.error('issue-direct-card 调用失败:', directCardError);
       } else {
-        console.log('调用成功:', directCardData);
+        console.log('issue-direct-card 调用成功:', directCardData);
       }
     } catch (invokeError) {
-      console.log('调用异常:', invokeError);
+      console.error('issue-direct-card 调用异常:', invokeError);
     }
-  } else {
-    console.log('兑换成功但未调用边缘函数，原因:', {
-      success: data.success,
-      exchange_record_id: data.exchange_record_id
-    });
   }
   
-  console.log('exchangeGoodsItem API 调用成功，返回数据:', data);
-  console.log('=== exchangeGoodsItem API 调用结束 ===');
   return data;
 }
 

@@ -2,7 +2,6 @@ import { Form, Input, Button, message, Card, Tag, Divider, List, Typography, Spa
 import LoadingScreen from '../components/LoadingScreen';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supaClient';
 import { useRolePermissions } from '../hooks/useRolePermissions';
 import { useAchievements } from '../hooks/useAchievements';
 import { 
@@ -16,7 +15,9 @@ import {
 import ImgCrop from 'antd-img-crop';
 import imageCompression from 'browser-image-compression';
 import { useUser } from '../context/UserContext';
-import { safeSignOut } from '../utils/authUtils';
+import { useAuth } from '../hooks/useAuth';
+import { tokenManager } from '../utils/tokenManager';
+import { supabase } from '../supaClient';
 
 const { Title, Text } = Typography;
 
@@ -34,6 +35,7 @@ const Profile = () => {
   
   // 使用UserContext获取用户信息
   const { user } = useUser();
+  const { logout: authLogout } = useAuth();
 
   // 新增：user变化时自动同步email
   useEffect(() => {
@@ -191,9 +193,9 @@ const Profile = () => {
       message.error('该邮箱已被注册');
       return;
     }
-    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    const { data, error } = await tokenManager.updateUser({ email: newEmail });
     if (error) {
-      message.error(error.message);
+      message.error(error instanceof Error ? error.message : '邮箱更新失败');
     } else {
       // 同步 users_profile.email
       if (user) {
@@ -207,20 +209,17 @@ const Profile = () => {
   // 修改密码
   const handleChangePassword = async (values: any) => {
     const { oldPassword, password } = values;
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password: oldPassword,
-    });
+    const { data, error: loginError } = await tokenManager.signInWithPassword(email, oldPassword);
     if (loginError) {
       message.error('旧密码错误，请重新输入');
       return;
     }
-    const { error } = await supabase.auth.updateUser({ password });
+    const { data: updateData, error } = await tokenManager.updateUser({ password });
     if (error) {
-      message.error(error.message);
+      message.error(error instanceof Error ? error.message : '密码更新失败');
     } else {
       message.success('密码修改成功，请重新登录');
-      await safeSignOut(navigate);
+      await authLogout(navigate);
     }
   };
 

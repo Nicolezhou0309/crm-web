@@ -49,7 +49,6 @@ export async function updateBanner(id: number, banner: Partial<Banner>): Promise
     .eq('id', id)
     .select()
     .single();
-  console.log('[updateBanner] id:', id, 'typeof id:', typeof id, 'banner:', banner, 'data:', data, 'error:', error);
   if (error) throw error;
   return data;
 }

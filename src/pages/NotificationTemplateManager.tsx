@@ -13,7 +13,6 @@ const NotificationTemplateManager: React.FC = () => {
   // 查询模板
   const fetchTemplates = async () => {
     setLoading(true);
-    console.log('[TEMPLATE][fetchTemplates] 开始获取模板...');
     const { data, error } = await supabase
       .from('notification_templates')
       .select('*')
@@ -23,24 +22,19 @@ const NotificationTemplateManager: React.FC = () => {
       console.error('[TEMPLATE][fetchTemplates] 获取模板失败:', error);
       message.error('获取模板失败');
     } else {
-      console.log('[TEMPLATE][fetchTemplates] 获取模板成功:', data);
       setTemplates(data || []);
     }
   };
 
   useEffect(() => {
-    console.log('[TEMPLATE][useEffect] 组件挂载，拉取模板列表');
     fetchTemplates();
   }, []);
 
   // 新增/编辑模板
   const handleOk = async () => {
     try {
-      console.log('[TEMPLATE][handleOk] 开始校验表单...');
       const values = await form.validateFields();
-      console.log('[TEMPLATE][handleOk] 表单校验通过，values:', values);
       if (editing) {
-        console.log('[TEMPLATE][handleOk] 编辑模式，id:', editing.id);
         // 编辑
         const { error } = await supabase
           .from('notification_templates')
@@ -52,7 +46,6 @@ const NotificationTemplateManager: React.FC = () => {
         }
         message.success('模板更新成功');
       } else {
-        console.log('[TEMPLATE][handleOk] 新增模式，values:', values);
         // 新增
         const { error } = await supabase
           .from('notification_templates')
@@ -75,7 +68,6 @@ const NotificationTemplateManager: React.FC = () => {
 
   // 删除模板
   const handleDelete = async (id: number) => {
-    console.log('[TEMPLATE][handleDelete] 删除模板，id:', id);
     const { error } = await supabase
       .from('notification_templates')
       .delete()
@@ -91,7 +83,6 @@ const NotificationTemplateManager: React.FC = () => {
 
   // 打开编辑/新增弹窗
   const openModal = (record?: any) => {
-    console.log('[TEMPLATE][openModal] 打开弹窗，record:', record);
     setEditing(record || null);
     setModalOpen(true);
     if (record) {

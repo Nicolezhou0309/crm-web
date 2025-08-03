@@ -114,7 +114,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         localStorage.setItem('announcements_timestamp', Date.now().toString());
       } catch (error) {
         // 静默处理错误，尝试使用缓存数据
-        console.log('加载公告失败，使用缓存数据:', error);
         const cachedAnnouncements = localStorage.getItem('announcements_cache');
         if (cachedAnnouncements) {
           setAnnouncements(JSON.parse(cachedAnnouncements));

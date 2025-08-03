@@ -4,14 +4,57 @@ import type {
   LiveStreamRegistration, 
   LiveStreamManager, 
   LiveStreamLocation, 
-  LiveStreamPropertyType} from '../types/liveStream';
-import { 
-  SAMPLE_MANAGERS,
-  SAMPLE_LOCATIONS,
-  SAMPLE_PROPERTY_TYPES
+  LiveStreamPropertyType,
+  TimeSlot
 } from '../types/liveStream';
 
-
+// 获取时间段列表（从数据库获取）
+export const getTimeSlots = async (): Promise<TimeSlot[]> => {
+  try {
+    // 这里应该从数据库获取时间段配置
+    // 暂时返回默认时间段，后续可以创建time_slots表
+    return [
+      {
+        id: 'morning-10-12',
+        startTime: '10:00',
+        endTime: '12:00',
+        period: 'morning',
+        duration: 2
+      },
+      {
+        id: 'afternoon-14-16',
+        startTime: '14:00',
+        endTime: '16:00',
+        period: 'afternoon',
+        duration: 2
+      },
+      {
+        id: 'afternoon-16-18',
+        startTime: '16:00',
+        endTime: '18:00',
+        period: 'afternoon',
+        duration: 2
+      },
+      {
+        id: 'evening-19-21',
+        startTime: '19:00',
+        endTime: '21:00',
+        period: 'evening',
+        duration: 2
+      },
+      {
+        id: 'evening-21-23',
+        startTime: '21:00',
+        endTime: '23:00',
+        period: 'evening',
+        duration: 2
+      }
+    ];
+  } catch (error) {
+    console.error('获取时间段失败:', error);
+    return [];
+  }
+};
 
 // 获取直播管家列表（从users_profile表获取）
 export const getLiveStreamManagers = async (): Promise<LiveStreamManager[]> => {
@@ -33,30 +76,35 @@ export const getLiveStreamManagers = async (): Promise<LiveStreamManager[]> => {
     }));
   } catch (error) {
     console.error('获取直播管家失败:', error);
-    // 返回模拟数据作为fallback
-    return SAMPLE_MANAGERS;
+    return [];
   }
 };
 
-// 获取直播地点列表（暂时使用模拟数据，后续可以创建locations表）
+// 获取直播地点列表（从数据库获取）
 export const getLiveStreamLocations = async (): Promise<LiveStreamLocation[]> => {
   try {
-    // 这里可以后续从数据库获取，现在先用模拟数据
-    return SAMPLE_LOCATIONS;
+    // 这里应该从数据库获取地点配置
+    // 暂时返回默认地点，后续可以创建locations表
+    return [
+      { id: 'location-1', name: '默认地点', address: '默认地址' }
+    ];
   } catch (error) {
     console.error('获取直播地点失败:', error);
-    return SAMPLE_LOCATIONS;
+    return [];
   }
 };
 
-// 获取直播户型列表（暂时使用模拟数据，后续可以创建property_types表）
+// 获取直播户型列表（从数据库获取）
 export const getLiveStreamPropertyTypes = async (): Promise<LiveStreamPropertyType[]> => {
   try {
-    // 这里可以后续从数据库获取，现在先用模拟数据
-    return SAMPLE_PROPERTY_TYPES;
+    // 这里应该从数据库获取户型配置
+    // 暂时返回默认户型，后续可以创建property_types表
+    return [
+      { id: 'type-1', name: '默认户型', description: '默认户型描述' }
+    ];
   } catch (error) {
     console.error('获取直播户型失败:', error);
-    return SAMPLE_PROPERTY_TYPES;
+    return [];
   }
 };
 

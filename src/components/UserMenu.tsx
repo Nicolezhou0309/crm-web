@@ -1,8 +1,8 @@
 import { Dropdown } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { useAuth } from '../hooks/useAuth';
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
-import { safeSignOut } from '../utils/authUtils';
 import './user-menu.css';
 
 export function useUserMenuAvatarUrl() {
@@ -12,6 +12,7 @@ export function useUserMenuAvatarUrl() {
 
 const UserMenu = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
 
 
@@ -43,7 +44,7 @@ const UserMenu = () => {
     items: menuItems,
     onClick: async (e: any) => {
       if (e.key === 'logout') {
-        await safeSignOut(navigate);
+        await logout(navigate);
       }
     },
   };
