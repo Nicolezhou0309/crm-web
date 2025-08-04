@@ -1,190 +1,380 @@
 import { supabase } from '../supaClient';
-import type { ScoringData, ScoringDimension, LiveStreamScheduleWithScoring } from '../types/scoring';
 
-// 获取评分维度配置
+// 评分维度类型
+export interface ScoringDimension {
+  id: number;
+  dimension_name: string;
+  dimension_code: string;
+  description: string | null;
+  weight: number;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// 评分选项类型
+export interface ScoringOption {
+  id: number;
+  dimension_code: string;
+  option_code: string;
+  option_text: string;
+  score: number;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// 评分数据类型
+export interface ScoringData {
+  scoring_version: string;
+  evaluator_id: number;
+  evaluation_date: string;
+  dimensions: {
+    [key: string]: {
+      selected_option: string;
+      score: number;
+      notes: string;
+    };
+  };
+  calculation: {
+    total_score: number;
+    average_score: number;
+    weighted_average: number;
+  };
+  metadata: {
+    created_at: string;
+    updated_at: string;
+    evaluation_notes?: string;
+  };
+}
+
+// 直播日程评分类型
+export interface LiveStreamScheduleWithScoring {
+  id: number;
+  date: string;
+  time_slot_id: string;
+  created_by: number;
+  average_score: number | null;
+  scoring_status: string | null;
+  scored_by: number | null;
+  scored_at: string | null;
+  scoring_data: ScoringData | null;
+  evaluator_name?: string;
+}
+
+// 获取评分维度列表
 export const getScoringDimensions = async (): Promise<ScoringDimension[]> => {
   try {
-    // 模拟从数据库获取评分维度
-    const mockDimensions: ScoringDimension[] = [
-      {
-        id: 1,
-        dimension_name: '开播准备',
-        dimension_code: 'preparation',
-        selection_name: 'live_stream_preparation_options',
-        description: '直播开始前的准备工作评分',
-        weight: 1.0,
-        sort_order: 1,
-        is_active: true,
-        options: [
-          { code: 'no_delay', text: '开播即出镜开始讲解', score: 10.0 },
-          { code: 'adjust_within_1min', text: '开播后适当调整，1分钟内开始讲解', score: 5.5 },
-          { code: 'chat_over_1min', text: '开播后闲聊，1分钟内未开始讲解', score: 3.0 }
-        ]
-      },
-      {
-        id: 2,
-        dimension_name: '直播状态',
-        dimension_code: 'live_status',
-        selection_name: 'live_stream_status_options',
-        description: '直播过程中的状态表现评分',
-        weight: 1.0,
-        sort_order: 2,
-        is_active: true,
-        options: [
-          { code: 'energetic', text: '进入直播间口播欢迎，状态饱满', score: 10.0 },
-          { code: 'normal', text: '状态平淡无明显优点', score: 5.5 },
-          { code: 'lazy', text: '态度懒散，说话无精打采', score: 0.0 }
-        ]
-      },
-      {
-        id: 3,
-        dimension_name: '讲解话术',
-        dimension_code: 'presentation',
-        selection_name: 'live_stream_presentation_options',
-        description: '直播讲解的话术质量评分',
-        weight: 1.0,
-        sort_order: 3,
-        is_active: true,
-        options: [
-          { code: 'attractive', text: '话术流畅严谨有吸引力，讲解认真全面', score: 10.0 },
-          { code: 'complete_but_rough', text: '每10分钟介绍一遍房间，介绍完整但不够严谨', score: 5.5 },
-          { code: 'cold_field', text: '只读评论不介绍房间，冷场或聊天超过5分钟', score: 3.0 }
-        ]
-      },
-      {
-        id: 4,
-        dimension_name: '出勤情况',
-        dimension_code: 'attendance',
-        selection_name: 'live_stream_attendance_options',
-        description: '直播出勤和时长评分',
-        weight: 1.0,
-        sort_order: 4,
-        is_active: true,
-        options: [
-          { code: 'on_time_full', text: '准时开播并播满120分钟，中途未离开', score: 9.0 },
-          { code: 'delay_under_10min', text: '因上场拖延迟到，未满120分钟或中途缺席10分钟以内', score: 5.5 },
-          { code: 'late_over_10min', text: '无故迟到或直播时长未满120分钟或中途缺席超过10分钟', score: 0.0 }
-        ]
-      },
-      {
-        id: 5,
-        dimension_name: '运镜技巧',
-        dimension_code: 'camera_skills',
-        selection_name: 'live_stream_camera_options',
-        description: '直播镜头运用技巧评分',
-        weight: 1.0,
-        sort_order: 5,
-        is_active: true,
-        options: [
-          { code: 'beautiful', text: '构图美观横平竖直，人物居中运镜丝滑', score: 10.0 },
-          { code: 'slightly_tilted', text: '构图略微倾斜，运镜轻微摇晃', score: 5.5 },
-          { code: 'poor_angle', text: '人物长时间不在镜头，画面角度刁钻，运镜摇晃严重', score: 3.0 }
-        ]
-      }
-    ];
+    const { data, error } = await supabase
+      .from('live_stream_scoring_dimensions')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order');
 
-    return mockDimensions;
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error('获取评分维度失败:', error);
     throw error;
   }
 };
 
-// 获取直播日程的评分数据
-export const getScoringData = async (scheduleId: number): Promise<ScoringData | null> => {
+// 获取评分选项列表
+export const getScoringOptions = async (): Promise<ScoringOption[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('live_stream_scoring_options')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order');
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('获取评分选项失败:', error);
+    throw error;
+  }
+};
+
+// 获取直播日程评分信息
+export const getLiveStreamScheduleScoring = async (scheduleId: number): Promise<LiveStreamScheduleWithScoring | null> => {
   try {
     const { data, error } = await supabase
       .from('live_stream_schedules')
-      .select('scoring_data')
+      .select(`
+        id,
+        date,
+        time_slot_id,
+        created_by,
+        average_score,
+        scoring_status,
+        scored_by,
+        scored_at,
+        scoring_data,
+        users_profile!live_stream_schedules_scored_by_fkey(nickname)
+      `)
       .eq('id', scheduleId)
       .single();
 
     if (error) throw error;
-    return data.scoring_data || null;
+    
+    if (data) {
+      return {
+        ...data,
+        evaluator_name: data.users_profile?.nickname || null
+      };
+    }
+    
+    return null;
   } catch (error) {
-    console.error('获取评分数据失败:', error);
+    console.error('获取直播日程评分信息失败:', error);
     throw error;
   }
 };
 
 // 保存评分数据
-export const saveScoringData = async (scheduleId: number, scoringData: ScoringData): Promise<void> => {
+export const saveScoringData = async (
+  scheduleId: number, 
+  scoringData: ScoringData, 
+  evaluatorId: number
+): Promise<boolean> => {
   try {
-    const { error } = await supabase
+    console.log('API - 准备保存评分数据:', {
+      scheduleId,
+      evaluatorId,
+      scoringData: JSON.stringify(scoringData, null, 2)
+    });
+
+    // 尝试清理和验证JSON数据，确保所有值都是基本类型
+    const cleanedScoringData = {
+      scoring_version: String(scoringData.scoring_version),
+      evaluator_id: Number(scoringData.evaluator_id),
+      evaluation_date: String(scoringData.evaluation_date),
+      dimensions: Object.fromEntries(
+        Object.entries(scoringData.dimensions).map(([key, value]) => [
+          key,
+          {
+            selected_option: String(value.selected_option),
+            score: Number(value.score),
+            notes: String(value.notes)
+          }
+        ])
+      ),
+      calculation: {
+        total_score: Number(scoringData.calculation.total_score),
+        average_score: Number(scoringData.calculation.average_score),
+        weighted_average: Number(scoringData.calculation.weighted_average)
+      },
+      metadata: {
+        created_at: String(scoringData.metadata.created_at),
+        updated_at: String(scoringData.metadata.updated_at),
+        evaluation_notes: String(scoringData.metadata.evaluation_notes || '')
+      }
+    };
+
+    // 确保JSON数据格式正确，使用字符串形式传递
+    const jsonString = JSON.stringify(cleanedScoringData);
+    console.log('API - JSON字符串:', jsonString);
+    
+    // 验证JSON格式
+    try {
+      JSON.parse(jsonString);
+      console.log('API - JSON格式验证通过');
+    } catch (error) {
+      console.error('API - JSON格式验证失败:', error);
+      throw new Error('JSON格式无效');
+    }
+
+    console.log('API - 清理后的评分数据:', JSON.stringify(cleanedScoringData, null, 2));
+
+    // 直接使用Supabase更新，使用字符串形式的JSON
+    const { error: scheduleError } = await supabase
       .from('live_stream_schedules')
       .update({
-        scoring_data: scoringData,
-        scoring_status: 'scored',
-        scored_by: getCurrentUserId(),
-        scored_at: new Date().toISOString()
+        scoring_data: jsonString,
+        scored_by: evaluatorId,
+        scored_at: new Date().toISOString(),
+        average_score: cleanedScoringData.calculation.weighted_average,
+        scoring_status: 'scored'
       })
       .eq('id', scheduleId);
 
-    if (error) throw error;
+    if (scheduleError) {
+      console.error('API - 更新失败:', scheduleError);
+      throw scheduleError;
+    }
+
+    console.log('API - 直接更新成功');
+
+    console.log('API - 直播日程表更新成功');
+
+    // 插入评分日志记录
+    const { error: logError } = await supabase
+      .from('live_stream_scoring_log')
+      .insert({
+        schedule_id: scheduleId,
+        evaluator_id: evaluatorId,
+        scoring_data: jsonString,
+        average_score: cleanedScoringData.calculation.weighted_average,
+        evaluation_notes: cleanedScoringData.metadata.evaluation_notes || null
+      });
+
+    if (logError) {
+      console.error('API - 插入评分日志失败:', logError);
+      throw logError;
+    }
+
+    console.log('API - 评分日志插入成功');
+    return true;
   } catch (error) {
     console.error('保存评分数据失败:', error);
     throw error;
   }
 };
 
-// 提交评分（审核通过）
-export const submitScoring = async (scheduleId: number): Promise<void> => {
+// 更新评分状态
+export const updateScoringStatus = async (
+  scheduleId: number, 
+  status: 'not_scored' | 'scoring_in_progress' | 'scored' | 'approved'
+): Promise<boolean> => {
   try {
     const { error } = await supabase
       .from('live_stream_schedules')
       .update({
-        scoring_status: 'approved'
+        scoring_status: status
       })
       .eq('id', scheduleId);
 
     if (error) throw error;
+    return true;
   } catch (error) {
-    console.error('提交评分失败:', error);
+    console.error('更新评分状态失败:', error);
     throw error;
   }
 };
 
-// 获取评分统计信息
-export const getScoringStats = async (scheduleId: number) => {
+// 获取评分历史
+export const getScoringHistory = async (scheduleId: number): Promise<any[]> => {
   try {
     const { data, error } = await supabase
-      .from('live_stream_schedules')
-      .select('scoring_data')
-      .eq('id', scheduleId)
-      .single();
-
-    if (error) throw error;
-    
-    if (!data.scoring_data?.calculation) {
-      return { total_score: 0, average_score: 0, weighted_average: 0 };
-    }
-    
-    return data.scoring_data.calculation;
-  } catch (error) {
-    console.error('获取评分统计失败:', error);
-    throw error;
-  }
-};
-
-// 获取已评分的直播列表
-export const getScoredSchedules = async (): Promise<LiveStreamScheduleWithScoring[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('live_stream_schedules')
-      .select('*')
-      .in('scoring_status', ['scored', 'approved'])
-      .order('scored_at', { ascending: false });
+      .from('live_stream_scoring_log')
+      .select(`
+        *,
+        users_profile!live_stream_scoring_log_evaluator_fkey(nickname)
+      `)
+      .eq('schedule_id', scheduleId)
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('获取已评分直播列表失败:', error);
+    console.error('获取评分历史失败:', error);
     throw error;
   }
 };
 
-// 获取当前用户ID（模拟）
-const getCurrentUserId = (): number => {
-  // 这里应该从用户上下文或认证系统获取
-  return 123;
+// 评分规则管理 API
+
+// 创建评分维度
+export const createScoringDimension = async (dimension: Omit<ScoringDimension, 'id' | 'created_at' | 'updated_at'>): Promise<ScoringDimension> => {
+  try {
+    const { data, error } = await supabase
+      .from('live_stream_scoring_dimensions')
+      .insert(dimension)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('创建评分维度失败:', error);
+    throw error;
+  }
+};
+
+// 更新评分维度
+export const updateScoringDimension = async (id: number, updates: Partial<ScoringDimension>): Promise<ScoringDimension> => {
+  try {
+    const { data, error } = await supabase
+      .from('live_stream_scoring_dimensions')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('更新评分维度失败:', error);
+    throw error;
+  }
+};
+
+// 删除评分维度
+export const deleteScoringDimension = async (id: number): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('live_stream_scoring_dimensions')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('删除评分维度失败:', error);
+    throw error;
+  }
+};
+
+// 创建评分选项
+export const createScoringOption = async (option: Omit<ScoringOption, 'id' | 'created_at' | 'updated_at'>): Promise<ScoringOption> => {
+  try {
+    const { data, error } = await supabase
+      .from('live_stream_scoring_options')
+      .insert(option)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('创建评分选项失败:', error);
+    throw error;
+  }
+};
+
+// 更新评分选项
+export const updateScoringOption = async (id: number, updates: Partial<ScoringOption>): Promise<ScoringOption> => {
+  try {
+    const { data, error } = await supabase
+      .from('live_stream_scoring_options')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('更新评分选项失败:', error);
+    throw error;
+  }
+};
+
+// 删除评分选项
+export const deleteScoringOption = async (id: number): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('live_stream_scoring_options')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('删除评分选项失败:', error);
+    throw error;
+  }
 }; 

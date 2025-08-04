@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Row, Col, Modal, Card } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import AllocationStatusCard from '../components/AllocationStatusCard';
-import { fetchBanners } from '../api/bannersApi';
+import { fetchBannersByPageType } from '../api/bannersApi';
 import RankingBoard from '../components/RankingBoard';
 import TodoCenter from '../components/TodoCenter';
 import PerformanceDashboard from '../components/PerformanceDashboard';
@@ -22,9 +22,8 @@ const Index: React.FC = () => {
   // 拉取 banners 数据
   useEffect(() => {
     setPageLoading(true);
-    fetchBanners().then(data => {
-      const arr = (data || []).filter((b: any) => b.is_active);
-      setBanners(arr.sort((a: any, b: any) => (b.sort_order ?? 0) - (a.sort_order ?? 0)));
+    fetchBannersByPageType('home').then(data => {
+      setBanners(data || []);
       setPageLoading(false);
     }).catch(() => {
       setPageLoading(false);

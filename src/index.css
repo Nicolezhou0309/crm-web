@@ -1399,3 +1399,11 @@ button:focus-visible {
   color: #bbb !important;
   margin-right: 12px !important;
 }
+
+/* ========== Ant Design Tabs 样式覆盖 ========== */
+/* 取消 large tabs 的 padding */
+:where(.css-dev-only-do-not-override-os2fvf).ant-tabs-large > .ant-tabs-nav .ant-tabs-tab {
+  padding: 0 !important;
+  font-size: 16px;
+  line-height: 1.5;
+}

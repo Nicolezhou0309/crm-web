@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Drawer, Form, Select, Input, Button, Tag, Divider, Avatar, Space, message } from 'antd';
-import { StarOutlined, UserOutlined, CalendarOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Drawer, Select, Input, Button, Tag, Space, message } from 'antd';
+import { StarOutlined, UserOutlined, CalendarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import type { LiveStreamScheduleWithScoring, ScoringData, ScoringDimension, ScoringOption } from '../types/scoring';
+import { 
+  getScoringDimensions, 
+  getScoringOptions, 
+  getLiveStreamScheduleScoring,
+  saveScoringData,
+  updateScoringStatus,
+  type ScoringDimension,
+  type ScoringOption,
+  type ScoringData,
+  type LiveStreamScheduleWithScoring
+} from '../api/scoringApi';
+import { useUser } from '../context/UserContext';
+import type { LiveStreamSchedule } from '../types/liveStream';
 import './LiveStreamScoringDrawer.css';
 
 const { TextArea } = Input;
@@ -10,196 +22,190 @@ const { Option } = Select;
 
 interface LiveStreamScoringDrawerProps {
   visible: boolean;
-  schedule: LiveStreamScheduleWithScoring | null;
+  schedule: LiveStreamSchedule | null;
   onClose: () => void;
+  onRefresh?: () => void;
 }
-
-// 模拟评分维度数据
-const mockScoringDimensions: ScoringDimension[] = [
-  {
-    id: 1,
-    dimension_name: '开播准备',
-    dimension_code: 'preparation',
-    selection_name: 'live_stream_preparation_options',
-    description: '直播开始前的准备工作评分',
-    weight: 1.0,
-    sort_order: 1,
-    is_active: true,
-    options: [
-      { code: 'no_delay', text: '开播即出镜开始讲解', score: 10.0 },
-      { code: 'adjust_within_1min', text: '开播后适当调整，1分钟内开始讲解', score: 5.5 },
-      { code: 'chat_over_1min', text: '开播后闲聊，1分钟内未开始讲解', score: 3.0 }
-    ]
-  },
-  {
-    id: 2,
-    dimension_name: '直播状态',
-    dimension_code: 'live_status',
-    selection_name: 'live_stream_status_options',
-    description: '直播过程中的状态表现评分',
-    weight: 1.0,
-    sort_order: 2,
-    is_active: true,
-    options: [
-      { code: 'energetic', text: '进入直播间口播欢迎，状态饱满', score: 10.0 },
-      { code: 'normal', text: '状态平淡无明显优点', score: 5.5 },
-      { code: 'lazy', text: '态度懒散，说话无精打采', score: 0.0 }
-    ]
-  },
-  {
-    id: 3,
-    dimension_name: '讲解话术',
-    dimension_code: 'presentation',
-    selection_name: 'live_stream_presentation_options',
-    description: '直播讲解的话术质量评分',
-    weight: 1.0,
-    sort_order: 3,
-    is_active: true,
-    options: [
-      { code: 'attractive', text: '话术流畅严谨有吸引力，讲解认真全面', score: 10.0 },
-      { code: 'complete_but_rough', text: '每10分钟介绍一遍房间，介绍完整但不够严谨', score: 5.5 },
-      { code: 'cold_field', text: '只读评论不介绍房间，冷场或聊天超过5分钟', score: 3.0 }
-    ]
-  },
-  {
-    id: 4,
-    dimension_name: '出勤情况',
-    dimension_code: 'attendance',
-    selection_name: 'live_stream_attendance_options',
-    description: '直播出勤和时长评分',
-    weight: 1.0,
-    sort_order: 4,
-    is_active: true,
-    options: [
-      { code: 'on_time_full', text: '准时开播并播满120分钟，中途未离开', score: 9.0 },
-      { code: 'delay_under_10min', text: '因上场拖延迟到，未满120分钟或中途缺席10分钟以内', score: 5.5 },
-      { code: 'late_over_10min', text: '无故迟到或直播时长未满120分钟或中途缺席超过10分钟', score: 0.0 }
-    ]
-  },
-  {
-    id: 5,
-    dimension_name: '运镜技巧',
-    dimension_code: 'camera_skills',
-    selection_name: 'live_stream_camera_options',
-    description: '直播镜头运用技巧评分',
-    weight: 1.0,
-    sort_order: 5,
-    is_active: true,
-    options: [
-      { code: 'beautiful', text: '构图美观横平竖直，人物居中运镜丝滑', score: 10.0 },
-      { code: 'slightly_tilted', text: '构图略微倾斜，运镜轻微摇晃', score: 5.5 },
-      { code: 'poor_angle', text: '人物长时间不在镜头，画面角度刁钻，运镜摇晃严重', score: 3.0 }
-    ]
-  }
-];
-
-// 模拟用户数据
-const mockUsers = {
-  123: { id: 123, name: '张三', avatar: null },
-  456: { id: 456, name: '李四', avatar: null },
-  789: { id: 789, name: '王五', avatar: null }
-};
-
-// 模拟评分数据
-const mockScoringData: ScoringData = {
-  scoring_version: '1.0',
-  evaluator_id: 123,
-  evaluation_date: '2024-01-15',
-  dimensions: {
-    preparation: {
-      selected_option: 'no_delay',
-      score: 10.0,
-      notes: '开播即出镜开始讲解，没有拖延'
-    },
-    live_status: {
-      selected_option: 'energetic',
-      score: 10.0,
-      notes: '进入直播间观众口播欢迎，状态饱满'
-    },
-    presentation: {
-      selected_option: 'attractive',
-      score: 10.0,
-      notes: '话术流畅严谨有吸引力，讲解认真全面'
-    },
-    attendance: {
-      selected_option: 'on_time_full',
-      score: 9.0,
-      notes: '准时开播并播满120分钟，中途未离开'
-    },
-    camera_skills: {
-      selected_option: 'beautiful',
-      score: 10.0,
-      notes: '构图美观横平竖直，人物居中运镜丝滑，镜头0.5倍'
-    }
-  },
-  calculation: {
-    total_score: 49.0,
-    average_score: 9.8,
-    weighted_average: 9.8
-  },
-  metadata: {
-    created_at: '2024-01-15T10:30:00Z',
-    updated_at: '2024-01-15T10:30:00Z',
-    evaluation_notes: '整体表现优秀，各项指标都达到标准，特别是开播准备和直播状态表现突出。'
-  }
-};
 
 const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
   visible,
   schedule,
-  onClose
+  onClose,
+  onRefresh
 }) => {
   const [scoringData, setScoringData] = useState<ScoringData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [dimensions, setDimensions] = useState<ScoringDimension[]>([]);
+  const [options, setOptions] = useState<ScoringOption[]>([]);
+  const [evaluationNotes, setEvaluationNotes] = useState('');
+  const [scheduleWithScoring, setScheduleWithScoring] = useState<LiveStreamScheduleWithScoring | null>(null);
+  const { profile } = useUser();
 
+  // 加载评分维度和选项
   useEffect(() => {
-    if (schedule && visible) {
-      // 模拟加载评分数据
-      if (schedule.scoring_status === 'scored' || schedule.scoring_status === 'approved') {
-        setScoringData(mockScoringData);
-      } else {
-        setScoringData(null);
-      }
-      setIsEditing(false);
-    }
-  }, [schedule, visible]);
-
-  const handleDimensionChange = (dimensionCode: string, optionCode: string) => {
-    const dimension = mockScoringDimensions.find(d => d.dimension_code === dimensionCode);
-    const option = dimension?.options.find((o: ScoringOption) => o.code === optionCode);
-    
-    if (!dimension || !option) return;
-
-    const newData: ScoringData = {
-      scoring_version: '1.0',
-      evaluator_id: 123, // 模拟当前用户ID
-      evaluation_date: dayjs().format('YYYY-MM-DD'),
-      dimensions: {
-        ...scoringData?.dimensions,
-        [dimensionCode]: {
-          selected_option: optionCode,
-          score: option.score,
-          notes: option.text
-        }
-      },
-      calculation: calculateScores({
-        ...scoringData?.dimensions,
-        [dimensionCode]: {
-          selected_option: optionCode,
-          score: option.score,
-          notes: option.text
-        }
-      }, mockScoringDimensions),
-      metadata: {
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+    const loadScoringConfig = async () => {
+      try {
+        const [dimensionsData, optionsData] = await Promise.all([
+          getScoringDimensions(),
+          getScoringOptions()
+        ]);
+        setDimensions(dimensionsData);
+        setOptions(optionsData);
+      } catch (error) {
+        console.error('加载评分配置失败:', error);
+        message.error('加载评分配置失败');
       }
     };
 
+    if (visible) {
+      loadScoringConfig();
+    }
+  }, [visible]);
+
+  // 加载评分数据
+  useEffect(() => {
+    const loadScoringData = async () => {
+      if (!schedule || !visible) return;
+
+      console.log('加载评分数据 - 日程:', schedule);
+      console.log('加载评分数据 - 日程ID:', schedule.id);
+
+      try {
+        setLoading(true);
+        const scheduleData = await getLiveStreamScheduleScoring(parseInt(schedule.id));
+        
+        console.log('获取到的评分数据:', scheduleData);
+        
+        if (scheduleData) {
+          setScheduleWithScoring(scheduleData);
+          if (scheduleData.scoring_data) {
+            // 如果scoring_data是字符串，需要解析为对象
+            let parsedScoringData;
+            try {
+              parsedScoringData = typeof scheduleData.scoring_data === 'string' 
+                ? JSON.parse(scheduleData.scoring_data) 
+                : scheduleData.scoring_data;
+              setScoringData(parsedScoringData);
+              setEvaluationNotes(parsedScoringData.metadata?.evaluation_notes || '');
+            } catch (error) {
+              console.error('解析评分数据失败:', error);
+              setScoringData(null);
+              setEvaluationNotes('');
+            }
+          } else {
+            setScoringData(null);
+            setEvaluationNotes('');
+          }
+        } else {
+          // 如果没有找到评分数据，创建基础数据结构
+          const baseScheduleData = {
+            id: parseInt(schedule.id),
+            date: schedule.date,
+            time_slot_id: schedule.timeSlotId,
+            created_by: schedule.createdBy || 0,
+            average_score: null,
+            scoring_status: null,
+            scored_by: null,
+            scored_at: null,
+            scoring_data: null
+          };
+          console.log('创建基础数据结构:', baseScheduleData);
+          setScheduleWithScoring(baseScheduleData);
+          setScoringData(null);
+          setEvaluationNotes('');
+        }
+        setIsEditing(false);
+      } catch (error) {
+        console.error('加载评分数据失败:', error);
+        message.error('加载评分数据失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadScoringData();
+  }, [schedule, visible]);
+
+  // 获取维度选项
+  const getDimensionOptions = (dimensionCode: string): ScoringOption[] => {
+    return options.filter(option => option.dimension_code === dimensionCode);
+  };
+
+  // 创建初始评分数据
+  const createInitialScoringData = (): ScoringData => {
+    return {
+      scoring_version: '1.0',
+      evaluator_id: profile?.id || 0,
+      evaluation_date: dayjs().format('YYYY-MM-DD'),
+      dimensions: {},
+      calculation: {
+        total_score: 0,
+        average_score: 0,
+        weighted_average: 0
+      },
+      metadata: {
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        evaluation_notes: ''
+      }
+    };
+  };
+
+  // 处理维度选择变化
+  const handleDimensionChange = (dimensionCode: string, optionCode: string) => {
+    console.log('处理维度选择变化:', { dimensionCode, optionCode });
+    
+    const dimension = dimensions.find(d => d.dimension_code === dimensionCode);
+    const option = options.find(o => o.option_code === optionCode && o.dimension_code === dimensionCode);
+    
+    if (!dimension || !option) {
+      console.error('未找到维度或选项:', { dimensionCode, optionCode, dimension, option });
+      return;
+    }
+
+    const currentData = scoringData || createInitialScoringData();
+    
+    // 确保dimensions对象存在
+    const currentDimensions = currentData.dimensions || {};
+    
+    // 验证维度代码是否有效
+    if (!dimensionCode || typeof dimensionCode !== 'string') {
+      console.error('无效的维度代码:', dimensionCode);
+      return;
+    }
+    
+    const newData: ScoringData = {
+      ...currentData,
+      evaluator_id: profile?.id || 0,
+      dimensions: {
+        ...currentDimensions,
+        [dimensionCode]: {
+          selected_option: optionCode,
+          score: option.score,
+          notes: option.option_text
+        }
+      },
+      calculation: calculateScores({
+        ...currentDimensions,
+        [dimensionCode]: {
+          selected_option: optionCode,
+          score: option.score,
+          notes: option.option_text
+        }
+      }, dimensions),
+      metadata: {
+        ...currentData.metadata,
+        updated_at: new Date().toISOString(),
+        evaluation_notes: evaluationNotes
+      }
+    };
+
+    console.log('维度选择变化 - 新数据:', JSON.stringify(newData, null, 2));
     setScoringData(newData);
   };
 
+  // 计算评分
   const calculateScores = (dimensionsData: any, dims: ScoringDimension[]) => {
     const scores = Object.entries(dimensionsData).map(([code, data]: [string, any]) => {
       const dimension = dims.find(d => d.dimension_code === code);
@@ -222,15 +228,75 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
     };
   };
 
+  // 开始评分
+  const handleStartScoring = () => {
+    console.log('开始评分 - 用户ID:', profile?.id);
+    console.log('开始评分 - 日程ID:', schedule?.id);
+    const initialData = createInitialScoringData();
+    console.log('初始评分数据:', initialData);
+    setScoringData(initialData);
+    setIsEditing(true);
+  };
+
+  // 保存评分
   const handleSave = async () => {
+    if (!schedule || !scoringData || !profile?.id) return;
+
     setLoading(true);
     try {
-      // 模拟保存评分数据
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 更新评分数据中的备注
+      const updatedScoringData = {
+        ...scoringData,
+        metadata: {
+          ...scoringData.metadata,
+          evaluation_notes: evaluationNotes,
+          updated_at: new Date().toISOString()
+        }
+      };
+
+      console.log('准备保存的评分数据:', JSON.stringify(updatedScoringData, null, 2));
+
+      await saveScoringData(parseInt(schedule.id), updatedScoringData, profile.id);
+      await updateScoringStatus(parseInt(schedule.id), 'scored');
+      
       message.success('评分保存成功');
       setIsEditing(false);
+      onRefresh?.();
     } catch (error) {
+      console.error('保存评分失败:', error);
       message.error('评分保存失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 提交评分
+  const handleSubmit = async () => {
+    if (!schedule || !scoringData || !profile?.id) return;
+
+    setLoading(true);
+    try {
+      // 更新评分数据中的备注
+      const updatedScoringData = {
+        ...scoringData,
+        metadata: {
+          ...scoringData.metadata,
+          evaluation_notes: evaluationNotes,
+          updated_at: new Date().toISOString()
+        }
+      };
+
+      console.log('准备提交的评分数据:', JSON.stringify(updatedScoringData, null, 2));
+
+      await saveScoringData(parseInt(schedule.id), updatedScoringData, profile.id);
+      await updateScoringStatus(parseInt(schedule.id), 'approved');
+      
+      message.success('评分提交成功');
+      setIsEditing(false);
+      onRefresh?.();
+    } catch (error) {
+      console.error('提交评分失败:', error);
+      message.error('评分提交失败');
     } finally {
       setLoading(false);
     }
@@ -240,43 +306,22 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
   const getScoreTag = (scoringData: ScoringData | null) => {
     if (!scoringData) return null;
     
-    const averageScore = scoringData.calculation.average_score;
-    const attendanceScore = scoringData.dimensions.attendance?.score || 0;
-    const statusScore = scoringData.dimensions.live_status?.score || 0;
-    
-    // IFS(OR([场次评分]<5,[出勤分数]=0,[状态分数]=0),"还需努力",AND([场次评分]>=5,[场次评分]<8),"符合预期",[场次评分]>=8,"表现卓越")
-    if (averageScore < 5 || attendanceScore === 0 || statusScore === 0) {
-      return { text: '还需努力', color: 'red' };
-    } else if (averageScore >= 5 && averageScore < 8) {
-      return { text: '符合预期', color: 'orange' };
-    } else if (averageScore >= 8) {
-      return { text: '表现卓越', color: 'green' };
-    }
-    
-    return null;
+    const score = scoringData.calculation.weighted_average;
+    if (score >= 8.0) return <Tag color="green">优秀</Tag>;
+    if (score >= 6.0) return <Tag color="blue">良好</Tag>;
+    if (score >= 4.0) return <Tag color="orange">一般</Tag>;
+    return <Tag color="red">需改进</Tag>;
   };
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    try {
-      // 模拟提交评分
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      message.success('评分提交成功');
-      setIsEditing(false);
-    } catch (error) {
-      message.error('评分提交失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // 渲染评分表单
   const renderScoringForm = () => (
     <div className="scoring-form">
       <div className="dimensions-list">
-        {mockScoringDimensions.map(dimension => (
+        {dimensions.map(dimension => (
           <div key={dimension.dimension_code} className="dimension-row">
             <div className="dimension-label">
               {dimension.dimension_name}
+              <span className="dimension-weight">(权重: {dimension.weight})</span>
             </div>
             <div className="dimension-select">
               <Select
@@ -287,9 +332,9 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
                 size="small"
                 style={{ width: '100%' }}
               >
-                {dimension.options.map((option: ScoringOption) => (
-                  <Option key={option.code} value={option.code}>
-                    {option.text}
+                {getDimensionOptions(dimension.dimension_code).map((option) => (
+                  <Option key={option.option_code} value={option.option_code}>
+                    {option.option_text} ({option.score}分)
                   </Option>
                 ))}
               </Select>
@@ -297,6 +342,20 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
           </div>
         ))}
       </div>
+
+      {isEditing && (
+        <div className="dimension-row evaluation-row">
+          <div className="dimension-label">评分备注</div>
+          <div className="dimension-select">
+            <TextArea
+              value={evaluationNotes}
+              onChange={(e) => setEvaluationNotes(e.target.value)}
+              placeholder="请输入评分备注..."
+              rows={3}
+            />
+          </div>
+        </div>
+      )}
 
       {scoringData?.metadata.evaluation_notes && !isEditing && (
         <div className="evaluation-notes-display">
@@ -306,94 +365,40 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
           </div>
         </div>
       )}
-
-      {isEditing && (
-        <div className="dimension-row evaluation-row">
-          <div className="dimension-label">
-            评分备注
-          </div>
-          <div className="dimension-select">
-            <TextArea 
-              rows={3}
-              placeholder="请输入评分备注..."
-              value={scoringData?.metadata.evaluation_notes || ''}
-              onChange={(e) => {
-                if (scoringData) {
-                  setScoringData({
-                    ...scoringData,
-                    metadata: {
-                      ...scoringData.metadata,
-                      evaluation_notes: e.target.value
-                  }
-                  });
-                }
-              }}
-              style={{ width: '100%' }}
-            />
-          </div>
-        </div>
-      )}
-
-      {scoringData && (
-        <div className="scoring-result">
-          <div className="result-label">评分结果</div>
-          <div className="result-score">
-            <span className="score-number">{scoringData.calculation.average_score.toFixed(1)}</span>
-            <span className="score-unit">分</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 
-
-
+  // 渲染日程信息
   const renderScheduleInfo = () => (
     <div className="schedule-info">
-      <div className="info-row">
-        <div className="info-item">
-          <CalendarOutlined className="info-icon" />
-          <span className="info-text">日期：{schedule?.date}</span>
-        </div>
-        <div className="info-item">
-          <ClockCircleOutlined className="info-icon" />
-          <span className="info-text">时段：{schedule?.timeSlotId}</span>
-        </div>
+      <div className="info-row" style={{ justifyContent: 'flex-start' }}>
+        <CalendarOutlined style={{ marginRight: '8px' }} />
+        <span>{dayjs(schedule?.date).format('YYYY-MM-DD')} {schedule?.timeSlotId === 'morning-10-12' ? '10-12点' : 
+          schedule?.timeSlotId === 'afternoon-14-16' ? '14-16点' :
+          schedule?.timeSlotId === 'afternoon-16-18' ? '16-18点' :
+          schedule?.timeSlotId === 'evening-19-21' ? '19-21点' :
+          schedule?.timeSlotId === 'evening-21-23' ? '21-23点' : schedule?.timeSlotId}</span>
       </div>
-      <div className="info-row">
-        <div className="info-item">
-          <UserOutlined className="info-icon" />
-          <span className="info-text">
-            参与人：{schedule?.participantIds?.map((id: number) => mockUsers[id as keyof typeof mockUsers]?.name).filter(Boolean).join('、') || '无'}
-          </span>
+      {schedule?.managers && schedule.managers.length > 0 && (
+        <div className="info-row" style={{ justifyContent: 'flex-start' }}>
+          <UserOutlined style={{ marginRight: '8px' }} />
+          <span>参与人: {schedule.managers.map((manager: any) => manager.name).join(' / ')}</span>
         </div>
-        {schedule?.scoring_status === 'scored' || schedule?.scoring_status === 'approved' ? (
-          <div className="status-item">
-            <Tag color={getScoreTag(scoringData)?.color} className="status-tag">
-              {getScoreTag(scoringData)?.text}
-            </Tag>
-          </div>
-        ) : (
-          <div className="status-item">
-            <Tag color="default" className="status-tag">
-              未评分
-            </Tag>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 
+  // 渲染操作按钮
   const renderActions = () => {
     if (!scoringData) {
       return (
-        <Button type="primary" onClick={() => setIsEditing(true)}>
+        <Button type="primary" onClick={handleStartScoring}>
           开始评分
         </Button>
       );
     }
 
-    if (schedule?.scoring_status === 'approved') {
+    if (scheduleWithScoring?.scoring_status === 'approved') {
       return (
         <Button onClick={() => setIsEditing(true)}>
           编辑评分
@@ -439,17 +444,77 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
       extra={renderActions()}
     >
       {schedule && (
-        <div style={{ padding: '0 16px' }}>
+        <div style={{ padding: '0 16px', height: '100%', display: 'flex', flexDirection: 'column' }}>
           {renderScheduleInfo()}
           
-          {scoringData ? (
-            <>
-              {renderScoringForm()}
-            </>
-          ) : (
-            <div className="empty-scoring">
-              <StarOutlined className="empty-icon" />
-              <div className="empty-text">暂无评分数据</div>
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            {loading ? (
+              <div className="loading-scoring">
+                <div className="loading-text">加载中...</div>
+              </div>
+            ) : scoringData ? (
+              <>
+                {renderScoringForm()}
+              </>
+            ) : (
+              <div className="empty-scoring">
+                <StarOutlined className="empty-icon" />
+                <div className="empty-text">暂无评分数据</div>
+              </div>
+            )}
+          </div>
+
+          {/* 底部备注和总分区域 */}
+          {scoringData && (
+            <div style={{ 
+              borderTop: '1px solid #f0f0f0', 
+              paddingTop: '16px', 
+              marginTop: '16px',
+              padding: '16px'
+            }}>
+              {/* 总分显示 */}
+              {scoringData.calculation && (
+                <div>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center'
+                  }}>
+                    <div style={{ 
+                      fontWeight: 'bold', 
+                      color: '#333',
+                      fontSize: '16px'
+                    }}>
+                      综合评分
+                    </div>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span style={{ 
+                        fontSize: '18px', 
+                        fontWeight: 'bold',
+                        color: '#1890ff'
+                      }}>
+                        {scoringData.calculation.weighted_average?.toFixed(1) || '0.0'}
+                      </span>
+                      <span style={{ color: '#666', fontSize: '14px' }}>分</span>
+                      {getScoreTag(scoringData)}
+                    </div>
+                  </div>
+                  {scheduleWithScoring?.evaluator_name && (
+                    <div style={{ 
+                      marginTop: '4px',
+                      fontSize: '12px',
+                      color: '#999',
+                      textAlign: 'left'
+                    }}>
+                      评分人: {scheduleWithScoring.evaluator_name}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

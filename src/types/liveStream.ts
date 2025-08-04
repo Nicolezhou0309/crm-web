@@ -45,6 +45,12 @@ export interface LiveStreamManager {
     lockType?: 'none' | 'manual' | 'system' | 'maintenance';
     lockReason?: string | null;
     lockEndTime?: string | null;
+    // 评分相关字段
+    scoring_status?: 'not_scored' | 'scoring_in_progress' | 'scored' | 'approved';
+    average_score?: number | null;
+    scored_by?: number | null;
+    scored_at?: string | null;
+    scoring_data?: any;
   }
   
   export interface WeeklySchedule {

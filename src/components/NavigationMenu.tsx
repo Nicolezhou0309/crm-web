@@ -24,7 +24,7 @@ import {
   FileDoneOutlined,
   BarChartOutlined,
   VideoCameraOutlined,
-  StarOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 import { useRolePermissions } from '../hooks/useRolePermissions';
@@ -76,6 +76,20 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           className: 'main-menu-item',
         },
         { 
+          key: 'followups-calendar', 
+          icon: <CalendarOutlined />, 
+          label: '跟进日历', 
+          path: '/followups-calendar',
+          className: 'main-menu-item',
+        },
+        { 
+          key: 'debug-calendar', 
+          icon: <ExperimentOutlined />, 
+          label: '日历调试', 
+          path: '/debug-calendar',
+          className: 'main-menu-item',
+        },
+        { 
           key: 'showings', 
           icon: <EyeOutlined />, 
           label: '带看记录', 
@@ -108,14 +122,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       path: '/live-stream-registration',
       className: 'main-menu-item',
     },
-    // 直播评分演示菜单
-    {
-      key: 'scoring-demo',
-      icon: <StarOutlined />,
-      label: '评分演示',
-      path: '/scoring-demo',
-      className: 'main-menu-item',
-    },
+
     // 直播管理菜单
     {
       key: 'live-stream-management',

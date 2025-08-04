@@ -1,145 +1,184 @@
-# 直播评分系统使用指南
+# 直播报名&评分系统使用指南
 
-## 功能概述
+## 概述
 
-直播评分系统为直播报名表添加了评分功能，支持动态可配置的评分规则，通过右抽屉界面进行评分操作。
+直播报名&评分系统基于 `live_stream_schedules` 表实现，支持直播安排的创建、报名、评分和状态管理。
 
-## 系统架构
+## 数据库表结构
 
-### 数据库设计
+### live_stream_schedules 表
 
-1. **在 `live_stream_schedules` 表中添加评分字段**：
-   - `scoring_data` (JSONB): 存储评分数据
-   - `scoring_status` (VARCHAR): 评分状态
-   - `scored_by` (BIGINT): 评分人ID
-   - `scored_at` (TIMESTAMP): 评分时间
-
-2. **使用现有的 `Selection` 表存储评分选项**：
-   - 开播准备选项
-   - 直播状态选项
-   - 讲解话术选项
-   - 出勤情况选项
-   - 运镜技巧选项
-
-### 评分维度
-
-1. **开播准备** (权重: 1.0)
-   - 开播即出镜开始讲解，没有拖延 (10分)
-   - 开播后房间内适当调整，1分钟内开始讲解 (5.5分)
-   - 在办公室开播/开播后闲聊，1分钟内未开始讲解 (3分)
-
-2. **直播状态** (权重: 1.0)
-   - 进入直播间观众口播欢迎，状态饱满 (10分)
-   - 状态平淡无明显优点 (5.5分)
-   - 长时间坐着/态度懒散/说话无精打采 (0分)
-
-3. **讲解话术** (权重: 1.0)
-   - 话术流畅严谨有吸引力，讲解认真全面 (10分)
-   - 每10分钟介绍一遍房间，介绍完整但不够严谨仔细 (5.5分)
-   - 持续15分钟只读评论不介绍房间/冷场或互相聊天超过5分钟 (3分)
-
-4. **出勤情况** (权重: 1.0)
-   - 准时开播并播满120分钟，中途未离开 (9分)
-   - 因上场拖延迟到，未满120分钟/中途缺席10分钟以内 (5.5分)
-   - 上场无拖延情况下迟到/无故直播时长未满120分钟/中途缺席超过10分钟 (0分)
-
-5. **运镜技巧** (权重: 1.0)
-   - 构图美观横平竖直，人物居中运镜丝滑，镜头0.5倍 (10分)
-   - 构图略微倾斜，运镜轻微摇晃，镜头0.5倍 (5.5分)
-   - 人物长时间不在镜头/画面角度刁钻/运镜摇晃严重/镜头未开0.5倍 (3分)
-
-## 使用方法
-
-### 1. 访问评分演示页面
-
-在导航菜单中点击"评分演示"，或直接访问 `/scoring-demo` 路径。
-
-### 2. 进行评分操作
-
-1. 点击任意直播场次卡片
-2. 在右侧抽屉中查看评分界面
-3. 选择各维度的评分选项
-4. 系统自动计算总分和平均分
-5. 添加评分备注（可选）
-6. 保存或提交评分
-
-### 3. 评分状态
-
-- **未评分**: 直播完成后尚未进行评分
-- **已评分**: 已完成评分但未审核
-- **已审核**: 评分已审核通过
-
-## 技术实现
-
-### 前端组件
-
-- `LiveStreamScoringDrawer.tsx`: 评分抽屉组件
-- `ScoringDemo.tsx`: 评分演示页面
-- `scoringApi.ts`: 评分相关API
-- `scoring.ts`: 评分类型定义
-
-### 数据结构
-
-```typescript
-interface ScoringData {
-  scoring_version: string;
-  evaluator_id: number;
-  evaluation_date: string;
-  dimensions: Record<string, {
-    selected_option: string;
-    score: number;
-    notes?: string;
-  }>;
-  calculation: {
-    total_score: number;
-    average_score: number;
-    weighted_average: number;
-  };
-  metadata: {
-    created_at: string;
-    updated_at: string;
-    evaluation_notes?: string;
-  };
-}
+```sql
+CREATE TABLE public.live_stream_schedules (
+  id bigserial NOT NULL,
+  date date NOT NULL,
+  time_slot_id text NOT NULL,
+  participant_ids bigint[] NULL DEFAULT '{}'::bigint[],
+  location text NULL,
+  notes text NULL,
+  status text NULL DEFAULT 'editing'::text,
+  created_by bigint NULL,
+  created_at timestamp with time zone NULL DEFAULT now(),
+  updated_at timestamp with time zone NULL DEFAULT now(),
+  editing_by bigint NULL,
+  editing_at timestamp with time zone NULL,
+  editing_expires_at timestamp with time zone NULL,
+  lock_type text NULL DEFAULT 'none'::text,
+  lock_reason text NULL,
+  lock_end_time timestamp with time zone NULL,
+  average_score numeric(3, 1) NULL,
+  scoring_data jsonb NULL,
+  scoring_status text NULL DEFAULT 'not_scored'::text,
+  scored_by bigint NULL,
+  scored_at timestamp with time zone NULL,
+  CONSTRAINT live_stream_schedules_pkey PRIMARY KEY (id),
+  CONSTRAINT live_stream_schedules_date_time_slot_unique UNIQUE (date, time_slot_id)
+);
 ```
 
-### API接口
+## 状态说明
 
-- `getScoringDimensions()`: 获取评分维度配置
-- `getScoringData(scheduleId)`: 获取评分数据
-- `saveScoringData(scheduleId, data)`: 保存评分数据
-- `submitScoring(scheduleId)`: 提交评分
-- `getScoredSchedules()`: 获取已评分直播列表
+### 直播状态 (status)
+- `available`: 可报名
+- `booked`: 已报名
+- `completed`: 已完成
+- `cancelled`: 已取消
+- `editing`: 编辑中
+- `locked`: 已锁定
 
-## 扩展功能
+### 评分状态 (scoring_status)
+- `not_scored`: 未评分
+- `scoring_in_progress`: 评分中
+- `scored`: 已评分
+- `approved`: 已确认
 
-### 1. 评分规则配置
+### 锁定类型 (lock_type)
+- `none`: 无锁定
+- `manual`: 手动锁定
+- `system`: 系统锁定
+- `maintenance`: 维护锁定
 
-可以通过数据库配置评分维度和选项，支持动态调整评分标准。
+## 功能特性
 
-### 2. 评分历史
+### 1. 直播安排管理
+- 按周查看直播安排
+- 显示参与人员、地点、状态等信息
+- 支持不同状态的筛选和显示
 
-记录评分历史，支持查看评分详情和修改记录。
+### 2. 评分系统
+- 支持多维度评分
+- 自动计算综合评分
+- 评分状态跟踪
+- 评分历史记录
 
-### 3. 评分统计
+### 3. 锁定机制
+- 防止并发编辑冲突
+- 支持手动和系统锁定
+- 锁定原因记录
 
-提供评分统计分析，包括平均分、趋势分析等。
+### 4. 实时更新
+- 使用 Supabase 实时订阅
+- 自动刷新数据
+- 状态变更通知
 
-### 4. 权限控制
+## 使用流程
 
-支持评分权限控制，确保只有授权人员可以进行评分操作。
+### 1. 创建直播安排
+1. 进入直播管理页面
+2. 选择"直播报名&评分"标签
+3. 点击"添加"按钮
+4. 填写日期、时间段、地点等信息
+5. 保存安排
+
+### 2. 报名参与
+1. 在可报名的时段点击"报名"
+2. 选择参与人员
+3. 确认报名信息
+4. 等待审核
+
+### 3. 进行评分
+1. 选择已完成的直播安排
+2. 点击"查看评分"按钮
+3. 在评分抽屉中进行评分
+4. 保存评分结果
+
+### 4. 评分确认
+1. 查看评分结果
+2. 确认评分准确性
+3. 点击"确认"按钮
+4. 评分状态更新为"已确认"
+
+## 测试数据
+
+运行以下命令插入测试数据：
+
+```bash
+./deploy-test-live-stream-data.sh
+```
+
+测试数据包括：
+- 不同状态的直播安排
+- 已评分和未评分的记录
+- 各种锁定状态
+- 完整的评分数据
+
+## API 接口
+
+### 获取周安排
+```typescript
+getWeeklySchedule(weekStart: string, weekEnd: string): Promise<LiveStreamSchedule[]>
+```
+
+### 创建安排
+```typescript
+createLiveStreamSchedule(schedule: Omit<LiveStreamSchedule, 'id' | 'createdAt' | 'updatedAt'>): Promise<LiveStreamSchedule>
+```
+
+### 更新安排
+```typescript
+updateLiveStreamSchedule(scheduleId: string, updates: Partial<LiveStreamSchedule>): Promise<LiveStreamSchedule>
+```
+
+### 删除安排
+```typescript
+deleteLiveStreamSchedule(scheduleId: string): Promise<void>
+```
 
 ## 注意事项
 
-1. 评分数据使用JSONB格式存储，确保数据完整性和查询性能
-2. 评分状态变更需要相应的权限控制
-3. 评分历史记录便于审计和追溯
-4. 响应式设计确保在不同设备上的良好体验
+1. **并发控制**: 系统使用编辑锁定机制防止并发冲突
+2. **数据完整性**: 所有状态变更都有相应的约束检查
+3. **权限控制**: 基于用户角色的权限管理
+4. **实时同步**: 使用 Supabase 实时功能保持数据同步
 
-## 后续开发计划
+## 故障排除
 
-1. 集成到现有直播系统中
-2. 添加评分审核流程
-3. 实现评分统计分析功能
-4. 支持批量评分操作
-5. 添加评分模板功能 
+### 常见问题
+
+1. **数据不显示**
+   - 检查日期范围是否正确
+   - 确认用户权限
+   - 查看浏览器控制台错误
+
+2. **评分失败**
+   - 确认直播状态为"已完成"
+   - 检查评分维度配置
+   - 验证用户权限
+
+3. **锁定问题**
+   - 等待锁定过期
+   - 联系管理员解除锁定
+   - 检查锁定原因
+
+### 日志查看
+
+```bash
+# 查看直播安排变更日志
+SELECT * FROM schedule_change_logs WHERE table_name = 'live_stream_schedules' ORDER BY created_at DESC;
+```
+
+## 更新日志
+
+- 2025-01-15: 初始版本，支持基本的直播安排和评分功能
+- 2025-01-16: 添加锁定机制和并发控制
+- 2025-01-17: 优化评分界面和用户体验 

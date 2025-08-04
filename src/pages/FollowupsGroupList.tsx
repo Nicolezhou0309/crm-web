@@ -23,6 +23,7 @@ import { Upload, Modal } from 'antd';
 import type { UploadFile } from 'antd';
 import type { UploadFileStatus } from 'antd/es/upload/interface';
 import RollbackList from './RollbackList.tsx';
+import FollowupsCalendarView from './FollowupsCalendarView';
 
 const { Title, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
@@ -139,6 +140,7 @@ const FollowupsGroupList: React.FC = () => {
   const [rollbackUploading, setRollbackUploading] = useState(false);
   const [submittedEvidence, setSubmittedEvidence] = useState<string[]>([]);
   const [rollbackListVisible, setRollbackListVisible] = useState(false);
+  const [calendarVisible, setCalendarVisible] = useState(false);
 
   
   // 使用 useRef 跟踪 localData 引用，避免不必要的 setState
@@ -3101,6 +3103,11 @@ const FollowupsGroupList: React.FC = () => {
         label: '回退列表',
         onClick: () => setRollbackListVisible(true),
       },
+      {
+        key: 'calendar-view',
+        label: '入住日历',
+        onClick: () => setCalendarVisible(true),
+      },
     ]
   };
 
@@ -3121,6 +3128,18 @@ const FollowupsGroupList: React.FC = () => {
         styles={{ body: { minHeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' } }}
       >
         <RollbackList />
+      </Modal>
+      <Modal
+        open={calendarVisible}
+        title="入住日历视图"
+        onCancel={() => setCalendarVisible(false)}
+        footer={null}
+        width="95vw"
+        style={{ top: 20 }}
+        styles={{ body: { padding: '24px', maxHeight: '85vh', overflow: 'auto' } }}
+        destroyOnClose
+      >
+        <FollowupsCalendarView />
       </Modal>
       {/* 优化：用Antd Alert展示冷却条，放在主内容card上方 */}
       {cooldown && (

@@ -10,6 +10,7 @@ import { useUser } from '../context/UserContext';
 import UserTreeSelect from './UserTreeSelect';
 import LiveStreamCardContextMenu from './LiveStreamCardContextMenu';
 import LiveStreamHistoryDrawer from './LiveStreamHistoryDrawer';
+import LiveStreamScoringDrawer from './LiveStreamScoringDrawer';
 const { Option } = Select;
 
 
@@ -782,6 +783,10 @@ const LiveStreamRegistrationBase: React.FC = () => {
   const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
   const [selectedScheduleForHistory, setSelectedScheduleForHistory] = useState<LiveStreamSchedule | null>(null);
 
+  // 评分抽屉状态
+  const [scoringDrawerVisible, setScoringDrawerVisible] = useState(false);
+  const [selectedScheduleForScoring, setSelectedScheduleForScoring] = useState<LiveStreamSchedule | null>(null);
+
   // 添加卡片级别的更新状态
   const [cardUpdateKeys, setCardUpdateKeys] = useState<{ [key: string]: number }>({});
 
@@ -798,9 +803,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
     setHistoryDrawerVisible(true);
   };
 
-  const handleContextMenuRate = () => {
-    message.info('直播评分功能开发中...');
-    // TODO: 实现直播评分功能
+  const handleContextMenuRate = (schedule: LiveStreamSchedule) => {
+    setSelectedScheduleForScoring(schedule);
+    setScoringDrawerVisible(true);
   };
 
   const handleContextMenuRelease = async (schedule: LiveStreamSchedule) => {
@@ -2203,6 +2208,20 @@ const LiveStreamRegistrationBase: React.FC = () => {
           `${selectedScheduleForHistory.date} ${selectedScheduleForHistory.managers.map((m: any) => m.name).join(' / ')} 的历史记录` : 
           '直播场次历史记录'
         }
+      />
+
+      {/* 评分抽屉 */}
+      <LiveStreamScoringDrawer
+        visible={scoringDrawerVisible}
+        schedule={selectedScheduleForScoring}
+        onClose={() => {
+          setScoringDrawerVisible(false);
+          setSelectedScheduleForScoring(null);
+        }}
+        onRefresh={() => {
+          loadData();
+          setScoringDrawerVisible(false);
+        }}
       />
     </div>
   );
