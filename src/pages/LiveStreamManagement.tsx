@@ -181,17 +181,7 @@ const LiveStreamManagement: React.FC = () => {
       setDimensions(dimensionsData);
       setOptions(optionsData);
       
-      
-      
-      // 调试：检查综合评分列的数据
-      // const scoringData = filteredData.map(schedule => ({
-        id: schedule.id,
-        average_score: schedule.average_score,
-        average_score_type: typeof schedule.average_score,
-        has_average_score: schedule.average_score !== null && schedule.average_score !== undefined,
-        render_result: schedule.average_score !== null && schedule.average_score !== undefined ? `${schedule.average_score.toFixed(1)}分` : '-',
-        scoring_data: schedule.scoring_data
-      }));
+    
       
     } catch (error) {
       console.error('加载数据失败:', error);
