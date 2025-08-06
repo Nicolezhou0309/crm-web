@@ -14,7 +14,7 @@ dayjs.extend(timezone);
 // 设置时区为北京时间
 dayjs.tz.setDefault('Asia/Shanghai');
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 interface LiveStreamScheduleLog {
   id: number;
@@ -94,11 +94,11 @@ const LiveStreamHistoryDrawer: React.FC<LiveStreamHistoryDrawerProps> = ({
       data?.forEach(log => {
         console.log(`📋 日志 ${log.id} 的参与者:`, log.participants);
         if (log.participants && Array.isArray(log.participants)) {
-          log.participants.forEach(id => {
-            if (id && typeof id === 'number') {
-              allParticipantIds.add(id);
-            }
-          });
+                        log.participants.forEach((id: number) => {
+                if (id && typeof id === 'number') {
+                  allParticipantIds.add(id);
+                }
+              });
         }
       });
 
@@ -159,7 +159,7 @@ const LiveStreamHistoryDrawer: React.FC<LiveStreamHistoryDrawerProps> = ({
               const details: Array<{id: number, nickname: string, department: string}> = [];
               const names: string[] = [];
               
-              log.participants.forEach(id => {
+              log.participants.forEach((id: number) => {
                 if (id && typeof id === 'number') {
                   const detail = participantDetailMap[id];
                   if (detail) {
@@ -204,7 +204,7 @@ const LiveStreamHistoryDrawer: React.FC<LiveStreamHistoryDrawerProps> = ({
   // 获取操作类型标签
   const getOperationTypeTag = (log: LiveStreamScheduleLog) => {
     // 根据参与者数量和其他信息判断操作类型
-    if (log.participants.length === 0) {
+    if (!log.participants || log.participants.length === 0) {
       return <Tag color="red">释放场次</Tag>;
     } else if (log.participants.length === 2) {
       return <Tag color="green">报名成功</Tag>;

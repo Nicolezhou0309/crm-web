@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dropdown, Menu, Modal } from 'antd';
+import { Dropdown, Modal } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   EditOutlined,

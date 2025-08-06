@@ -169,7 +169,7 @@ export const supabaseRetryOptions: RetryOptions = {
       error.status?.toString().includes(pattern)
     );
   },
-  onRetry: (attempt, error) => {
+  onRetry: (_attempt, _error) => {
   }
 };
 

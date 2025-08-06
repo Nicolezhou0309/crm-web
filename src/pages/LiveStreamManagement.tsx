@@ -15,19 +15,13 @@ import {
   Tooltip,
   Popconfirm,
   Slider,
-  DatePicker,
-  Row,
-  Col,
-  Dropdown,
-  Menu
+  DatePicker
 } from 'antd';
 import { 
   PlusOutlined, 
   EditOutlined, 
   DeleteOutlined, 
-  StarOutlined,
-  FilterOutlined,
-  DownOutlined
+  FilterOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
@@ -35,9 +29,6 @@ import isBetween from 'dayjs/plugin/isBetween';
 dayjs.extend(isBetween);
 import { 
   getWeeklySchedule, 
-  getFilteredLiveStreamSchedules,
-  getFilteredLiveStreamSchedulesOptimized,
-  testDatabaseFunction,
   type LiveStreamFilterParams 
 } from '../api/liveStreamApi';
 
@@ -193,7 +184,7 @@ const LiveStreamManagement: React.FC = () => {
       
       
       // 调试：检查综合评分列的数据
-      const scoringData = filteredData.map(schedule => ({
+      // const scoringData = filteredData.map(schedule => ({
         id: schedule.id,
         average_score: schedule.average_score,
         average_score_type: typeof schedule.average_score,

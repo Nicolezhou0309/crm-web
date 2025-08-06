@@ -57,7 +57,7 @@ export const addEdgeFunctionTask = (exchangeRecordId: number) => {
     const { supabase } = await import('../supaClient');
     
     try {
-      const { data, error } = await supabase.functions.invoke('issue-direct-card', {
+      const { error } = await supabase.functions.invoke('issue-direct-card', {
         body: { exchange_record_id: exchangeRecordId }
       });
       

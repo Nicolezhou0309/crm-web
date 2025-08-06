@@ -15,7 +15,7 @@ import Error403 from './pages/Error403';
 import Error500 from './pages/Error500';
 import DealsList from './pages/DealsList';
 import FollowupsGroupList from './pages/FollowupsGroupList';
-import FollowupsCalendarView from './pages/FollowupsCalendarView';
+// import FollowupsCalendarView from './pages/FollowupsCalendarView';
 import Login from './pages/Login';
 import SetPassword from './pages/SetPassword';
 import UserMenu from './components/UserMenu';

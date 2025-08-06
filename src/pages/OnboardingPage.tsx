@@ -1164,7 +1164,7 @@ const OnboardingPage: React.FC = () => {
           } else {
             // 添加用户到销售组
             const newList = [...currentList, profileId];
-            const { data: updateData, error: updateError } = await supabase
+            const { error: updateError } = await supabase
               .from('users_list')
               .update({ list: newList })
               .eq('id', 1)

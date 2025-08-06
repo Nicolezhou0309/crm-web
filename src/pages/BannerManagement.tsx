@@ -222,14 +222,14 @@ const BannerManagement: React.FC = () => {
   };
 
   const columns = [
-    { title: '图片', dataIndex: 'image_url', render: (url: string, record: Banner) => <Image src={url} width={120} /> },
-    { title: '标题', dataIndex: 'title', render: (text: string, record: Banner) => text },
+    { title: '图片', dataIndex: 'image_url', render: (url: string, _record: Banner) => <Image src={url} width={120} /> },
+    { title: '标题', dataIndex: 'title', render: (text: string, _record: Banner) => text },
     { title: '页面类型', dataIndex: 'page_type', render: (text: string, _record: Banner) => { 
       const option = pageTypeOptions.find(opt => opt.key === text);
       return option ? option.label : text;
     }},
-    { title: '排序', dataIndex: 'sort_order', render: (text: number, record: Banner) => text },
-    { title: '状态', dataIndex: 'is_active', render: (v: boolean, record: Banner) => v ? '上架' : '下架' },
+    { title: '排序', dataIndex: 'sort_order', render: (text: number, _record: Banner) => text },
+    { title: '状态', dataIndex: 'is_active', render: (v: boolean, _record: Banner) => v ? '上架' : '下架' },
     { title: '点击后动作', dataIndex: 'jump_type', render: (v: string, record: Banner) => v === 'none' || !v ? '无' : `${v}：${record.jump_target || ''}` },
     { title: '操作', render: (_: any, record: Banner) => (
       <>

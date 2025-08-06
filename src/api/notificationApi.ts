@@ -334,7 +334,7 @@ class NotificationApi {
   async deleteAnnouncement(announcementId: string): Promise<void> {
     
     try {
-      const response = await this.request(`delete_announcement&id=${announcementId}`, {
+      await this.request(`delete_announcement&id=${announcementId}`, {
         method: 'DELETE',
       });
       

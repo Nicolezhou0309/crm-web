@@ -402,64 +402,67 @@ const ScheduleCard = memo<{
   );
 
   // 统一的已报名卡片内容渲染函数
-  const renderBookedCardContent = () => (
-    <Tooltip
-      title={
-        <div>
-          <div><strong>直播管家:</strong> {schedule.managers.map((m: any) => m.name).join(', ')}</div>
-          <div><strong>地点:</strong> {schedule.location.name}</div>
-          {schedule.propertyType.name && schedule.propertyType.name !== '' && (
-            <div><strong>户型:</strong> {schedule.propertyType.name}</div>
-          )}
-        </div>
-      }
-      placement="top"
-    >
-      <div 
-        key={`${schedule.id}-${cardUpdateKey || 0}`}
-        onClick={() => onCardClick(schedule, timeSlot, dateInfo)}
-        style={{
-          background: 'white',
-          border: schedule.status === 'editing' ? '1px solid #52c41a' : 
-                  (schedule.status === 'available' || !schedule.status) ? '2px solid #1890ff' : '1px solid #e8e8e8',
-          borderRadius: '8px',
-          margin: '1px',
-          boxShadow: 'none',
-          cursor: 'pointer',
-          transition: 'all 0.3s ease',
-          height: '100px',
-          width: '160px',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          position: 'relative'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.boxShadow = 'none';
-          e.currentTarget.style.transform = 'translateY(-1px)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow = 'none';
-          e.currentTarget.style.transform = 'translateY(0)';
-        }}
+  const renderBookedCardContent = () => {
+    if (!schedule) return null;
+    
+    return (
+      <Tooltip
+        title={
+          <div>
+            <div><strong>直播管家:</strong> {schedule?.managers?.map((m: any) => m.name).join(', ') || '未知'}</div>
+            <div><strong>地点:</strong> {schedule?.location?.name || '未知'}</div>
+            {schedule?.propertyType?.name && schedule.propertyType.name !== '' && (
+              <div><strong>户型:</strong> {schedule.propertyType.name}</div>
+            )}
+          </div>
+        }
+        placement="top"
       >
-        {/* 上半部分容器 - 人名区域 */}
-        <div style={{
-          background: (schedule.status === 'available' || !schedule.status || schedule.status === 'editing') ? '#ffffff' : getCardColor(schedule.id).bg,
-          padding: '2px 2px',
-          margin: '0',
-          borderBottom: schedule.status === 'editing' ? '1px solid #52c41a' :
-                       (schedule.status === 'available' || !schedule.status) ? '1px solid #1890ff' : '1px solid #e8e8e8',
-          width: '100%',
-          minHeight: '48px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1px',
-          overflow: 'hidden',
-          boxSizing: 'border-box'
-        }}>
-          {/* Icon + 立即报名 或 头像组 */}
-          {(schedule.status === 'available' || !schedule.status || schedule.managers.length === 0) ? (
+        <div 
+          key={`${schedule.id}-${cardUpdateKey || 0}`}
+          onClick={() => onCardClick(schedule, timeSlot, dateInfo)}
+          style={{
+            background: 'white',
+            border: schedule.status === 'editing' ? '1px solid #52c41a' : 
+                    (schedule.status === 'available' || !schedule.status) ? '2px solid #1890ff' : '1px solid #e8e8e8',
+            borderRadius: '8px',
+            margin: '1px',
+            boxShadow: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            height: '100px',
+            width: '160px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            position: 'relative'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = 'none';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = 'none';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          {/* 上半部分容器 - 人名区域 */}
+          <div style={{
+            background: (schedule.status === 'available' || !schedule.status || schedule.status === 'editing') ? '#ffffff' : getCardColor(schedule.id).bg,
+            padding: '2px 2px',
+            margin: '0',
+            borderBottom: schedule.status === 'editing' ? '1px solid #52c41a' :
+                         (schedule.status === 'available' || !schedule.status) ? '1px solid #1890ff' : '1px solid #e8e8e8',
+            width: '100%',
+            minHeight: '48px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1px',
+            overflow: 'hidden',
+            boxSizing: 'border-box'
+          }}>
+            {/* Icon + 立即报名 或 头像组 */}
+            {(schedule.status === 'available' || !schedule.status || schedule.managers.length === 0) ? (
             <div style={{ 
               display: 'flex', 
               alignItems: 'center',

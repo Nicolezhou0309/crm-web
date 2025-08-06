@@ -187,7 +187,7 @@ export const useRealtimeConcurrencyControl = () => {
         updateData.status = 'available';
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('live_stream_schedules')
         .update(updateData)
         .eq('id', scheduleId)

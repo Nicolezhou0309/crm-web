@@ -123,7 +123,7 @@ export const getLiveStreamScheduleScoring = async (scheduleId: number): Promise<
     if (data) {
       return {
         ...data,
-        evaluator_name: data.users_profile?.nickname || null
+        evaluator_name: (data.users_profile as any)?.nickname || null
       };
     }
     

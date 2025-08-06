@@ -148,57 +148,57 @@ export const getWeeklySchedule = async (weekStart?: string, weekEnd?: string): P
     }
 
     // 调试：检查原始数据
-    const rawData = (data || []).slice(0, 3).map(schedule => ({
-      id: schedule.id,
-      average_score: schedule.average_score,
-      average_score_type: typeof schedule.average_score,
-      scoring_status: schedule.scoring_status,
-      scored_at: schedule.scored_at,
-      scoring_data: schedule.scoring_data
-    }));
+    // const rawData = (data || []).slice(0, 3).map(schedule => ({
+    //   id: schedule.id,
+    //   average_score: schedule.average_score,
+    //   average_score_type: typeof schedule.average_score,
+    //   scoring_status: schedule.scoring_status,
+    //   scored_at: schedule.scored_at,
+    //   scoring_data: schedule.scoring_data
+    // }));
     
     // 调试：检查转换后的数据
-    const convertedData = (data || []).map(schedule => {
-      // 计算实际的average_score
-      let actualAverageScore = null;
-      if (schedule.scoring_data) {
-        try {
-          const scoringData = JSON.parse(schedule.scoring_data);
-          if (scoringData.calculation && scoringData.calculation.weighted_average !== undefined) {
-            actualAverageScore = Number(scoringData.calculation.weighted_average);
-          }
-        } catch (e) {
-          console.warn('解析scoring_data失败:', e);
-        }
-      }
-      if (actualAverageScore === null) {
-        actualAverageScore = schedule.average_score !== null && schedule.average_score !== undefined && schedule.average_score !== '' ? Number(schedule.average_score) : null;
-      }
-      
-      return {
-        id: schedule.id,
-        original_average_score: schedule.average_score,
-        original_type: typeof schedule.average_score,
-        scoring_data_has_weighted_average: schedule.scoring_data ? (() => {
-          try {
-            const scoringData = JSON.parse(schedule.scoring_data);
-            return scoringData.calculation && scoringData.calculation.weighted_average !== undefined;
-          } catch (e) {
-            return false;
-          }
-        })() : false,
-        weighted_average_from_scoring_data: schedule.scoring_data ? (() => {
-          try {
-            const scoringData = JSON.parse(schedule.scoring_data);
-            return scoringData.calculation ? scoringData.calculation.weighted_average : null;
-          } catch (e) {
-            return null;
-          }
-        })() : null,
-        converted_average_score: actualAverageScore,
-        converted_type: typeof actualAverageScore
-      };
-    });
+    // const convertedData = (data || []).map(schedule => {
+    //   // 计算实际的average_score
+    //   let actualAverageScore = null;
+    //   if (schedule.scoring_data) {
+    //     try {
+    //       const scoringData = JSON.parse(schedule.scoring_data);
+    //       if (scoringData.calculation && scoringData.calculation.weighted_average !== undefined) {
+    //         actualAverageScore = Number(scoringData.calculation.weighted_average);
+    //       }
+    //     } catch (e) {
+    //       console.warn('解析scoring_data失败:', e);
+    //     }
+    //   }
+    //   if (actualAverageScore === null) {
+    //     actualAverageScore = schedule.average_score !== null && schedule.average_score !== undefined && schedule.average_score !== '' ? Number(schedule.average_score) : null;
+    //   }
+    //   
+    //   return {
+    //     id: schedule.id,
+    //     original_average_score: schedule.average_score,
+    //     original_type: typeof schedule.average_score,
+    //     scoring_data_has_weighted_average: schedule.scoring_data ? (() => {
+    //       try {
+    //         const scoringData = JSON.parse(schedule.scoring_data);
+    //         return scoringData.calculation && scoringData.calculation.weighted_average !== undefined;
+    //       } catch (e) {
+    //         return false;
+    //       }
+    //     })() : false,
+    //     weighted_average_from_scoring_data: schedule.scoring_data ? (() => {
+    //       try {
+    //         const scoringData = JSON.parse(schedule.scoring_data);
+    //         return scoringData.calculation ? scoringData.calculation.weighted_average : null;
+    //       } catch (e) {
+    //         return null;
+    //       }
+    //     })() : null,
+    //     converted_average_score: actualAverageScore,
+    //     converted_type: typeof actualAverageScore
+    //   };
+    // });
     
     // 转换为前端需要的格式
     return (data || []).map(schedule => ({
@@ -551,7 +551,7 @@ export const cleanupExpiredEditingStatus = async (): Promise<void> => {
   try {
 
     
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('live_stream_schedules')
       .update({
         status: 'available',

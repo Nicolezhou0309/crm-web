@@ -581,7 +581,7 @@ export default function ShowingsQueueManagement() {
                 
                 
                 // 插入记录并等待服务器响应
-                const { data, error } = await supabase.from('showings_queue_record').insert(records);
+                const { error } = await supabase.from('showings_queue_record').insert(records);
                 
                 if (error) {
                   console.error('❌ 插入记录失败:', error);

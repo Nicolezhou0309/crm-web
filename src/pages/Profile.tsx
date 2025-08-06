@@ -193,7 +193,7 @@ const Profile = () => {
       message.error('该邮箱已被注册');
       return;
     }
-    const { data, error } = await tokenManager.updateUser({ email: newEmail });
+    const { error } = await tokenManager.updateUser({ email: newEmail });
     if (error) {
       message.error(error instanceof Error ? error.message : '邮箱更新失败');
     } else {
@@ -209,12 +209,12 @@ const Profile = () => {
   // 修改密码
   const handleChangePassword = async (values: any) => {
     const { oldPassword, password } = values;
-    const { data, error: loginError } = await tokenManager.signInWithPassword(email, oldPassword);
+    const { error: loginError } = await tokenManager.signInWithPassword(email, oldPassword);
     if (loginError) {
       message.error('旧密码错误，请重新输入');
       return;
     }
-    const { data: updateData, error } = await tokenManager.updateUser({ password });
+    const { error } = await tokenManager.updateUser({ password });
     if (error) {
       message.error(error instanceof Error ? error.message : '密码更新失败');
     } else {
