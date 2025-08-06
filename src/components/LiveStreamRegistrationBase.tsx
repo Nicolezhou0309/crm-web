@@ -1,6 +1,6 @@
 import React, { useState, useEffect, memo } from 'react';
 import { Button, Table, Modal, Form, Select, message, Tooltip } from 'antd';
-import { PlusOutlined, CheckCircleOutlined, VideoCameraAddOutlined } from '@ant-design/icons';
+import { PlusOutlined, CheckCircleOutlined, VideoCameraAddOutlined, ClockCircleOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import type { LiveStreamSchedule, TimeSlot } from '../types/liveStream';
 import { createLiveStreamSchedule, updateLiveStreamSchedule, getWeeklySchedule, cleanupExpiredEditingStatus, getTimeSlots } from '../api/liveStreamApi';
@@ -41,7 +41,6 @@ const ScheduleCard = memo<{
   avatarFrames, 
   getCardColor,
   cardUpdateKey,
-  currentUserId,
   currentProfileId,
   timeSlots,
   onContextMenuEdit,
@@ -54,7 +53,7 @@ const ScheduleCard = memo<{
   const canEdit = !schedule || 
                   schedule.status === 'available' || 
                   schedule.status === 'editing' ||
-                  (!schedule.status);
+                  (!schedule.status && schedule.status !== 'editing');
   
   // 检查是否是当前用户报名的 - 使用profile.id进行比较
   // 对于available状态且没有参与者的卡片，不应该显示为"我报名的"
@@ -87,8 +86,8 @@ const ScheduleCard = memo<{
   const renderCard = (cardContent: React.ReactNode) => {
     // 如果没有schedule，或者available状态且没有参与者，或者editing状态，不显示右键菜单
     if (!schedule || 
-        (schedule.status === 'available' && schedule.managers.length === 0) ||
-        schedule.status === 'editing') {
+        (schedule?.status === 'available' && schedule?.managers?.length === 0) ||
+        schedule?.status === 'editing') {
       return (
         <div
           key={`${schedule?.id || 'empty'}-${cardUpdateKey || 0}`}
@@ -403,67 +402,64 @@ const ScheduleCard = memo<{
   );
 
   // 统一的已报名卡片内容渲染函数
-  const renderBookedCardContent = (): React.ReactNode => {
-    if (!schedule) return null;
-    
-    return (
-      <Tooltip
-        title={
-          <div>
-            <div><strong>直播管家:</strong> {schedule?.managers?.map((m: any) => m.name).join(', ') || '未知'}</div>
-            <div><strong>地点:</strong> {schedule?.location?.name || '未知'}</div>
-            {schedule?.propertyType?.name && schedule.propertyType.name !== '' && (
-              <div><strong>户型:</strong> {schedule.propertyType.name}</div>
-            )}
-          </div>
-        }
-        placement="top"
+  const renderBookedCardContent = () => (
+    <Tooltip
+      title={
+        <div>
+          <div><strong>直播管家:</strong> {schedule?.managers?.map((m: any) => m.name).join(', ') || '未知'}</div>
+          <div><strong>地点:</strong> {schedule?.location?.name || '未知'}</div>
+          {schedule?.propertyType?.name && schedule.propertyType.name !== '' && (
+            <div><strong>户型:</strong> {schedule.propertyType.name}</div>
+          )}
+        </div>
+      }
+      placement="top"
+    >
+      <div 
+        key={`${schedule?.id}-${cardUpdateKey || 0}`}
+        onClick={() => onCardClick(schedule, timeSlot, dateInfo)}
+        style={{
+          background: 'white',
+          border: schedule?.status === 'editing' ? '1px solid #52c41a' : 
+                  (schedule?.status === 'available' || !schedule?.status) ? '2px solid #1890ff' : '1px solid #e8e8e8',
+          borderRadius: '8px',
+          margin: '1px',
+          boxShadow: 'none',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          height: '100px',
+          width: '160px',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          position: 'relative'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.transform = 'translateY(-1px)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.transform = 'translateY(0)';
+        }}
       >
-        <div 
-          key={`${schedule.id}-${cardUpdateKey || 0}`}
-          onClick={() => onCardClick(schedule, timeSlot, dateInfo)}
-          style={{
-            background: 'white',
-            border: schedule.status === 'editing' ? '1px solid #52c41a' : 
-                    (schedule.status === 'available' || !schedule.status) ? '2px solid #1890ff' : '1px solid #e8e8e8',
-            borderRadius: '8px',
-            margin: '1px',
-            boxShadow: 'none',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease',
-            height: '100px',
-            width: '160px',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            position: 'relative'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.boxShadow = 'none';
-            e.currentTarget.style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = 'none';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
-        >
-          {/* 上半部分容器 - 人名区域 */}
-          <div style={{
-            background: (schedule.status === 'available' || !schedule.status || schedule.status === 'editing') ? '#ffffff' : getCardColor(schedule.id).bg,
-            padding: '2px 2px',
-            margin: '0',
-            borderBottom: schedule.status === 'editing' ? '1px solid #52c41a' :
-                         (schedule.status === 'available' || !schedule.status) ? '1px solid #1890ff' : '1px solid #e8e8e8',
-            width: '100%',
-            minHeight: '48px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1px',
-            overflow: 'hidden',
-            boxSizing: 'border-box'
-          }}>
-            {/* Icon + 立即报名 或 头像组 */}
-            {(schedule.status === 'available' || !schedule.status || schedule.managers.length === 0) ? (
+        {/* 上半部分容器 - 人名区域 */}
+        <div style={{
+          background: (schedule?.status === 'available' || !schedule?.status || schedule?.status === 'editing') ? '#ffffff' : getCardColor(schedule?.id || '').bg,
+          padding: '2px 2px',
+          margin: '0',
+          borderBottom: schedule?.status === 'editing' ? '1px solid #52c41a' :
+                       (schedule?.status === 'available' || !schedule?.status) ? '1px solid #1890ff' : '1px solid #e8e8e8',
+          width: '100%',
+          minHeight: '48px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1px',
+          overflow: 'hidden',
+          boxSizing: 'border-box'
+        }}>
+          {/* Icon + 立即报名 或 头像组 */}
+          {(schedule?.status === 'available' || !schedule?.status || schedule?.managers?.length === 0) ? (
             <div style={{ 
               display: 'flex', 
               alignItems: 'center',
@@ -482,7 +478,7 @@ const ScheduleCard = memo<{
                 立即报名
               </span>
             </div>
-          ) : schedule.status === 'editing' ? (
+          ) : schedule?.status === 'editing' ? (
             // editing状态不显示头像，只显示编辑中文本
             <div style={{ 
               display: 'flex', 
@@ -526,110 +522,85 @@ const ScheduleCard = memo<{
               </span>
             </div>
           ) : (
-            <div style={{ 
-              display: 'flex', 
+            // 已报名状态 - 显示头像组
+            <div style={{
+              display: 'flex',
               alignItems: 'center',
               gap: '2px',
-              flexShrink: 0,
-              width: 'auto',
-              marginLeft: '2px',
-              marginRight: '2px'
+              flex: 1,
+              width: '100%',
+              overflow: 'hidden',
+              padding: '0 2px'
             }}>
-              {schedule.managers.slice(0, 2).map((manager: any, index: number) => {
-                const managerId = parseInt(manager.id);
-                const avatarUrl = userAvatars[managerId] || '';
-                const frameUrl = avatarFrames[managerId] || '';
-
+              {schedule?.managers?.slice(0, 3).map((manager: any, index: number) => {
+                const userId = parseInt(manager.id);
+                const avatar = userAvatars[userId];
+                const frame = avatarFrames[userId];
+                
                 return (
                   <div
                     key={manager.id}
                     style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '50%',
-                      background: '#f0f0f0',
+                      position: 'relative',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      position: 'relative',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      overflow: 'hidden',
                       border: '1px solid #e8e8e8',
-                      zIndex: 1,
-                      transform: index === 1 ? 'translateX(-6px)' : 'translateX(0)'
+                      backgroundColor: '#f5f5f5',
+                      zIndex: 3 - index
                     }}
+                    title={manager.name}
                   >
-                    {avatarUrl ? (
+                    {avatar ? (
                       <img
-                        src={avatarUrl}
+                        src={avatar}
                         alt={manager.name}
                         style={{
                           width: '100%',
                           height: '100%',
-                          borderRadius: '50%',
-                          objectFit: 'cover',
-                          background: '#fff',
-                          zIndex: 1,
-                        }}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
+                          objectFit: 'cover'
                         }}
                       />
                     ) : (
-                      <span style={{ 
-                        fontSize: '12px',
-                        color: '#999',
-                        fontWeight: '500',
-                        zIndex: 1,
+                      <span style={{
+                        fontSize: '10px',
+                        color: '#666',
+                        fontWeight: '600'
                       }}>
-                        {manager.name.charAt(0)}
+                        {manager.name?.charAt(0) || '?'}
                       </span>
                     )}
-                    {/* 头像框 */}
-                    {frameUrl && (
+                    {frame && (
                       <img
-                        src={frameUrl}
-                        alt="头像框"
+                        src={frame}
+                        alt="frame"
                         style={{
-                          width: '56px',
-                          height: '56px',
-                          borderRadius: '50%',
                           position: 'absolute',
-                          left: '50%',
-                          top: '50%',
-                          transform: 'translate(-50%, -50%)',
-                          zIndex: 2,
-                        }}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
+                          top: '0',
+                          left: '0',
+                          width: '100%',
+                          height: '100%',
+                          pointerEvents: 'none'
                         }}
                       />
                     )}
                   </div>
                 );
               })}
-            </div>
-          )}
-          
-          {/* 人名文本 - 填满剩余空间 */}
-          {(schedule.status === 'available' || !schedule.status || schedule.status === 'editing') ? null : (
-            <div 
-              style={{ 
-                fontSize: '12px', 
-                color: getCardColor(schedule.id).text, 
-                fontWeight: '500', 
-                lineHeight: '1.2',
-                flex: 1,
-                textAlign: 'left',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                minWidth: 0,
-                width: '100%',
-                display: 'block',
-                maxWidth: 'none'
-              }}
-              title={schedule.managers.map((m: any) => m.name).join(' / ')}
-            >
-              {schedule.managers.map((m: any) => m.name).join(' / ')}
+              {schedule?.managers && schedule.managers.length > 3 && (
+                <span style={{
+                  fontSize: '10px',
+                  color: '#666',
+                  fontWeight: '600',
+                  marginLeft: '2px'
+                }}>
+                  +{schedule?.managers.length - 3}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -639,106 +610,55 @@ const ScheduleCard = memo<{
           padding: '8px 8px', 
           flex: 1,
           display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          background: 'white',
-          gap: '8px'
+          flexDirection: 'column',
+          gap: '4px',
+          overflow: 'hidden'
         }}>
-          {/* 左侧 - Location */}
-          <div style={{ 
-            flex: 1,
-            minWidth: 0,
+          {/* 第一行：时间 */}
+          <div style={{
             display: 'flex',
-            flexDirection: 'column'
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '10px',
+            color: '#666',
+            fontWeight: '500'
           }}>
-            <span style={{ 
-              fontSize: '12px', 
-              color: '#999', 
-              lineHeight: '1.2',
-              display: 'block',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-            title={schedule.location.name}>
-              {schedule.location.name}
-            </span>
+            <ClockCircleOutlined style={{ fontSize: '10px' }} />
+            <span>{timeSlot?.startTime || ''} - {timeSlot?.endTime || ''}</span>
           </div>
           
-          {/* 右侧 - Notes (PropertyType) */}
-          <div style={{ 
-            flex: 1,
-            minWidth: 0,
+          {/* 第二行：地点 */}
+          <div style={{
             display: 'flex',
-            flexDirection: 'column'
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '10px',
+            color: '#666',
+            fontWeight: '500',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
           }}>
-            {schedule?.propertyType?.name && schedule.propertyType.name !== '' && (
-              <span style={{ 
-                fontSize: '12px', 
-                color: '#999', 
-                lineHeight: '1.2',
-                display: 'block',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}
-              title={schedule.propertyType.name}>
-                {schedule.propertyType.name}
-              </span>
-            )}
+            <EnvironmentOutlined style={{ fontSize: '10px' }} />
+            <span>{schedule?.location?.name || '未知地点'}</span>
           </div>
         </div>
         
-        {/* 状态栏 */}
-        {showLiveStreamStatus && (
+        {/* 状态指示器 */}
+        {(showLiveStreamStatus || showMyBookingStatus) && (
           <div style={{
-            background: '#1890ff',
-            color: 'white',
+            position: 'absolute',
+            top: '2px',
+            right: '2px',
+            padding: '2px 6px',
+            borderRadius: '4px',
             fontSize: '10px',
-            padding: '2px 6px 2px 10px',
-            textAlign: 'left',
-            fontWeight: '500',
-            lineHeight: '1.2',
-            borderBottomLeftRadius: '7px',
-            borderBottomRightRadius: '7px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}>
-            <span style={{
-              width: '4px',
-              height: '4px',
-              borderRadius: '50%',
-              background: 'white',
-              flexShrink: 0
-            }}></span>
-            正在直播中...
-          </div>
-        )}
-        {showMyBookingStatus && (
-          <div style={{
-            background: '#faad14',
+            fontWeight: '600',
             color: 'white',
-            fontSize: '10px',
-            padding: '2px 6px 2px 10px',
-            textAlign: 'left',
-            fontWeight: '500',
-            lineHeight: '1.2',
-            borderBottomLeftRadius: '7px',
-            borderBottomRightRadius: '7px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
+            backgroundColor: showLiveStreamStatus ? '#ff4d4f' : '#52c41a',
+            zIndex: 10
           }}>
-            <span style={{
-              width: '4px',
-              height: '4px',
-              borderRadius: '50%',
-              background: 'white',
-              flexShrink: 0
-            }}></span>
-            我报名的
+            {showLiveStreamStatus ? '直播中' : '我报名的'}
           </div>
         )}
       </div>
@@ -748,7 +668,7 @@ const ScheduleCard = memo<{
   // 根据状态渲染不同的卡片内容
   if (canEdit) {
     // 如果是编辑状态，使用专门的编辑状态渲染函数
-    if (schedule?.status === 'editing') {
+    if (schedule && schedule?.status === 'editing') {
       return renderCard(renderEditingCardContent());
     }
     // 其他可编辑状态（空状态、available状态）
@@ -822,7 +742,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
       }
 
       // 更新状态为available，只清除participant_ids，保留location和notes
-      const updatedSchedule = await updateLiveStreamSchedule(schedule.id, {
+      const updatedSchedule = await updateLiveStreamSchedule(schedule?.id || '', {
         ...schedule,
         status: 'available',
         managers: [] // 清除参与者信息
@@ -831,11 +751,11 @@ const LiveStreamRegistrationBase: React.FC = () => {
       if (updatedSchedule) {
         // 更新本地状态
         setSchedules(prev => 
-          prev.map(s => s.id === schedule.id ? updatedSchedule : s)
+          prev.map(s => s.id === schedule?.id ? updatedSchedule : s)
         );
         message.success('场次释放成功');
         // 更新卡片
-        updateSingleCard(schedule.id);
+        updateSingleCard(schedule?.id || '');
       }
     } catch (error) {
       console.error('释放场次失败:', error);
