@@ -33,11 +33,8 @@ const FollowupsCalendarView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<CalendarEvent[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<Dayjs>(dayjs());
   const [calendarValue, setCalendarValue] = useState<Dayjs>(dayjs());
 
-  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [followupstageEnum, setFollowupstageEnum] = useState<{ label: string; value: string }[]>([]);
 
   // 抽屉相关状态
@@ -46,7 +43,7 @@ const FollowupsCalendarView: React.FC = () => {
   const [currentRecord, setCurrentRecord] = useState<any | null>(null);
   const [stageForm] = Form.useForm();
   const [currentStep, setCurrentStep] = useState(0);
-  const [forceUpdate, setForceUpdate] = useState(0);
+  const [forceUpdate] = useState(0);
 
   // 步骤条、表单字段、label
   const followupStages = [
@@ -268,7 +265,7 @@ const FollowupsCalendarView: React.FC = () => {
       console.log('📊 原始数据:', data);
 
       // 更新记录总数
-      setTotalRecords(data?.length || 0);
+      // setTotalRecords(data?.length || 0); // This line was removed as per the edit hint
 
               // 转换数据格式 - RPC返回的数据结构
       const calendarEvents: CalendarEvent[] = (data || []).map((item: any) => ({
@@ -315,9 +312,9 @@ const FollowupsCalendarView: React.FC = () => {
       currentMonth: now.format('YYYY年MM月')
     });
     
-    setCurrentMonth(now);
+    // setCurrentMonth(now); // This line was removed as per the edit hint
     setCalendarValue(now);
-    setDateRange([startOfCalendar, endOfCalendar]);
+    // setDateRange([startOfCalendar, endOfCalendar]); // This line was removed as per the edit hint
     fetchFollowupsData(startOfCalendar.format('YYYY-MM-DD'), endOfCalendar.format('YYYY-MM-DD'));
     
     // 加载枚举数据
@@ -438,13 +435,13 @@ const FollowupsCalendarView: React.FC = () => {
         monthNumber: value.month() + 1
       });
       setCalendarValue(value);
-      setCurrentMonth(value);
+      // setCurrentMonth(value); // This line was removed as per the edit hint
       
       // 当月份变化时，自动更新数据范围
       // 查询范围需要覆盖整个日历视图，包括上个月末和下个月初
       const startOfCalendar = value.startOf('month').startOf('week');
       const endOfCalendar = value.endOf('month').endOf('week');
-      setDateRange([startOfCalendar, endOfCalendar]);
+      // setDateRange([startOfCalendar, endOfCalendar]); // This line was removed as per the edit hint
       fetchFollowupsData(startOfCalendar.format('YYYY-MM-DD'), endOfCalendar.format('YYYY-MM-DD'));
     } else {
       console.log('⚠️ 忽略非月视图变化:', mode);
