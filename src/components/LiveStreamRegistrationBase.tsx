@@ -16,23 +16,7 @@ const { Option } = Select;
 
 
 // 独立的卡片组件，使用memo优化性能
-const ScheduleCard = memo(({ 
-  schedule, 
-  timeSlot, 
-  dateInfo, 
-  onCardClick, 
-  userAvatars, 
-  avatarFrames, 
-  getCardColor,
-  cardUpdateKey,
-  currentUserId,
-  currentProfileId,
-  timeSlots,
-  onContextMenuEdit,
-  onContextMenuHistory,
-  onContextMenuRate,
-  onContextMenuRelease
-}: {
+const ScheduleCard = memo<{
   schedule: LiveStreamSchedule | undefined;
   timeSlot: any;
   dateInfo: any;
@@ -48,13 +32,29 @@ const ScheduleCard = memo(({
   onContextMenuHistory?: (schedule: LiveStreamSchedule) => void;
   onContextMenuRate?: (schedule: LiveStreamSchedule) => void;
   onContextMenuRelease?: (schedule: LiveStreamSchedule) => void;
+}>(({ 
+  schedule, 
+  timeSlot, 
+  dateInfo, 
+  onCardClick, 
+  userAvatars, 
+  avatarFrames, 
+  getCardColor,
+  cardUpdateKey,
+  currentUserId,
+  currentProfileId,
+  timeSlots,
+  onContextMenuEdit,
+  onContextMenuHistory,
+  onContextMenuRate,
+  onContextMenuRelease
 }) => {
   // 检查是否可以编辑：无记录、状态为available、状态为空、或状态为editing
   // 对于available状态且没有参与者的卡片，应该显示为可报名状态
   const canEdit = !schedule || 
                   schedule.status === 'available' || 
                   schedule.status === 'editing' ||
-                  (!schedule.status && schedule.status !== 'editing');
+                  (!schedule.status);
   
   // 检查是否是当前用户报名的 - 使用profile.id进行比较
   // 对于available状态且没有参与者的卡片，不应该显示为"我报名的"
