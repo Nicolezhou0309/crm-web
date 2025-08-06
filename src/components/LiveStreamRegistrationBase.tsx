@@ -16,7 +16,23 @@ const { Option } = Select;
 
 
 // 独立的卡片组件，使用memo优化性能
-const ScheduleCard = memo<{
+const ScheduleCard = memo(({ 
+  schedule, 
+  timeSlot, 
+  dateInfo, 
+  onCardClick, 
+  userAvatars, 
+  avatarFrames, 
+  getCardColor,
+  cardUpdateKey,
+  currentUserId,
+  currentProfileId,
+  timeSlots,
+  onContextMenuEdit,
+  onContextMenuHistory,
+  onContextMenuRate,
+  onContextMenuRelease
+}: {
   schedule: LiveStreamSchedule | undefined;
   timeSlot: any;
   dateInfo: any;
@@ -32,21 +48,6 @@ const ScheduleCard = memo<{
   onContextMenuHistory?: (schedule: LiveStreamSchedule) => void;
   onContextMenuRate?: (schedule: LiveStreamSchedule) => void;
   onContextMenuRelease?: (schedule: LiveStreamSchedule) => void;
-}>(({ 
-  schedule, 
-  timeSlot, 
-  dateInfo, 
-  onCardClick, 
-  userAvatars, 
-  avatarFrames, 
-  getCardColor,
-  cardUpdateKey,
-  currentProfileId,
-  timeSlots,
-  onContextMenuEdit,
-  onContextMenuHistory,
-  onContextMenuRate,
-  onContextMenuRelease
 }) => {
   // 检查是否可以编辑：无记录、状态为available、状态为空、或状态为editing
   // 对于available状态且没有参与者的卡片，应该显示为可报名状态
@@ -402,7 +403,7 @@ const ScheduleCard = memo<{
   );
 
   // 统一的已报名卡片内容渲染函数
-  const renderBookedCardContent = () => {
+  const renderBookedCardContent = (): React.ReactNode => {
     if (!schedule) return null;
     
     return (
