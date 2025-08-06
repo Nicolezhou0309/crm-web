@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Space, Image, Input, Select } from 'antd';
 import { supabase } from '../supaClient';
+import './RollbackList.css';
 
 
 const { Option } = Select;
@@ -54,8 +55,8 @@ const RollbackList: React.FC = () => {
   ];
 
   return (
-    <div className="rollback-list-card" style={{ background: '#fff', borderRadius: 8, marginBottom: -20 }}>
-      <div style={{ display: 'flex', gap: 16, padding: '16px 16px 0 16px', alignItems: 'center' }}>
+    <div className="rollback-list-container">
+      <div className="rollback-search-section">
         <Input
           placeholder="搜索线索编号"
           allowClear
@@ -73,50 +74,51 @@ const RollbackList: React.FC = () => {
           ))}
         </Select>
       </div>
-      <Table
-        dataSource={rollbackList}
-        loading={loading}
-        rowKey="id"
-        size="small"
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: false,
-          onChange: (p) => setPage(p),
-          showTotal: (t) => `共 ${t} 条`
-        }}
-        columns={[
-          { title: '线索编号', dataIndex: 'target_id', key: 'target_id', width: 120 },
-          { title: '回退类型', dataIndex: 'type', key: 'type', width: 100, render: (type: string) => {
-            const typeMap: { [key: string]: string } = {
-              'lead_rollback': '线索回退',
-              'showing_rollback': '带看回退'
-            };
-            return typeMap[type] || type;
-          }},
-          { title: '回退理由', dataIndex: ['config', 'reason'], key: 'reason', width: 180, render: (_, record) => record.config?.reason || '-' },
-          { title: '证据', key: 'evidence', width: 160, render: (_, record) => (
-            <Space>
-              {(record.config?.evidence || []).map((url: string) => (
-                <Image key={url} src={url} width={40} height={40} style={{ objectFit: 'cover', borderRadius: 2 }} />
-              ))}
-            </Space>
-          )},
-          { title: '状态', dataIndex: 'status', key: 'status', width: 80, render: (status) => {
-            let color = 'orange', text = '审批中';
-            if (status === 'approved') { color = 'green'; text = '已通过'; }
-            else if (status === 'rejected') { color = 'red'; text = '已拒绝'; }
-            else if (status === 'processing') { color = 'orange'; text = '审批中'; }
-            else if (status === 'pending') { color = 'orange'; text = '待审批'; }
-            else { text = status; }
-            return <Tag color={color}>{text}</Tag>;
-          }},
-          { title: '发起时间', dataIndex: 'created_at', key: 'created_at', width: 160, render: (t) => t && new Date(t).toLocaleString() },
-        ]}
-        scroll={{ x: 700, y: 400 }}
-        style={{ padding: 16, marginBottom: 0 }}
-      />
+      <div className="rollback-table-section">
+        <Table
+          dataSource={rollbackList}
+          loading={loading}
+          rowKey="id"
+          size="small"
+          pagination={{
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: false,
+            onChange: (p) => setPage(p),
+            showTotal: (t) => `共 ${t} 条`
+          }}
+          columns={[
+            { title: '线索编号', dataIndex: 'target_id', key: 'target_id', width: 120 },
+            { title: '回退类型', dataIndex: 'type', key: 'type', width: 100, render: (type: string) => {
+              const typeMap: { [key: string]: string } = {
+                'lead_rollback': '线索回退',
+                'showing_rollback': '带看回退'
+              };
+              return typeMap[type] || type;
+            }},
+            { title: '回退理由', dataIndex: ['config', 'reason'], key: 'reason', width: 180, render: (_, record) => record.config?.reason || '-' },
+            { title: '证据', key: 'evidence', width: 160, render: (_, record) => (
+              <Space>
+                {(record.config?.evidence || []).map((url: string) => (
+                  <Image key={url} src={url} width={40} height={40} style={{ objectFit: 'cover', borderRadius: 2 }} />
+                ))}
+              </Space>
+            )},
+            { title: '状态', dataIndex: 'status', key: 'status', width: 80, render: (status) => {
+              let color = 'orange', text = '审批中';
+              if (status === 'approved') { color = 'green'; text = '已通过'; }
+              else if (status === 'rejected') { color = 'red'; text = '已拒绝'; }
+              else if (status === 'processing') { color = 'orange'; text = '审批中'; }
+              else if (status === 'pending') { color = 'orange'; text = '待审批'; }
+              else { text = status; }
+              return <Tag color={color}>{text}</Tag>;
+            }},
+            { title: '发起时间', dataIndex: 'created_at', key: 'created_at', width: 160, render: (t) => t && new Date(t).toLocaleString() },
+          ]}
+          scroll={{ x: 700, y: 350 }}
+        />
+      </div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Calendar, Badge, Modal, List, Tag, Space, Button, Select, message, Spin, Empty, Table, Tooltip, Form, Input, InputNumber, DatePicker, Cascader, Drawer, Steps } from 'antd';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Calendar, Badge, Modal, Tag, Button, Select, message, Spin, Empty, Table, Tooltip, Form, Input, InputNumber, DatePicker, Cascader, Drawer, Steps } from 'antd';
 import type { BadgeProps } from 'antd';
 import { CalendarOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
@@ -462,7 +462,7 @@ const FollowupsCalendarView: React.FC = () => {
           <Spin spinning={loading}>
             <Calendar
               value={calendarValue}
-              cellRender={(current, info) => {
+              cellRender={(current) => {
                 const dateKey = current.format('YYYY-MM-DD');
                 const dayEvents = calendarData[dateKey] || [];
                 
@@ -481,7 +481,7 @@ const FollowupsCalendarView: React.FC = () => {
                     
                     {/* 事件列表 - 使用Badge组件 */}
                     <ul className="events">
-                      {dayEvents.map((event, index) => {
+                      {dayEvents.map((event) => {
                         // 生成随机徽标颜色
                         const getRandomBadgeStatus = (): BadgeProps['status'] => {
                           const statuses: BadgeProps['status'][] = [

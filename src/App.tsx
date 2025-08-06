@@ -16,7 +16,6 @@ import Error500 from './pages/Error500';
 import DealsList from './pages/DealsList';
 import FollowupsGroupList from './pages/FollowupsGroupList';
 import FollowupsCalendarView from './pages/FollowupsCalendarView';
-import DebugCalendarView from './pages/DebugCalendarView';
 import Login from './pages/Login';
 import SetPassword from './pages/SetPassword';
 import UserMenu from './components/UserMenu';
@@ -122,8 +121,7 @@ const AppContent: React.FC = () => {
     'index': '/',
     'leads': '/leads',
     'followups': '/followups',
-    'followups-calendar': '/followups-calendar',
-    'debug-calendar': '/debug-calendar',
+
     'showings': '/showings',
     'deals': '/deals',
     'allocation': '/allocation',
@@ -710,8 +708,7 @@ const AppContent: React.FC = () => {
                     </PermissionGate>
                   } />
                   <Route path="/followups" element={<FollowupsGroupList />} />
-                  <Route path="/followups-calendar" element={<FollowupsCalendarView />} />
-                  <Route path="/debug-calendar" element={<DebugCalendarView />} />
+
                   <Route path="/showings" element={<ShowingsList />} />
 
                   <Route path="/deals" element={<DealsList />} />

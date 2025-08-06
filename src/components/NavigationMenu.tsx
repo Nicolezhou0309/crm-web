@@ -75,20 +75,8 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
           path: '/followups',
           className: 'main-menu-item',
         },
-        { 
-          key: 'followups-calendar', 
-          icon: <CalendarOutlined />, 
-          label: '跟进日历', 
-          path: '/followups-calendar',
-          className: 'main-menu-item',
-        },
-        { 
-          key: 'debug-calendar', 
-          icon: <ExperimentOutlined />, 
-          label: '日历调试', 
-          path: '/debug-calendar',
-          className: 'main-menu-item',
-        },
+
+
         { 
           key: 'showings', 
           icon: <EyeOutlined />, 

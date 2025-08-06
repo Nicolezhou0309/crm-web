@@ -15,13 +15,12 @@ import {
   Checkbox,
   Row,
   Col,
-  Drawer
-} from 'antd';
+  Drawer,
+  Switch} from 'antd';
 import { 
   PlusOutlined, 
   ReloadOutlined,
-  UserOutlined
-} from '@ant-design/icons';
+  UserOutlined} from '@ant-design/icons';
 import { supabase, fetchEnumValues, generateLeadId } from '../supaClient';
 import dayjs from 'dayjs';
 import { formatCommunityRemark } from '../utils/validationUtils';
@@ -52,6 +51,14 @@ interface Lead {
   created_at: string;
 }
 
+interface SalesUser {
+  id: number;
+  nickname: string;
+  status: string;
+  organization_id?: number;
+  organization_name?: string;
+}
+
 const LeadsList: React.FC = () => {
   const [data, setData] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,6 +77,22 @@ const LeadsList: React.FC = () => {
   // 线索详情抽屉状态
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string>('');
+
+  // 🆕 新增：手动分配相关状态
+  const [salesUsers, setSalesUsers] = useState<SalesUser[]>([]);
+  const [enableManualAssign, setEnableManualAssign] = useState(false);
+  const [loadingSalesUsers, setLoadingSalesUsers] = useState(false);
+
+  // 🆕 处理分配模式切换
+  const handleAllocationModeChange = (checked: boolean) => {
+    setEnableManualAssign(checked);
+    // 切换模式时清除相关字段
+    if (checked) {
+      form.setFieldsValue({ community: undefined });
+    } else {
+      form.setFieldsValue({ assigned_user_id: undefined });
+    }
+  };
 
 
   useEffect(() => {
@@ -91,7 +114,42 @@ const LeadsList: React.FC = () => {
         );
       }
     });
+    
+    // 🆕 获取销售人员列表
+    fetchSalesUsers();
   }, []);
+
+  // 🆕 新增：获取销售人员列表
+  const fetchSalesUsers = async () => {
+    setLoadingSalesUsers(true);
+    try {
+      const { data, error } = await supabase
+        .from('users_profile')
+        .select(`
+          id,
+          nickname,
+          status,
+          organization_id,
+          organizations(name)
+        `)
+        .eq('status', 'active')
+        .order('nickname');
+      
+      if (error) {
+        message.error('获取销售人员列表失败: ' + error.message);
+      } else {
+        const formattedData = data?.map((user: any) => ({
+          ...user,
+          organization_name: user.organizations?.name
+        })) || [];
+        setSalesUsers(formattedData);
+      }
+    } catch (error) {
+      message.error('获取销售人员列表失败');
+    } finally {
+      setLoadingSalesUsers(false);
+    }
+  };
 
   // 收集所有历史leadtype
   useEffect(() => {
@@ -135,9 +193,20 @@ const LeadsList: React.FC = () => {
       // 1. 生成并发安全的leadid
       const leadid = await generateLeadId();
       
+      // 🆕 处理手动指定分配
+      let finalRemark = values.remark || '';
+      
+      if (enableManualAssign && values.assigned_user_id) {
+        // 在remark中添加手动分配标识
+        const manualAssignInfo = `MANUAL_ASSIGN:${values.assigned_user_id}`;
+        finalRemark = finalRemark ? `${finalRemark}|${manualAssignInfo}` : manualAssignInfo;
+      }
+      
       // 2. 使用工具函数格式化社区信息
-      const { community, remark, ...newLead } = values;
-      const newRemark = formatCommunityRemark(community, remark);
+      const { community, assigned_user_id, ...newLead } = values;
+      // 手动分配时不需要社区信息，自动分配时需要
+      const communityForRemark = enableManualAssign ? null : community;
+      const newRemark = formatCommunityRemark(communityForRemark, finalRemark);
       
       const leadToInsert = {
         ...newLead,
@@ -159,13 +228,23 @@ const LeadsList: React.FC = () => {
         if (inserted && inserted.leadstatus === '重复') {
           message.warning('该线索为重复线索，已标记为"重复"');
         } else {
-          message.success('添加线索成功！');
+          // 🆕 显示分配结果
+          if (enableManualAssign && values.assigned_user_id) {
+            const assignedUser = salesUsers.find(u => u.id === values.assigned_user_id);
+            message.success(`添加线索成功！已手动分配给 ${assignedUser?.nickname || '指定用户'}`);
+          } else {
+            message.success('添加线索成功！系统将自动分配销售管家');
+          }
         }
         if (continueAdd) {
           form.resetFields();
+          // 🆕 重置手动分配状态
+          setEnableManualAssign(false);
         } else {
           setIsModalVisible(false);
           form.resetFields();
+          // 🆕 重置手动分配状态
+          setEnableManualAssign(false);
         }
         setContinueAdd(false); // 重置
         fetchLeads();
@@ -666,6 +745,7 @@ const LeadsList: React.FC = () => {
         onCancel={() => {
           setIsModalVisible(false);
           form.resetFields();
+          setEnableManualAssign(false);
         }}
         footer={null}
         width={800}
@@ -688,7 +768,7 @@ const LeadsList: React.FC = () => {
             </div>
             <div style={{ fontSize: 12, color: '#666', lineHeight: 1.5 }}>
               系统会根据渠道、线索类型、区域等信息自动分配销售管家。
-              填写越详细，分配越精准。
+              填写越详细，分配越精准。您可以选择自动分配（选社区）或手动分配（选销售）。
             </div>
           </div>
           
@@ -745,11 +825,51 @@ const LeadsList: React.FC = () => {
             </Col>
             <Col span={12}>
               <Form.Item
-                name="community"
-                label="社区"
-                rules={[{ required: true, message: '请选择社区' }]}
+                label={
+                  <Space>
+                    <span>定向分配</span>
+                    <Switch
+                      checked={enableManualAssign}
+                      onChange={handleAllocationModeChange}
+                      size="small"
+                    />
+                  </Space>
+                }
               >
-                <Select placeholder="请选择社区" options={communityOptions} />
+                {enableManualAssign ? (
+                  <Form.Item
+                    name="assigned_user_id"
+                    rules={[
+                      {
+                        required: enableManualAssign,
+                        message: '请选择销售人员'
+                      }
+                    ]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select
+                      placeholder="请选择销售人员"
+                      loading={loadingSalesUsers}
+                      showSearch
+                      filterOption={(input, option) =>
+                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                      }
+                      options={salesUsers.map(user => ({
+                        value: user.id,
+                        label: `${user.nickname}${user.organization_name ? ` (${user.organization_name})` : ''}`,
+                        disabled: user.status !== 'active'
+                      }))}
+                    />
+                  </Form.Item>
+                ) : (
+                  <Form.Item
+                    name="community"
+                    rules={[{ required: !enableManualAssign, message: '请选择社区' }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select placeholder="请选择社区" options={communityOptions} />
+                  </Form.Item>
+                )}
               </Form.Item>
             </Col>
           </Row>
@@ -836,6 +956,7 @@ const LeadsList: React.FC = () => {
               <Button onClick={() => {
                 setIsModalVisible(false);
                 form.resetFields();
+                setEnableManualAssign(false);
               }} disabled={submitting}>
                 取消
               </Button>

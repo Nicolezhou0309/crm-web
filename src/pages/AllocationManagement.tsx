@@ -721,17 +721,7 @@ const AllocationManagement: React.FC = () => {
               </div>
             )}
             
-            {/* 显示调试信息 */}
-            {details.debug_info && (
-              <div>
-                <Text type="secondary">调试信息：</Text>
-                <div style={{ marginLeft: 8, fontSize: '12px', color: '#666' }}>
-                  <pre style={{ margin: 0, maxHeight: '100px', overflow: 'auto' }}>
-                    {JSON.stringify(details.debug_info, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            )}
+
             
             {/* 如果没有具体内容，显示原始数据 */}
             {!details.rule_name && !details.conditions && !details.group_info && !details.allocation_steps && (
@@ -1337,14 +1327,7 @@ const AllocationManagement: React.FC = () => {
             >
               刷新
             </Button>
-            <Button 
-              type="dashed"
-              onClick={() => {
-                message.info('调试信息已输出到控制台');
-              }}
-            >
-              调试数据
-            </Button>
+
           </Space>
       }
     >

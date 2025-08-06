@@ -39,9 +39,7 @@ interviewsales_user_name: item.users_profile?.name,
 interviewsales_user_name: item.users_profile?.nickname,
 ```
 
-### 3. 修复调试页面
-**文件**: `src/pages/DebugCalendarView.tsx`
-- 更新了所有相关的查询，将 `name` 改为 `nickname`
+
 
 ### 4. 修复测试脚本
 **文件**: `quick_diagnosis.js`
@@ -74,8 +72,7 @@ const { data, error } = await supabase
 
 ### 修复的文件
 1. `src/pages/FollowupsCalendarView.tsx` - 主页面组件
-2. `src/pages/DebugCalendarView.tsx` - 调试页面
-3. `quick_diagnosis.js` - 快速诊断脚本
+2. `quick_diagnosis.js` - 快速诊断脚本
 
 ### 新增的文件
 1. `test_fixed_query.js` - 修复验证脚本
@@ -88,7 +85,6 @@ const { data, error } = await supabase
 - 或通过导航菜单：线索管理 → 跟进日历
 
 ### 2. 测试功能
-- 访问调试页面：`http://localhost:5173/debug-calendar`
 - 在控制台运行：`test_fixed_query.js`
 
 ### 3. 功能特点

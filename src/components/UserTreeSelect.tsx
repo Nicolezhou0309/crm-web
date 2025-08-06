@@ -3,7 +3,7 @@ import { TreeSelect, Tag } from 'antd';
 import { supabase } from '../supaClient';
 
 interface UserTreeSelectProps {
-  value?: string[];
+  value?: string[] | string | null | undefined;
   onChange?: (value: string[]) => void;
   placeholder?: string;
   style?: React.CSSProperties;
@@ -13,6 +13,7 @@ interface UserTreeSelectProps {
   maxTagCount?: number | 'responsive';
   treeDefaultExpandAll?: boolean;
   popupMatchSelectWidth?: boolean;
+  multiple?: boolean; // 是否支持多选，默认为true
 }
 
 interface UserInfo {
@@ -26,7 +27,7 @@ interface UserProfileCache {
 }
 
 const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
-  value = [],
+  value,
   onChange,
   placeholder = "请选择成员",
   style,
@@ -35,7 +36,8 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
   showSearch = true,
   maxTagCount = "responsive",
   treeDefaultExpandAll = true,
-  popupMatchSelectWidth = false
+  popupMatchSelectWidth = false,
+  multiple = true
 }) => {
   const [treeData, setTreeData] = useState<any[]>([]);
   const [userProfileCache, setUserProfileCache] = useState<UserProfileCache>({});
@@ -58,6 +60,7 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
       }
       
       
+      
       // 加载用户数据 - 确保只加载活跃用户
       const { data: users, error: userError } = await supabase
         .from('users_profile')
@@ -68,6 +71,7 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
         console.error('❌ 加载用户数据失败:', userError);
         throw userError;
       }
+      
       
       
       // 同时加载用户信息到缓存
@@ -197,7 +201,7 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
   // 处理部门全选/全不选
   const handleDeptSelection = (deptKey: string, isSelect: boolean) => {
     const deptUsers = getAllUsersInDeptRecursive(deptKey);
-    let newValue = [...value];
+    let newValue = [...(Array.isArray(value) ? value : [])];
     
     if (isSelect) {
       // 全选：添加部门下所有用户
@@ -216,6 +220,19 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
 
   // 处理值变化
   const handleChange = (val: any) => {
+    
+    if (!multiple) {
+      // 单选模式：直接返回选中的值
+      const selectedValue = Array.isArray(val) ? val[0] : val;
+      if (selectedValue && !String(selectedValue).startsWith('dept_')) {
+        onChange?.([String(selectedValue)]);
+      } else {
+        onChange?.([]);
+      }
+      return;
+    }
+
+    // 多选模式：原有的处理逻辑
     const values = Array.isArray(val) ? val : [];
     
     // 分离处理：部门选择和人员选择
@@ -247,9 +264,8 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
     
     // 只保留叶子节点成员id，并确保这些id在树中存在
     finalSelectedUsers = finalSelectedUsers.filter(id => {
-      // 过滤掉无效的ID
+      // 静默过滤掉无效的ID
       if (!id || id === 'undefined' || id === 'null') {
-        console.warn('⚠️ 过滤掉无效的ID:', id);
         return false;
       }
       
@@ -261,9 +277,7 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
     
     // 确保所有用户ID都是有效的
     const validUsers = finalSelectedUsers.filter(id => id && id !== 'undefined' && id !== 'null');
-    if (validUsers.length !== finalSelectedUsers.length) {
-      console.warn('⚠️ 检测到无效的用户ID，已过滤');
-    }
+    // 静默处理无效用户ID的过滤
     
     onChange?.(validUsers);
   };
@@ -272,8 +286,8 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
   const tagRender = ({ value, closable, onClose }: any) => {
     // 确保value是有效的
     if (!value || value === 'undefined' || value === 'null') {
-      console.warn('⚠️ 检测到无效的value:', value);
-      return <Tag closable={closable} onClose={onClose}>无效用户</Tag>;
+      // 静默处理undefined值，返回一个隐藏的标签
+      return <Tag closable={closable} onClose={onClose} style={{ display: 'none' }}>无效用户</Tag>;
     }
     
     const userInfo = userProfileCache?.[String(value)];
@@ -294,7 +308,6 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
       let totalUsers = 0;
       const validateTree = (nodes: any[], level = 0) => {
         nodes.forEach(node => {
-          const indent = '  '.repeat(level);
           if (node.isLeaf) {
             totalUsers++;
           } else {
@@ -326,9 +339,10 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
   }
 
   // 过滤有效的value值
-  const validValues = value.filter(v => {
+  const valueArray = Array.isArray(value) ? value : (value ? [String(value)] : []);
+  const validValues = valueArray.filter(v => {
+    // 静默过滤无效值，不显示警告
     if (!v || v === 'undefined' || v === 'null') {
-      console.warn('⚠️ 过滤掉无效的value:', v);
       return false;
     }
     // 确保所有 value 都在树中存在
@@ -336,22 +350,28 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
       nodes.some(n => n.value === v || (n.children && findValue(n.children)));
     return treeData.some(dept => findValue([dept]));
   });
-
+  
+  
+  // 调试树数据结构
+  if (treeData.length > 0) {
+  }
 
   return (
     <TreeSelect
       treeData={treeData}
       value={validValues}
-      treeCheckable
-      showCheckedStrategy={TreeSelect.SHOW_CHILD}
+      treeCheckable={true}
+      showCheckedStrategy={multiple ? TreeSelect.SHOW_CHILD : undefined}
       treeCheckStrictly={false}
       onSelect={(selectedValue) => {
         // 如果是部门节点，处理全选/全不选
         if (String(selectedValue).startsWith('dept_')) {
           const deptUsers = getAllUsersInDeptRecursive(String(selectedValue));
-          const allSelected = deptUsers.length > 0 && deptUsers.every((id: string) => value.includes(id));
+          const currentValue = Array.isArray(value) ? value : [];
+          const allSelected = deptUsers.length > 0 && deptUsers.every((id: string) => currentValue.includes(id));
           handleDeptSelection(String(selectedValue), !allSelected);
           return; // 阻止默认的onChange处理
+        } else {
         }
       }}
       onDeselect={(deselectedValue) => {
@@ -362,7 +382,7 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
         }
       }}
       onChange={handleChange}
-      tagRender={tagRender}
+      tagRender={multiple ? tagRender : undefined}
       placeholder={placeholder}
       showSearch={showSearch}
       filterTreeNode={(input, node) =>
@@ -372,7 +392,7 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
       disabled={disabled}
       allowClear={allowClear}
       treeDefaultExpandAll={treeDefaultExpandAll}
-      maxTagCount={maxTagCount}
+      maxTagCount={multiple ? maxTagCount : undefined}
       styles={{
         popup: {
           root: {

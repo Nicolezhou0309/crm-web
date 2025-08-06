@@ -2,7 +2,7 @@
 // ... existing code from FollowupsList.tsx ... 
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Table, Button, Form, Input, Select, Space, Tag, message, Typography, InputNumber, DatePicker, Alert, Tooltip, Spin, Checkbox, Cascader, Divider, Drawer, Steps, Dropdown } from 'antd';
+import { Table, Button, Form, Input, Select, Space, Tag, message, Typography, InputNumber, DatePicker, Alert, Tooltip, Spin, Checkbox, Cascader, Divider, Drawer, Steps, Dropdown, Switch } from 'antd';
 import { ReloadOutlined, CopyOutlined, UserOutlined, UploadOutlined, MoreOutlined } from '@ant-design/icons';
 import { supabase, fetchEnumValues, fetchMetroStations } from '../supaClient';
 import dayjs from 'dayjs';
@@ -141,6 +141,8 @@ const FollowupsGroupList: React.FC = () => {
   const [submittedEvidence, setSubmittedEvidence] = useState<string[]>([]);
   const [rollbackListVisible, setRollbackListVisible] = useState(false);
   const [calendarVisible, setCalendarVisible] = useState(false);
+  // 新增：带看分配加载状态
+  const [assignShowingLoading, setAssignShowingLoading] = useState(false);
 
   
   // 使用 useRef 跟踪 localData 引用，避免不必要的 setState
@@ -2524,7 +2526,6 @@ const FollowupsGroupList: React.FC = () => {
   const [hasCheckedFrequency, setHasCheckedFrequency] = useState<boolean>(false);
   const [cooldown, setCooldown] = useState<{ until: number, secondsLeft: number, message: string } | null>(null);
   
-  // 调试：监听 cooldown 状态变化
   useEffect(() => {
   }, [cooldown]);
   const cooldownTimer = useRef<NodeJS.Timeout | null>(null);
@@ -2694,8 +2695,8 @@ const FollowupsGroupList: React.FC = () => {
         }
       });
 
-      // 从values中移除deals表特有的字段
-      const { contractcommunity, contractnumber, roomnumber, ...followupValues } = values;
+      // 从values中移除deals表特有的字段和手动分配字段
+      const { contractcommunity, contractnumber, roomnumber, assigned_showingsales, ...followupValues } = values;
       
       // 合并额外字段（如阶段推进）
       const updateObj = { ...followupValues, ...additionalFields };
@@ -2727,7 +2728,7 @@ const FollowupsGroupList: React.FC = () => {
     } catch (error) {
       // 异常处理，回滚所有修改的字段
       const values = stageForm.getFieldsValue();
-      const { contractcommunity, contractnumber, roomnumber, ...followupValues } = values;
+      const { contractcommunity, contractnumber, roomnumber, assigned_showingsales, ...followupValues } = values;
       const updateObj = { ...followupValues, ...additionalFields };
       Object.entries(updateObj).forEach(([field, value]) => {
         if (value !== currentRecord[field]) {
@@ -3111,9 +3112,489 @@ const FollowupsGroupList: React.FC = () => {
     ]
   };
 
+  // 🆕 新增：手动分配带看人相关状态
+  const [salesUsers, setSalesUsers] = useState<any[]>([]);
+  const [enableManualAssign, setEnableManualAssign] = useState(false);
+  const [loadingSalesUsers, setLoadingSalesUsers] = useState(false);
 
+  // 🆕 处理分配模式切换
+  const handleAllocationModeChange = (checked: boolean) => {
+    
+    setEnableManualAssign(checked);
+    // 切换模式时清除相关字段
+    if (checked) {
+      stageForm.setFieldsValue({ scheduledcommunity: undefined });
+    } else {
+      stageForm.setFieldsValue({ assigned_showingsales: undefined });
+    }
+  };
 
+  // 🆕 获取销售人员列表
+  const fetchSalesUsers = async () => {
+    setLoadingSalesUsers(true);
+    try {
+      const { data, error } = await supabase
+        .from('users_profile')
+        .select(`
+          id,
+          nickname,
+          status,
+          organization_id,
+          organizations(name)
+        `)
+        .eq('status', 'active')
+        .order('nickname');
+      
+      if (error) {
+        message.error('获取销售人员列表失败: ' + error.message);
+      } else {
+        const formattedData = data?.map((user: any) => ({
+          ...user,
+          organization_name: user.organizations?.name
+        })) || [];
+        
+        setSalesUsers(formattedData);
+      }
+    } catch (error) {
+      message.error('获取销售人员列表失败');
+    } finally {
+      setLoadingSalesUsers(false);
+    }
+  };
 
+  // 🆕 在抽屉打开时获取销售人员列表
+  useEffect(() => {
+    if (drawerOpen) {
+      fetchSalesUsers();
+    }
+  }, [drawerOpen]);
+
+  // 🆕 修改发放带看单按钮的逻辑
+  const handleAssignShowing = async () => {
+    if (isFieldDisabled()) return;
+    if (!currentRecord) return;
+    
+    // 防止重复点击
+    if (assignShowingLoading) {
+      return;
+    }
+    
+    setAssignShowingLoading(true);
+    
+    try {
+      const values = stageForm.getFieldsValue();
+      
+      if (enableManualAssign) {
+        // 手动分配模式 - 调用指定人分配函数
+        const assignedUserId = values.assigned_showingsales;
+        if (!assignedUserId) {
+          message.error('请选择带看人员');
+          return;
+        }
+        
+        const community = values.scheduledcommunity || null;
+        if (!community) {
+          console.error('❌ [带看分配] 手动分配失败：未选择预约社区');
+          message.error('请先选择预约社区');
+          return;
+        }
+        
+        // 获取选中人员的昵称
+        const selectedUser = salesUsers.find(user => user.id === assignedUserId);
+        const nickname = selectedUser?.nickname || String(assignedUserId);
+        
+        // 调用指定人分配函数
+        const { data: assignedUserIdResult, error } = await supabase.rpc('assign_showings_user', { 
+          p_community: community,
+          p_assigned_user_id: assignedUserId
+        });
+        
+        
+        if (error || !assignedUserIdResult) {
+          console.error('❌ [带看分配] 指定人分配失败', {
+            error: error?.message,
+            assignedUserIdResult,
+            community,
+            requestedUserId: assignedUserId
+          });
+          message.error('指定人分配失败: ' + (error?.message || '分配失败'));
+          return;
+        }
+        
+        // 验证分配结果是否与请求的指定人一致
+        if (assignedUserIdResult !== assignedUserId) {
+          console.error('❌ [带看分配] 分配结果与指定人不一致', {
+            requestedUserId: assignedUserId,
+            actualAssignedUserId: assignedUserIdResult
+          });
+          message.error('分配结果与指定人不一致');
+          return;
+        }
+        
+        // 新增showings记录
+        const insertParams = {
+          leadid: currentRecord.leadid,
+          scheduletime: values.scheduletime ? dayjs(values.scheduletime).toISOString() : null,
+          community,
+          showingsales: assignedUserIdResult,
+          // 参考自动分配的字段，添加默认值
+          viewresult: '待填写',
+          budget: 0,
+          moveintime: dayjs().add(1, 'month').toISOString(),
+          remark: '',
+          renttime: 12
+        };
+        
+        const { error: insertError } = await supabase.from('showings').insert(insertParams).select();
+        if (insertError) {
+          message.error('发放带看单失败: ' + insertError.message);
+          return;
+        }
+        
+        
+        // 推进到"已到店"阶段
+        const result = await saveDrawerForm({ followupstage: '已到店' });
+        
+        if (result.success) {
+          setCurrentStep(currentStep + 1);
+          setCurrentStage('已到店');
+          message.success(`带看单已发放，分配给 ${nickname}`);
+        } else {
+          message.error('推进阶段失败: ' + result.error);
+        }
+              } else {
+          // 自动分配模式（原有逻辑）
+          const community = values.scheduledcommunity || null;
+          if (!community) {
+            message.error('请先选择预约社区');
+            return;
+          }
+          
+          // 1. 调用分配函数
+          const { data: assignedUserId, error } = await supabase.rpc('assign_showings_user', { p_community: community });
+          
+          if (error || !assignedUserId) {
+            console.error('❌ [带看分配] 分配带看人员失败', {
+              error: error?.message,
+              assignedUserId,
+              community
+            });
+            message.error('分配带看人员失败: ' + (error?.message || '无可用人员'));
+            return;
+          }
+          
+          // 2. 查询成员昵称
+          let nickname = '';
+          if (assignedUserId) {
+            const { data: userData } = await supabase
+              .from('users_profile')
+              .select('nickname')
+              .eq('id', assignedUserId)
+              .single();
+            nickname = userData?.nickname || String(assignedUserId);
+          }
+          
+          // 3. 新增showings记录
+          const insertParams = {
+            leadid: currentRecord.leadid,
+            scheduletime: values.scheduletime ? dayjs(values.scheduletime).toISOString() : null,
+            community,
+            showingsales: assignedUserId,
+          };
+          
+          const { error: insertError } = await supabase.from('showings').insert(insertParams).select();
+          if (insertError) {
+            message.error('发放带看单失败: ' + insertError.message);
+            return;
+          }
+          
+          // 4. 推进到"已到店"阶段
+          const result = await saveDrawerForm({ followupstage: '已到店' });
+          
+          if (result.success) {
+            setCurrentStep(currentStep + 1);
+            setCurrentStage('已到店');
+            message.success(`带看单已发放，分配给 ${nickname}`);
+          } else {
+            message.error('推进阶段失败: ' + result.error);
+          }
+        }
+      } catch (error) {
+        console.error('❌ [带看分配] 分配过程中发生错误', error);
+        message.error('分配过程中发生错误: ' + (error as Error).message);
+      } finally {
+        setAssignShowingLoading(false);
+      }
+    };
+
+  // 🆕 修改表单字段，在邀约到店阶段添加手动分配选项
+  const renderStageFields = (stage: string) => {
+    const fields = (stageFields as Record<string, string[]>)[stage] || [];
+    
+    if (stage === '邀约到店') {
+      return (
+        <>
+          {/* 原有的预约时间字段 */}
+          <Form.Item
+            name="scheduletime"
+            label="预约到店时间"
+            rules={[{ required: true, message: '请选择预约到店时间' }]}
+          >
+            <DatePicker
+              showTime
+              format="YYYY-MM-DD HH:mm"
+              placeholder="请选择预约到店时间"
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+          
+          {/* 分配模式切换 */}
+          <Form.Item
+            label={
+              <Space>
+                <span>手动分配</span>
+                <Switch
+                  checked={enableManualAssign}
+                  onChange={handleAllocationModeChange}
+                  size="small"
+                />
+              </Space>
+            }
+          >
+            {enableManualAssign ? (
+              <Form.Item
+                name="assigned_showingsales"
+                rules={[
+                  {
+                    required: enableManualAssign,
+                    message: '请选择带看人员'
+                  }
+                ]}
+                style={{ marginBottom: 0 }}
+              >
+                <Select
+                  placeholder="请选择带看人员"
+                  loading={loadingSalesUsers}
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={salesUsers.map(user => ({
+                    value: user.id,
+                    label: `${user.nickname}${user.organization_name ? ` (${user.organization_name})` : ''}`,
+                    disabled: user.status !== 'active'
+                  }))}
+                />
+              </Form.Item>
+            ) : (
+              <Form.Item
+                name="scheduledcommunity"
+                label="预约社区"
+                rules={[{ required: true, message: '请选择预约社区' }]}
+              >
+                <Select
+                  placeholder="请选择预约社区"
+                  options={communityEnum}
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              </Form.Item>
+            )}
+          </Form.Item>
+        </>
+      );
+    }
+    
+    // 其他阶段的字段渲染逻辑保持不变
+    return fields.map((field: string) => {
+      const label = getFieldLabel(field, stage);
+      
+      if (field === 'moveintime' || field === 'scheduletime') {
+        return (
+          <Form.Item
+            key={field}
+            name={field}
+            label={label}
+            rules={[{ required: true, message: `请选择${label}` }]}
+          >
+            <DatePicker
+              showTime={field === 'scheduletime'}
+              format={field === 'scheduletime' ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD'}
+              placeholder={`请选择${label}`}
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+        );
+      }
+      
+      if (field === 'scheduledcommunity') {
+        return (
+          <Form.Item
+            key={field}
+            name={field}
+            label={label}
+            rules={[{ required: true, message: `请选择${label}` }]}
+          >
+            <Select
+              placeholder={`请选择${label}`}
+              options={communityEnum}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+        );
+      }
+      
+      if (field === 'customerprofile') {
+        return (
+          <Form.Item
+            key={field}
+            name={field}
+            label={label}
+            rules={[{ required: true, message: `请选择${label}` }]}
+          >
+            <Select
+              placeholder={`请选择${label}`}
+              options={customerprofileEnum}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+        );
+      }
+      
+      if (field === 'userrating') {
+        return (
+          <Form.Item
+            key={field}
+            name={field}
+            label={label}
+            rules={[{ required: true, message: `请选择${label}` }]}
+          >
+            <Select
+              placeholder={`请选择${label}`}
+              options={userratingEnum}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+        );
+      }
+      
+      if (field === 'worklocation') {
+        return (
+          <Form.Item
+            key={field}
+            name={field}
+            label={label}
+            rules={[{ required: true, message: `请选择${label}` }]}
+          >
+            <Cascader
+              options={metroStationOptions}
+              value={findCascaderPath(metroStationOptions, stageForm.getFieldValue(field))}
+              onChange={(_value, selectedOptions) => {
+                let selectedText = '';
+                if (selectedOptions && selectedOptions.length > 0) {
+                  if (selectedOptions.length > 1) {
+                    selectedText = `${selectedOptions[0].label}/${selectedOptions[1].label}`;
+                  } else {
+                    selectedText = selectedOptions[0].label;
+                  }
+                }
+                stageForm.setFieldValue(field, selectedText);
+              }}
+              placeholder="请选择工作地点"
+              showSearch
+              changeOnSelect={false}
+              allowClear
+            />
+          </Form.Item>
+        );
+      }
+      
+      if (field === 'userbudget') {
+        return (
+          <Form.Item
+            key={field}
+            name={field}
+            label={label}
+            rules={[{ required: true, message: `请填写${label}` }]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              placeholder="请输入预算金额"
+              min={0}
+              precision={0}
+            />
+          </Form.Item>
+        );
+      }
+      
+      if (field === 'majorcategory') {
+        return (
+          <Form.Item
+            key={field}
+            name={field}
+            label={label}
+            rules={[{ required: true, message: `请选择${label}` }]}
+          >
+            {majorCategoryOptions && majorCategoryOptions.length > 0 ? (
+              <Cascader
+                options={majorCategoryOptions}
+                value={findCascaderPath(majorCategoryOptions, stageForm.getFieldValue(field))}
+                onChange={(_value, selectedOptions) => {
+                  const selectedText = selectedOptions && selectedOptions.length > 1 ? selectedOptions[1].label : '';
+                  stageForm.setFieldValue(field, selectedText);
+                }}
+                placeholder="请选择跟进结果"
+                showSearch
+                changeOnSelect={false}
+                allowClear
+              />
+            ) : (
+              <Input placeholder="跟进结果选项加载中..." disabled={true} />
+            )}
+          </Form.Item>
+        );
+      }
+      
+      if (field === 'followupresult') {
+        return (
+          <Form.Item
+            key={field}
+            name={field}
+            label={label}
+            rules={[{ required: true, message: `请填写${label}` }]}
+          >
+            <Input.TextArea
+              placeholder={`请填写${label}`}
+              rows={3}
+            />
+          </Form.Item>
+        );
+      }
+      
+      // 默认输入框
+      return (
+        <Form.Item
+          key={field}
+          name={field}
+          label={label}
+          rules={[{ required: true, message: `请填写${label}` }]}
+        >
+          <Input placeholder={`请填写${label}`} />
+        </Form.Item>
+      );
+    });
+  };
 
   return (
     <>
@@ -3124,8 +3605,12 @@ const FollowupsGroupList: React.FC = () => {
         footer={null}
         width={900}
         destroyOnHidden
-        centered
-        styles={{ body: { minHeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' } }}
+        styles={{ 
+          body: { 
+            padding: '0',
+            background: '#fff'
+          } 
+        }}
       >
         <RollbackList />
       </Modal>
@@ -3595,108 +4080,10 @@ const FollowupsGroupList: React.FC = () => {
                     }
                   }}
                 >
-                    {/* 确认需求阶段使用三栏布局 */}
+                    {/* 使用自定义的字段渲染逻辑 */}
                     {(currentStage === '确认需求' || currentStage === '邀约到店' || currentStage === '丢单') && (
                       <div className="page-step-fields" data-stage={currentStage}>
-                        {(stageFields[currentStage as keyof typeof stageFields] || []).map((field: string) => (
-                          <div key={field} className="page-step-field-item">
-                            <Form.Item
-                              name={field}
-                              label={getFieldLabel(field, currentStage)}
-                              rules={[
-                                {
-                                  required: true,
-                                  message: `请填写${getFieldLabel(field, currentStage)}`,
-                                },
-                              ]}
-                            >
-                              {field === 'scheduledcommunity'
-                                ? <Select options={communityEnum} placeholder="请选择社区" loading={communityEnum.length === 0} disabled={communityEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
-                                : field === 'customerprofile'
-                                  ? <Select options={customerprofileEnum} placeholder="请选择用户画像" loading={customerprofileEnum.length === 0} disabled={customerprofileEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
-                                  : field === 'followupstage'
-                                    ? <Select options={followupstageEnum} placeholder="请选择阶段" loading={followupstageEnum.length === 0} disabled={followupstageEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
-                                    : field === 'userrating'
-                                      ? <Select options={userratingEnum} placeholder="请选择来访意向" loading={userratingEnum.length === 0} disabled={userratingEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
-                                      : field === 'worklocation'
-                                        ? <Cascader
-                                            options={metroStationOptions}
-                                            value={findCascaderPath(metroStationOptions, stageForm.getFieldValue(field))}
-                                            onChange={(_value, selectedOptions) => {
-                                              let selectedText = '';
-                                              if (selectedOptions && selectedOptions.length > 0) {
-                                                if (selectedOptions.length > 1) {
-                                                  // 保存"一级选项/二级选项"格式
-                                                  selectedText = `${selectedOptions[0].label}/${selectedOptions[1].label}`;
-                                                } else {
-                                                  // 只有一级选项时
-                                                  selectedText = selectedOptions[0].label;
-                                                }
-                                              }
-                                              stageForm.setFieldValue(field, selectedText);
-                                            }}
-                                            placeholder="请选择工作地点"
-                                            showSearch
-                                            changeOnSelect={false}
-                                            allowClear
-                                            disabled={isFieldDisabled()}
-                                            key={forceUpdate}
-                                          />
-                                        : field === 'moveintime' || field === 'scheduletime'
-                                          ? <DatePicker
-                                              showTime
-                                              locale={locale}
-                                              style={{ width: '100%' }}
-                                              placeholder="请选择时间"
-                                              disabled={isFieldDisabled()}
-                                              key={forceUpdate}
-                                              value={(() => {
-                                                const v = stageForm.getFieldValue(field);
-                                                if (!v || v === '' || v === null) return undefined;
-                                                if (dayjs.isDayjs(v)) return v;
-                                                if (typeof v === 'string') return dayjs(v);
-                                                return undefined;
-                                              })()}
-                                              onChange={(v: any) => {
-                                                stageForm.setFieldValue(field, v || undefined);
-                                              }}
-                                            />
-                                          : field === 'userbudget'
-                                            ? <InputNumber
-                                                style={{ width: '100%' }}
-                                                placeholder="请输入预算金额"
-                                                min={0}
-                                                precision={0}
-                                                disabled={isFieldDisabled()}
-                                                key={forceUpdate}
-                                              />
-                                            : field === 'majorcategory'
-                                              ? (majorCategoryOptions && majorCategoryOptions.length > 0 ? (
-                                                  <Cascader
-                                                    options={majorCategoryOptions}
-                                                    value={findCascaderPath(majorCategoryOptions, stageForm.getFieldValue(field))}
-                                                    onChange={(_value, selectedOptions) => {
-                                                      const selectedText = selectedOptions && selectedOptions.length > 1 ? selectedOptions[1].label : '';
-                                                      stageForm.setFieldValue(field, selectedText);
-                                                    }}
-                                                    placeholder="请选择跟进结果"
-                                                    showSearch
-                                                    changeOnSelect={false}
-                                                    allowClear
-                                                    disabled={isFieldDisabled()}
-                                                    key={forceUpdate}
-                                                  />
-                                                ) : (
-                                                  <Input 
-                                                    placeholder="跟进结果选项加载中..." 
-                                                    disabled={true} 
-                                                    key={forceUpdate}
-                                                  />
-                                                ))
-                                              : <Input disabled={isFieldDisabled()} key={forceUpdate} />}
-                            </Form.Item>
-                          </div>
-                        ))}
+                        {renderStageFields(currentStage)}
                       </div>
                     )}
                     
@@ -4044,56 +4431,11 @@ const FollowupsGroupList: React.FC = () => {
                   {currentStage === '邀约到店' && (
                     <Button
                       type="primary"
-                      onClick={async () => {
-                        if (isFieldDisabled()) return;
-                        if (!currentRecord) return;
-                        const values = stageForm.getFieldsValue();
-                        const community = values.scheduledcommunity || null;
-                        if (!community) {
-                          message.error('请先选择预约社区');
-                          return;
-                        }
-                        // 1. 调用分配函数
-                        const { data: assignedUserId, error } = await supabase.rpc('assign_showings_user', { p_community: community });
-                        if (error || !assignedUserId) {
-                          message.error('分配带看人员失败: ' + (error?.message || '无可用人员'));
-                          return;
-                        }
-                        // 2. 查询成员昵称
-                        let nickname = '';
-                        if (assignedUserId) {
-                          const { data: userData } = await supabase
-                            .from('users_profile')
-                            .select('nickname')
-                            .eq('id', assignedUserId)
-                            .single();
-                          nickname = userData?.nickname || String(assignedUserId);
-                        }
-                        // 3. 新增showings记录
-                        const insertParams = {
-                          leadid: currentRecord.leadid,
-                          scheduletime: values.scheduletime ? dayjs(values.scheduletime).toISOString() : null,
-                          community,
-                          showingsales: assignedUserId,
-                        };
-                        const { error: insertError } = await supabase.from('showings').insert(insertParams).select();
-                        if (insertError) {
-                          message.error('发放带看单失败: ' + insertError.message);
-                          return;
-                        }
-                        // 4. 推进到"已到店"阶段
-                        const result = await saveDrawerForm({ followupstage: '已到店' });
-                        
-                        if (result.success) {
-                          setCurrentStep(currentStep + 1);
-                          setCurrentStage('已到店');
-                          message.success(`带看单已发放，分配给 ${nickname}`);
-                        } else {
-                          message.error('推进阶段失败: ' + result.error);
-                        }
-                      }}
+                      onClick={handleAssignShowing}
+                      loading={assignShowingLoading}
+                      disabled={assignShowingLoading}
                     >
-                      发放带看单
+                      {assignShowingLoading ? '分配中...' : '发放带看单'}
                     </Button>
                   )}
 

@@ -100,6 +100,10 @@ Deno.serve(async (req) => {
       const { error: updateFollowupError } = await supabase.from('followups').update({ invalid: true }).eq('leadid', leadid);
       console.log('[Followup Invalid Updated]', updateFollowupError);
       
+      // 同时标记leads表为无效
+      const { error: updateLeadsError } = await supabase.from('leads').update({ invalid: true }).eq('leadid', leadid);
+      console.log('[Leads Invalid Updated]', updateLeadsError);
+      
       // 通知联动将由统一的通知系统处理
       console.log('[Lead Rollback] 业务处理完成，通知将由统一系统处理');
       
