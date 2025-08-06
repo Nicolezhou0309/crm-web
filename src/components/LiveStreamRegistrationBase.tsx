@@ -748,7 +748,7 @@ const ScheduleCard = memo(({
   // 根据状态渲染不同的卡片内容
   if (canEdit) {
     // 如果是编辑状态，使用专门的编辑状态渲染函数
-    if (schedule && schedule.status === 'editing') {
+    if (schedule?.status === 'editing') {
       return renderCard(renderEditingCardContent());
     }
     // 其他可编辑状态（空状态、available状态）
