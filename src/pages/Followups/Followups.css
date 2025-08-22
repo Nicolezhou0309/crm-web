@@ -1,0 +1,354 @@
+/* Followups 页面样式 */
+
+/* 页面基础样式 - 与线索列表保持一致 */
+
+/* 页面卡片基础样式 - 与线索列表保持一致 */
+.followups-page-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 24px;
+  margin: 16px;
+}
+
+.followups-main-content {
+  display: flex;
+  gap: 16px; /* 移除间距，避免右侧橙色边距 */
+  margin-top: 16px;
+  flex: 1; /* 让主内容区域填充剩余空间 */
+}
+
+.followups-sidebar {
+  width: 240px; /* 设置分组面板宽度，比线索列表的280px更小 */
+  flex-shrink: 0; /* 防止收缩 */
+  background: transparent; /* 移除外层背景 */
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.followups-sidebar.closed {
+  width: 0; /* 收起时宽度为0 */
+  min-width: 0; /* 确保最小宽度也为0 */
+  transform: translateX(-100%);
+  opacity: 0;
+  margin-right: -16px;
+  pointer-events: none;
+  overflow: hidden; /* 确保内容不显示 */
+}
+
+.followups-table-area {
+  flex: 1;
+  background: white;
+  border-radius: 8px;
+  box-shadow: none; /* 取消阴影 */
+  overflow: hidden;
+  transition: all 0.3s ease;
+  margin-left: 16px; /* 添加左边距替代gap */
+}
+
+/* 当分组面板关闭时，移除表格区域的左边距 */
+.followups-sidebar.closed + .followups-table-area {
+  margin-left: 0;
+}
+
+/* ========== 分组面板样式 ========== */
+.group-panel-sidebar {
+  padding: 10px; /* 进一步减少内边距，从12px改为10px */
+  background: #fff; /* 白色背景，成为唯一背景层 */
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-height: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  width: 100%; /* 确保占满容器宽度 */
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
+}
+
+/* 总记录数区域样式 */
+.group-total-section {
+  padding: 8px 0 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 16px;
+}
+
+.group-card-title {
+  font-weight: 600;
+  color: #262626;
+  font-size: 16px; /* 减小字体大小，从18px改为16px */
+}
+
+.group-card-count {
+  padding-left: 6px; /* 减少左边距，从8px改为6px */
+  color: #1677ff;
+  font-weight: 600;
+  font-size: 16px; /* 减小字体大小，从18px改为16px */
+}
+
+/* 卡片列表区滚动自适应 */
+.group-btn-list {
+  flex: 1 1 0;
+  overflow-y: auto;
+  overflow-x: hidden; /* 防止水平滚动 */
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%; /* 确保占满容器宽度 */
+}
+
+/* 分组按钮样式 */
+.group-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f5f5f5; /* 使用与页面背景相似的灰色 */
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  box-shadow: none;
+  padding: 16px 16px; /* 进一步减少左右padding，从10px改为8px */
+  font-size: 13px; /* 稍微减小字体大小，从14px改为13px */
+  font-weight: 500;
+  transition: border-color 0.18s, background 0.18s;
+  cursor: pointer;
+  outline: none;
+  min-height: 40px;
+  position: relative;
+  margin-bottom: 6px;
+  gap: 6px; /* 减少gap，从8px改为6px，为内容提供更多空间 */
+  width: 100%; /* 确保按钮占满容器宽度 */
+  box-sizing: border-box; /* 确保padding和border包含在宽度内 */
+}
+
+.group-btn:last-child { 
+  margin-bottom: 0; 
+}
+
+.group-btn:hover, .group-btn:focus {
+  border-color: #1677ff;
+  background: #fff; /* 悬停时使用白色背景 */
+}
+
+.group-btn-selected {
+  border-color: #1677ff;
+  background: #e6f4ff;
+  box-shadow: none; /* 移除选中状态的阴影 */
+}
+
+.group-btn-title {
+  color: #222;
+  font-size: 13px; /* 减小字体大小，从14px改为13px */
+  font-weight: 600;
+  letter-spacing: 0.1px; /* 减少字母间距，从0.2px改为0.1px */
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  padding-right: 4px; /* 添加右边距，防止与计数区域重叠 */
+}
+
+.group-btn-count {
+  background: none;
+  color: #1677ff;
+  font-size: 13px; /* 减小字体大小，从14px改为13px */
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 6px; /* 进一步减少左右padding，从8px改为6px */
+  min-width: 36px; /* 减少最小宽度，从40px改为36px，在240px宽度下更合适 */
+  text-align: right;
+  letter-spacing: 0.3px; /* 减少字母间距，从0.5px改为0.3px */
+  margin-left: 4px; /* 减少左边距，从6px改为4px */
+  box-shadow: none;
+  transition: background 0.2s, color 0.2s;
+  display: inline-block;
+  white-space: nowrap; /* 确保计数文本不换行 */
+  overflow: hidden; /* 改为hidden，防止内容溢出 */
+  text-overflow: ellipsis; /* 添加省略号处理 */
+  flex-shrink: 0; /* 防止计数区域被压缩 */
+}
+
+/* 快捷日期筛选样式 */
+.quick-date-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 自动分成四栏 */
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 0;
+  background: none;
+  width: 100%; /* 确保占满容器宽度 */
+}
+
+.quick-date-btn {
+  background: #f1f3f4;
+  border: 1px solid #e0e0e0;
+  color: #666;
+  font-size: 12px; /* 调整字体大小，适应四栏布局 */
+  padding: 6px 4px; /* 调整内边距，适应四栏布局 */
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+  font-weight: 500;
+  box-shadow: none;
+  text-align: center; /* 确保文本居中 */
+  white-space: nowrap; /* 防止文本换行 */
+  overflow: hidden; /* 防止内容溢出 */
+  text-overflow: ellipsis; /* 添加省略号处理 */
+  width: 100%; /* 占满网格单元格宽度 */
+  box-sizing: border-box; /* 确保padding和border包含在宽度内 */
+}
+
+.quick-date-btn.active,
+.quick-date-btn:focus,
+.quick-date-btn:hover {
+  background: #e6f4ff;
+  color: #1677ff;
+  font-weight: 600;
+  outline: none;
+  box-shadow: none;
+}
+
+/* 页面头部样式 */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .followups-main-content {
+    flex-direction: column;
+  }
+  
+  .followups-sidebar {
+    flex: none;
+    width: 100%; /* 垂直布局时占满宽度 */
+  }
+  
+  .followups-sidebar.closed {
+    display: none; /* 在小屏幕下完全隐藏 */
+    width: 0;
+    min-width: 0;
+  }
+  
+  /* 在垂直布局下保持四栏布局 */
+  .quick-date-bar {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px; /* 稍微增加间距 */
+  }
+}
+
+@media (max-width: 768px) {
+  .followups-content {
+    padding: 8px;
+  }
+  
+  .followups-main-content {
+    gap: 8px;
+    margin-top: 8px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .page-header .ant-space {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  /* 在小屏幕下调整为两栏布局 */
+  .quick-date-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .quick-date-btn {
+    padding: 8px 6px; /* 增加内边距，提高触摸友好性 */
+    font-size: 13px; /* 稍微增加字体大小 */
+  }
+}
+
+/* 筛选面板样式 */
+.filter-panel {
+  margin: 8px 0 0 0;
+}
+
+.filter-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-panel .filter-tag {
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+/* 清除全部按钮样式 */
+.clear-all-tag {
+  background: #f0f8ff !important;      /* 蓝色背景，与filter-tag保持一致 */
+  border: 1px solid #91caff !important; /* 蓝色边框，与filter-tag保持一致 */
+  color: #1677ff !important;           /* 蓝色文字，与filter-tag保持一致 */
+  transition: all 0.2s ease;
+}
+
+.clear-all-tag:hover {
+  background: #e6f4ff !important;      /* 悬停时更亮的蓝色 */
+  border-color: #69b1ff !important;
+  color: #0958d9 !important;
+}
+
+/* 空状态样式 */
+.followups-table-area .ant-table-empty {
+  background: transparent !important;
+}
+
+.followups-table-area .ant-table-placeholder {
+  background: transparent !important;
+  border: none !important;
+}
+
+.followups-table-area .ant-table-placeholder .ant-table-cell {
+  background: transparent !important;
+  border: none !important;
+}
+
+.followups-table-area .ant-empty {
+  background: transparent !important;
+}
+
+.followups-table-area .ant-empty .ant-empty-image {
+  color: rgba(0, 0, 0, 0.3) !important;
+}
+
+.followups-table-area .ant-empty .ant-empty-description {
+  color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* 自定义空状态样式 */
+.followups-table-area .custom-empty-state {
+  padding: 40px 0;
+  text-align: center;
+}
+
+.followups-table-area .custom-empty-state .empty-title {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.followups-table-area .custom-empty-state .empty-description {
+  font-size: 14px;
+  color: #999;
+}

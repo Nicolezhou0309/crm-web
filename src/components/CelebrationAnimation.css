@@ -1,0 +1,197 @@
+/* 庆祝动画样式 - 原生DOM版本 */
+.celebration-modal-native {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 9999999 !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: auto !important;
+}
+
+.celebration-content-native {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 20px !important;
+  padding: 40px !important;
+  text-align: center !important;
+  color: white !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
+  max-width: 500px !important;
+  width: 90% !important;
+  position: relative !important;
+  z-index: 10000000 !important;
+  animation: celebrationFadeIn 0.5s ease-out !important;
+}
+
+@keyframes celebrationFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 星星动画 */
+.celebration-icon {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.celebration-star {
+  position: absolute;
+  font-size: 24px;
+  animation: starFloat 2s ease-in-out infinite;
+  opacity: 0;
+}
+
+.celebration-star:nth-child(1) {
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation-delay: 0s;
+}
+
+.celebration-star.delay-1 {
+  top: -30px;
+  left: 30%;
+  animation-delay: 0.5s;
+}
+
+.celebration-star.delay-2 {
+  top: -25px;
+  right: 30%;
+  animation-delay: 1s;
+}
+
+.celebration-star.delay-3 {
+  top: -35px;
+  left: 20%;
+  animation-delay: 1.5s;
+}
+
+.celebration-star.delay-4 {
+  top: -15px;
+  right: 20%;
+  animation-delay: 2s;
+}
+
+@keyframes starFloat {
+  0%, 100% {
+    opacity: 0;
+    transform: translateY(0) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.2);
+  }
+}
+
+/* 烟花效果 */
+.celebration-fireworks {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.firework {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  animation: firework 2s ease-out infinite;
+}
+
+.firework:nth-child(1) {
+  background: #ff6b6b;
+  top: 20%;
+  left: 20%;
+  animation-delay: 0s;
+}
+
+.firework.delay-1 {
+  background: #4ecdc4;
+  top: 30%;
+  right: 20%;
+  animation-delay: 0.5s;
+}
+
+.firework.delay-2 {
+  background: #45b7d1;
+  bottom: 30%;
+  left: 30%;
+  animation-delay: 1s;
+}
+
+.firework.delay-3 {
+  background: #96ceb4;
+  bottom: 20%;
+  right: 30%;
+  animation-delay: 1.5s;
+}
+
+@keyframes firework {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+
+/* 确保在所有可能的元素之上 */
+.celebration-modal-native,
+.celebration-modal-native *,
+.celebration-content-native,
+.celebration-content-native * {
+  z-index: 9999999 !important;
+}
+
+/* 覆盖所有可能的z-index */
+.celebration-modal-native {
+  z-index: 9999999 !important;
+}
+
+.celebration-content-native {
+  z-index: 10000000 !important;
+}
+
+/* 确保在Ant Design组件之上 */
+.celebration-modal-native {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .celebration-content-native {
+    width: 95% !important;
+    padding: 30px 20px !important;
+  }
+  
+  .celebration-content-native h2 {
+    font-size: 20px !important;
+  }
+  
+  .celebration-content-native p {
+    font-size: 14px !important;
+  }
+} 

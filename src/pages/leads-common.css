@@ -1,0 +1,740 @@
+/* 线索相关页面统一样式文件 */
+
+/* ===== 页面卡片基础样式 ===== */
+.page-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 24px;
+  margin: 16px;
+}
+
+/* ===== 页面头部样式 ===== */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-search {
+  width: 260px;
+  margin-bottom: 16px;
+}
+
+/* 页面搜索框样式优化 */
+
+
+
+
+.page-btn {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.no-outline-btn {
+  border: none;
+  box-shadow: none;
+  background: none;
+  font-size: 18px;
+  outline: none;
+}
+
+/* ===== 表格容器样式 ===== */
+
+/* ===== 弹窗样式 ===== */
+.page-modal .ant-modal-content {
+  border-radius: 12px;
+}
+
+.page-modal .ant-modal-header {
+  border-radius: 12px 12px 0 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* ===== 抽屉样式 ===== */
+.lead-detail-drawer {
+  border-radius: 12px 0 0 12px;
+}
+
+.lead-detail-drawer .ant-drawer-header {
+  border-radius: 12px 0 0 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* ===== 筛选标签样式 ===== */
+.filter-tag {
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid #d9d9d9;
+  background: #fafafa;
+  color: #666;
+  transition: all 0.2s ease;
+}
+
+.filter-tag:hover {
+  border-color: #1677ff;
+  color: #1677ff;
+}
+
+.filter-tag .anticon {
+  margin-left: 4px;
+  font-size: 10px;
+}
+
+/* ===== 分组面板样式 ===== */
+.main-flex-layout {
+  display: flex;
+}
+
+.group-panel-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.group-panel-sidebar.open {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.group-panel-sidebar.closed {
+  transform: translateX(-100%);
+  opacity: 0;
+  width: 0;
+}
+
+.main-content-area {
+  flex: 1;
+  transition: all 0.3s ease;
+}
+
+.main-content-area.sidebar-open {
+  margin-left: 0;
+}
+
+.main-content-area.sidebar-closed {
+  margin-left: 0;
+}
+
+/* ===== 分组按钮样式 ===== */
+.group-card-title {
+  display: block;
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.group-card-count {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1677ff;
+}
+
+.quick-date-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.quick-date-btn {
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 4px 12px;
+  height: auto;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #666;
+  transition: all 0.2s ease;
+}
+
+.quick-date-btn:hover {
+  border-color: #1677ff;
+  color: #1677ff;
+}
+
+.quick-date-btn.active {
+  background: #1677ff;
+  border-color: #1677ff;
+  color: #fff;
+}
+
+.group-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.group-btn:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.group-btn-selected {
+  background: #e6f7ff;
+  border-color: #1677ff;
+  color: #1677ff;
+}
+
+.group-btn-title {
+  font-weight: 500;
+  color: inherit;
+}
+
+.group-btn-count {
+  font-size: 12px;
+  color: #666;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+/* ===== 抽屉内容样式 ===== */
+.drawer-flex-row {
+  display: flex;
+  gap: 32px;
+  height: 100%;
+}
+
+.page-drawer-info {
+  width: 300px;
+  flex-shrink: 0;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  height: fit-content;
+}
+
+.page-drawer-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 16px;
+}
+
+.drawer-footer {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* ===== 步骤字段样式 ===== */
+.page-step-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-step-fields-single {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-step-fields-deals {
+  grid-template-columns: 1fr;
+}
+
+/* ===== 自定义筛选卡片样式 ===== */
+.custom-filter-card {
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+}
+
+.filter-section {
+  margin-bottom: 16px;
+}
+
+.filter-section:last-child {
+  margin-bottom: 0;
+}
+
+.filter-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.filter-select {
+  width: 100%;
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e8e8e8;
+}
+
+.filter-reset-btn {
+  border-radius: 6px;
+}
+
+.filter-confirm-btn {
+  border-radius: 6px;
+}
+
+/* ===== 工具类样式 ===== */
+.mb-12 {
+  margin-bottom: 12px;
+}
+
+.text-secondary {
+  color: #666;
+  font-size: 13px;
+}
+
+.text-primary {
+  color: #1677ff;
+  font-weight: 500;
+}
+
+.text-muted {
+  color: #999;
+  font-style: italic;
+}
+
+/* ===== 响应式设计 ===== */
+@media (max-width: 1200px) {
+  .group-panel-sidebar {
+    width: 240px;
+  }
+  
+  .page-step-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
+/* ===== 表格列样式优化 ===== */
+
+/* ===== 线索编号按钮样式统一 ===== */
+.ant-btn-link.ant-btn-sm {
+  font-size: 14px !important;
+}
+
+.ant-btn-link.ant-btn-sm span {
+  font-size: 14px !important;
+}
+
+
+
+
+
+
+
+/* ===== 页面头部垂直居中对齐 ===== */
+.page-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  min-height: 48px !important;
+}
+
+.page-header .ant-typography {
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  height: 100% !important;
+}
+
+.page-header .ant-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+
+
+
+
+/* ===== 按钮样式优化 ===== */
+.ant-btn {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.ant-btn-primary {
+  background: #1677ff;
+  border-color: #1677ff;
+}
+
+.ant-btn-primary:hover {
+  background: #4096ff;
+  border-color: #4096ff;
+}
+
+/* ===== 标签样式优化 ===== */
+.ant-tag {
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px solid;
+}
+
+/* ===== 加载状态样式 ===== */
+.ant-spin-dot-item {
+  background-color: #1677ff;
+}
+
+.ant-spin-text {
+  color: #1677ff;
+}
+
+/* ===== 消息提示样式 ===== */
+.ant-message-notice-content {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== 模态框样式优化 ===== */
+.ant-modal-content {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ant-modal-header {
+  border-radius: 12px 12px 0 0;
+  background: #fafafa;
+}
+
+.ant-modal-title {
+  font-weight: 600;
+  color: #333;
+}
+
+/* ===== 抽屉样式优化 ===== */
+.ant-drawer-content {
+  border-radius: 12px 0 0 12px;
+}
+
+.ant-drawer-header {
+  border-radius: 12px 0 0 0;
+  background: #fafafa;
+}
+
+.ant-drawer-title {
+  font-weight: 600;
+  color: #333;
+}
+
+/* ===== 步骤条样式优化 ===== */
+.ant-steps-item-title {
+  font-weight: 500;
+}
+
+.ant-steps-item-process .ant-steps-item-icon {
+  background: #1677ff;
+  border-color: #1677ff;
+}
+
+.ant-steps-item-finish .ant-steps-item-icon {
+  background: #52c41a;
+  border-color: #52c41a;
+}
+
+/* ===== 级联选择器样式优化 ===== */
+.ant-cascader-picker {
+  border-radius: 6px;
+}
+
+.ant-cascader-menu {
+  border-radius: 6px;
+}
+
+/* ===== 日期选择器样式优化 ===== */
+.ant-picker {
+  border-radius: 6px;
+}
+
+.ant-picker-dropdown {
+  border-radius: 8px;
+}
+
+/* ===== 数字输入框样式优化 ===== */
+.ant-input-number {
+  border-radius: 6px;
+}
+
+/* ===== 文本域样式优化 ===== */
+.ant-input-textarea {
+  border-radius: 6px;
+}
+
+.ant-input-textarea textarea {
+  border-radius: 6px;
+}
+
+/* ===== 开关样式优化 ===== */
+.ant-switch {
+  border-radius: 10px;
+}
+
+.ant-switch-checked {
+  background: #1677ff;
+}
+
+/* ===== 复选框样式优化 ===== */
+.ant-checkbox-wrapper {
+  font-size: 13px;
+}
+
+.ant-checkbox-checked .ant-checkbox-inner {
+  background: #1677ff;
+  border-color: #1677ff;
+}
+
+/* ===== 上传组件样式优化 ===== */
+.ant-upload-list-picture-card .ant-upload-list-item {
+  border-radius: 8px;
+}
+
+.ant-upload.ant-upload-select-picture-card {
+  border-radius: 8px;
+}
+
+/* ===== 下拉菜单样式优化 ===== */
+.ant-dropdown-menu {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.ant-dropdown-menu-item {
+  border-radius: 4px;
+  margin: 2px 8px;
+}
+
+/* ===== 工具提示样式优化 ===== */
+.ant-tooltip-inner {
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* ===== 警告提示样式优化 ===== */
+.ant-alert {
+  border-radius: 8px;
+  border: 1px solid;
+}
+
+.ant-alert-warning {
+  border-color: #faad14;
+  background: #fffbe6;
+}
+
+/* ===== 分页器样式优化 ===== */
+.ant-pagination-item {
+  border-radius: 6px;
+  font-size: 14px !important;
+}
+
+.ant-pagination-item-active {
+  background: #1677ff;
+  border-color: #1677ff;
+}
+
+.ant-pagination-prev,
+.ant-pagination-next {
+  border-radius: 6px;
+  font-size: 14px !important;
+}
+
+/* 分页器内所有文字强制14px */
+.ant-pagination * {
+  font-size: 14px !important;
+}
+
+/* ===== 空状态样式优化 ===== */
+.ant-empty {
+  padding: 40px 0;
+}
+
+.ant-empty-description {
+  color: #999;
+}
+
+/* ===== 骨架屏样式优化 ===== */
+.ant-skeleton-element {
+  border-radius: 6px;
+}
+
+/* ===== 进度条样式优化 ===== */
+.ant-progress-bg {
+  background: #1677ff;
+}
+
+/* ===== 统计数值样式优化 ===== */
+.ant-statistic-title {
+  color: #666;
+  font-size: 13px;
+}
+
+.ant-statistic-content {
+  color: #1677ff;
+  font-weight: 600;
+}
+
+/* ===== 卡片样式优化 ===== */
+.ant-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.ant-card-head {
+  border-radius: 8px 8px 0 0;
+  background: #fafafa;
+}
+
+.ant-card-head-title {
+  font-weight: 600;
+  color: #333;
+}
+
+/* ===== 列表样式优化 ===== */
+.ant-list-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-list-item:last-child {
+  border-bottom: none;
+}
+
+/* ===== 描述列表样式优化 ===== */
+.ant-descriptions-item-label {
+  font-weight: 500;
+  color: #666;
+}
+
+.ant-descriptions-item-content {
+  color: #333;
+}
+
+/* ===== 时间轴样式优化 ===== */
+.ant-timeline-item-head {
+  background: #fff;
+  border: 2px solid #d9d9d9;
+}
+
+.ant-timeline-item-head-blue {
+  border-color: #1677ff;
+}
+
+.ant-timeline-item-head-green {
+  border-color: #52c41a;
+}
+
+.ant-timeline-item-head-red {
+  border-color: #ff4d4f;
+}
+
+/* ===== 标签页样式优化 ===== */
+.ant-tabs-tab {
+  border-radius: 6px 6px 0 0;
+}
+
+.ant-tabs-tab-active {
+  background: #fff;
+}
+
+.ant-tabs-content-holder {
+  border-radius: 0 6px 6px 6px;
+}
+
+/* ===== 树形控件样式优化 ===== */
+.ant-tree {
+  background: transparent;
+}
+
+.ant-tree-treenode {
+  border-radius: 4px;
+  margin: 2px 0;
+}
+
+.ant-tree-treenode:hover {
+  background: #f5f5f5;
+}
+
+/* ===== 选择器下拉样式优化 ===== */
+.ant-select-dropdown {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.ant-select-item {
+  border-radius: 4px;
+  margin: 2px 8px;
+}
+
+.ant-select-item-option-selected {
+  background: #e6f7ff;
+  color: #1677ff;
+}
+
+/* ===== 统一组件高度和垂直居中 ===== */
+/* 确保搜索框和按钮高度一致 */
+.ant-input-affix-wrapper {
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.ant-input {
+  height: 32px !important;
+  line-height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* 确保前缀图标垂直居中 */
+.ant-input-prefix {
+  display: flex !important;
+  align-items: center !important;
+  height: 100% !important;
+}
+
+/* 确保后缀（清除按钮）垂直居中 */
+.ant-input-suffix {
+  display: flex !important;
+  align-items: center !important;
+  height: 100% !important;
+}
+
+/* 确保按钮高度一致 */
+.ant-btn {
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+
+
+

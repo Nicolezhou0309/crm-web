@@ -1,0 +1,92 @@
+/* CSS变量定义文件 - 统一管理项目样式变量 */
+
+:root {
+  /* ===== 颜色系统 ===== */
+  /* 主色调 */
+  --primary-color: #1677ff;
+  --primary-hover: #4096ff;
+  --primary-active: #0958d9;
+  --primary-light: rgba(22, 119, 255, 0.1);
+  
+  /* 成功色 */
+  --success-color: #52c41a;
+  --success-hover: #73d13d;
+  --success-light: rgba(82, 196, 26, 0.1);
+  
+  /* 警告色 */
+  --warning-color: #fa8c16;
+  --warning-hover: #ffa940;
+  --warning-light: rgba(250, 140, 22, 0.1);
+  
+  /* 错误色 */
+  --error-color: #ff4d4f;
+  --error-hover: #ff7875;
+  --error-light: rgba(255, 77, 79, 0.1);
+  
+  /* 中性色 */
+  --text-primary: rgba(0, 0, 0, 0.95);
+  --text-secondary: rgba(0, 0, 0, 0.8);
+  --text-tertiary: rgba(0, 0, 0, 0.6);
+  --text-disabled: rgba(0, 0, 0, 0.4);
+  
+  --border-color: #d9d9d9;
+  --border-light: #f0f0f0;
+  --background-light: #f7f8fa;
+  --background-white: #ffffff;
+  
+  /* ===== 间距系统 ===== */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+  
+  /* ===== 圆角系统 ===== */
+  --border-radius-sm: 6px;
+  --border-radius-md: 12px;
+  --border-radius-lg: 16px;
+  --border-radius-xl: 20px;
+  
+  /* ===== 阴影系统 ===== */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.2);
+  
+  /* 主色调阴影 */
+  --shadow-primary-sm: 0 2px 8px rgba(22, 119, 255, 0.1);
+  --shadow-primary-md: 0 4px 16px rgba(22, 119, 255, 0.15);
+  --shadow-primary-lg: 0 8px 24px rgba(22, 119, 255, 0.2);
+  
+  /* ===== 字体系统 ===== */
+  --font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  --font-family-mono: 'Micro 5', monospace;
+  
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-xxl: 24px;
+  --font-size-xxxl: 32px;
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* ===== 过渡动画 ===== */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  
+  /* ===== Z-index层级 ===== */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+}

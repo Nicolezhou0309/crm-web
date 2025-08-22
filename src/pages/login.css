@@ -1,0 +1,339 @@
+.login-bg {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #eaf6ff 0%, #f7f8fa 100%);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-bg::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1200px;
+  height: 100vh;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: none;
+  z-index: 0;
+  /* 多条半透明弧线 */
+  background-image:
+    radial-gradient(circle at 50% 40%, rgba(255,255,255,0.5) 0, rgba(255,255,255,0.2) 60%, transparent 80%),
+    repeating-radial-gradient(circle at 50% 40%, rgba(255,255,255,0.18) 0, rgba(255,255,255,0.18) 1px, transparent 80px, transparent 100px);
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.login-bg::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 220px;
+  z-index: 0;
+  /* 云朵渐变 */
+  background: linear-gradient(180deg, rgba(255,255,255,0.7) 10%, #f7f8fa 80%);
+  /* 云朵SVG */
+  mask-image: url('data:image/svg+xml;utf8,<svg width="100%25" height="100%25" viewBox="0 0 1440 220" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 180C120 220 360 220 480 180C600 140 840 140 960 180C1080 220 1320 220 1440 180V220H0V180Z" fill="white"/></svg>');
+  mask-size: cover;
+  mask-repeat: no-repeat;
+}
+
+.login-card {
+  width: 320px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(60, 80, 120, 0.08);
+  padding: 40px 32px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 48px;
+  z-index: 1;
+}
+
+.login-icon-circle {
+  width: 56px;
+  height: 56px;
+  background: #f3f7fa;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -56px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px #e0e7ef;
+}
+
+.login-card h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.login-subtitle {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.login-btn,
+.login-btn:hover,
+.login-btn:focus,
+.login-btn:active {
+  background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%) !important;
+  border-radius: 24px;
+  font-weight: 600;
+  height: 44px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.divider {
+  width: 100%;
+  text-align: center;
+  color: #bbb;
+  margin: 24px 0 12px 0;
+  position: relative;
+  font-size: 13px;
+}
+.divider:before, .divider:after {
+  content: '';
+  display: inline-block;
+  width: 40%;
+  height: 1px;
+  background: #eee;
+  vertical-align: middle;
+  margin: 0 8px;
+}
+
+.oauth-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.forgot-link {
+  float: right;
+  font-size: 13px;
+  color: #1890ff;
+  margin-top: -32px;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+.login-btn-forgot,
+.login-btn-forgot:focus,
+.login-btn-forgot:active,
+.login-btn-forgot:focus-visible,
+.login-btn-forgot:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* 输入框美化 */
+.login-card .ant-input-affix-wrapper, .login-card .ant-input {
+  border-radius: 12px;
+  background: #f7f8fa;
+  border: 1px solid #e6eaf0;
+}
+
+.login-card .ant-input-affix-wrapper-focused {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24,144,255,0.08);
+}
+
+/* 输入框图标间距 */
+.login-card .ant-input-affix-wrapper .ant-input-prefix {
+  margin-right: 12px;
+}
+
+.login-card .ant-input-affix-wrapper .ant-input-suffix {
+  margin-left: 12px;
+}
+
+/* 确保密码输入框的图标也有正确间距 */
+.login-card .ant-input-password .ant-input-prefix {
+  margin-right: 12px;
+}
+
+/* Modal中的输入框也应用相同样式 */
+.ant-modal .ant-input-affix-wrapper .ant-input-prefix {
+  margin-right: 12px;
+}
+
+.ant-modal .ant-input-affix-wrapper .ant-input-suffix {
+  margin-left: 12px;
+}
+
+/* 手机端响应式优化 - 只在手机端生效 */
+@media (max-width: 480px) {
+  .login-card {
+    width: calc(100vw - 32px);
+    max-width: 360px;
+    padding: 32px 24px 24px 24px;
+    margin: 0 16px 32px 16px;
+  }
+  
+  .login-card h2 {
+    font-size: 20px;
+    margin-bottom: 6px;
+  }
+  
+  .login-btn {
+    height: 48px;
+    font-size: 16px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  
+  /* 调整输入框在手机端的间距 */
+  .login-card .ant-form-item {
+    margin-bottom: 20px;
+  }
+  
+  .login-card .ant-form-item-label {
+    padding-bottom: 6px;
+  }
+  
+  .login-card .ant-form-item-label > label {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  
+  /* 优化手机端输入框 */
+  .login-card .ant-input-affix-wrapper, 
+  .login-card .ant-input {
+    height: 44px;
+    font-size: 16px; /* 防止iOS缩放 */
+  }
+  
+  .login-card .ant-input-affix-wrapper .ant-input-prefix {
+    margin-right: 10px;
+  }
+  
+  .login-card .ant-input-affix-wrapper .ant-input-suffix {
+    margin-left: 10px;
+  }
+  
+  /* 调整忘记密码链接的位置 */
+  .login-card .ant-form-item:last-child {
+    margin-bottom: 0;
+  }
+  
+  /* 优化分割线 */
+  .ant-divider {
+    margin: 24px 0 16px 0;
+    font-size: 14px;
+  }
+  
+  /* 调整标签页样式 */
+  .login-card .ant-tabs-tab {
+    font-size: 16px;
+    padding: 8px 0;
+  }
+  
+  .login-card .ant-tabs-content-holder {
+    padding-top: 8px;
+  }
+  
+  /* 企业微信tab样式优化 */
+  .login-card .ant-tabs-tab[data-key="wecom"] {
+    font-size: 15px;
+  }
+  
+  /* 企业微信登录按钮在手机端的优化 */
+  .login-card .ant-space-vertical {
+    gap: 0px ;
+  }
+  
+  .login-card .ant-space-vertical .ant-space-item {
+    margin-bottom: 8px;
+  }
+  
+  .login-card .ant-space-vertical .ant-btn {
+    height: 44px;
+    font-size: 15px;
+    border-radius: 10px;
+  }
+  
+  .login-card .ant-space-vertical h3 {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+  
+  .login-card .ant-space-vertical p {
+    font-size: 11px;
+    margin-top: 6px;
+  }
+  
+  .login-card .ant-divider {
+    margin: 20px 0;
+    font-size: 11px;
+  }
+  
+  /* 二维码展示区域优化 */
+  .login-card .ant-space-vertical > div:first-child {
+    padding: 20px 0;
+  }
+  
+  .login-card .ant-space-vertical img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  /* 二维码容器样式 */
+  .login-card .ant-space-vertical > div:first-child > div:nth-child(3) {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+  }
+  
+  .login-card .ant-space-vertical > div:first-child > div:nth-child(3):hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 360px) {
+  .login-card {
+    width: calc(100vw - 24px);
+    padding: 28px 20px 20px 20px;
+    margin: 0 12px 24px 12px;
+  }
+  
+  .login-card h2 {
+    font-size: 18px;
+  }
+  
+  .login-btn {
+    height: 44px;
+    font-size: 15px;
+  }
+  
+  .login-card .ant-input-affix-wrapper, 
+  .login-card .ant-input {
+    height: 40px;
+    font-size: 15px;
+  }
+}
+
+/* 横屏手机优化 */
+@media (max-width: 480px) and (orientation: landscape) {
+  .login-card {
+    margin: 16px;
+    padding: 24px 20px 20px 20px;
+  }
+  
+  .login-bg {
+    align-items: flex-start;
+    padding-top: 20px;
+  }
+} 

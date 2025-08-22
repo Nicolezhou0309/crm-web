@@ -1,0 +1,617 @@
+#root {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.ant-layout-content {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 32px 16px 0 16px;
+  background: #f7f8fa;
+  box-sizing: border-box;
+}
+
+.card, .ant-card, .leads-list-card {
+  background: #fff;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 16px 8px;
+  margin: 0;
+}
+
+
+
+/* 让表格横向滚动时页面不出现多余滚动条 */
+body {
+  overflow-x: hidden;
+}
+
+.read-the-docs {
+  color: #888;
+}
+.ant-card,
+.allocation-trigger-card,
+.allocation-list-card {
+  border-radius: 12px !important;
+}
+
+.ant-radio-wrapper {
+  margin-bottom: 8px;
+}
+
+.allocation-board-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px 0 rgba(22,119,255,0.06);
+  padding: 32px 32px 24px 32px;
+  margin: 0 auto;
+  max-width: 1400px;
+}
+
+.allocation-row {
+  transition: box-shadow 0.2s, background 0.2s;
+}
+.allocation-row.dragging,
+.allocation-row:active {
+  background: #e6f4ff;
+  box-shadow: 0 4px 16px 0 rgba(22,119,255,0.10);
+}
+
+/* 移除SVG相关样式 */
+/* .allocation-row-svg path { ... } */
+/* .allocation-row-svg path.active, .allocation-row-svg path:hover { ... } */
+.allocation-link-arrow {
+  stroke: #bfbfbf;
+  stroke-width: 1.5;
+  fill: none;
+  /* 移除动画 */
+  /* transition: stroke 0.2s, stroke-width 0.2s; */
+}
+.allocation-link-arrowhead {
+  fill: #bfbfbf;
+}
+.allocation-insert-btn-svg {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50%;
+  border: 1px solid #1677ff;
+  background: #fff;
+  color: #1677ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  box-sizing: border-box;
+  padding: 0;
+}
+.allocation-insert-btn-svg:hover {
+  background: #1677ff;
+  color: #fff;
+  border-color: #1677ff;
+}
+
+/* 通知徽标和铃铛美化 */
+.notification-badge-mini .ant-badge-dot {
+  width: 7px;
+  height: 7px;
+  min-width: 7px;
+  min-height: 7px;
+  box-shadow: 0 0 0 1px #fff;
+}
+.notification-bell-mini {
+  vertical-align: middle;
+  margin-left: 2px;
+  margin-right: 2px;
+  transition: color 0.2s;
+}
+.notification-bell-mini:hover {
+  color: #fa8c16 !important;
+}
+
+/* 优化通知数字徽标样式 */
+.notification-badge-number .ant-badge-count {
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  font-size: 12px;
+  padding: 0 5px;
+  border-radius: 9px;
+  box-shadow: 0 0 0 1px #fff;
+  font-weight: 500;
+  top: 2px !important;
+  right: 0 !important;
+}
+
+/* 头像加载动画 */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 通知中心标签页外边距 */
+.notification-center-tabs {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+
+.drawer-flex-row {
+  max-width: 1000px;
+  margin: 0 auto;
+  overflow-x: auto;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.page-drawer-form {
+  min-width: 320px;
+  max-width: 900px;
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+
+.page-step-fields-single,
+.page-step-fields {
+  max-width: 900px;
+  overflow-x: auto;
+  flex-wrap: wrap;
+}
+
+.downtown-logo:hover {
+  transform: scale(1.12) rotate(-6deg);
+  filter: drop-shadow(0 0 8px #e8e230);
+  cursor: pointer;
+}
+
+.custom-followup-menu .ant-menu-item {
+  transition: color 0.2s, background 0.2s;
+}
+.custom-followup-menu .ant-menu-item-selected span {
+  color: #1677ff !important;
+  font-weight: 700;
+}
+.custom-followup-menu .ant-menu-item:hover span {
+  color: #444 !important;
+}
+.custom-followup-menu .ant-menu-item span {
+  font-size: 14px !important;
+}
+
+/* 自定义筛选卡片统一样式 */
+.custom-filter-card {
+  padding: 12px;
+  width: 320px;
+  max-height: 400px;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.custom-filter-card .filter-section {
+  margin-bottom: 12px;
+}
+
+.custom-filter-card .filter-label {
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: 500;
+  line-height: 1.5715;
+}
+
+.custom-filter-card .filter-select {
+  width: 100%;
+  font-size: 14px;
+}
+
+
+
+.custom-filter-card .filter-actions {
+  text-align: right;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 8px;
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.custom-filter-card .filter-reset-btn {
+  color: rgba(0, 0, 0, 0.45);
+  border-color: #d9d9d9;
+  background: transparent;
+  font-size: 14px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+}
+
+.custom-filter-card .filter-reset-btn:hover {
+  color: rgba(0, 0, 0, 0.65);
+  border-color: #40a9ff;
+  background: transparent;
+}
+
+.custom-filter-card .filter-confirm-btn {
+  font-size: 14px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+}
+
+/* 只影响侧边栏菜单的选中项无圆角、色块横向铺满 */
+.ant-layout-sider .ant-menu-item-selected,
+.ant-layout-sider .ant-menu-submenu-selected,
+.ant-layout-sider .ant-menu-item-active,
+.ant-layout-sider .ant-menu-item:hover {
+  border-radius: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* 让侧边栏所有菜单项（包括子菜单）选中时色块横向铺满，无缩进 */
+.ant-layout-sider .ant-menu .ant-menu-item,
+.ant-layout-sider .ant-menu .ant-menu-submenu-title {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+  margin: 0 !important;
+}
+
+.ant-layout-sider .ant-menu .ant-menu-item-selected,
+.ant-layout-sider .ant-menu .ant-menu-item-active,
+.ant-layout-sider .ant-menu-sub .ant-menu-item {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+  margin: 0 !important;
+}
+
+/* 主菜单（侧边栏一级菜单）字体缩小 */
+.ant-layout-sider .ant-menu .ant-menu-item,
+.ant-layout-sider .ant-menu .ant-menu-submenu-title {
+  font-size: 14px !important;
+}
+
+/* 未选中菜单项字体为灰色 */
+.ant-layout-sider .ant-menu .ant-menu-item:not(.ant-menu-item-selected),
+.ant-layout-sider .ant-menu .ant-menu-submenu-title:not(.ant-menu-item-selected) {
+  color: #2e2e2e !important;
+}
+
+/* 彻底去除侧边栏所有菜单项（包括多级/子菜单）圆角 */
+.ant-layout-sider .ant-menu-item,
+.ant-layout-sider .ant-menu-submenu-title,
+.ant-layout-sider .ant-menu-item-selected,
+.ant-layout-sider .ant-menu-submenu-selected,
+.ant-layout-sider .ant-menu-item-active,
+.ant-layout-sider .ant-menu-item:hover,
+.ant-layout-sider .ant-menu-sub .ant-menu-item,
+.ant-layout-sider .ant-menu-sub .ant-menu-item-selected,
+.ant-layout-sider .ant-menu-sub .ant-menu-item-active,
+.ant-layout-sider .ant-menu-sub .ant-menu-item:hover {
+  border-radius: 0 !important;
+}
+
+/* 侧边栏菜单整体左右8px间距，圆角16px */
+.ant-layout-sider .ant-menu {
+  border-radius: 12px !important;
+  background: #fff;
+}
+
+/* 菜单项和子菜单项左右8px间距，圆角16px */
+.ant-layout-sider .ant-menu-item,
+.ant-layout-sider .ant-menu-submenu-title {
+  border-radius: 12px !important;
+}
+
+/* 选中、悬浮、激活时也有圆角16px */
+.ant-layout-sider .ant-menu-item-selected,
+.ant-layout-sider .ant-menu-submenu-selected,
+.ant-layout-sider .ant-menu-item-active,
+.ant-layout-sider .ant-menu-item:hover,
+.ant-layout-sider .ant-menu-sub .ant-menu-item,
+.ant-layout-sider .ant-menu-sub .ant-menu-item-selected,
+.ant-layout-sider .ant-menu-sub .ant-menu-item-active,
+.ant-layout-sider .ant-menu-sub .ant-menu-item:hover {
+  border-radius: 12px !important;
+}
+
+/* 侧边栏菜单项之间增加8px间距 */
+.ant-layout-sider .ant-menu .ant-menu-item,
+.ant-layout-sider .ant-menu .ant-menu-submenu-title {
+  margin-bottom: 8px !important;
+}
+
+/* 去除最后一个菜单项的下边距 */
+.ant-layout-sider .ant-menu .ant-menu-item:last-child,
+.ant-layout-sider .ant-menu .ant-menu-submenu-title:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 多级菜单主菜单（有子菜单的一级菜单）增加8px下边距 */
+.ant-layout-sider .ant-menu .ant-menu-submenu {
+  margin-bottom: 8px !important;
+}
+
+/* 默认隐藏底部菜单 */
+.mobile-bottom-menu {
+  display: none !important;
+}
+
+/* 移动端响应式样式 */
+@media (max-width: 768px) {
+  /* 顶部导航条在移动端调整 */
+  .app-header {
+    padding: 0 12px !important;
+    height: 56px !important;
+  }
+  
+  /* 顶部菜单在移动端调整 - 只显示新手入门 */
+  .custom-followup-menu {
+    min-width: 120px !important;
+    margin-right: 0 !important;
+  }
+  
+  /* 隐藏跟进记录菜单项，只保留新手入门 */
+  .custom-followup-menu .ant-menu-item:first-child {
+    display: none !important;
+  }
+  
+  /* 顶部Logo在移动端居中显示 */
+  .app-title {
+    transform: scale(1.2) !important;
+  }
+  
+  /* 用户头像在移动端调整位置 */
+  .app-header-user {
+    gap: 12px !important;
+  }
+  
+  /* 隐藏左侧导航栏 */
+  .ant-layout-sider {
+    display: none !important;
+  }
+  
+  /* 显示底部菜单 */
+  .mobile-bottom-menu {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-top: 1px solid #f0f0f0;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    padding: 8px 0 4px 0;
+    justify-content: space-around;
+    align-items: center;
+  }
+  
+  .mobile-bottom-menu .mobile-menu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    min-width: 60px;
+    text-decoration: none;
+    color: #666;
+  }
+  
+  .mobile-bottom-menu .mobile-menu-item.active {
+    color: #1677ff;
+    background: rgba(22, 119, 255, 0.1);
+  }
+  
+  .mobile-bottom-menu .mobile-menu-item:hover {
+    color: #1677ff;
+    background: rgba(22, 119, 255, 0.05);
+  }
+  
+  .mobile-bottom-menu .mobile-menu-item .mobile-menu-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+  
+  .mobile-bottom-menu .mobile-menu-item .mobile-menu-label {
+    font-size: 11px;
+    line-height: 1.2;
+    text-align: center;
+  }
+  
+  /* 调整主内容区域 */
+  .ant-layout .ant-layout-content {
+    margin-left: 0 !important;
+    padding: 16px 12px 80px 12px !important;
+  }
+  
+  .ant-layout {
+    margin-left: 0 !important;
+  }
+  
+  /* 移动端内容区域调整 */
+  .content-main {
+    padding-bottom: 80px !important;
+}
+
+/* 大屏幕设备 (>768px) - 显示左侧导航，隐藏底部菜单 */
+@media (min-width: 769px) {
+  .mobile-bottom-menu {
+    display: none !important;
+  }
+  
+  .ant-layout-sider {
+    display: block !important;
+  }
+}
+  
+  /* 移动端卡片样式调整 */
+  .card, .ant-card, .leads-list-card {
+    padding: 12px 8px;
+    margin: 0 0 12px 0;
+  }
+  
+
+  
+  /* 移动端按钮调整 */
+  .ant-btn {
+    font-size: 14px !important;
+    padding: 0 12px !important;
+  }
+  
+  .ant-btn-sm {
+    padding: 0 8px !important;
+    font-size: 12px !important;
+  }
+  
+  /* 移动端表单调整 */
+  .ant-form-item {
+    margin-bottom: 16px !important;
+  }
+  
+  .ant-form-item-label > label {
+    font-size: 14px !important;
+  }
+  
+
+  
+  /* 移动端弹窗调整 */
+  .ant-modal {
+    margin: 16px !important;
+    max-width: calc(100vw - 32px) !important;
+  }
+  
+  .ant-modal-content {
+    border-radius: 12px !important;
+  }
+  
+  /* 移动端抽屉调整 */
+  .ant-drawer {
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+  
+  /* 移动端分页调整 */
+  .ant-pagination {
+    text-align: center !important;
+    margin-top: 16px !important;
+  }
+  
+  .ant-pagination-item {
+    min-width: 32px !important;
+    height: 32px !important;
+    line-height: 30px !important;
+  }
+  
+
+  
+  /* 移动端标签页调整 */
+  .ant-tabs-tab {
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+  }
+  
+  /* 移动端统计卡片调整 */
+  .ant-statistic-title {
+    font-size: 12px !important;
+  }
+  
+  .ant-statistic-content {
+    font-size: 20px !important;
+  }
+  
+  /* 移动端通知徽标调整 */
+  .ant-badge-count {
+    font-size: 10px !important;
+    min-width: 16px !important;
+    height: 16px !important;
+    line-height: 16px !important;
+  }
+  
+  /* 移动端头像调整 */
+  .app-header-user .ant-avatar {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  
+  /* 移动端Logo调整 */
+  .app-title img {
+    height: 28px !important;
+  }
+  
+  /* 移动端顶部导航调整 */
+  .app-header {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  /* 移动端内容滚动优化 */
+  .content-main {
+    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
+  }
+  
+  /* 移动端触摸优化 */
+  .mobile-bottom-menu .mobile-menu-item {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  
+  /* 移动端安全区域适配 */
+  .mobile-bottom-menu {
+    padding-bottom: calc(4px + env(safe-area-inset-bottom));
+  }
+  
+  /* 移动端横屏适配 */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .mobile-bottom-menu {
+      display: none !important;
+    }
+    
+    .content-main {
+      padding-bottom: 16px !important;
+    }
+  }
+}
+

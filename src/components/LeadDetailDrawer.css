@@ -1,0 +1,524 @@
+/* LeadDetailDrawer 样式优化 */
+
+/* 抽屉容器 - 使用更高优先级 */
+.lead-detail-drawer.lead-detail-drawer {
+  --primary-color: #1890ff;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  --text-color: #262626;
+  --text-secondary: #8c8c8c;
+  --border-color: #f0f0f0;
+  --bg-color: #fafafa;
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 抽屉头部 */
+.lead-detail-drawer .drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lead-detail-drawer .header-icon {
+  color: var(--primary-color);
+  font-size: 18px;
+}
+
+.lead-detail-drawer .header-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.lead-detail-drawer .status-badge {
+  margin-left: auto;
+}
+
+/* 抽屉操作按钮 */
+.lead-detail-drawer .drawer-actions {
+  gap: 8px;
+}
+
+.lead-detail-drawer .refresh-btn {
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.lead-detail-drawer .refresh-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hover-shadow);
+}
+
+.lead-detail-drawer .edit-btn {
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.lead-detail-drawer .edit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hover-shadow);
+}
+
+/* 加载状态 */
+.lead-detail-drawer .drawer-spin {
+  min-height: 200px;
+}
+
+/* 标签页样式 */
+.lead-detail-drawer .detail-tabs {
+  margin-top: 16px;
+}
+
+.lead-detail-drawer .detail-tabs .ant-tabs-nav {
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.lead-detail-drawer .detail-tabs .ant-tabs-tab {
+  padding: 12px 24px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.lead-detail-drawer .detail-tabs .ant-tabs-tab:hover {
+  color: var(--primary-color);
+}
+
+.lead-detail-drawer .detail-tabs .ant-tabs-tab-active {
+  color: var(--primary-color);
+}
+
+.lead-detail-drawer .detail-tabs .ant-tabs-ink-bar {
+  background: var(--primary-color);
+  height: 3px;
+}
+
+.lead-detail-drawer .tab-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lead-detail-drawer .tab-icon {
+  font-size: 16px;
+}
+
+/* 标签页内容 */
+.lead-detail-drawer .tab-content {
+  padding: 0;
+}
+
+/* 信息卡片 */
+.lead-detail-drawer .info-card {
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.lead-detail-drawer .info-card:hover {
+  box-shadow: var(--hover-shadow);
+  transform: translateY(-2px);
+}
+
+.lead-detail-drawer .info-card .ant-card-head {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 8px 8px 0 0;
+}
+
+.lead-detail-drawer .info-card .ant-card-head-title {
+  font-weight: 600;
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+/* 描述列表样式 */
+.lead-detail-drawer .info-descriptions {
+  margin: 0;
+}
+
+.lead-detail-drawer .info-descriptions .ant-descriptions-item-label {
+  background: var(--bg-color);
+  font-weight: 500;
+  color: var(--text-color);
+  padding: 12px 16px;
+  border-right: 1px solid var(--border-color);
+}
+
+.lead-detail-drawer .info-descriptions .ant-descriptions-item-content {
+  padding: 12px 16px;
+  border-right: 1px solid var(--border-color);
+}
+
+/* 线索ID项 */
+.lead-detail-drawer .lead-id-item .ant-descriptions-item-content {
+  background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%);
+}
+
+.lead-detail-drawer .lead-id-space {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lead-detail-drawer .lead-id-text {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  color: var(--primary-color);
+  background: rgba(24, 144, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* 联系信息项 */
+.lead-detail-drawer .contact-item .ant-descriptions-item-content {
+  background: linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%);
+}
+
+.lead-detail-drawer .contact-space {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lead-detail-drawer .contact-icon {
+  color: var(--success-color);
+  font-size: 14px;
+}
+
+.lead-detail-drawer .contact-text {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+/* 基础信息项 */
+.lead-detail-drawer .basic-item .ant-descriptions-item-content {
+  background: #fff;
+}
+
+.lead-detail-drawer .basic-text {
+  color: var(--text-color);
+}
+
+/* 位置信息项 */
+.lead-detail-drawer .location-item .ant-descriptions-item-content {
+  background: linear-gradient(135deg, #fff7e6 0%, #fff2e8 100%);
+}
+
+.lead-detail-drawer .location-space {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lead-detail-drawer .location-icon {
+  color: var(--warning-color);
+  font-size: 14px;
+}
+
+.lead-detail-drawer .location-text {
+  color: var(--text-color);
+}
+
+/* 预算项 */
+.lead-detail-drawer .budget-item .ant-descriptions-item-content {
+  background: linear-gradient(135deg, #fff7e6 0%, #fff2e8 100%);
+}
+
+.lead-detail-drawer .budget-tag {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+/* 来源项 */
+.lead-detail-drawer .source-item .ant-descriptions-item-content {
+  background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%);
+}
+
+.lead-detail-drawer .source-tag {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+/* 类型项 */
+.lead-detail-drawer .type-item .ant-descriptions-item-content {
+  background: linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%);
+}
+
+.lead-detail-drawer .type-tag {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+/* 状态项 */
+.lead-detail-drawer .status-item .ant-descriptions-item-content {
+  background: linear-gradient(135deg, #fff2e8 0%, #fff7e6 100%);
+}
+
+.lead-detail-drawer .status-tag {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+/* 时间项 */
+.lead-detail-drawer .time-item .ant-descriptions-item-content {
+  background: linear-gradient(135deg, #f9f0ff 0%, #f0f8ff 100%);
+}
+
+.lead-detail-drawer .time-space {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lead-detail-drawer .time-icon {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.lead-detail-drawer .time-text {
+  color: var(--text-color);
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+}
+
+/* 广告信息卡片 */
+.lead-detail-drawer .ad-info-card {
+  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+}
+
+.lead-detail-drawer .ad-item .ant-descriptions-item-content {
+  background: #fff;
+}
+
+.lead-detail-drawer .ad-text {
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+.lead-detail-drawer .ad-id-text {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  color: var(--primary-color);
+  background: rgba(24, 144, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* 备注卡片 */
+.lead-detail-drawer .remark-card {
+  background: linear-gradient(135deg, #fff7e6 0%, #fff2e8 100%);
+}
+
+.lead-detail-drawer .remark-text {
+  color: var(--text-color);
+  line-height: 1.6;
+  margin: 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 6px;
+  border-left: 4px solid var(--warning-color);
+}
+
+/* 跟进信息卡片 */
+.lead-detail-drawer .followup-card {
+  background: linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%);
+}
+
+.lead-detail-drawer .followup-item .ant-descriptions-item-content {
+  background: #fff;
+}
+
+.lead-detail-drawer .followup-text {
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+.lead-detail-drawer .followup-stage-tag {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.lead-detail-drawer .community-tag {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+/* 带看列表 */
+.lead-detail-drawer .showing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lead-detail-drawer .showing-card {
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-color);
+  background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%);
+  transition: all 0.3s ease;
+}
+
+.lead-detail-drawer .showing-card:hover {
+  box-shadow: var(--hover-shadow);
+  transform: translateY(-2px);
+}
+
+.lead-detail-drawer .showing-card .ant-card-head {
+  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 8px 8px 0 0;
+}
+
+.lead-detail-drawer .showing-card .ant-card-head-title {
+  font-weight: 600;
+  color: var(--primary-color);
+  font-size: 14px;
+}
+
+.lead-detail-drawer .showing-descriptions .ant-descriptions-item-content {
+  background: #fff;
+}
+
+.lead-detail-drawer .showing-text {
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+/* 成交列表 */
+.lead-detail-drawer .deal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lead-detail-drawer .deal-card {
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-color);
+  background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
+  transition: all 0.3s ease;
+}
+
+.lead-detail-drawer .deal-card:hover {
+  box-shadow: var(--hover-shadow);
+  transform: translateY(-2px);
+}
+
+.lead-detail-drawer .deal-card .ant-card-head {
+  background: linear-gradient(135deg, #d9f7be 0%, #b7eb8f 100%);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 8px 8px 0 0;
+}
+
+.lead-detail-drawer .deal-card .ant-card-head-title {
+  font-weight: 600;
+  color: var(--success-color);
+  font-size: 14px;
+}
+
+.lead-detail-drawer .deal-descriptions .ant-descriptions-item-content {
+  background: #fff;
+}
+
+.lead-detail-drawer .deal-text {
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+.lead-detail-drawer .deal-id-text {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  color: var(--success-color);
+  background: rgba(82, 196, 26, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* 空状态卡片 */
+.lead-detail-drawer .empty-card {
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--bg-color);
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 40px 20px;
+}
+
+.lead-detail-drawer .empty-card .ant-card-body {
+  padding: 0;
+}
+
+/* 复制按钮 */
+.lead-detail-drawer .copy-btn {
+  padding: 2px 6px;
+  height: auto;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+.lead-detail-drawer .copy-btn:hover {
+  background: var(--primary-color);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .lead-detail-drawer {
+    width: 100% !important;
+  }
+  
+  .lead-detail-drawer .info-descriptions {
+    columns: 1 !important;
+  }
+  
+  .lead-detail-drawer .showing-descriptions,
+  .lead-detail-drawer .deal-descriptions {
+    columns: 1 !important;
+  }
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lead-detail-drawer .tab-content {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 滚动条样式 */
+.lead-detail-drawer .ant-drawer-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.lead-detail-drawer .ant-drawer-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lead-detail-drawer .ant-drawer-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lead-detail-drawer .ant-drawer-body::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.lead-detail-drawer .ant-drawer-body::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+} 

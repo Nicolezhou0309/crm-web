@@ -1,0 +1,136 @@
+/* 跟进阶段抽屉样式 */
+.followup-stage-drawer .ant-drawer-body {
+  padding: 16px 24px 8px 24px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.followup-stage-drawer .ant-drawer-footer {
+  border-top: 1px solid #f0f0f0;
+  padding: 12px 24px;
+  text-align: right;
+}
+
+/* 步骤条样式 */
+.followup-stage-drawer .ant-steps-item-title {
+  font-size: 14px !important;
+  font-weight: 500;
+}
+
+.followup-stage-drawer .ant-steps-item-description {
+  font-size: 12px;
+  color: #999;
+}
+
+/* 表单布局样式 */
+.followup-stage-drawer .ant-form-item {
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 0;
+}
+
+.followup-stage-drawer .ant-form-item-label > label {
+  font-weight: 500;
+  color: #262626;
+  margin: 0;
+  padding: 0;
+}
+
+.followup-stage-drawer .ant-form-item-control {
+  margin: 0;
+  padding: 0;
+}
+
+.followup-stage-drawer .ant-form-item-control-input {
+  margin: 0;
+  padding: 0;
+}
+
+.followup-stage-drawer .ant-form-item-control-input-content {
+  margin: 0;
+  padding: 0;
+}
+
+/* 左侧信息面板样式 */
+.followup-stage-drawer .info-panel {
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 16px;
+  height: fit-content;
+}
+
+.followup-stage-drawer .info-item {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.followup-stage-drawer .info-label {
+  color: #666;
+  font-size: 14px;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.followup-stage-drawer .info-value {
+  flex: 1;
+  word-break: break-all;
+}
+
+/* 双栏表单布局 */
+.followup-stage-drawer .form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* 单栏表单布局 */
+.followup-stage-drawer .form-grid-1 {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .followup-stage-drawer .form-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+/* 复制按钮样式 */
+.followup-stage-drawer .ant-typography-copy {
+  margin-left: 8px;
+}
+
+.followup-stage-drawer .ant-typography-copy .anticon {
+  color: #1677ff;
+}
+
+/* 滚动区域样式 */
+.followup-stage-drawer .form-scroll-area {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  /* 使用 flex: 1 和 minHeight: 0 来确保正确的滚动行为 */
+}
+
+.followup-stage-drawer .form-scroll-area::-webkit-scrollbar {
+  width: 6px;
+}
+
+.followup-stage-drawer .form-scroll-area::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.followup-stage-drawer .form-scroll-area::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.followup-stage-drawer .form-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

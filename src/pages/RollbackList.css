@@ -1,0 +1,50 @@
+/* 回退申请列表样式 */
+
+.rollback-list-container {
+  background: #fff;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 搜索区域样式 */
+.rollback-search-section {
+  display: flex;
+  gap: 16px;
+  padding: 20px 24px 16px 24px;
+  align-items: center;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+
+
+/* 搜索输入框样式 */
+.rollback-search-section .ant-input {
+  border-radius: 6px;
+}
+
+.rollback-search-section .ant-select {
+  border-radius: 6px;
+}
+
+/* 表格滚动条样式 */
+.rollback-table-section .ant-table-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.rollback-table-section .ant-table-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.rollback-table-section .ant-table-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.rollback-table-section .ant-table-body::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+} 

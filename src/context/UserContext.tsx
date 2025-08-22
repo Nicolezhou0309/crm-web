@@ -1,0 +1,381 @@
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { supabase } from '../supaClient';
+import SessionTimeoutWarning from '../components/SessionTimeoutWarning';
+import { safeParseJWT } from '../utils/authUtils';
+import { tokenManager } from '../utils/tokenManager';
+
+
+interface UserProfile {
+  id: number;
+  user_id: string;
+  nickname?: string;
+  avatar_url?: string;
+  password_set?: boolean;
+}
+
+interface UserPermissions {
+  manageableOrganizations: string[];
+  isSuperAdmin: boolean;
+  isDepartmentAdmin: boolean;
+  userRoles: Array<{
+    role_id: string;
+    role_name: string;
+    role_description: string;
+  }>;
+}
+
+interface UserContextType {
+  user: any | null;
+  profile: UserProfile | null;
+  permissions: UserPermissions | null;
+  loading: boolean;
+  error: string | null;
+  refreshUser: () => Promise<void>;
+  clearUserCache: () => void;
+  sessionTimeRemaining: number;
+  isSessionExpired: boolean;
+}
+
+const UserContext = createContext<UserContextType | undefined>(undefined);
+
+// 简化配置
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30分钟无操作超时
+const WARNING_THRESHOLD = 5 * 60 * 1000; // 5分钟前开始警告
+
+export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<any | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [permissions, setPermissions] = useState<UserPermissions | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [sessionTimeRemaining, setSessionTimeRemaining] = useState(SESSION_TIMEOUT);
+  const [showSessionWarning, setShowSessionWarning] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+
+  
+  // 使用 useRef 来避免循环依赖
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  // 处理登出
+  const handleLogout = useCallback(async () => {
+    try {
+      // 使用统一的退出登录方法
+      await tokenManager.logout();
+      // 清理本地状态
+      setUser(null);
+      setProfile(null);
+      setPermissions(null);
+      setSessionTimeRemaining(0);
+      setShowSessionWarning(false);
+    } catch (error) {
+      console.error('登出失败:', error);
+    }
+  }, []);
+
+  // 检查会话超时
+  const checkSessionTimeout = useCallback(() => {
+    const lastActivity = localStorage.getItem('last_activity_timestamp');
+    const now = Date.now();
+    
+    if (!lastActivity) {
+      handleLogout();
+      return;
+    }
+    
+    const timeSinceLastActivity = now - parseInt(lastActivity);
+    const timeRemaining = Math.max(0, SESSION_TIMEOUT - timeSinceLastActivity);
+    
+    setSessionTimeRemaining(timeRemaining);
+    
+    if (timeSinceLastActivity > SESSION_TIMEOUT) {
+      handleLogout();
+      return;
+    }
+    
+    const shouldShowWarning = timeRemaining <= WARNING_THRESHOLD && timeRemaining > 0;
+    setShowSessionWarning(shouldShowWarning);
+  }, [handleLogout]);
+
+  // 延长会话
+  const extendSession = useCallback(() => {
+    localStorage.setItem('last_activity_timestamp', Date.now().toString());
+    setShowSessionWarning(false);
+    setSessionTimeRemaining(SESSION_TIMEOUT);
+  }, []);
+
+  // 更新活动时间
+  const updateActivity = useCallback(() => {
+    localStorage.setItem('last_activity_timestamp', Date.now().toString());
+    if (showSessionWarning) {
+      setShowSessionWarning(false);
+    }
+  }, [showSessionWarning]);
+
+  // 设置活动监听器
+  useEffect(() => {
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    const handleActivity = () => {
+      updateActivity();
+    };
+
+    events.forEach(event => {
+      document.addEventListener(event, handleActivity, true);
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, handleActivity, true);
+      });
+    };
+  }, [updateActivity]);
+
+  // 会话超时检查
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      checkSessionTimeout();
+    }, 60000); // 每分钟检查一次
+
+    return () => clearInterval(checkInterval);
+  }, [checkSessionTimeout]);
+
+  const refreshUser = useCallback(async () => {
+    // 防止重复调用，但允许在登录成功后调用
+    if (loading && !user) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // 使用TokenManager的统一认证状态检查
+      const authStatus = await tokenManager.checkAuthStatus();
+      
+      if (!authStatus.isValid) {
+        console.warn('认证状态无效:', authStatus.error);
+        
+        // 简化认证失败处理：直接清除状态，不进行任何刷新操作
+        setUser(null);
+        setProfile(null);
+        setPermissions(null);
+        setError(null); // 不设置错误状态，让路由自然处理
+        setLoading(false);
+        return;
+      }
+      
+      const sessionUser = authStatus.user;
+      
+      if (sessionUser) {
+        setUser(sessionUser);
+        
+        // 获取用户 profile 信息
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('users_profile')
+            .select('*')
+            .eq('user_id', sessionUser.id)
+            .single();
+          
+          if (profileError) {
+            setError(profileError.message);
+            setProfile(null);
+          } else {
+            setProfile(profileData);
+            // 获取权限信息
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              
+              // 使用安全的JWT解析
+              let isSuperAdmin = false;
+              
+              if (session?.access_token) {
+                const tokenPayload = safeParseJWT(session.access_token);
+                isSuperAdmin = tokenPayload?.role === 'service_role';
+              }
+              
+              const { data: roles } = await supabase.rpc('get_user_roles', { p_user_id: sessionUser.id });
+              const userRoles = roles || [];
+              
+              const hasAdminRole = userRoles.some((r: any) => r.role_name === 'admin') || false;
+              
+              let manageableOrganizations: string[] = [];
+              
+              if (isSuperAdmin || hasAdminRole) {
+                const { data: allOrgs } = await supabase
+                  .from('organizations')
+                  .select('id')
+                  .order('name');
+                
+                manageableOrganizations = allOrgs?.map(o => o.id) || [];
+              } else {
+                const { data: managedOrgIds } = await supabase.rpc('get_managed_org_ids', { 
+                  admin_id: sessionUser.id 
+                });
+                
+                if (managedOrgIds && managedOrgIds.length > 0) {
+                  manageableOrganizations = managedOrgIds.map((org: any) => org.org_id);
+                }
+              }
+              
+              const permissionsData: UserPermissions = {
+                manageableOrganizations,
+                isSuperAdmin,
+                isDepartmentAdmin: manageableOrganizations.length > 0,
+                userRoles
+              };
+              
+              setPermissions(permissionsData);
+            } catch (permErr) {
+              console.error('获取权限信息失败:', permErr);
+              setPermissions(null);
+            }
+          }
+          
+        } catch (profileErr) {
+          setError('获取用户信息失败');
+          setProfile(null);
+        }
+      } else {
+        setUser(null);
+        setProfile(null);
+        setPermissions(null);
+      }
+    } catch (err) {
+      console.error('refreshUser: 刷新失败', err);
+      setError(err instanceof Error ? err.message : '获取用户信息失败');
+      setUser(null);
+      setProfile(null);
+      setPermissions(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []); // 移除loading依赖，避免循环调用
+
+  // 清除用户缓存
+  const clearUserCache = useCallback(() => {
+    localStorage.removeItem('last_activity_timestamp');
+  }, []);
+
+  useEffect(() => {
+    // 简化的初始化逻辑，避免循环
+    const initUser = async () => {
+      try {
+        // 直接检查认证状态，不进行复杂的刷新
+        const authStatus = await tokenManager.checkAuthStatus();
+        
+        if (authStatus.isValid && authStatus.user) {
+          setUser(authStatus.user);
+          setLoading(false);
+          
+          // 获取用户 profile 信息（简化版本，不触发复杂的权限检查）
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from('users_profile')
+              .select('*')
+              .eq('user_id', authStatus.user.id)
+              .single();
+            
+            if (!profileError && profileData) {
+              setProfile(profileData);
+            }
+          } catch (profileErr) {
+            // 初始化时获取profile失败，但不影响登录
+          }
+        } else {
+          setUser(null);
+          setProfile(null);
+          setPermissions(null);
+          setLoading(false);
+        }
+      } catch (error) {
+        // 网络错误或其他异常时，确保loading状态正确
+        console.error('初始化用户状态失败:', error);
+        setUser(null);
+        setProfile(null);
+        setPermissions(null);
+        setLoading(false);
+      }
+    };
+    
+    // 直接初始化，不设置延迟
+    initUser();
+    
+    // 启动token管理器的自动刷新和认证状态监听
+    const stopAutoRefresh = tokenManager.startAutoRefresh();
+    
+    // 使用统一的token管理器监听认证状态变化
+    const unsubscribe = tokenManager.addAuthStateListener((event, session) => {
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        // 立即更新用户状态，不检查用户ID差异
+        setUser(session.user);
+        setLoading(false);
+        
+        // 异步获取用户 profile 信息，不阻塞登录跳转
+        const fetchProfile = async () => {
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from('users_profile')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single();
+            
+            if (!profileError && profileData) {
+              setProfile(profileData);
+            }
+          } catch (profileErr) {
+            console.error('获取用户profile失败:', profileErr);
+          }
+        };
+        
+        // 立即执行，不等待
+        fetchProfile();
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setProfile(null);
+        setPermissions(null);
+        setSessionTimeRemaining(0);
+        setShowSessionWarning(false);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      stopAutoRefresh();
+    };
+  }, []); // 移除refreshUser依赖，避免循环
+
+  const value: UserContextType = {
+    user,
+    profile,
+    permissions,
+    loading,
+    error,
+    refreshUser,
+    clearUserCache,
+    sessionTimeRemaining,
+    isSessionExpired: sessionTimeRemaining <= 0,
+  };
+
+  return (
+    <UserContext.Provider value={value}>
+      {children}
+      <SessionTimeoutWarning
+        isVisible={showSessionWarning}
+        timeRemaining={sessionTimeRemaining}
+        onExtend={extendSession}
+        onLogout={handleLogout}
+      />
+    </UserContext.Provider>
+  );
+};
+
+export const useUser = () => {
+  const context = useContext(UserContext);
+  if (context === undefined) {
+    throw new Error('useUser must be used within a UserProvider');
+  }
+  return context;
+};

@@ -1,0 +1,533 @@
+.followups-calendar-view {
+  padding: 0;
+  background: transparent;
+}
+
+.calendar-filters {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+  border-radius: 8px 8px 0 0;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-weight: 500;
+  color: #595959;
+  white-space: nowrap;
+}
+
+.calendar-container {
+  padding: 0;
+}
+
+/* 日历单元格样式 */
+.calendar-cell {
+  min-height: 80px;
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  position: relative;
+  background: transparent;
+}
+
+/* Badge事件列表样式 */
+.events {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.events li {
+  margin-bottom: 2px;
+  line-height: 1.2;
+}
+
+.events .ant-badge {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+}
+
+.events .ant-badge-status-text {
+  font-size: 10px;
+  color: #262626;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+
+
+
+
+
+
+/* 事件卡片样式 */
+.event-card {
+  margin-bottom: 8px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.event-card:hover {
+  border-color: #1890ff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+}
+
+.event-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.event-header strong {
+  font-size: 14px;
+  color: #262626;
+}
+
+.event-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.detail-label {
+  font-weight: 500;
+  color: #595959;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.detail-row span:last-child {
+  color: #262626;
+  flex: 1;
+}
+
+/* 模态框样式 */
+.ant-modal-content {
+  border-radius: 8px;
+}
+
+.ant-modal-header {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 24px;
+}
+
+.ant-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #262626;
+}
+
+.ant-modal-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 列表样式 */
+.ant-list-item {
+  padding: 0;
+  border: none;
+  margin-bottom: 12px;
+}
+
+.ant-list-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 标签样式 */
+.ant-tag {
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 2px 8px;
+  height: auto;
+  line-height: 1.4;
+}
+
+/* 空状态样式 */
+.ant-empty {
+  padding: 40px 0;
+}
+
+.ant-empty-description {
+  color: #8c8c8c;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .followups-calendar-view {
+    padding: 16px;
+  }
+  
+  .calendar-filters {
+    padding: 12px 16px;
+  }
+  
+  .calendar-filters .ant-space {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filter-item {
+    justify-content: space-between;
+  }
+  
+  .calendar-container {
+    padding: 16px;
+  }
+  
+  .calendar-cell {
+    min-height: 60px;
+  }
+  
+  .events .ant-badge-status-text {
+    font-size: 9px;
+  }
+}
+
+/* 加载状态样式 */
+.ant-spin-container {
+  min-height: 400px;
+}
+
+/* 日历网格样式优化 */
+.ant-picker-calendar {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 确保日历单元格支持sticky定位 */
+.ant-picker-calendar-date {
+  position: relative;
+  overflow: visible;
+}
+
+.ant-picker-calendar-date .ant-picker-calendar-date-content {
+  position: relative;
+  overflow: visible;
+  margin-top: -24px;
+}
+
+.ant-picker-calendar-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.ant-picker-calendar-date {
+  border: 1px solid #f0f0f0;
+  transition: all 0.2s;
+}
+
+.ant-picker-calendar-date:hover {
+  background: #f6f6f6;
+}
+
+.ant-picker-calendar-date-today {
+  background: #e6f7ff;
+  border-color: #1890ff;
+}
+
+.ant-picker-calendar-date-selected {
+  background: #1890ff;
+  border-color: #1890ff;
+}
+
+.ant-picker-calendar-date-selected .ant-picker-calendar-date-value {
+  color: white;
+}
+
+/* 状态颜色 */
+.ant-badge-status-success {
+  background: #52c41a;
+}
+
+.ant-badge-status-processing {
+  background: #1890ff;
+}
+
+.ant-badge-status-warning {
+  background: #faad14;
+}
+
+.ant-badge-status-error {
+  background: #ff4d4f;
+}
+
+.ant-badge-status-default {
+  background: #d9d9d9;
+}
+
+/* 修改标准日期显示，添加条数信息 */
+.ant-picker-calendar-date-value {
+  position: relative;
+}
+
+/* 为有事件的日期添加条数前缀 */
+.calendar-cell[data-event-count]:not([data-event-count="0"]) .ant-picker-calendar-date-value::before {
+  content: "共" attr(data-event-count) "条 ";
+  color: #8c8c8c;
+  font-weight: normal;
+  font-size: 12px;
+  margin-right: 2px;
+  display: inline;
+}
+
+
+
+/* 日历单元格样式 */
+.calendar-cell {
+  position: relative;
+  min-height: 60px;
+  overflow: hidden;
+}
+
+/* 覆盖Ant Design Calendar的默认日期样式 */
+.ant-picker-calendar-date {
+  position: relative;
+}
+
+/* 条数信息头部样式 */
+.count-header {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-bottom: 4px;
+  text-align: center;
+  position: relative;
+  z-index: 5;
+}
+
+.count-text {
+  color: #1890ff;
+  font-size: 11px;
+  font-weight: 500;
+  display: block;
+  line-height: 1.2;
+  text-align: left;
+}
+
+/* 日历弹窗样式 */
+.calendar-modal-content {
+  width: 100%;
+}
+
+.modal-header-stats {
+  display: flex;
+  align-items: center;
+  padding: 16px 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+
+.stats-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.stats-value {
+  font-size: 16px;
+  color: #1890ff;
+  font-weight: 600;
+}
+
+.stage-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* 表格样式优化 */
+.ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+  color: #262626;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #f6ffed;
+}
+
+/* 弹窗标题样式 */
+.ant-modal-header {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 24px;
+}
+
+.ant-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #262626;
+}
+
+.ant-modal-body {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+/* 取消日历元素的外边距 */
+.ant-picker-calendar {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+
+
+/* 为Calendar组件添加的no-margin-calendar类 */
+.no-margin-calendar {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.no-margin-calendar .ant-picker-calendar {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 确保所有日历容器都没有外边距 */
+.followups-calendar-view,
+.calendar-container {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 强制去除Modal body的外边距，覆盖内联样式 */
+.ant-modal-body[style*="padding: 24px"] {
+  padding: 0 !important;
+}
+
+.ant-modal-body[style*="padding: 24px;"] {
+  padding: 0 !important;
+}
+
+/* 确保Modal body没有外边距 */
+.ant-modal-body {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 取消日历表格的外边距 */
+.ant-picker-content table {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-collapse: collapse;
+}
+
+.ant-picker-content table td,
+.ant-picker-content table th {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none;
+}
+
+/* 取消日历面板的外边距 */
+.ant-picker-panel-container {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ant-picker-calendar .ant-picker-panel {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ant-picker-calendar .ant-picker-date-panel {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ant-picker-calendar .ant-picker-body {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ant-picker-calendar .ant-picker-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ant-picker-calendar .ant-picker-calendar-date {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ant-picker-calendar .ant-picker-calendar-date-inner {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ant-picker-calendar .ant-picker-calendar-date-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 确保日历容器没有外边距 */
+.calendar-container .ant-spin-nested-loading {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.calendar-container .ant-spin-container {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 取消表格行的外边距 */
+.ant-picker-content thead tr th,
+.ant-picker-content tbody tr td {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 取消日历单元格的外边距 */
+.ant-picker-cell {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ant-picker-cell-inner {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+
+ 
