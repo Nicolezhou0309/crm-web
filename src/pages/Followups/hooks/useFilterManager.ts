@@ -83,9 +83,7 @@ export const useFilterManager = () => {
       const updated = { ...prev };
       if (value !== undefined && Array.isArray(updated[field])) {
         // 如果是数组，移除特定值
-        const originalLength = updated[field].length;
         updated[field] = updated[field].filter((v: any) => v !== value);
-        const newLength = updated[field].length;
         
         
         

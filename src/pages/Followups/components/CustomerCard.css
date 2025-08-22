@@ -1,0 +1,446 @@
+/* 客户卡片样式 - 自适应高度版本 */
+.customer-card {
+  border-radius: 12px;
+  box-shadow: none;
+  border: 1px solid #f0f0f0;
+  transition: none; /* 移除过渡动画，减少重绘 */
+  overflow: visible; /* 改为visible，允许内容扩展 */
+  background: #ffffff; /* 简化背景，减少绘制复杂度 */
+  cursor: pointer;
+  user-select: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: auto; /* 允许高度自适应 */
+  max-height: none; /* 移除最大高度限制，允许内容扩展 */
+  box-sizing: border-box; /* 确保padding不影响总高度 */
+  break-inside: avoid;
+  display: flex;
+  flex-direction: column;
+  /* 自适应高度优化 - 移除冲突的flex设置 */
+  align-self: auto; /* 允许卡片高度自适应，不强制拉伸 */
+  /* 性能优化 */
+  contain: layout style paint; /* 隔离绘制和布局 */
+  transform: translateZ(0); /* 启用硬件加速 */
+  backface-visibility: hidden; /* 避免背面绘制 */
+  justify-content: flex-start; /* 确保内容从顶部开始排列 */
+  /* 确保flex布局正确工作 */
+}
+
+.customer-card:hover {
+  box-shadow: none;
+  transform: none;
+  border-color: #f0f0f0;
+}
+
+.customer-card:active {
+  transform: none;
+  box-shadow: none;
+}
+
+/* 添加点击提示 */
+.customer-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  transition: background-color 0.2s ease;
+  pointer-events: none;
+  /* 确保伪元素不影响布局 */
+  z-index: 1;
+}
+
+.customer-card:active::after {
+  background: rgba(24, 144, 255, 0.05);
+}
+
+/* 卡片头部 */
+.customer-card .card-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  margin-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  padding: 12px 12px 8px 12px; /* 与content保持一致的左右padding */
+  transition: all 0.3s ease;
+  position: relative;
+  flex-shrink: 0; /* 防止头部被压缩 */
+  height: auto; /* 自适应高度 */
+  min-height: 60px; /* 减少最小高度，允许更多收缩 */
+  box-sizing: border-box;
+  flex: 0 0 auto; /* 头部固定大小，不参与flex伸缩 */
+}
+
+/* 卡片内容 */
+.customer-card .card-content {
+  flex: 0 1 auto; /* 不强制扩展，允许收缩 */
+  padding: 8px 8px 8px 0px; /* 减少左右padding，让icon更靠近边缘 */
+  overflow: visible; /* 允许内容自然扩展 */
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%; /* 确保内容容器填满卡片宽度 */
+  /* 自适应高度优化 */
+  min-height: 0; /* 允许内容收缩 */
+  flex-shrink: 1; /* 允许内容收缩 */
+  padding-left: 16px;
+  padding-right: 8px;
+  height: auto; /* 自适应高度 */
+  /* 确保内容区域能够正确扩展 */
+  position: relative;
+  /* 当没有内容时允许收缩 */
+  flex-basis: auto;
+}
+
+/* 信息行容器 - 普通容器，每行一个column */
+.customer-card .info-columns {
+  display: flex;
+  flex-direction: column; /* 垂直布局 */
+  gap: 4px; /* 统一行间距 */
+  overflow: visible; /* 允许内容自然扩展 */
+  width: 100%; /* 确保容器填满父元素宽度 */
+  margin: 0; /* 移除默认margin，与header保持一致 */
+  padding: 0; /* 移除默认padding，与header保持一致 */
+  /* 自适应高度优化 */
+  height: auto; /* 自适应高度 */
+  min-height: 0; /* 允许容器收缩到最小 */
+  /* 确保容器能够正确扩展 */
+  position: relative;
+}
+
+/* 当没有数据时的特殊样式 */
+.customer-card .info-columns:empty {
+  min-height: 0;
+  height: 0;
+  padding: 0;
+  margin: 0;
+}
+
+/* 当没有数据时隐藏整个内容区域 */
+.customer-card .card-content:has(.info-columns:empty) {
+  display: none;
+}
+
+/* 使用类名方式隐藏空内容区域 */
+.customer-card .card-content.empty-content {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+
+
+
+
+.customer-card .info-icon {
+  font-size: 13px; /* 稍微减少icon大小 */
+  color: #1890ff;
+  line-height: 1;
+}
+
+
+/* 信息行 */
+.customer-card .info-row {
+  display: flex;
+  flex-direction: row; /* 改为水平布局 */
+  align-items: center; /* 改为垂直居中对齐 */
+  margin-bottom: 0;
+  min-height: 20px; /* 增加最小高度，提供更好的视觉空间 */
+  line-height: 1.4; /* 增加行高，提高可读性 */
+  gap: 0px; /* 减少标签和值之间的水平间距，与上面保持一致 */
+  width: 100%; /* 确保行填满容器宽度 */
+  flex-shrink: 0; /* 防止行被压缩 */
+}
+
+.customer-card .info-label {
+  font-size: 12px;
+  color: #878787;
+  display: flex;
+  align-items: center; /* 垂直居中 */
+  justify-content: center; /* 水平居中 */
+  margin-right: 8px;
+}
+
+.customer-card .info-icon {
+  font-size: 12px;
+  color: #666;
+}
+
+.customer-card .info-value {
+  flex: 1;
+  font-size: 12px;
+  color: #141414;
+  word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* 最多显示2行 */
+  -webkit-box-orient: vertical;
+  line-height: 1.4; /* 与info-row保持一致 */
+  min-width: 0; /* 确保flex子元素能够收缩 */
+  text-align: left; /* 内容左对齐 */
+}
+
+.customer-card .remark-value {
+  color: #141414; /* 改成和上方info一样的颜色 */
+  font-style: italic;
+}
+
+/* 客户详情 */
+.customer-card .customer-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+/* 线索编号和阶段标签行 */
+.customer-card .lead-header-row {
+  display: flex;
+  align-items: baseline; /* 改为基线对齐，解决文本对齐问题 */
+  justify-content: space-between;
+  margin: 0 0 8px 0;
+  gap: 8px;
+  min-height: 20px; /* 确保行有足够的高度 */
+}
+
+/* 线索编号样式 - 左对齐，加粗 */
+.customer-card .lead-id {
+  font-size: 14px; /* 改为14px */
+  font-weight: 700; /* 加粗 */
+  color: #333; /* 加深颜色，增强可读性 */
+  line-height: 1.2;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  display: flex;
+  align-items: center; /* 确保内容垂直居中 */
+  height: 100%; /* 填满父容器高度 */
+}
+
+/* 阶段标签样式 */
+.customer-card .stage-tag {
+  background: #333333; /* 深灰色背景，类似截图中的样式 */
+  border: none; /* 移除边框 */
+  border-radius: 16px; /* 更圆润的圆角，类似药丸形状 */
+  padding: 4px 12px; /* 增加内边距，让标签更饱满 */
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff; /* 白色文字，确保在深色背景上的可读性 */
+  line-height: 1.2;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15); /* 更明显的阴影效果 */
+  display: flex;
+  align-items: center; /* 确保内容垂直居中 */
+  justify-content: center; /* 水平居中 */
+  height: 20px; /* 调整高度，与文本基线对齐 */
+  margin-top: 1px; /* 微调位置，确保与文本基线对齐 */
+  transition: all 0.2s ease; /* 添加平滑过渡效果 */
+}
+
+/* 不同阶段的标签颜色 - 深色主题 */
+.customer-card .stage-pending .stage-tag {
+  background: #1a365d; /* 深蓝色 */
+  color: #ffffff;
+}
+
+.customer-card .stage-confirm .stage-tag {
+  background: #22543d; /* 深绿色 */
+  color: #ffffff;
+}
+
+.customer-card .stage-invite .stage-tag {
+  background: #744210; /* 深橙色 */
+  color: #ffffff;
+}
+
+.customer-card .stage-visited .stage-tag {
+  background: #553c9a; /* 深紫色 */
+  color: #ffffff;
+}
+
+.customer-card .stage-win .stage-tag {
+  background: #22543d; /* 深绿色 */
+  color: #ffffff;
+}
+
+.customer-card .stage-lose .stage-tag {
+  background: #742a2a; /* 深红色 */
+  color: #ffffff;
+}
+
+/* 移除不再使用的customer-name样式 */
+
+.customer-card .contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 联系信息行样式 */
+.customer-card .contact-row {
+  display: flex;
+  align-items: center;
+  gap: 16px; /* 手机号和微信号之间的间距 */
+  flex-wrap: wrap; /* 如果空间不够可以换行 */
+}
+
+.customer-card .customer-phone,
+.customer-card .customer-wechat {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.2;
+  white-space: nowrap; /* 防止文字换行 */
+}
+
+.customer-card .contact-icon {
+  font-size: 12px; /* 调整为12px，与文字协调 */
+  flex-shrink: 0;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* 阶段样式 */
+.customer-card .stage-pending {
+  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+}
+
+.customer-card .stage-confirm {
+  background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
+}
+
+.customer-card .stage-invite {
+  background: linear-gradient(135deg, #fff7e6 0%, #ffd591 100%);
+}
+
+.customer-card .stage-visited {
+  background: linear-gradient(135deg, #f9f0ff 0%, #efdbff 100%);
+}
+
+.customer-card .stage-win {
+  background: linear-gradient(135deg, #f6ffed 0%, #b7eb8f 100%);
+}
+
+.customer-card .stage-lose {
+  background: linear-gradient(135deg, #fff2f0 0%, #ffccc7 100%);
+}
+
+/* 响应式设计 - 仅区分大屏幕和小屏幕 */
+/* 小屏幕断点：768px以下 */
+@media (max-width: 768px) {
+  .customer-card .lead-header-row {
+    gap: 6px;
+    margin: 0 0 6px 0;
+  }
+  
+  .customer-card .lead-id {
+    font-size: 13px;
+  }
+  
+  .customer-card .stage-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+  
+  .customer-card .customer-phone,
+  .customer-card .customer-wechat {
+    font-size: 13px;
+  }
+  
+  .customer-card .contact-icon {
+    font-size: 11px;
+  }
+  
+  .customer-card .contact-row {
+    gap: 12px; /* 小屏幕下减少间距 */
+  }
+
+  
+  /* 小屏幕保持双栏布局，但调整间距 */
+  .customer-card .info-columns.two-column-layout {
+    grid-template-columns: 1fr 1fr; /* 保持双栏 */
+    gap: 6px 8px; /* 行间距6px, 列间距8px，适应小屏幕 */
+  }
+  
+
+  .customer-card .full-width-row {
+    grid-column: 1 / -1; /* 保持跨列显示 */
+    margin-top: 2px;
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 480px) {
+  .customer-card .lead-id {
+    font-size: 14px;
+    margin: 0 0 4px 0;
+  }
+  
+  .customer-card .customer-phone,
+  .customer-card .customer-wechat {
+    font-size: 14px;
+  }
+  
+  .customer-card .contact-icon {
+    font-size: 14px;
+  }
+  
+  .customer-card .contact-row {
+    gap: 8px; /* 超小屏幕下进一步减少间距 */
+  }
+  
+}
+
+/* 加载占
+符样式 */
+.customer-card.loading-placeholder {
+  background: #f5f5f5;
+  border: 1px solid #e8e8e8;
+}
+
+.loading-shimmer {
+  background: #f0f0f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.loading-line {
+  background: #e0e0e0;
+  border-radius: 4px;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 1;
+  }
+}

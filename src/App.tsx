@@ -71,6 +71,9 @@ import TailwindTest from './components/TailwindTest';
 
 const { Sider, Content, Header } = Layout;
 
+// 直接导入手机端组件
+import MobileFollowups from './pages/Followups/mobile';
+
 // 响应式跟进记录组件
 const ResponsiveFollowups: React.FC = () => {
   const [isMobile, setIsMobile] = React.useState(false);
@@ -94,13 +97,7 @@ const ResponsiveFollowups: React.FC = () => {
 
   // 根据屏幕尺寸渲染不同组件
   if (isMobile) {
-    // 动态导入手机端组件
-    const MobileFollowups = React.lazy(() => import('./pages/Followups/mobile'));
-    return (
-      <React.Suspense fallback={<div>加载中...</div>}>
-        <MobileFollowups />
-      </React.Suspense>
-    );
+    return <MobileFollowups />;
   }
 
   // 桌面端使用原有组件

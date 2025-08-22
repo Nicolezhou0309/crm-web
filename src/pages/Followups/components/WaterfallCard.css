@@ -1,0 +1,397 @@
+/* 小红书风格瀑布流卡片样式 */
+.waterfall-card {
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  background: #ffffff;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 16px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  break-inside: avoid;
+  
+  /* 性能优化 */
+  contain: layout style paint;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
+.waterfall-card.loaded {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.waterfall-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.waterfall-card:active {
+  transform: translateY(-2px) scale(1.01);
+  transition: transform 0.1s ease;
+}
+
+/* 封面区域 */
+.card-cover {
+  position: relative;
+  height: 160px; /* 固定封面高度，类似小红书 */
+  overflow: hidden;
+}
+
+.cover-gradient {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.cover-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* 线索编号徽章 */
+.lead-id-badge {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  align-self: flex-start;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 阶段徽章 */
+.stage-badge {
+  align-self: flex-end;
+  align-items: flex-end;
+  display: flex;
+}
+
+.stage-indicator {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.stage-indicator.stage-pending {
+  color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
+  border-color: rgba(24, 144, 255, 0.3);
+}
+
+.stage-indicator.stage-confirm {
+  color: #52c41a;
+  background: rgba(82, 196, 26, 0.1);
+  border-color: rgba(82, 196, 26, 0.3);
+}
+
+.stage-indicator.stage-invite {
+  color: #fa8c16;
+  background: rgba(250, 140, 22, 0.1);
+  border-color: rgba(250, 140, 22, 0.3);
+}
+
+.stage-indicator.stage-visited {
+  color: #722ed1;
+  background: rgba(114, 46, 209, 0.1);
+  border-color: rgba(114, 46, 209, 0.3);
+}
+
+.stage-indicator.stage-win {
+  color: #52c41a;
+  background: rgba(82, 196, 26, 0.1);
+  border-color: rgba(82, 196, 26, 0.3);
+}
+
+.stage-indicator.stage-lose {
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.1);
+  border-color: rgba(255, 77, 79, 0.3);
+}
+
+/* 分类标签 */
+.category-tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  color: white;
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 卡片主体 */
+.card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 联系信息区域 */
+.contact-section {
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 12px;
+}
+
+.contact-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.customer-phone,
+.customer-wechat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #666;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+
+.contact-icon {
+  font-size: 12px;
+  color: #999;
+}
+
+/* 信息网格 */
+.info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.info-icon {
+  font-size: 14px;
+  color: #666;
+  min-width: 16px;
+}
+
+.info-text {
+  font-size: 13px;
+  color: #333;
+  flex: 1;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* 备注区域 */
+.remark-section {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 12px;
+  border-left: 3px solid #e6f7ff;
+}
+
+.remark-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.remark-icon {
+  font-size: 12px;
+}
+
+.remark-content {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3; /* 最多显示3行 */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 小红书风格的互动栏 */
+.interaction-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 4px;
+}
+
+.interaction-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #f8f9fa;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.interaction-item:hover {
+  background: #e6f7ff;
+  transform: scale(1.05);
+}
+
+.interaction-icon {
+  font-size: 14px;
+  color: #666;
+}
+
+.interaction-count {
+  font-size: 12px;
+  color: #999;
+  font-weight: 500;
+}
+
+/* 点赞动画效果 */
+.interaction-item:active .interaction-icon {
+  transform: scale(1.2);
+  transition: transform 0.1s ease;
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .waterfall-card {
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .card-cover {
+    height: 140px;
+  }
+  
+  .cover-content {
+    padding: 10px;
+  }
+  
+  .lead-id-badge {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  
+  .stage-indicator {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+  
+  .card-body {
+    padding: 12px;
+    gap: 10px;
+  }
+  
+  .contact-row {
+    gap: 8px;
+  }
+  
+  .customer-phone,
+  .customer-wechat {
+    font-size: 12px;
+    padding: 3px 6px;
+  }
+  
+  .info-text {
+    font-size: 12px;
+  }
+  
+  .remark-content {
+    font-size: 12px;
+    -webkit-line-clamp: 2; /* 小屏幕显示2行 */
+  }
+  
+  .interaction-item {
+    padding: 4px 8px;
+  }
+  
+  .interaction-icon {
+    font-size: 12px;
+  }
+  
+  .interaction-count {
+    font-size: 11px;
+  }
+}
+
+/* 加载状态 */
+.waterfall-card.loading {
+  pointer-events: none;
+}
+
+.waterfall-card.loading .card-cover {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading-shimmer 1.5s infinite;
+}
+
+@keyframes loading-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* 性能优化的动画 */
+@media (prefers-reduced-motion: reduce) {
+  .waterfall-card,
+  .waterfall-card:hover,
+  .interaction-item {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .waterfall-card {
+    border: 2px solid #333;
+  }
+  
+  .stage-indicator {
+    border: 1px solid #333;
+  }
+  
+  .interaction-bar {
+    border-top: 2px solid #333;
+  }
+}

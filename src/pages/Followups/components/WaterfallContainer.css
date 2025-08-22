@@ -1,0 +1,324 @@
+/* 小红书风格瀑布流容器样式 */
+.waterfall-container {
+  position: relative;
+  width: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  background: #f8f9fa;
+  min-height: 200px;
+  
+  /* 性能优化 */
+  contain: layout style paint;
+  transform: translateZ(0);
+}
+
+.waterfall-container.loading {
+  overflow: hidden;
+}
+
+/* 调试信息 */
+.debug-info {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  z-index: 1000;
+  max-width: 300px;
+}
+
+.debug-info details {
+  margin: 0;
+}
+
+.debug-info summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.debug-info pre {
+  margin: 8px 0 0 0;
+  font-size: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 骨架屏样式 */
+.skeleton-card {
+  position: absolute;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-cover {
+  height: 160px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-line {
+  height: 12px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* 空状态样式 */
+.waterfall-empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #999;
+  width: 100%;
+  max-width: 300px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #666;
+}
+
+.empty-description {
+  font-size: 14px;
+  color: #999;
+  line-height: 1.5;
+}
+
+/* 网格线（开发模式） */
+.waterfall-grid-lines {
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.grid-line {
+  position: absolute;
+  top: 0;
+  border: 1px dashed rgba(255, 0, 0, 0.3);
+  border-top: none;
+  border-bottom: none;
+  opacity: 0.5;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .waterfall-container {
+    padding: 12px;
+  }
+  
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+  
+  .empty-title {
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+  
+  .empty-description {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .waterfall-container {
+    padding: 8px;
+  }
+  
+  .skeleton-content {
+    padding: 12px;
+    gap: 6px;
+  }
+  
+  .skeleton-line {
+    height: 10px;
+  }
+  
+  .empty-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+  }
+  
+  .empty-title {
+    font-size: 15px;
+  }
+  
+  .empty-description {
+    font-size: 12px;
+  }
+}
+
+/* 平滑滚动 */
+.waterfall-container {
+  scroll-behavior: smooth;
+}
+
+/* 优化GPU加速 */
+.waterfall-container > * {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* 减少重绘区域 */
+.skeleton-card,
+.waterfall-card {
+  contain: layout style paint;
+}
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .waterfall-container {
+    background: #ffffff;
+  }
+  
+  .skeleton-card {
+    border: 2px solid #333;
+  }
+  
+  .grid-line {
+    border-color: rgba(0, 0, 0, 0.8);
+  }
+}
+
+/* 减少动画模式 */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-card,
+  .skeleton-cover,
+  .skeleton-line {
+    animation: none;
+  }
+  
+  .waterfall-container {
+    scroll-behavior: auto;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .waterfall-container {
+    background: white;
+    padding: 0;
+  }
+  
+  .debug-info,
+  .waterfall-grid-lines {
+    display: none;
+  }
+  
+  .skeleton-card {
+    display: none;
+  }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .waterfall-container {
+    background: #1a1a1a;
+  }
+  
+  .skeleton-card {
+    background: #2a2a2a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .skeleton-cover,
+  .skeleton-line {
+    background: linear-gradient(90deg, #333 25%, #444 50%, #333 75%);
+    background-size: 200% 100%;
+  }
+  
+  .empty-title {
+    color: #ccc;
+  }
+  
+  .empty-description {
+    color: #999;
+  }
+}
+
+/* 无障碍支持 */
+.waterfall-container:focus-within {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+
+/* iOS Safari优化 */
+@supports (-webkit-touch-callout: none) {
+  .waterfall-container {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* 内容安全区域（刘海屏适配） */
+@supports (padding: max(0px)) {
+  .waterfall-container {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+}
+
+/* 性能监控 */
+.waterfall-container[data-performance="true"] {
+  position: relative;
+}
+
+.waterfall-container[data-performance="true"]::before {
+  content: attr(data-items-count) " items";
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  z-index: 1000;
+}

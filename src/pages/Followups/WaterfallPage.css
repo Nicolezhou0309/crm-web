@@ -1,0 +1,385 @@
+/* 小红书风格瀑布流页面样式 */
+.waterfall-page {
+  height: 100vh;
+  background: #f8f9fa;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.waterfall-layout {
+  height: 100%;
+  background: transparent;
+}
+
+/* 头部工具栏 */
+.waterfall-header {
+  background: #ffffff;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 0;
+  height: 64px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+}
+
+.waterfall-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 20px;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-button {
+  color: #666;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.back-button:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.refresh-button,
+.filter-button {
+  color: #666;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.refresh-button:hover,
+.filter-button:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+/* 内容区域 */
+.waterfall-content {
+  flex: 1;
+  padding: 0;
+  overflow: hidden;
+  background: #f8f9fa;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 搜索头部 */
+.search-header {
+  background: #ffffff;
+  border-bottom: 1px solid #f0f0f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  z-index: 90;
+  flex-shrink: 0;
+}
+
+/* 主瀑布流容器 */
+.main-waterfall {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  
+  /* 平滑滚动 */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  
+  /* 滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.main-waterfall::-webkit-scrollbar {
+  width: 6px;
+}
+
+.main-waterfall::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main-waterfall::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.main-waterfall::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 筛选抽屉样式 */
+.waterfall-filter-drawer .ant-drawer-header {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 24px;
+}
+
+.filter-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.filter-form {
+  padding: 8px 0;
+}
+
+.filter-form .ant-form-item {
+  margin-bottom: 20px;
+}
+
+.filter-form .ant-form-item-label > label {
+  font-weight: 500;
+  color: #333;
+}
+
+.filter-form .ant-select,
+.filter-form .ant-picker {
+  border-radius: 8px;
+}
+
+.filter-form .ant-select:hover,
+.filter-form .ant-picker:hover {
+  border-color: #1890ff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .waterfall-header {
+    height: 56px;
+  }
+  
+  .waterfall-toolbar {
+    padding: 0 16px;
+  }
+  
+  .page-title {
+    font-size: 16px;
+  }
+  
+  .toolbar-left {
+    gap: 8px;
+  }
+  
+  .back-button,
+  .refresh-button,
+  .filter-button {
+    padding: 6px 8px;
+  }
+  
+  .main-waterfall {
+    padding: 12px;
+  }
+  
+  .waterfall-filter-drawer .ant-drawer-header {
+    padding: 12px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .waterfall-header {
+    height: 50px;
+  }
+  
+  .waterfall-toolbar {
+    padding: 0 12px;
+  }
+  
+  .page-title {
+    font-size: 15px;
+  }
+  
+  .toolbar-right .ant-space {
+    gap: 4px !important;
+  }
+  
+  .refresh-button span,
+  .filter-button span {
+    display: none;
+  }
+  
+  .main-waterfall {
+    padding: 8px;
+  }
+  
+  .main-waterfall::-webkit-scrollbar {
+    width: 4px;
+  }
+}
+
+/* 小红书风格的主题色彩 */
+.waterfall-page {
+  --primary-color: #ff2442;
+  --secondary-color: #ff6b9d;
+  --accent-color: #ffc93c;
+  --background-color: #f8f9fa;
+  --card-background: #ffffff;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --border-color: #f0f0f0;
+  --shadow-light: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-heavy: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* 加载状态 */
+.waterfall-page.loading {
+  pointer-events: none;
+}
+
+.waterfall-page.loading .waterfall-header {
+  opacity: 0.8;
+}
+
+/* 动画效果 */
+.waterfall-page * {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* 无障碍支持 */
+.waterfall-page:focus-within {
+  outline: none;
+}
+
+.back-button:focus,
+.refresh-button:focus,
+.filter-button:focus {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .waterfall-page {
+    --primary-color: #ff2442;
+    --secondary-color: #ff6b9d;
+    --accent-color: #ffc93c;
+    --background-color: #1a1a1a;
+    --card-background: #2a2a2a;
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --border-color: #333333;
+    --shadow-light: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-heavy: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+  
+  .waterfall-page {
+    background: var(--background-color);
+  }
+  
+  .waterfall-header {
+    background: var(--card-background);
+    border-bottom-color: var(--border-color);
+  }
+  
+  .search-header {
+    background: var(--card-background);
+    border-bottom-color: var(--border-color);
+  }
+  
+  .page-title {
+    color: var(--text-primary);
+  }
+  
+  .back-button,
+  .refresh-button,
+  .filter-button {
+    color: var(--text-secondary);
+  }
+  
+  .back-button:hover,
+  .refresh-button:hover,
+  .filter-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+  }
+}
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .waterfall-header {
+    border-bottom: 2px solid #000;
+  }
+  
+  .search-header {
+    border-bottom: 2px solid #000;
+  }
+  
+  .back-button,
+  .refresh-button,
+  .filter-button {
+    border: 1px solid #333;
+  }
+}
+
+/* 减少动画模式 */
+@media (prefers-reduced-motion: reduce) {
+  .waterfall-page * {
+    transition: none;
+  }
+  
+  .main-waterfall {
+    scroll-behavior: auto;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .waterfall-header,
+  .search-header {
+    display: none;
+  }
+  
+  .waterfall-page {
+    background: white;
+  }
+  
+  .main-waterfall {
+    overflow: visible;
+    height: auto;
+    padding: 0;
+  }
+}
+
+/* iOS安全区域适配 */
+@supports (padding: max(0px)) {
+  .waterfall-toolbar {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+  
+  @media (max-width: 768px) {
+    .waterfall-toolbar {
+      padding-left: max(16px, env(safe-area-inset-left));
+      padding-right: max(16px, env(safe-area-inset-right));
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .waterfall-toolbar {
+      padding-left: max(12px, env(safe-area-inset-left));
+      padding-right: max(12px, env(safe-area-inset-right));
+    }
+  }
+}

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, message, Form, Select, Drawer, DatePicker } from 'antd';
+import { Layout, message, Form, Select, Drawer, DatePicker, Button, Space } from 'antd';
+import { ArrowLeftOutlined, FilterOutlined, ReloadOutlined } from '@ant-design/icons';
 import { FollowupStageDrawer } from './components/FollowupStageDrawer';
 import MobileHeader from './components/MobileHeader';
-import { CustomerCard } from './components/CustomerCard';
-import WaterfallPage from './WaterfallPage';
+import WaterfallContainer from './components/WaterfallContainer';
 import { useFollowupsData } from './hooks/useFollowupsData';
 import { useFilterManager } from './hooks/useFilterManager';
 import { useEnumData } from './hooks/useEnumData';
@@ -11,18 +11,21 @@ import { useFrequencyControl } from './hooks/useFrequencyControl';
 import { useAutoSave } from './hooks/useAutoSave';
 import { getServiceManager } from '../../components/Followups/services/ServiceManager';
 import { useUser } from '../../context/UserContext';
+import './WaterfallPage.css';
 
-
-import './mobile.css';
-
-const { Content } = Layout;
+const { Content, Header } = Layout;
 const { RangePicker } = DatePicker;
 
-interface MobileFollowupsProps {
+interface WaterfallPageProps {
   className?: string;
+  onBack?: () => void;
 }
 
-const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
+/**
+ * 小红书风格瀑布流跟进页面
+ * 基于现有的mobile组件，采用双列瀑布流布局
+ */
+const WaterfallPage: React.FC<WaterfallPageProps> = ({ className, onBack }) => {
   const { profile } = useUser();
   
   // 初始化服务管理器
@@ -49,17 +52,19 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
   
   // 筛选面板状态
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [currentFilters, setCurrentFilters] = useState<any>({});
   
-  // 视图模式状态
-  const [viewMode, setViewMode] = useState<'list' | 'waterfall'>('list');
+  // 瀑布流配置
+  const [waterfallConfig, setWaterfallConfig] = useState({
+    columnCount: 2,
+    gap: 16
+  });
   
   // 自动保存系统
   const autoSave = useAutoSave({
     maxRetries: 3,
     retryDelay: 1000
   });
-
-
 
   // 处理关键词搜索
   const handleKeywordSearch = useCallback((value: string) => {
@@ -77,7 +82,7 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
       
       followupsData?.refreshData?.(filtersWithKeyword);
     } catch (error) {
-      console.error('⚠️ [MobileFollowups] 关键词搜索错误:', error);
+      console.error('⚠️ [WaterfallPage] 关键词搜索错误:', error);
       message.error('搜索失败，请重试');
     }
   }, [filterManager, followupsData]);
@@ -97,7 +102,7 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
       delete filtersWithoutKeyword.p_keyword;
       followupsData?.refreshData?.(filtersWithoutKeyword);
     } catch (error) {
-      console.error('⚠️ [MobileFollowups] 关键词清除错误:', error);
+      console.error('⚠️ [WaterfallPage] 关键词清除错误:', error);
       message.error('清除搜索失败，请重试');
     }
   }, [filterManager, followupsData]);
@@ -108,21 +113,35 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
       const rpcFilters: any = {};
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== '') {
-                  const rpcKey = `p_${key}`;
-        rpcFilters[rpcKey] = Array.isArray(value) ? value : [value];
+          const rpcKey = `p_${key}`;
+          rpcFilters[rpcKey] = Array.isArray(value) ? value : [value];
         }
       });
       
+      setCurrentFilters(filters);
       filterManager?.setFilters?.(rpcFilters);
       followupsData?.refreshData?.(rpcFilters);
-      setFilterDrawerOpen(false);
     } catch (error) {
-      console.error('⚠️ [MobileFollowups] 筛选条件变更错误:', error);
+      console.error('⚠️ [WaterfallPage] 筛选条件变更错误:', error);
       message.error('筛选失败，请重试');
     }
   }, [filterManager, followupsData]);
 
+  // 清除所有筛选条件
+  const handleClearFilters = useCallback(() => {
+    setCurrentFilters({});
+    filterManager?.setFilters?.({});
+    filterManager?.setKeywordSearch?.('');
+    followupsData?.refreshData?.({});
+    setFilterDrawerOpen(false);
+    message.success('已清除所有筛选条件');
+  }, [filterManager, followupsData]);
 
+  // 处理数据刷新
+  const handleRefresh = useCallback(() => {
+    followupsData?.refreshData?.();
+    message.success('数据已刷新');
+  }, [followupsData]);
 
   // 处理卡片点击编辑
   const handleCardEdit = useCallback((record: any) => {
@@ -170,21 +189,53 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
     setCurrentEditRecord(null);
   }, []);
 
-  // 处理视图模式切换
-  const handleViewModeChange = useCallback((mode: 'list' | 'waterfall') => {
-    setViewMode(mode);
+  // 响应式调整列数
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      let columnCount = 2;
+      let gap = 16;
+      
+      if (width < 480) {
+        columnCount = 1;
+        gap = 12;
+      } else if (width < 768) {
+        columnCount = 2;
+        gap = 12;
+      } else if (width < 1200) {
+        columnCount = 2;
+        gap = 16;
+      } else {
+        columnCount = 3;
+        gap = 20;
+      }
+      
+      setWaterfallConfig({ columnCount, gap });
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // 渲染筛选面板
   const renderFilterPanel = () => (
     <Drawer
-      title="筛选条件"
+      title={
+        <div className="filter-drawer-header">
+          <span>筛选条件</span>
+          <Button type="link" size="small" onClick={handleClearFilters}>
+            清除全部
+          </Button>
+        </div>
+      }
       placement="right"
       open={filterDrawerOpen}
       onClose={() => setFilterDrawerOpen(false)}
-      width={300}
+      width={320}
+      className="waterfall-filter-drawer"
     >
-      <Form layout="vertical">
+      <Form layout="vertical" className="filter-form">
         <Form.Item label="跟进阶段">
           <Select
             placeholder="选择跟进阶段"
@@ -193,7 +244,8 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
               label: item.label
             }))}
             allowClear
-            onChange={(value) => handleFilterChange({ followupstage: value })}
+            value={currentFilters.followupstage}
+            onChange={(value) => handleFilterChange({ ...currentFilters, followupstage: value })}
           />
         </Form.Item>
         
@@ -205,7 +257,8 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
               label: item.label
             }))}
             allowClear
-            onChange={(value) => handleFilterChange({ scheduledcommunity: value })}
+            value={currentFilters.scheduledcommunity}
+            onChange={(value) => handleFilterChange({ ...currentFilters, scheduledcommunity: value })}
           />
         </Form.Item>
         
@@ -217,7 +270,8 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
               label: item.label
             }))}
             allowClear
-            onChange={(value) => handleFilterChange({ customerprofile: value })}
+            value={currentFilters.customerprofile}
+            onChange={(value) => handleFilterChange({ ...currentFilters, customerprofile: value })}
           />
         </Form.Item>
         
@@ -229,7 +283,8 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
               label: item.label
             }))}
             allowClear
-            onChange={(value) => handleFilterChange({ source: value })}
+            value={currentFilters.source}
+            onChange={(value) => handleFilterChange({ ...currentFilters, source: value })}
           />
         </Form.Item>
         
@@ -239,11 +294,16 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
             onChange={(dates) => {
               if (dates) {
                 handleFilterChange({
+                  ...currentFilters,
                   followupdaterange: [
                     dates[0]?.toISOString(),
                     dates[1]?.toISOString()
                   ]
                 });
+              } else {
+                const newFilters = { ...currentFilters };
+                delete newFilters.followupdaterange;
+                handleFilterChange(newFilters);
               }
             }}
           />
@@ -252,69 +312,76 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
     </Drawer>
   );
 
+  // 渲染头部工具栏
+  const renderToolbar = () => (
+    <div className="waterfall-toolbar">
+      <div className="toolbar-left">
+        {onBack && (
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={onBack}
+            className="back-button"
+          >
+            返回
+          </Button>
+        )}
+        <div className="page-title">客户跟进 · 瀑布流</div>
+      </div>
+      
+      <div className="toolbar-right">
+        <Space>
+          <Button
+            type="text"
+            icon={<ReloadOutlined />}
+            onClick={handleRefresh}
+            className="refresh-button"
+          >
+            刷新
+          </Button>
+          <Button
+            type="text"
+            icon={<FilterOutlined />}
+            onClick={() => setFilterDrawerOpen(true)}
+            className="filter-button"
+          >
+            筛选
+          </Button>
+        </Space>
+      </div>
+    </div>
+  );
+
   return (
-    <div className={`mobile-followups ${className || ''}`}>
-      <Layout>
-        <Content className="mobile-content">
-          {/* 头部组件 */}
-          <MobileHeader
-            keywordSearch={filterManager?.keywordSearch}
-            onKeywordChange={handleKeywordChange}
-            onKeywordSearch={handleKeywordSearch}
-            onKeywordClear={handleKeywordClear}
-            onFilterClick={() => setFilterDrawerOpen(true)}
-            viewMode={viewMode}
-            onViewModeChange={handleViewModeChange}
+    <div className={`waterfall-page ${className || ''}`}>
+      <Layout className="waterfall-layout">
+        {/* 头部工具栏 */}
+        <Header className="waterfall-header">
+          {renderToolbar()}
+        </Header>
+
+        <Content className="waterfall-content">
+          {/* 搜索头部 */}
+          <div className="search-header">
+            <MobileHeader
+              keywordSearch={filterManager?.keywordSearch}
+              onKeywordChange={handleKeywordChange}
+              onKeywordSearch={handleKeywordSearch}
+              onKeywordClear={handleKeywordClear}
+              onFilterClick={() => setFilterDrawerOpen(true)}
+              showBackButton={false}
+            />
+          </div>
+
+          {/* 瀑布流容器 */}
+          <WaterfallContainer
+            data={followupsData?.data || []}
+            onCardEdit={handleCardEdit}
+            loading={followupsData?.loading}
+            columnCount={waterfallConfig.columnCount}
+            gap={waterfallConfig.gap}
+            className="main-waterfall"
           />
-
-          {/* 主要内容区域 */}
-          {viewMode === 'list' ? (
-            /* 客户卡片列表容器 - 使用Flexbox列容器实现瀑布流 */
-            <div className="cards-container">
-              <div className="cards-grid">
-
-
-                {/* 左列容器 */}
-                <div className="waterfall-column" id="column-1">
-                  {followupsData?.data?.filter((_, index) => index % 2 === 0).map((record: any) => (
-                    <div key={record.id} className="card-grid-item">
-                      <CustomerCard
-                        record={record}
-                        onEdit={handleCardEdit}
-                      />
-                    </div>
-                  ))}
-                </div>
-                
-                {/* 右列容器 */}
-                <div className="waterfall-column" id="column-2">
-                  {followupsData?.data?.filter((_, index) => index % 2 === 1).map((record: any) => (
-                    <div key={record.id} className="card-grid-item">
-                      <CustomerCard
-                        record={record}
-                        onEdit={handleCardEdit}
-                      />
-                    </div>
-                  ))}
-                </div>
-                
-                {/* 空状态 */}
-                {(!followupsData?.data || followupsData.data.length === 0) && (
-                  <div className="empty-state">
-                    <p>暂无跟进记录</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            /* 瀑布流视图 */
-            <div className="waterfall-container">
-              <WaterfallPage 
-                className="mobile-waterfall"
-                onBack={() => handleViewModeChange('list')}
-              />
-            </div>
-          )}
         </Content>
       </Layout>
 
@@ -340,4 +407,4 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
   );
 };
 
-export default MobileFollowups;
+export default WaterfallPage;
