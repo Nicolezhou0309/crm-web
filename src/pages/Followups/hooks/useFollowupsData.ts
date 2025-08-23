@@ -12,6 +12,7 @@ export const useFollowupsData = () => {
   const [data, setData] = useState<FollowupRecord[]>([]);
   const [localData, setLocalData] = useState<FollowupRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false); // 加载更多状态
   const [pagination, setPagination] = useState<PaginationState>({ 
     current: 1, 
     pageSize: 20, 
@@ -20,15 +21,18 @@ export const useFollowupsData = () => {
   const [forceUpdate, setForceUpdate] = useState(0);
 
   const localDataRef = useRef<FollowupRecord[]>([]);
+  const currentFiltersRef = useRef<FilterParams>({}); // 存储当前筛选条件
 
   // 初始化时自动加载数据
   useEffect(() => {
     // 延迟调用，确保 fetchFollowups 已经定义
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (typeof fetchFollowups === 'function') {
         fetchFollowups();
       }
-    }, 0);
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []); // 保持空依赖，避免循环依赖
 
   // 允许的参数（与SQL函数声明一致）
@@ -48,9 +52,16 @@ export const useFollowupsData = () => {
   const fetchFollowups = useCallback(async (
     filters: FilterParams = {},
     page = pagination.current,
-    pageSize = pagination.pageSize
+    pageSize = pagination.pageSize,
+    append = false // 是否追加数据而不是替换
   ) => {
-    setLoading(true);
+    // 如果是加载更多，使用 loadingMore 状态
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
       const p_limit = pageSize;
       const p_offset = (page - 1) * pageSize;
@@ -139,7 +150,25 @@ export const useFollowupsData = () => {
         return;
       }
 
-      const total = responseData && responseData.length > 0 ? Number(responseData[0].total_count) : 0;
+      // 调试信息：查看API返回的数据结构
+      console.log('API返回数据:', responseData);
+      if (responseData && responseData.length > 0) {
+        console.log('第一条数据:', responseData[0]);
+        console.log('total_count字段:', responseData[0].total_count);
+      }
+
+      // 尝试获取总数，如果不存在则使用实际数据长度
+      let total = 0;
+      if (responseData && responseData.length > 0) {
+        if (responseData[0].total_count !== undefined && responseData[0].total_count !== null) {
+          total = Number(responseData[0].total_count);
+        } else {
+          // 如果没有total_count字段，使用实际数据长度
+          total = responseData.length;
+          console.log('使用实际数据长度作为总数:', total);
+        }
+      }
+      console.log('最终使用的total:', total);
       
       // 前端校验：只保留id非空且唯一的行
       const filtered = (responseData || []).filter((item: any): item is FollowupRecord => !!item && !!item.id);
@@ -177,17 +206,35 @@ export const useFollowupsData = () => {
         return processedItem;
       });
       
-      setData(safeData);
-      setLocalData(safeData);
-      localDataRef.current = safeData;
-      setPagination(prev => ({ ...prev, total, current: page, pageSize }));
+      // 根据是否追加数据来更新状态
+      if (append) {
+        // 追加数据：合并现有数据和新数据，去重
+        const existingIds = new Set(data.map(item => item.id));
+        const newData = safeData.filter(item => !existingIds.has(item.id));
+        const combinedData = [...data, ...newData];
+        
+        setData(combinedData);
+        setLocalData(combinedData);
+        localDataRef.current = combinedData;
+        setPagination(prev => ({ ...prev, total, current: page, pageSize }));
+      } else {
+        // 替换数据：重置为第一页
+        setData(safeData);
+        setLocalData(safeData);
+        localDataRef.current = safeData;
+        setPagination(prev => ({ ...prev, total, current: 1, pageSize }));
+      }
+      
+      // 保存当前筛选条件
+      currentFiltersRef.current = filters;
       
     } catch (error) {
       message.error('获取跟进记录失败');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [pagination.current, pagination.pageSize]); // 添加正确的依赖
+  }, [pagination.current, pagination.pageSize]); // 移除 data 依赖，避免循环依赖
 
   const updateLocalData = useCallback((id: string, field: keyof FollowupRecord, value: any) => {
     const currentData = localDataRef.current;
@@ -207,6 +254,41 @@ export const useFollowupsData = () => {
     );
   }, []);
 
+  // 检查是否还有更多数据
+  const hasMore = pagination.total > 0 && data.length < pagination.total;
+  
+  // 调试信息
+  console.log('hasMore计算:', {
+    total: pagination.total,
+    dataLength: data.length,
+    hasMore: hasMore
+  });
+
+  // 加载更多数据
+  const loadMore = useCallback(async () => {
+    console.log('loadMore被调用:', {
+      loadingMore,
+      hasMore,
+      currentPage: pagination.current,
+      dataLength: data.length,
+      total: pagination.total
+    });
+    
+    if (loadingMore || !hasMore) {
+      console.log('loadMore被阻止:', { loadingMore, hasMore });
+      return;
+    }
+    
+    const nextPage = pagination.current + 1;
+    const hasMoreData = data.length < pagination.total;
+    
+    console.log('准备加载更多:', { nextPage, hasMoreData });
+    
+    if (hasMoreData) {
+      await fetchFollowups(currentFiltersRef.current, nextPage, pagination.pageSize, true);
+    }
+  }, [loadingMore, hasMore, pagination.current, pagination.pageSize, pagination.total, data.length, fetchFollowups]);
+
   const refreshData = useCallback((newFilters?: any) => {
     if (newFilters) {
       // 如果有新的筛选条件，使用新条件获取数据
@@ -225,11 +307,14 @@ export const useFollowupsData = () => {
     data,
     localData,
     loading,
+    loadingMore,
     pagination,
     forceUpdate,
+    hasMore,
     fetchFollowups,
     updateLocalData,
     refreshData,
+    loadMore,
     resetPagination,
     setPagination,
     setData,

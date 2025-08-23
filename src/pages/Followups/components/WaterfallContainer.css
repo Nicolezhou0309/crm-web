@@ -16,35 +16,7 @@
   overflow: hidden;
 }
 
-/* 调试信息 */
-.debug-info {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  z-index: 1000;
-  max-width: 300px;
-}
 
-.debug-info details {
-  margin: 0;
-}
-
-.debug-info summary {
-  cursor: pointer;
-  user-select: none;
-}
-
-.debug-info pre {
-  margin: 8px 0 0 0;
-  font-size: 10px;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
 
 /* 骨架屏样式 */
 .skeleton-card {
@@ -127,25 +99,7 @@
   line-height: 1.5;
 }
 
-/* 网格线（开发模式） */
-.waterfall-grid-lines {
-  position: absolute;
-  top: 0;
-  left: 16px;
-  right: 16px;
-  bottom: 0;
-  pointer-events: none;
-  z-index: 1;
-}
 
-.grid-line {
-  position: absolute;
-  top: 0;
-  border: 1px dashed rgba(255, 0, 0, 0.3);
-  border-top: none;
-  border-bottom: none;
-  opacity: 0.5;
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {
@@ -223,9 +177,7 @@
     border: 2px solid #333;
   }
   
-  .grid-line {
-    border-color: rgba(0, 0, 0, 0.8);
-  }
+
 }
 
 /* 减少动画模式 */
@@ -248,10 +200,7 @@
     padding: 0;
   }
   
-  .debug-info,
-  .waterfall-grid-lines {
-    display: none;
-  }
+
   
   .skeleton-card {
     display: none;

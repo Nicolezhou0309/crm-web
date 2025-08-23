@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, message, Form, Select, Drawer, DatePicker } from 'antd';
+import { Layout, message, Form, Select, Drawer, DatePicker, Spin } from 'antd';
 import { FollowupStageDrawer } from './components/FollowupStageDrawer';
 import MobileHeader from './components/MobileHeader';
 import { CustomerCard } from './components/CustomerCard';
@@ -9,11 +9,12 @@ import { useFilterManager } from './hooks/useFilterManager';
 import { useEnumData } from './hooks/useEnumData';
 import { useFrequencyControl } from './hooks/useFrequencyControl';
 import { useAutoSave } from './hooks/useAutoSave';
+import { useInfiniteScroll } from './hooks/useInfiniteScroll';
 import { getServiceManager } from '../../components/Followups/services/ServiceManager';
 import { useUser } from '../../context/UserContext';
 
 
-import './mobile.css';
+
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -24,6 +25,8 @@ interface MobileFollowupsProps {
 
 const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
   const { profile } = useUser();
+  
+
   
   // 初始化服务管理器
   useEffect(() => {
@@ -42,6 +45,43 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
   const filterManager = useFilterManager();
   const enumData = useEnumData();
   const frequencyControl = useFrequencyControl();
+  
+  // 无限滚动逻辑
+  const handleLoadMore = useCallback(async () => {
+    if (followupsData?.hasMore && !followupsData?.loadingMore) {
+      console.log('触发加载更多');
+      await followupsData.loadMore();
+    }
+  }, [followupsData?.hasMore, followupsData?.loadingMore, followupsData?.loadMore]);
+
+  // 智能瀑布流分配逻辑
+  const distributeCardsToColumns = useCallback((data: any[]) => {
+    if (!data || data.length === 0) return { leftColumn: [], rightColumn: [] };
+    
+    const leftColumn: any[] = [];
+    const rightColumn: any[] = [];
+    
+    data.forEach((record, index) => {
+      // 如果左列卡片数量少于等于右列，添加到左列
+      if (leftColumn.length <= rightColumn.length) {
+        leftColumn.push(record);
+      } else {
+        // 否则添加到右列
+        rightColumn.push(record);
+      }
+    });
+    
+    return { leftColumn, rightColumn };
+  }, []);
+
+
+
+  const { sentinelRef } = useInfiniteScroll({
+    onLoadMore: handleLoadMore,
+    hasMore: followupsData?.hasMore || false,
+    loading: followupsData?.loadingMore || false,
+    rootMargin: '200px' // 增加rootMargin，提前触发加载
+  });
   
   // 抽屉状态
   const [stageDrawerOpen, setStageDrawerOpen] = useState(false);
@@ -235,7 +275,7 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
         
         <Form.Item label="跟进时间范围">
           <RangePicker
-            style={{ width: '100%' }}
+            className="w-full"
             onChange={(dates) => {
               if (dates) {
                 handleFilterChange({
@@ -253,9 +293,9 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
   );
 
   return (
-    <div className={`mobile-followups ${className || ''}`}>
-      <Layout>
-        <Content className="mobile-content">
+    <div className="min-h-screen flex flex-col p-0 m-0">
+      <Layout className="p-0 m-0">
+        <Content className="p-0 m-0 flex-1 flex flex-col !p-0 !m-0">
           {/* 头部组件 */}
           <MobileHeader
             keywordSearch={filterManager?.keywordSearch}
@@ -270,14 +310,13 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
           {/* 主要内容区域 */}
           {viewMode === 'list' ? (
             /* 客户卡片列表容器 - 使用Flexbox列容器实现瀑布流 */
-            <div className="cards-container">
-              <div className="cards-grid">
-
-
+            <div className="flex flex-col w-full">
+              {/* 双列容器 */}
+              <div className="flex flex-row w-full gap-4 items-start justify-center">
                 {/* 左列容器 */}
-                <div className="waterfall-column" id="column-1">
-                  {followupsData?.data?.filter((_, index) => index % 2 === 0).map((record: any) => (
-                    <div key={record.id} className="card-grid-item">
+                <div className="flex flex-col w-[calc(50%-8px)]" id="column-1">
+                  {distributeCardsToColumns(followupsData?.data || []).leftColumn.map((record: any) => (
+                    <div key={record.id} className="mb-4">
                       <CustomerCard
                         record={record}
                         onEdit={handleCardEdit}
@@ -287,9 +326,9 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
                 </div>
                 
                 {/* 右列容器 */}
-                <div className="waterfall-column" id="column-2">
-                  {followupsData?.data?.filter((_, index) => index % 2 === 1).map((record: any) => (
-                    <div key={record.id} className="card-grid-item">
+                <div className="flex flex-col w-[calc(50%-8px)]" id="column-2">
+                  {distributeCardsToColumns(followupsData?.data || []).rightColumn.map((record: any) => (
+                    <div key={record.id} className="mb-4">
                       <CustomerCard
                         record={record}
                         onEdit={handleCardEdit}
@@ -297,18 +336,41 @@ const MobileFollowups: React.FC<MobileFollowupsProps> = ({ className }) => {
                     </div>
                   ))}
                 </div>
-                
-                {/* 空状态 */}
-                {(!followupsData?.data || followupsData.data.length === 0) && (
-                  <div className="empty-state">
-                    <p>暂无跟进记录</p>
-                  </div>
-                )}
               </div>
+              
+              {/* 空状态 - 移到列外部 */}
+              {(!followupsData?.data || followupsData.data.length === 0) && !followupsData?.loading && (
+                <div className="flex flex-col items-center justify-center h-50 text-center text-gray-500 text-sm p-0 m-0">
+                  <p className="p-0 m-0">暂无跟进记录</p>
+                </div>
+              )}
+              
+              {/* 无限滚动哨兵元素 - 移到列外部 */}
+              {followupsData?.data && followupsData.data.length > 0 && (
+                <div 
+                  ref={sentinelRef} 
+                  className="w-full h-5 opacity-0 pointer-events-none"
+                />
+              )}
+              
+              {/* 加载更多状态 - 移到列外部 */}
+              {followupsData?.loadingMore && (
+                <div className="flex items-center justify-center p-0 m-0 text-gray-500 text-sm bg-gray-50 rounded-lg shadow-sm w-full text-center">
+                  <Spin size="small" />
+                  <span className="p-0 m-0">加载更多...</span>
+                </div>
+              )}
+              
+              {/* 无更多记录提示 */}
+              {followupsData?.data && followupsData.data.length > 0 && !followupsData?.hasMore && !followupsData?.loadingMore && (
+                <div className="flex flex-col items-center justify-center h-50 text-center text-gray-500 text-sm p-0 m-0">
+                  <p className="p-0 m-0">— 已显示全部记录 —</p>
+                </div>
+              )}
             </div>
           ) : (
             /* 瀑布流视图 */
-            <div className="waterfall-container">
+            <div className="flex-1 overflow-hidden bg-gray-50">
               <WaterfallPage 
                 className="mobile-waterfall"
                 onBack={() => handleViewModeChange('list')}

@@ -96,23 +96,7 @@ export const WaterfallContainer: React.FC<WaterfallContainerProps> = ({
         padding: `${gap}px`
       }}
     >
-      {/* 调试信息（开发环境） */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="debug-info" style={{ gridColumn: '1 / -1' }}>
-          <details>
-            <summary>网格布局调试信息</summary>
-            <pre>
-              {JSON.stringify({
-                columnCount,
-                gap,
-                containerWidth,
-                columnWidth,
-                itemsCount: data.length
-              }, null, 2)}
-            </pre>
-          </details>
-        </div>
-      )}
+
 
       {/* 加载状态 */}
       {loading && renderSkeletonItems()}
@@ -134,26 +118,7 @@ export const WaterfallContainer: React.FC<WaterfallContainerProps> = ({
         </div>
       )}
 
-      {/* 网格背景线（仅开发环境显示） */}
-      {process.env.NODE_ENV === 'development' && containerWidth > 0 && (
-        <div className="waterfall-grid-lines" style={{ gridColumn: '1 / -1' }}>
-          {Array.from({ length: columnCount }, (_, index) => {
-            const left = index * (columnWidth + gap);
-            
-            return (
-              <div
-                key={`grid-${index}`}
-                className="grid-line"
-                style={{
-                  left,
-                  width: columnWidth,
-                  height: '100%'
-                }}
-              />
-            );
-          })}
-        </div>
-      )}
+
     </div>
   );
 };

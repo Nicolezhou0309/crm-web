@@ -5,6 +5,135 @@
   flex-direction: column;
   /* 隐藏全局顶部导航条，避免重复 */
   padding-top: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 确保整个页面容器没有间距 */
+.min-h-screen {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 强制覆盖 Ant Design Layout Content 的默认边距 */
+.ant-layout-content {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 确保所有 Layout 组件都没有边距 */
+.ant-layout {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 强制移除所有可能的间距 */
+.mobile-followups * {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 恢复必要的间距 */
+.mobile-followups .customer-card {
+  margin-bottom: 16px !important;
+}
+
+.mobile-followups .mobile-header {
+  padding: 20px 16px 12px 16px !important;
+}
+
+/* 确保瀑布流列没有间距 */
+.mobile-followups .waterfall-column {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 强制双列布局的全局规则 */
+.cards-container {
+  width: 100% ;
+  max-width: 100% ;
+  overflow: visible ;
+  /* 确保容器居中 */
+  display: flex ;
+  justify-content: center ;
+  /* 添加左右内边距，让内容真正居中 */
+  padding: 0;
+}
+
+/* 全局设置双列布局的列间距为16px */
+.flex.flex-row {
+  gap: 16px !important;
+}
+
+/* 确保双列布局有正确的间距 */
+.flex.flex-row.gap-4 {
+  gap: 16px !important;
+}
+
+.cards-grid {
+  display: flex ;
+  flex-direction: row ;
+  width: 100% ;
+  max-width: 100% ;
+  overflow: visible ;
+  padding: 0 ;
+  gap: 16px ; /* 设置列间距为16px */
+  /* 瀑布流基础设置 */
+  align-items: flex-start ;
+  justify-content: center ;
+}
+
+.waterfall-column {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 0 0 calc(50% - 8px) !important; /* 固定宽度，不伸缩 */
+  min-width: 0 !important;
+  width: calc(50% - 8px) !important; /* 计算宽度，考虑gap */
+  max-width: calc(50% - 8px) !important; /* 最大宽度也是计算值 */
+  padding: 0 !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+}
+
+.card-grid-item {
+  width: 100% ;
+  margin-bottom: 16px ; /* 大屏幕下的卡片间距 */
+}
+
+.card-grid-item .customer-card {
+  width: 100% ;
+  height: auto ;
+}
+
+/* 无限滚动相关样式 */
+.loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #8c8c8c;
+  font-size: 14px;
+  background: #fafafa;
+  border-radius: 8px;
+  margin: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.no-more-data {
+  padding: 20px;
+  text-align: center;
+  color: #8c8c8c;
+  font-size: 14px;
+  background: #fafafa;
+  border-radius: 8px;
+  margin: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 无限滚动哨兵元素样式 */
+.infinite-scroll-sentinel {
+  height: 20px;
+  width: 100%;
 }
 
 /* 隐藏全局顶部导航条在mobile页面 */
@@ -13,12 +142,13 @@
 }
 
 .mobile-content {
-  padding: 0;
-  margin: 0;
+  padding: 0 !important;
+  margin: 0 !important;
   flex: 1;
   display: flex;
   flex-direction: column;
 }
+
 
 /* 移动端头部组件样式 */
 .mobile-header {
@@ -26,7 +156,7 @@
   top: 0;
   z-index: 100;
   background: #fff;
-  padding: 20px 16px 12px 16px; /* 增加顶部padding，补偿全局导航条的高度 */
+  padding: 20px 16px 12px 16px !important; /* 增加顶部padding，补偿全局导航条的高度 */
   border-bottom: 1px solid #f0f0f0;
   display: flex;
   justify-content: space-between;
@@ -34,6 +164,7 @@
   gap: 12px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.1);
   flex-wrap: wrap; /* 允许换行以适应视图切换组件 */
+  margin: 0 !important;
 }
 
 .header-search {
@@ -51,23 +182,7 @@
   gap: 8px;
 }
 
-/* 卡片容器 */
-.cards-container {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  position: relative;
-  padding: 0; /* 移除padding，避免空行 */
-  -webkit-overflow-scrolling: touch; /* iOS 滚动优化 */
-  /* 瀑布流优化 */
-  contain: layout style;
-  /* 确保内容从顶部开始 */
-  display: flex;
-  flex-direction: column;
-  /* 修复顶部对齐 */
-  align-items: stretch;
-  justify-content: flex-start;
-}
+
 
 /* 卡片列表 */
 .cards-list {
@@ -93,13 +208,13 @@
   margin: 8px 0;
 }
 
-/* 响应式设计 - 仅区分大屏幕和小屏幕 */
-/* 小屏幕断点：768px以下 */
+/* 响应式设计 - 仅区分大屏幕和手机屏幕 */
+/* 手机屏幕断点：768px以下 */
 @media (max-width: 768px) {
   .mobile-header {
-    padding: 16px 12px 8px 12px; /* 小屏幕下也增加顶部padding */
+    padding: 16px 12px 8px 12px;
     gap: 8px;
-    flex-direction: column; /* 小屏幕下改为垂直布局 */
+    flex-direction: column; /* 手机屏幕下改为垂直布局 */
     align-items: stretch;
   }
   
@@ -112,92 +227,44 @@
     justify-content: center; /* 居中显示 */
   }
   
-  .cards-container {
-    padding: 0;
-  }
-  
   .cards-list {
     gap: 12px;
     padding: 12px 0;
   }
-}
-
-/* 超小屏幕优化 */
-@media (max-width: 480px) {
-  .mobile-header {
-    padding: 10px 10px 6px 10px;
+  
+  /* 设置列间距为16px */
+  .flex.flex-row {
+    gap: 16px !important;
   }
   
-  .cards-container {
-    padding: 0px;
-  }
-  
-  .cards-list {
-    gap: 10px;
-    padding: 10px 0;
-  }
-  
-  /* 瀑布流两列布局样式 - 使用Flexbox列容器实现真正的瀑布流吸附 */
-  .cards-grid {
-    display: flex;
-    flex-direction: row;
-    gap: 12px; /* 列之间的间距 */
-    padding: 0; /* 移除padding，避免顶部空行 */
-    /* 瀑布流基础设置 */
-    align-items: flex-start; /* 列顶部对齐 */
-    justify-content: center; /* 列居中对齐 */
-    /* 容器设置 */
-    min-height: auto; /* 自适应高度，避免空行 */
-  }
-  
-  /* 瀑布流列容器样式 */
-  .waterfall-column {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0; /* 允许列收缩 */
-    padding: 0 6px; /* 列内边距 */
-    /* 确保没有多余空行 */
-    min-height: 0;
-    height: fit-content;
-    /* 修复顶部对齐问题 */
-    align-items: stretch;
-    justify-content: flex-start;
-    /* 调试样式 - 临时添加 */
-    background: rgba(255, 0, 0, 0.1); /* 红色半透明背景 */
-    border: 1px solid red; /* 红色边框 */
-  }
-
   .card-grid-item {
-    width: 100%; /* 填满列容器 */
-    min-height: 0; /* 允许内容收缩 */
-    /* 瀑布流优化 */
-    break-inside: avoid;
-    page-break-inside: avoid;
-    /* 确保卡片正确显示 */
-    height: fit-content;
-    /* 瀑布流位置控制 */
-    transition: all 0.3s ease; /* 平滑过渡效果 */
-    /* Flexbox 布局优化 */
-    flex-shrink: 0; /* 防止卡片收缩 */
-    margin-bottom: 12px; /* 卡片之间的垂直间距 */
-    /* 确保没有多余空行 */
-    display: block;
+    width: 100% !important;
+    margin-bottom: 8px !important; /* 减少卡片间距 */
   }
   
-  /* 确保卡片在瀑布流中正确显示 */
   .card-grid-item .customer-card {
-    width: 100%;
-    height: auto; /* 允许高度自适应 */
-    min-height: 40px; /* 进一步减少最小高度，避免空行 */
-    margin: 0; /* 移除默认margin */
-    /* 瀑布流优化 */
-    break-inside: avoid;
-    page-break-inside: avoid;
-    /* 瀑布流布局优化 */
-    display: block;
+    width: 100% !important;
+    height: auto !important;
   }
+  
+  /* 手机屏幕下的视图切换组件调整 */
+  .header-view-switch {
+    margin: 0 4px;
+  }
+  
+  .header-view-switch .ant-segmented-item {
+    min-width: 50px;
+    padding: 2px 6px;
+  }
+  
+  /* 手机屏幕下的瀑布流页面调整 */
+  .mobile-waterfall .main-waterfall {
+    padding: 12px 8px;
+  }
+  
 }
+
+
 
 /* 视图切换组件样式 */
 .header-view-switch {
@@ -256,98 +323,6 @@
   padding: 16px 12px;
 }
 
-/* 响应式调整 */
-@media (max-width: 480px) {
-  .mobile-header {
-    padding: 16px 12px 10px 12px;
-    gap: 8px;
-  }
-  
-  .header-view-switch {
-    margin: 0 4px;
-  }
-  
-  .header-view-switch .ant-segmented-item {
-    min-width: 50px;
-    padding: 2px 6px;
-  }
-  
-  .mobile-waterfall .main-waterfall {
-    padding: 12px 8px;
-  }
-  
-  /* 小屏幕下的瀑布流布局调整 */
-  .cards-grid {
-    padding: 8px 0;
-    gap: 8px; /* 减少列间距 */
-    /* 瀑布流基础设置 */
-    align-items: flex-start; /* 列顶部对齐 */
-    justify-content: center; /* 列居中对齐 */
-  }
-  
-  .card-grid-item .customer-card {
-    min-height: 40px; /* 进一步减少最小高度，避免空行 */
-    /* 小屏幕下的自适应优化 */
-    height: auto;
-    /* 瀑布流优化 */
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-  
-  /* 小屏幕下的卡片宽度调整 */
-  .card-grid-item {
-    width: 100%; /* 填满Grid单元格 */
-    align-self: start; /* 卡片顶部对齐 */
-    justify-self: stretch; /* 填满Grid单元格宽度 */
-  }
-}
 
-/* 超小屏幕时，视图切换放到第二行 */
-@media (max-width: 320px) {
-  .mobile-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .header-search {
-    order: 1;
-  }
-  
-  .header-view-switch {
-    order: 2;
-    margin: 0;
-    display: flex;
-    justify-content: center;
-  }
-  
-  .header-actions {
-    order: 3;
-    justify-content: center;
-  }
-  
-  /* 超小屏幕下改为单列瀑布流布局 */
-  .cards-grid {
-    grid-template-columns: 1fr; /* 单列 */
-    gap: 10px; /* 单列间距 */
-    /* 瀑布流基础设置 */
-    grid-auto-rows: min-content; /* 行高自适应内容 */
-    align-items: start; /* 卡片顶部对齐 */
-  }
-  
-  /* 超小屏幕下的卡片宽度调整 */
-  .card-grid-item {
-    width: 100%; /* 单列全宽 */
-    align-self: start; /* 卡片顶部对齐 */
-    justify-self: stretch; /* 填满Grid单元格宽度 */
-  }
-  
-  .card-grid-item .customer-card {
-    min-height: 40px; /* 进一步减少最小高度，避免空行 */
-    /* 超小屏幕下的自适应优化 */
-    height: auto;
-    /* 瀑布流优化 */
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-}
+
+

@@ -57,17 +57,6 @@ export const CustomerCard: React.FC<CustomerCardProps> = React.memo(({
     };
   }, [record.leadid, record.id, onRegister, onUnregister]);
 
-  // 调试信息
-  console.log('CustomerCard debug:', {
-    leadid: record.leadid,
-    hasAnyInfo,
-    majorcategory: majorcategory || 'null',
-    worklocation: worklocation || 'null',
-    expectedmoveindate: expectedmoveindate || 'null',
-    moveintime: moveintime || 'null',
-    userbudget: userbudget || 'null',
-    followupresult: followupresult || 'null'
-  });
 
   // 获取跟进阶段头部样式类名
   const getStageHeaderClass = (stage: string) => {

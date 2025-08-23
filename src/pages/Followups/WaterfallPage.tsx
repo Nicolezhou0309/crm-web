@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, message, Form, Select, Drawer, DatePicker, Button, Space } from 'antd';
+import { Layout, message, Form, Select, Drawer, DatePicker, Button, Space, Spin } from 'antd';
 import { ArrowLeftOutlined, FilterOutlined, ReloadOutlined } from '@ant-design/icons';
 import { FollowupStageDrawer } from './components/FollowupStageDrawer';
 import MobileHeader from './components/MobileHeader';
@@ -9,6 +9,7 @@ import { useFilterManager } from './hooks/useFilterManager';
 import { useEnumData } from './hooks/useEnumData';
 import { useFrequencyControl } from './hooks/useFrequencyControl';
 import { useAutoSave } from './hooks/useAutoSave';
+import { useInfiniteScroll } from './hooks/useInfiniteScroll';
 import { getServiceManager } from '../../components/Followups/services/ServiceManager';
 import { useUser } from '../../context/UserContext';
 import './WaterfallPage.css';
@@ -45,6 +46,20 @@ const WaterfallPage: React.FC<WaterfallPageProps> = ({ className, onBack }) => {
   const filterManager = useFilterManager();
   const enumData = useEnumData();
   const frequencyControl = useFrequencyControl();
+  
+  // 无限滚动逻辑
+  const handleLoadMore = useCallback(async () => {
+    if (followupsData?.hasMore && !followupsData?.loadingMore) {
+      await followupsData.loadMore();
+    }
+  }, [followupsData]);
+
+  const { sentinelRef } = useInfiniteScroll({
+    onLoadMore: handleLoadMore,
+    hasMore: followupsData?.hasMore || false,
+    loading: followupsData?.loadingMore || false,
+    rootMargin: '0px'
+  });
   
   // 抽屉状态
   const [stageDrawerOpen, setStageDrawerOpen] = useState(false);
@@ -382,6 +397,19 @@ const WaterfallPage: React.FC<WaterfallPageProps> = ({ className, onBack }) => {
             gap={waterfallConfig.gap}
             className="main-waterfall"
           />
+          
+          {/* 无限滚动哨兵元素 */}
+          <div ref={sentinelRef} style={{ height: '20px', width: '100%' }} />
+          
+          {/* 加载更多状态 */}
+          {followupsData?.loadingMore && (
+            <div className="loading-more" style={{ textAlign: 'center', padding: '20px' }}>
+              <Spin size="small" />
+              <span style={{ marginLeft: '8px' }}>加载更多...</span>
+            </div>
+          )}
+          
+
         </Content>
       </Layout>
 

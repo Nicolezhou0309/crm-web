@@ -98,6 +98,31 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* 无限滚动相关样式 */
+.loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #8c8c8c;
+  font-size: 14px;
+  background: #fafafa;
+  border-radius: 8px;
+  margin: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+
+
+/* 无限滚动哨兵元素样式 */
+.infinite-scroll-sentinel {
+  height: 20px;
+  width: 100%;
+}
+
+.main-waterfall {
   padding: 16px;
   
   /* 平滑滚动 */
