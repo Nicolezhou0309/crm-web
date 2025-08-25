@@ -27,7 +27,6 @@ export const getFollowupsTableFilters = (
   leadtypeFilters: any[],
   remarkFilters: any[],
   worklocationFilters: any[],
-  userbudgetFilters: any[],
   followupresultFilters: any[],
   majorcategoryFilters: any[],
   scheduledcommunityFilters: any[],
@@ -106,12 +105,12 @@ export const getFollowupsTableFilters = (
       createConfirmCallback('worklocation')
     ),
 
-    // 用户预算 - 多选筛选器
+    // 用户预算 - 范围筛选器
     userbudget: createFilterDropdown(
-      'select',
-      userbudgetFilters,
-      '选择用户预算',
-      200,
+      'numberRange',
+      undefined,
+      '输入预算范围',
+      240,
       createResetCallback('userbudget'),
       createConfirmCallback('userbudget')
     ),

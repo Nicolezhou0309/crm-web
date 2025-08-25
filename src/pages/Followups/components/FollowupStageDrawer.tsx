@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Drawer, Steps, Form, Button, message, Typography, Space, Divider, Tag } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 import { supabase } from '../../../supaClient';
@@ -25,6 +25,8 @@ interface FollowupStageDrawerProps {
   userratingEnum: any[];
   majorCategoryOptions: any[];
   metroStationOptions: any[];
+  // 禁用自动保存
+  disableAutoSave?: boolean;
 }
 
 // 跟进阶段配置 - 参考旧页面逻辑
@@ -60,6 +62,39 @@ const maskWechat = (wechat: string): string => {
   return wechat.length > 6 ? wechat.substring(0, 3) + '***' + wechat.substring(wechat.length - 3) : wechat;
 };
 
+// 🆕 处理级联选择器值，只保留最后一层字段值（与表格原位编辑逻辑保持一致）
+const processCascaderValue = (value: any, field: string): any => {
+  if (!value || !Array.isArray(value)) return value;
+  
+  // 对于工作地点和主分类字段，只保留最后一层值
+  if (field === 'worklocation' || field === 'majorcategory') {
+    if (value.length > 1) {
+      // 如果有两级选择，只保存第二级（最后一层）
+      return value[1];
+    } else if (value.length === 1) {
+      // 如果只有一级选择，保存第一级
+      return value[0];
+    }
+  }
+  
+  // 其他字段保持原值
+  return value;
+};
+
+// 🆕 处理表单值，确保级联选择器只保存最后一层值
+const processFormValues = (values: any): any => {
+  const processedValues = { ...values };
+  
+  // 处理级联选择器字段
+  ['worklocation', 'majorcategory'].forEach(field => {
+    if (processedValues[field] && Array.isArray(processedValues[field])) {
+      processedValues[field] = processCascaderValue(processedValues[field], field);
+    }
+  });
+  
+  return processedValues;
+};
+
 export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
   open,
   onClose,
@@ -87,6 +122,18 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
   // 🆕 签约记录相关状态 - 参考原页面逻辑
   const [dealsList, setDealsList] = useState<any[]>([]);
   const [dealsLoading, setDealsLoading] = useState(false);
+  
+  // 🆕 防止重复关闭的状态
+  const [isClosing, setIsClosing] = useState(false);
+  
+  // 🆕 防止重复保存的状态 - 使用useRef避免重新渲染时丢失
+  const hasAutoSavedRef = useRef(false);
+  
+  // 🆕 统一的关闭处理状态
+  const isClosingRef = useRef(false);
+  
+  // 🆕 手动保存状态 - 用于避免重复的保存成功提示
+  const hasManualSavedRef = useRef(false);
 
   // 当记录变化时，重置表单和步骤
   useEffect(() => {
@@ -98,6 +145,15 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
       
       // 🆕 获取签约记录 - 参考原页面逻辑
       fetchDealsList();
+      
+      // 🆕 重置自动保存标记，确保每次打开都能正常保存
+      hasAutoSavedRef.current = false;
+      
+      // 🆕 重置统一关闭标记
+      isClosingRef.current = false;
+      
+      // 🆕 重置手动保存标记
+      hasManualSavedRef.current = false;
     }
   }, [record, open]); // 移除form依赖，避免无限循环
 
@@ -151,8 +207,13 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
           }
         });
         
-        console.log('延迟设置表单初始值:', formValues);
         form.setFieldsValue(formValues);
+        
+        // 🆕 表单初始化完成后，重置自动保存标记
+        hasAutoSavedRef.current = false;
+        
+        // 🆕 表单初始化完成后，重置手动保存标记
+        hasManualSavedRef.current = false;
       }, 300); // 进一步增加延迟时间，确保表单组件完全渲染和字段绑定
       
       return () => clearTimeout(timer);
@@ -160,6 +221,89 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
   }, [form, record, open]);
 
   // 移除重复的useEffect，避免竞争条件
+  
+  // 🆕 移除复杂的表单监听逻辑，直接在handleClose中处理
+  
+  // 🆕 统一的关闭处理函数 - 包含自动保存逻辑
+  const handleUnifiedClose = async () => {
+    
+    try {
+      // 关闭前自动保存当前表单数据
+      if (record && form) {
+        
+        // 获取当前表单值，不进行验证（避免必填字段验证失败）
+        const values = form.getFieldsValue();
+        
+        // 🆕 处理表单值，确保级联选择器只保存最后一层值
+        const processedValues = processFormValues(values);
+        
+        // 检查是否有实际的数据变化
+        let hasChanges = false;
+        Object.keys(processedValues).forEach(key => {
+          if (processedValues[key] !== undefined && processedValues[key] !== null && processedValues[key] !== '') {
+            hasChanges = true;
+          }
+        });
+        
+        if (hasChanges) {
+          
+          // 构建更新对象，只包含有值的字段
+          const updateObj: any = {};
+          Object.keys(processedValues).forEach(key => {
+            if (processedValues[key] !== undefined && processedValues[key] !== null && processedValues[key] !== '') {
+              updateObj[key] = processedValues[key];
+            }
+          });
+          
+          // 处理日期字段
+          ['moveintime', 'scheduletime'].forEach(field => {
+            if (updateObj[field] && typeof updateObj[field]?.format === 'function') {
+              updateObj[field] = updateObj[field].format('YYYY-MM-DD HH:mm:ss');
+            }
+          });
+          
+          // 保存到数据库
+          const { error } = await supabase
+            .from('followups')
+            .update(updateObj)
+            .eq('id', record.id);
+          
+          if (error) {
+            message.warning('数据保存失败，请检查网络连接');
+          } else {
+            // 只有在没有手动保存过的情况下才显示自动保存提示
+            if (!hasManualSavedRef.current) {
+              message.success('数据已自动保存');
+            } else {
+            }
+            
+            // 通知父组件数据已更新，但不触发额外保存
+            // 只刷新数据，不再次保存
+            if (onSave) {
+              // 传递一个标记，告诉父组件这是关闭时的自动保存，不需要再次保存
+              onSave(record, { ...updateObj, _autoSaveOnClose: true });
+            }
+          }
+        } else {
+        }
+      } else {
+      }
+    } catch (error: any) {
+      message.warning('自动保存失败，请检查网络连接');
+    } finally {
+      
+      // 重置组件状态
+      setCurrentStep(0);
+      setCurrentStage('');
+      setDealsList([]);
+      setDealsLoading(false);
+      setAssignShowingLoading(false);
+      setEnableManualAssign(false);
+      
+      // 直接调用父组件的onClose
+      onClose();
+    }
+  };
 
   // 处理步骤切换 - 参考旧页面逻辑，只允许回到第一步
   const handleStepChange = (step: number) => {
@@ -196,7 +340,6 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
             }
           });
           
-          console.log('步骤切换时设置的表单值:', formValues);
           form.setFieldsValue(formValues);
         }, 100);
         
@@ -230,14 +373,12 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error('获取签约记录失败:', error);
         message.error('获取签约记录失败');
         return;
       }
       
       setDealsList(data || []);
     } catch (error) {
-      console.error('获取签约记录失败:', error);
       message.error('获取签约记录失败');
     } finally {
       setDealsLoading(false);
@@ -280,7 +421,6 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
             .single();
           nickname = userData?.nickname || String(assignedUserId);
         } catch (error) {
-          console.warn('⚠️ [带看分配] 获取用户昵称失败，使用ID作为昵称:', error);
         }
         
         // 手动分配模式下，直接使用指定的人员ID
@@ -288,7 +428,6 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
         
         // 验证人员ID
         if (!assignedUserIdResult) {
-          console.error('❌ [带看分配] 手动分配失败：无效的带看人员ID');
           message.error('带看人员选择无效');
           return;
         }
@@ -335,11 +474,6 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
         const { data: assignedUserId, error } = await supabase.rpc('assign_showings_user', { p_community: community });
         
         if (error || !assignedUserId) {
-          console.error('❌ [带看分配] 分配带看人员失败', {
-            error: error?.message,
-            assignedUserId,
-            community
-          });
           message.error('分配带看人员失败: ' + (error?.message || '无可用人员'));
           return;
         }
@@ -398,15 +532,18 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
       // 验证表单
       const values = await form.validateFields();
       
+      // 🆕 处理表单值，确保级联选择器只保存最后一层值
+      const processedValues = processFormValues(values);
+      
       // 格式化日期字段
       ['moveintime', 'scheduletime'].forEach(field => {
-        if (values[field] && typeof values[field]?.format === 'function') {
-          values[field] = values[field].format('YYYY-MM-DD HH:mm:ss');
+        if (processedValues[field] && typeof processedValues[field]?.format === 'function') {
+          processedValues[field] = processedValues[field].format('YYYY-MM-DD HH:mm:ss');
         }
       });
 
-      // 从values中移除不属于followups表的字段
-      const { assigned_showingsales, ...followupValues } = values;
+      // 从processedValues中移除不属于followups表的字段
+      const { assigned_showingsales, ...followupValues } = processedValues;
       
       // 合并额外字段（如阶段推进）
       const updateObj = { ...followupValues, ...additionalFields };
@@ -420,22 +557,23 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
       if (error) {
         throw error;
       }
-
-      message.success('保存成功');
+      
+      // 🆕 标记已手动保存，避免关闭时重复提示
+      hasManualSavedRef.current = true;
       
       // 通知父组件更新
       if (onSave) {
         onSave(record, updateObj);
       }
       
-      // 如果没有额外字段，则关闭抽屉
-      if (!additionalFields) {
-        onClose();
-      }
+      // 如果没有额外字段，则不自动关闭抽屉
+      // 让调用者决定是否关闭，避免重复保存
+      // if (!additionalFields) {
+      //   onClose();
+      // }
       
       return { success: true };
     } catch (error: any) {
-      console.error('保存失败:', error);
       const errorMessage = error.message || '未知错误';
       message.error('保存失败: ' + errorMessage);
       return { success: false, error: errorMessage };
@@ -444,77 +582,27 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
     }
   };
 
-  // 处理关闭
+  // 🆕 处理需要保存的关闭场景（如确认丢单、恢复状态等）
   const handleClose = async () => {
+    // 防止重复调用
+    if (isClosing) return;
+
+    
     try {
-      // 关闭前自动保存当前表单数据
-      if (record && form) {
-        // 获取当前表单值，不进行验证（避免必填字段验证失败）
-        const values = form.getFieldsValue();
-        console.log('关闭前自动保存的表单值:', values);
-        
-        // 检查是否有实际的数据变化
-        let hasChanges = false;
-        Object.keys(values).forEach(key => {
-          if (values[key] !== undefined && values[key] !== null && values[key] !== '') {
-            hasChanges = true;
-          }
-        });
-        
-        if (hasChanges) {
-          // 构建更新对象，只包含有值的字段
-          const updateObj: any = {};
-          Object.keys(values).forEach(key => {
-            if (values[key] !== undefined && values[key] !== null && values[key] !== '') {
-              updateObj[key] = values[key];
-            }
-          });
-          
-          // 处理日期字段
-          ['moveintime', 'scheduletime'].forEach(field => {
-            if (updateObj[field] && typeof updateObj[field]?.format === 'function') {
-              updateObj[field] = updateObj[field].format('YYYY-MM-DD HH:mm:ss');
-            }
-          });
-          
-          // 保存到数据库
-          const { error } = await supabase
-            .from('followups')
-            .update(updateObj)
-            .eq('id', record.id);
-          
-          if (error) {
-            console.error('关闭前自动保存失败:', error);
-            message.warning('数据保存失败，请检查网络连接');
-          } else {
-            console.log('关闭前自动保存成功:', updateObj);
-            message.success('数据已自动保存');
-            
-            // 通知父组件更新
-            if (onSave) {
-              onSave(record, updateObj);
-            }
-          }
-        }
-      }
+      setIsClosing(true);
+      
+      // 这里可以添加特定的保存逻辑，如果需要的话
+      // 目前直接调用统一关闭处理函数
+      
     } catch (error: any) {
-      console.error('关闭前自动保存过程中发生错误:', error);
-      message.warning('自动保存失败，请检查网络连接');
+      console.error('❌ [handleClose] 执行过程中发生错误:', error);
     } finally {
-      // 无论保存成功与否，都重置表单状态
-      form.resetFields();
-      form.setFieldsValue({});
       
-      // 重置组件状态
-      setCurrentStep(0);
-      setCurrentStage('');
-      setDealsList([]);
-      setDealsLoading(false);
-      setAssignShowingLoading(false);
-      setEnableManualAssign(false);
+      // 重置关闭状态
+      setIsClosing(false);
       
-      // 关闭抽屉
-      onClose();
+      // 调用统一关闭处理函数
+      handleUnifiedClose();
     }
   };
 
@@ -567,7 +655,6 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
       message.success('已恢复状态');
       
     } catch (error: any) {
-      console.error('恢复状态失败:', error);
       message.error('恢复状态失败: ' + (error.message || '未知错误'));
     } finally {
       setLoading(false);
@@ -579,13 +666,19 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
       title="跟进阶段进度"
       placement="bottom"
       open={open}
-      onClose={handleClose}
+      onClose={handleUnifiedClose}
       destroyOnClose
       height="60vh"
       className="followup-stage-drawer"
       footer={
-        <Space style={{ float: 'right' }}>
-          <Button onClick={handleClose}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'row',
+          gap: '8px',
+          justifyContent: 'flex-end'
+        }}>
+          {/* 取消按钮 */}
+          <Button onClick={handleUnifiedClose}>
             取消
           </Button>
           
@@ -593,6 +686,7 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
           {currentStage !== '丢单' && currentStep > 0 && (
             <Button
               disabled={currentStep === 0}
+              size="middle"
               onClick={async () => {
                 // 上一步前保存当前数据
                 try {
@@ -603,13 +697,15 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                   
                   // 先获取当前表单值，不进行验证（避免必填字段验证失败）
                   const values = form.getFieldsValue();
-                  console.log('当前表单值:', values);
+                  
+                  // 🆕 处理表单值，确保级联选择器只保存最后一层值
+                  const processedValues = processFormValues(values);
                   
                   // 构建更新对象，只包含有值的字段
                   const updateObj: any = {};
-                  Object.keys(values).forEach(key => {
-                    if (values[key] !== undefined && values[key] !== null && values[key] !== '') {
-                      updateObj[key] = values[key];
+                  Object.keys(processedValues).forEach(key => {
+                    if (processedValues[key] !== undefined && processedValues[key] !== null && processedValues[key] !== '') {
+                      updateObj[key] = processedValues[key];
                     }
                   });
                   
@@ -623,7 +719,6 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                   // 更新阶段
                   updateObj.followupstage = followupStages[currentStep - 1];
                   
-                  console.log('准备保存的数据:', updateObj);
                   
                   // 保存到数据库
                   const { error } = await supabase
@@ -672,14 +767,12 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                       }
                     });
                     
-                    console.log('上一步后设置的表单值:', formValues);
                     form.setFieldsValue(formValues);
                   }, 100);
                   
                   message.success('已回退到上一阶段');
                   
                 } catch (error: any) {
-                  console.error('上一步操作失败:', error);
                   message.error('保存失败: ' + (error.message || '未知错误'));
                 }
               }}
@@ -695,6 +788,7 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
               onClick={handleAssignShowing}
               loading={assignShowingLoading}
               disabled={assignShowingLoading}
+              size="middle"
             >
               {assignShowingLoading ? '分配中...' : '发放带看单'}
             </Button>
@@ -707,12 +801,14 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                 danger
                 onClick={handleConfirmDropout}
                 disabled={isFieldDisabled()}
+                size="middle"
               >
                 确认丢单
               </Button>
               <Button
                 onClick={handleRestoreStatus}
                 disabled={isFieldDisabled()}
+                size="middle"
               >
                 恢复状态
               </Button>
@@ -726,6 +822,7 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
             <Button
               type="primary"
               loading={loading}
+              size="middle"
               onClick={async () => {
                 // 下一步前自动保存并校验表单
                 try {
@@ -748,7 +845,6 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                       followupstage: followupStages[currentStep + 1]
                     };
                     
-                    console.log('邀约到店阶段推进数据:', updateObj);
                     
                     // 保存到数据库
                     const { error } = await supabase
@@ -797,7 +893,6 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                         }
                       });
                       
-                      console.log('邀约到店推进后设置的表单值:', formValues);
                       form.setFieldsValue(formValues);
                     }, 100);
                     
@@ -808,11 +903,12 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                   // 其他阶段的原有逻辑
                   // 验证表单（下一步需要验证必填字段）
                   const values = await form.validateFields();
-                  console.log('下一步表单验证通过:', values);
+                  
+                  // 🆕 处理表单值，确保级联选择器只保存最后一层值
+                  const processedValues = processFormValues(values);
                   
                   // 获取表单当前值，确保数据完整性
                   const currentFormValues = form.getFieldsValue();
-                  console.log('表单当前值:', currentFormValues);
                   
                   // 只包含 followups 表中实际存在的字段，避免字段不存在错误
                   const safeUpdateObj: any = {
@@ -821,15 +917,15 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                     leadid: record.leadid,
                     followupstage: followupStages[currentStep + 1],
                     // 当前阶段需要的字段
-                    customerprofile: values.customerprofile || record.customerprofile,
-                    worklocation: values.worklocation || record.worklocation,
-                    userbudget: values.userbudget || record.userbudget,
-                    moveintime: values.moveintime || record.moveintime,
-                    userrating: values.userrating || record.userrating,
-                    majorcategory: values.majorcategory || record.majorcategory,
-                    followupresult: values.followupresult || record.followupresult,
-                    scheduledcommunity: values.scheduledcommunity || record.scheduledcommunity,
-                    scheduletime: values.scheduletime || record.scheduletime
+                    customerprofile: processedValues.customerprofile || record.customerprofile,
+                    worklocation: processedValues.worklocation || record.worklocation,
+                    userbudget: processedValues.userbudget || record.userbudget,
+                    moveintime: processedValues.moveintime || record.moveintime,
+                    userrating: processedValues.userrating || record.userrating,
+                    majorcategory: processedValues.majorcategory || record.majorcategory,
+                    followupresult: processedValues.followupresult || record.followupresult,
+                    scheduledcommunity: processedValues.scheduledcommunity || record.scheduledcommunity,
+                    scheduletime: processedValues.scheduletime || record.scheduletime
                     // 移除可能不存在的字段：remark, leadtype, invalid
                   };
                   
@@ -840,7 +936,6 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                     }
                   });
                   
-                  console.log('下一步准备保存的数据:', safeUpdateObj);
                   
                   // 保存到数据库
                   const { error } = await supabase
@@ -889,14 +984,12 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                       }
                     });
                     
-                    console.log('下一步后设置的表单值:', formValues);
                     form.setFieldsValue(formValues);
                   }, 100);
                   
                   message.success('已推进到下一阶段');
                   
                 } catch (error: any) {
-                  console.error('下一步操作失败:', error);
                   message.error('推进失败: ' + (error.message || '请完整填写所有必填项'));
                 }
               }}
@@ -913,93 +1006,101 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                 message.success('跟进阶段管理完成');
                 handleClose();
               }}
+              size="middle"
             >
               完成
             </Button>
           )}
-        </Space>
+        </div>
       }
     >
-      <div style={{ display: 'flex', gap: '24px', height: '100%' }}>
+      <div 
+        style={{ 
+          display: 'flex', 
+          gap: '24px', 
+          height: '100%',
+          flexDirection: 'row'
+        }}
+      >
         {/* 左侧线索信息 */}
         <div style={{ width: '300px', flexShrink: 0 }}>
-          <div style={{ background: '#fafafa', padding: '16px', borderRadius: '8px' }}>
-            <div style={{ marginBottom: '12px' }}>
-              <span style={{ color: '#666', fontSize: '14px' }}>线索编号：</span>
-              {record?.leadid ? (
-                <Paragraph 
-                  copyable={{ 
-                    text: record.leadid, 
-                    tooltips: ['复制', '已复制'], 
-                    icon: <CopyOutlined style={{ color: '#1677ff' }} /> 
-                  }} 
-                  style={{ 
-                    margin: 0, 
-                    color: '#1677ff', 
-                    fontWeight: 600, 
-                    display: 'inline-block', 
-                    whiteSpace: 'nowrap' 
-                  }}
-                >
-                  {record.leadid}
-                </Paragraph>
-              ) : <span style={{ color: '#999' }}>-</span>}
-            </div>
-            
-            <div style={{ marginBottom: '12px' }}>
-              <span style={{ color: '#666', fontSize: '14px' }}>手机号：</span>
-              {record?.phone ? (
-                <Paragraph 
-                  copyable={{ 
-                    text: record.phone, 
-                    tooltips: ['复制', '已复制'], 
-                    icon: <CopyOutlined style={{ color: '#1677ff' }} /> 
-                  }} 
-                  style={{ 
-                    margin: 0, 
-                    display: 'inline-block', 
-                    whiteSpace: 'nowrap' 
-                  }}
-                >
-                  {maskPhone(record.phone)}
-                </Paragraph>
-              ) : <span style={{ color: '#999' }}>-</span>}
-            </div>
-            
-            <div style={{ marginBottom: '12px' }}>
-              <span style={{ color: '#666', fontSize: '14px' }}>微信号：</span>
-              {record?.wechat ? (
-                <Paragraph 
-                  copyable={{ 
-                    text: record.wechat, 
-                    tooltips: ['复制', '已复制'], 
-                    icon: <CopyOutlined style={{ color: '#1677ff' }} /> 
-                  }} 
-                  style={{ 
-                    margin: 0, 
-                    display: 'inline-block', 
-                    whiteSpace: 'nowrap' 
-                  }}
-                >
-                  {maskWechat(record.wechat)}
-                </Paragraph>
-              ) : <span style={{ color: '#999' }}>-</span>}
-            </div>
-            
-            <div style={{ marginBottom: '12px' }}>
-              <span style={{ color: '#666', fontSize: '14px' }}>渠道：</span>
-              <Tag color="blue">{record?.source || '-'}</Tag>
-            </div>
-            
-            <div style={{ marginBottom: '12px' }}>
-              <span style={{ color: '#666', fontSize: '14px' }}>创建时间：</span>
-              <span style={{ fontSize: '13px' }}>
-                {record?.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : '-'}
-              </span>
+            <div style={{ background: '#fafafa', padding: '16px', borderRadius: '8px' }}>
+              <div style={{ marginBottom: '12px' }}>
+                <span style={{ color: '#666', fontSize: '14px' }}>线索编号：</span>
+                {record?.leadid ? (
+                  <Paragraph 
+                    copyable={{ 
+                      text: record.leadid, 
+                      tooltips: ['复制', '已复制'], 
+                      icon: <CopyOutlined style={{ color: '#1677ff' }} /> 
+                    }} 
+                    style={{ 
+                      margin: 0, 
+                      color: '#1677ff', 
+                      fontWeight: 600, 
+                      display: 'inline-block', 
+                      whiteSpace: 'nowrap' 
+                    }}
+                  >
+                    {record.leadid}
+                  </Paragraph>
+                ) : <span style={{ color: '#999' }}>-</span>}
+              </div>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <span style={{ color: '#666', fontSize: '14px' }}>手机号：</span>
+                {record?.phone ? (
+                  <Paragraph 
+                    copyable={{ 
+                      text: record.phone, 
+                      tooltips: ['复制', '已复制'], 
+                      icon: <CopyOutlined style={{ color: '#1677ff' }} /> 
+                    }} 
+                    style={{ 
+                      margin: 0, 
+                      display: 'inline-block', 
+                      whiteSpace: 'nowrap' 
+                    }}
+                  >
+                    {maskPhone(record.phone)}
+                  </Paragraph>
+                ) : <span style={{ color: '#999' }}>-</span>}
+              </div>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <span style={{ color: '#666', fontSize: '14px' }}>微信号：</span>
+                {record?.wechat ? (
+                  <Paragraph 
+                    copyable={{ 
+                      text: record.wechat, 
+                      tooltips: ['复制', '已复制'], 
+                      icon: <CopyOutlined style={{ color: '#1677ff' }} /> 
+                    }} 
+                    style={{ 
+                      margin: 0, 
+                      display: 'inline-block', 
+                      whiteSpace: 'nowrap' 
+                    }}
+                  >
+                    {maskWechat(record.wechat)}
+                  </Paragraph>
+                ) : <span style={{ color: '#999' }}>-</span>}
+              </div>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <span style={{ color: '#666', fontSize: '14px' }}>渠道：</span>
+                <Tag color="blue">{record?.source || '-'}</Tag>
+              </div>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <span style={{ color: '#666', fontSize: '14px' }}>创建时间：</span>
+                <span style={{ fontSize: '13px' }}>
+                  {record?.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : '-'}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-
+        
         {/* 右侧步骤条和表单 */}
         <div style={{ 
           flex: 1, 
@@ -1008,21 +1109,30 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
           flexDirection: 'column',
           height: '100%'
         }}>
-          <Steps
-            current={currentStep}
-            items={followupStages.map((stage, idx) => ({ 
-              title: stage, 
-              disabled: idx !== 0,
-              subTitle: null,
-              description: null
-            }))}
-            onChange={handleStepChange}
-            style={{ marginBottom: '16px', flexShrink: 0 }}
-            data-current={currentStep}
-            size="small"
-          />
-          
-          <Divider style={{ margin: '8px 0', flexShrink: 0 }} />
+          {/* 步骤条容器 */}
+          <>
+            <div>
+              <Steps
+                current={currentStep}
+                items={followupStages.map((stage, idx) => ({ 
+                  title: stage, 
+                  disabled: idx !== 0,
+                  subTitle: null,
+                  description: null
+                }))}
+                onChange={handleStepChange}
+                style={{ 
+                  marginBottom: '16px', 
+                  flexShrink: 0
+                }}
+                data-current={currentStep}
+                size="small"
+                direction="horizontal"
+              />
+            </div>
+            
+            <Divider style={{ margin: '8px 0', flexShrink: 0 }} />
+          </>
           
           <div 
             className="form-scroll-area"
@@ -1235,25 +1345,23 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
               </div>
             )}
             
-            {/* 只在需要填写表单的阶段显示表单组件 */}
-            {currentStage !== '已到店' && currentStage !== '赢单' && (
-              <FollowupStageForm
-                  form={form}
-                  stage={currentStage}
-                  record={record}
-                  isFieldDisabled={isFieldDisabled}
-                  forceUpdate={forceUpdate} // 使用传入的forceUpdate，避免表单重复渲染
-                  communityEnum={communityEnum}
-                  followupstageEnum={followupstageEnum}
-                  customerprofileEnum={customerprofileEnum}
-                  userratingEnum={userratingEnum}
-                  majorCategoryOptions={majorCategoryOptions}
-                  metroStationOptions={metroStationOptions}
-                  // 🆕 分配模式相关
-                  enableManualAssign={enableManualAssign}
-                  onAllocationModeChange={handleAllocationModeChange}
-                />
-            )}
+            {/* 表单组件 - 始终渲染但根据阶段显示不同内容 */}
+            <FollowupStageForm
+                form={form}
+                stage={currentStage}
+                record={record}
+                isFieldDisabled={isFieldDisabled}
+                forceUpdate={forceUpdate} // 使用传入的forceUpdate，避免表单重复渲染
+                communityEnum={communityEnum}
+                followupstageEnum={followupstageEnum}
+                customerprofileEnum={customerprofileEnum}
+                userratingEnum={userratingEnum}
+                majorCategoryOptions={majorCategoryOptions}
+                metroStationOptions={metroStationOptions}
+                // 🆕 分配模式相关
+                enableManualAssign={enableManualAssign}
+                onAllocationModeChange={handleAllocationModeChange}
+              />
           </div>
         </div>
       </div>

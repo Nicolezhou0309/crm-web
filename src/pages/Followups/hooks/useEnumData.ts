@@ -14,7 +14,6 @@ export const useEnumData = () => {
   const [leadtypeFilters, setLeadtypeFilters] = useState<EnumOption[]>([]);
   const [remarkFilters, setRemarkFilters] = useState<EnumOption[]>([]);
   const [worklocationFilters, setWorklocationFilters] = useState<EnumOption[]>([]);
-  const [userbudgetFilters, setUserbudgetFilters] = useState<EnumOption[]>([]);
   const [followupresultFilters, setFollowupresultFilters] = useState<EnumOption[]>([]);
   const [majorcategoryFilters, setMajorcategoryFilters] = useState<EnumOption[]>([]);
   const [scheduledcommunityFilters, setScheduledcommunityFilters] = useState<EnumOption[]>([]);
@@ -104,17 +103,18 @@ export const useEnumData = () => {
     try {
       const metroData = await fetchMetroStations();
       
-      // 按线路分组
+      // 按线路分组，保持站点原有顺序
       const lineGroups = metroData.reduce((acc, station) => {
         const line = station.line || '其他';
         if (!acc[line]) {
           acc[line] = [];
         }
+        // 直接添加站点，保持数据库中的原有顺序
         acc[line].push(station);
         return acc;
       }, {} as Record<string, typeof metroData>);
 
-      // 构建Cascader选项结构，按线路数字顺序排列
+      // 构建Cascader选项结构，按线路数字顺序排列，站点保持原有顺序
       const options = Object.entries(lineGroups)
         .sort(([lineA], [lineB]) => {
           // 提取数字进行排序
@@ -127,6 +127,7 @@ export const useEnumData = () => {
         .map(([line, stations]) => ({
           value: line,
           label: line,
+          // 站点保持数据库中的原有顺序，不进行额外排序
           children: stations.map(station => ({
             value: station.name,
             label: station.name
@@ -135,7 +136,7 @@ export const useEnumData = () => {
 
       setMetroStationOptions(options);
       
-      // 同时更新工作地点筛选选项
+      // 同时更新工作地点筛选选项，保持原有顺序
       const worklocationOptions = metroData.map(station => ({
         value: station.name,
         label: station.name
@@ -207,7 +208,7 @@ export const useEnumData = () => {
     try {
       
       // 并行加载所有动态筛选器选项
-      const [followupresultData, majorcategoryData, leadtypeData, remarkData, userbudgetData] = await Promise.allSettled([
+      const [followupresultData, majorcategoryData, leadtypeData, remarkData] = await Promise.allSettled([
         // 跟进结果筛选器
         supabase.rpc('get_filter_options', {
           p_field_name: 'followupresult',
@@ -327,23 +328,7 @@ export const useEnumData = () => {
         setRemarkFilters([]);
       }
 
-      // 设置用户预算筛选器
-      if (userbudgetData.status === 'fulfilled') {
-        const data = userbudgetData.value;
-        
-        if (Array.isArray(data) && data.length > 0) {
-          const options = data.map((item: any) => ({
-            value: item.value || item.text || item,
-            label: item.label || item.text || item.value || item
-          }));
-          setUserbudgetFilters(options);
-        } else {
-          setUserbudgetFilters([]);
-        }
-      } else {
-        // 静默处理，不显示错误日志
-        setUserbudgetFilters([]);
-      }
+      // 用户预算现在使用范围筛选器，不需要加载选项
 
       // 设置预约社区筛选器（使用社区枚举）
       // 注意：这里直接使用当前的 communityEnum 值，避免循环依赖
@@ -359,7 +344,6 @@ export const useEnumData = () => {
       setMajorcategoryFilters([]);
       setLeadtypeFilters([]);
       setRemarkFilters([]);
-      setUserbudgetFilters([]);
     }
   }, []); // 移除 communityEnum 依赖，避免循环依赖
 
@@ -488,7 +472,6 @@ export const useEnumData = () => {
     leadtypeFilters,
     remarkFilters,
     worklocationFilters,
-    userbudgetFilters,
     followupresultFilters,
     majorcategoryFilters,
     scheduledcommunityFilters,
@@ -516,7 +499,6 @@ export const useEnumData = () => {
     setLeadtypeFilters,
     setRemarkFilters,
     setWorklocationFilters,
-    setUserbudgetFilters,
     setFollowupresultFilters,
     setMajorcategoryFilters,
     setScheduledcommunityFilters,

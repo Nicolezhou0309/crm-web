@@ -1,9 +1,20 @@
+/* 客户卡片容器 - 支持右滑功能 */
+.customer-card-container {
+  position: relative;
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #f0f0f0;
+}
+
 /* 客户卡片样式 - 自适应高度版本 */
 .customer-card {
   border-radius: 12px;
   box-shadow: none;
-  border: 1px solid #f0f0f0;
-  transition: none; /* 移除过渡动画，减少重绘 */
+  border: none; /* 边框由容器处理 */
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* 添加滑动过渡 */
   overflow: visible; /* 改为visible，允许内容扩展 */
   background: #ffffff; /* 简化背景，减少绘制复杂度 */
   cursor: pointer;
@@ -24,7 +35,14 @@
   transform: translateZ(0); /* 启用硬件加速 */
   backface-visibility: hidden; /* 避免背面绘制 */
   justify-content: flex-start; /* 确保内容从顶部开始排列 */
-  /* 确保flex布局正确工作 */
+  /* 支持滑动 */
+  position: relative;
+  z-index: 2;
+}
+
+/* 滑动状态 - 菜单覆盖整个卡片，不需要滑动 */
+.customer-card.swiped {
+  /* 保持原位置，菜单覆盖显示 */
 }
 
 .customer-card:hover {
@@ -246,34 +264,14 @@
   transition: all 0.2s ease; /* 添加平滑过渡效果 */
 }
 
-/* 不同阶段的标签颜色 - 深色主题 */
-.customer-card .stage-pending .stage-tag {
-  background: #1a365d; /* 深蓝色 */
-  color: #ffffff;
-}
-
-.customer-card .stage-confirm .stage-tag {
-  background: #22543d; /* 深绿色 */
-  color: #ffffff;
-}
-
-.customer-card .stage-invite .stage-tag {
-  background: #744210; /* 深橙色 */
-  color: #ffffff;
-}
-
-.customer-card .stage-visited .stage-tag {
-  background: #553c9a; /* 深紫色 */
-  color: #ffffff;
-}
-
-.customer-card .stage-win .stage-tag {
-  background: #22543d; /* 深绿色 */
-  color: #ffffff;
-}
-
+/* 所有阶段标签统一使用深灰色 */
+.customer-card .stage-pending .stage-tag,
+.customer-card .stage-confirm .stage-tag,
+.customer-card .stage-invite .stage-tag,
+.customer-card .stage-visited .stage-tag,
+.customer-card .stage-win .stage-tag,
 .customer-card .stage-lose .stage-tag {
-  background: #742a2a; /* 深红色 */
+  background: #333333; /* 统一深灰色 */
   color: #ffffff;
 }
 

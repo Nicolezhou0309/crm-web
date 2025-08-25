@@ -878,18 +878,6 @@ const AppContent: React.FC = () => {
           </a>
           
           <a 
-            href="/followups" 
-            className={`mobile-menu-item ${location.pathname === '/followups' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate('/followups');
-            }}
-          >
-            <UserIcon className="mobile-menu-icon" />
-            <span className="mobile-menu-label">跟进</span>
-          </a>
-          
-          <a 
             href="/showings" 
             className={`mobile-menu-item ${location.pathname === '/showings' ? 'active' : ''}`}
             onClick={(e) => {

@@ -20,7 +20,7 @@ export const useFilterManager = () => {
     // 定义需要转换为数组的参数
     const arrayParams = [
       'p_leadid', 'p_leadtype', 'p_interviewsales_user_id', 'p_followupstage',
-      'p_customerprofile', 'p_worklocation', 'p_userbudget', 'p_userrating',
+      'p_customerprofile', 'p_worklocation', 'p_userrating',
       'p_majorcategory', 'p_subcategory', 'p_followupresult', 'p_scheduledcommunity', 
       'p_source', 'p_wechat', 'p_phone', 'p_showingsales_user'
     ];
@@ -58,7 +58,17 @@ export const useFilterManager = () => {
           normalizedParams[key as keyof FilterParams] = value;
         }
       }
-      // 处理其他参数（关键词、预算范围等）
+      // 处理预算范围参数
+      else if (key === 'p_userbudget' && Array.isArray(value) && value.length === 2) {
+        const [min, max] = value;
+        if (min !== null && min !== undefined && min !== '') {
+          normalizedParams.p_userbudget_min = Number(min);
+        }
+        if (max !== null && max !== undefined && max !== '') {
+          normalizedParams.p_userbudget_max = Number(max);
+        }
+      }
+      // 处理其他参数（关键词等）
       else {
         normalizedParams[key as keyof FilterParams] = value;
       }
@@ -218,7 +228,7 @@ export const useFilterManager = () => {
   const clearTableFilters = useCallback(() => {
     const tableFilterFields = [
       'p_followupstage', 'p_customerprofile', 'p_userrating', 'p_scheduledcommunity', 'p_source',
-      'p_leadtype', 'p_remark', 'p_worklocation', 'p_userbudget', 'p_followupresult', 'p_majorcategory'
+      'p_leadtype', 'p_remark', 'p_worklocation', 'p_userbudget_min', 'p_userbudget_max', 'p_followupresult', 'p_majorcategory'
     ];
     
     setFilters(prev => {

@@ -120,11 +120,8 @@ export async function fetchEnumValues(enumName: string): Promise<string[]> {
 // 获取地铁站信息
 export async function fetchMetroStations(): Promise<{ line: string; name: string }[]> {
   return withRetry(async () => {
-    const { data, error } = await supabase
-      .from('metrostations')
-      .select('line, name')
-      .order('line')
-      .order('name')
+    // 使用数据库函数 get_metrostations，确保站点按照地理顺序排列
+    const { data, error } = await supabase.rpc('get_metrostations');
 
     if (error) {
       console.error('❌ [错误] 获取地铁站数据失败:', error);

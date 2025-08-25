@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5177, // 固定端口，匹配邀请链接
-    host: 'localhost',
+    host: '0.0.0.0', // 允许外部访问
     hmr: {
       // 启用热更新覆盖层，显示错误信息
       overlay: true, // 启用错误覆盖层

@@ -152,34 +152,43 @@
 
 /* 移动端头部组件样式 */
 .mobile-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: #fff;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  background: #fff !important;
   padding: 20px 16px 12px 16px !important; /* 增加顶部padding，补偿全局导航条的高度 */
-  border-bottom: 1px solid #f0f0f0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-  flex-wrap: wrap; /* 允许换行以适应视图切换组件 */
+  border-bottom: 1px solid #f0f0f0 !important;
+  display: flex !important;
+  flex-direction: row !important; /* 强制水平排列 */
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 12px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
+  flex-wrap: nowrap !important; /* 不允许换行，强制保持在同一行 */
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+.mobile-header .header-search {
+  flex: 1 !important;
+  max-width: none !important;
+  min-width: 0 !important; /* 允许收缩 */
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.mobile-header .header-search .ant-input-search {
+  width: 100% !important;
+  min-width: 0 !important; /* 允许输入框收缩 */
   margin: 0 !important;
 }
 
-.header-search {
-  flex: 1;
-  max-width: none;
-}
-
-.header-search .ant-input-search {
-  width: 100%;
-}
-
-.header-actions {
-  flex-shrink: 0;
-  display: flex;
-  gap: 8px;
+.mobile-header .header-actions {
+  flex-shrink: 0 !important;
+  display: flex !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 
@@ -208,23 +217,27 @@
   margin: 8px 0;
 }
 
-/* 响应式设计 - 仅区分大屏幕和手机屏幕 */
+/* 响应式设计 - 保持水平布局 */
 /* 手机屏幕断点：768px以下 */
 @media (max-width: 768px) {
   .mobile-header {
-    padding: 16px 12px 8px 12px;
-    gap: 8px;
-    flex-direction: column; /* 手机屏幕下改为垂直布局 */
-    align-items: stretch;
+    padding: 16px 12px 8px 12px !important;
+    gap: 8px !important;
+    flex-direction: row !important; /* 保持水平布局 */
+    align-items: center !important;
+    flex-wrap: nowrap !important; /* 强制不换行 */
   }
   
-  .header-search {
-    order: 1; /* 搜索框在上方 */
+  .mobile-header .header-search {
+    flex: 1 !important; /* 搜索框占据剩余空间 */
+    min-width: 120px !important; /* 设置最小宽度，确保搜索框不会过小 */
+    max-width: none !important; /* 允许增长 */
   }
   
-  .header-actions {
-    order: 2; /* 筛选按钮在下方 */
-    justify-content: center; /* 居中显示 */
+  .mobile-header .header-actions {
+    flex-shrink: 0 !important; /* 筛选按钮不收缩 */
+    justify-content: flex-end !important; /* 右对齐 */
+    min-width: 60px !important; /* 设置最小宽度 */
   }
   
   .cards-list {
@@ -237,6 +250,7 @@
     gap: 16px !important;
   }
   
+  /* 手机屏幕下的卡片间距调整 */
   .card-grid-item {
     width: 100% !important;
     margin-bottom: 8px !important; /* 减少卡片间距 */
@@ -246,81 +260,6 @@
     width: 100% !important;
     height: auto !important;
   }
-  
-  /* 手机屏幕下的视图切换组件调整 */
-  .header-view-switch {
-    margin: 0 4px;
-  }
-  
-  .header-view-switch .ant-segmented-item {
-    min-width: 50px;
-    padding: 2px 6px;
-  }
-  
-  /* 手机屏幕下的瀑布流页面调整 */
-  .mobile-waterfall .main-waterfall {
-    padding: 12px 8px;
-  }
-  
-}
-
-
-
-/* 视图切换组件样式 */
-.header-view-switch {
-  flex-shrink: 0;
-  margin: 0 8px;
-  order: 1; /* 确保在搜索框和按钮之间 */
-}
-
-.header-view-switch .ant-segmented {
-  background: #f8f9fa;
-  border: 1px solid #e6f7ff;
-}
-
-.header-view-switch .ant-segmented-item {
-  min-width: 60px;
-  padding: 2px 8px;
-}
-
-.header-view-switch .ant-segmented-item-selected {
-  background: #1890ff;
-  color: white;
-}
-
-/* 瀑布流容器样式 */
-.waterfall-container {
-  flex: 1;
-  overflow: hidden;
-  background: #f8f9fa;
-}
-
-.mobile-waterfall {
-  height: 100%;
-  background: transparent;
-}
-
-/* 嵌入式瀑布流页面样式调整 */
-.mobile-waterfall .waterfall-layout {
-  height: 100%;
-}
-
-.mobile-waterfall .waterfall-header {
-  display: none; /* 隐藏嵌入式页面的头部 */
-}
-
-.mobile-waterfall .search-header {
-  display: none; /* 隐藏嵌入式页面的搜索头部 */
-}
-
-.mobile-waterfall .waterfall-content {
-  padding-top: 0;
-  height: 100%;
-}
-
-.mobile-waterfall .main-waterfall {
-  height: 100%;
-  padding: 16px 12px;
 }
 
 

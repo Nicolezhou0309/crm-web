@@ -62,6 +62,7 @@ export const useFollowupsData = () => {
       setLoading(true);
     }
     
+    
     try {
       const p_limit = pageSize;
       const p_offset = (page - 1) * pageSize;
@@ -94,6 +95,7 @@ export const useFollowupsData = () => {
           // 注意：不要删除包含[null]的数组，这是有效的NULL值筛选条件
         }
       });
+      
 
       // 处理日期参数
       const dateParams = [
@@ -136,26 +138,23 @@ export const useFollowupsData = () => {
             delete params[key];
           }
         }
-      });
-
+            });
+      
+      
       // 只传 allowedParams
       const rpcParams = Object.fromEntries(
         Object.entries(params).filter(([key]) => allowedParams.includes(key) || key === 'p_groupby_field')
       );
+      
 
       const { data: responseData, error } = await supabase.rpc('filter_followups', rpcParams);
       
       if (error) {
+        console.error('API调用失败:', error);
         message.error('获取跟进记录失败: ' + error.message);
         return;
       }
-
-      // 调试信息：查看API返回的数据结构
-      console.log('API返回数据:', responseData);
-      if (responseData && responseData.length > 0) {
-        console.log('第一条数据:', responseData[0]);
-        console.log('total_count字段:', responseData[0].total_count);
-      }
+      
 
       // 尝试获取总数，如果不存在则使用实际数据长度
       let total = 0;
@@ -165,14 +164,20 @@ export const useFollowupsData = () => {
         } else {
           // 如果没有total_count字段，使用实际数据长度
           total = responseData.length;
-          console.log('使用实际数据长度作为总数:', total);
         }
+      } else if (responseData && responseData.length === 0) {
+        // 如果API返回空数组，说明没有匹配的数据
+        // 此时应该将total设置为0，但需要清空现有数据
+        total = 0;
+      } else {
+        // 如果responseData为null或undefined
+        total = 0;
       }
-      console.log('最终使用的total:', total);
       
       // 前端校验：只保留id非空且唯一的行
       const filtered = (responseData || []).filter((item: any): item is FollowupRecord => !!item && !!item.id);
       const unique = Array.from(new Map(filtered.map((i: any) => [i.id, i])).values()) as FollowupRecord[];
+      
       
       // 优化数据处理：减少循环次数
       const safeData = unique.map((item: any) => {
@@ -217,91 +222,155 @@ export const useFollowupsData = () => {
         setLocalData(combinedData);
         localDataRef.current = combinedData;
         setPagination(prev => ({ ...prev, total, current: page, pageSize }));
+        
+
       } else {
         // 替换数据：重置为第一页
-        setData(safeData);
-        setLocalData(safeData);
-        localDataRef.current = safeData;
+        // 如果API返回空数据，清空现有数据
+        if (responseData && responseData.length === 0) {
+          setData([]);
+          setLocalData([]);
+          localDataRef.current = [];
+        } else {
+          setData(safeData);
+          setLocalData(safeData);
+          localDataRef.current = safeData;
+        }
         setPagination(prev => ({ ...prev, total, current: 1, pageSize }));
+        
+
       }
       
       // 保存当前筛选条件
       currentFiltersRef.current = filters;
       
+      
+      
     } catch (error) {
+      console.error('fetchFollowups执行失败:', error);
       message.error('获取跟进记录失败');
+      
+      // 如果是替换数据失败，清空数据状态
+      if (!append) {
+        setData([]);
+        setLocalData([]);
+        localDataRef.current = [];
+        setPagination(prev => ({ ...prev, total: 0, current: 1 }));
+
+      } else {
+
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
+
     }
-  }, [pagination.current, pagination.pageSize]); // 移除 data 依赖，避免循环依赖
+  }, [pagination.current, pagination.pageSize]); // 保持最小依赖，避免循环依赖
 
   const updateLocalData = useCallback((id: string, field: keyof FollowupRecord, value: any) => {
-    const currentData = localDataRef.current;
+    console.log('🔍 [useFollowupsData] updateLocalData 被调用', { id, field, value });
+    
+    // 🆕 修复：优先使用 localDataRef 中的最新数据
+    const currentData = localDataRef.current.length > 0 ? localDataRef.current : data;
     const recordIndex = currentData.findIndex(item => item.id === id);
     
-    if (recordIndex === -1) return;
+    console.log('🔍 [useFollowupsData] 查找记录', { 
+      recordIndex, 
+      currentDataLength: currentData.length,
+      targetId: id 
+    });
+    
+    if (recordIndex === -1) {
+      console.warn('⚠️ [useFollowupsData] 未找到要更新的记录', { id, field, value });
+      return;
+    }
     
     const newData = [...currentData];
     newData[recordIndex] = { ...newData[recordIndex], [field]: value };
     
+    console.log('🔍 [useFollowupsData] 更新数据', { 
+      oldValue: currentData[recordIndex][field],
+      newValue: value,
+      updatedRecord: newData[recordIndex]
+    });
+    
+    // 🆕 修复：先更新 ref，再更新 state，确保数据一致性
     localDataRef.current = newData;
+    
+    // 🆕 修复：同时更新 localData 和 data 状态
     setLocalData(newData);
-    setData(prev => 
-      prev.map(item => 
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
-  }, []);
+    setData(newData);
+    
+    // 🆕 新增：强制触发重新渲染
+    setForceUpdate(prev => prev + 1);
+    
+    console.log('🔍 [useFollowupsData] 数据更新完成');
+    
+    // 🆕 特别记录卡片数据更新后的状态
+    const updatedRecord = newData[recordIndex];
+    console.log('🔍 [useFollowupsData] 卡片数据更新完成:', {
+      recordId: id,
+      updatedField: field,
+      updatedValue: value,
+      fullRecord: updatedRecord,
+      timestamp: new Date().toISOString()
+    });
+    
+    // 🆕 验证状态更新是否成功
+    setTimeout(() => {
+      // 🆕 修复：使用 ref 中的最新数据来验证，而不是可能过时的 state
+      const currentData = localDataRef.current.find(item => item.id === id);
+      console.log('🔍 [useFollowupsData] 状态更新验证:', {
+        recordId: id,
+        updatedField: field,
+        expectedValue: value,
+        actualValue: currentData?.[field],
+        updateSuccess: currentData?.[field] === value,
+        timestamp: new Date().toISOString()
+      });
+    }, 100);
+  }, []); // 🆕 修复：移除 data 依赖，避免函数重新创建导致的状态更新问题
 
   // 检查是否还有更多数据
   const hasMore = pagination.total > 0 && data.length < pagination.total;
   
-  // 调试信息
-  console.log('hasMore计算:', {
-    total: pagination.total,
-    dataLength: data.length,
-    hasMore: hasMore
-  });
+ 
 
   // 加载更多数据
   const loadMore = useCallback(async () => {
-    console.log('loadMore被调用:', {
-      loadingMore,
-      hasMore,
-      currentPage: pagination.current,
-      dataLength: data.length,
-      total: pagination.total
-    });
+
     
     if (loadingMore || !hasMore) {
-      console.log('loadMore被阻止:', { loadingMore, hasMore });
       return;
     }
     
     const nextPage = pagination.current + 1;
     const hasMoreData = data.length < pagination.total;
     
-    console.log('准备加载更多:', { nextPage, hasMoreData });
+    
     
     if (hasMoreData) {
       await fetchFollowups(currentFiltersRef.current, nextPage, pagination.pageSize, true);
+    } else {
     }
-  }, [loadingMore, hasMore, pagination.current, pagination.pageSize, pagination.total, data.length, fetchFollowups]);
+  }, [loadingMore, hasMore, pagination.current, pagination.pageSize, pagination.total, data.length, fetchFollowups]); // 保持必要依赖
 
   const refreshData = useCallback((newFilters?: any) => {
+    
     if (newFilters) {
       // 如果有新的筛选条件，使用新条件获取数据
+      // 重置分页到第一页
+      setPagination(prev => ({ ...prev, current: 1 }));
       fetchFollowups(newFilters, 1, pagination.pageSize);
     } else {
       // 否则使用当前筛选条件
       fetchFollowups();
     }
-  }, [fetchFollowups, pagination.pageSize]);
+  }, [fetchFollowups, pagination.pageSize]); // 保持必要依赖
 
   const resetPagination = useCallback(() => {
     setPagination(prev => ({ ...prev, current: 1 }));
-  }, []);
+  }, []); // 无依赖，使用 ref 避免循环依赖
 
   return {
     data,

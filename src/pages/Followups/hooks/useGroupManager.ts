@@ -259,8 +259,11 @@ export const useGroupManager = () => {
       if (filters.p_worklocation && filters.p_worklocation.length > 0) {
         query = query.in('worklocation', filters.p_worklocation);
       }
-      if (filters.p_userbudget && filters.p_userbudget.length > 0) {
-        query = query.in('userbudget', filters.p_userbudget);
+      if (filters.p_userbudget_min !== undefined && filters.p_userbudget_min !== null) {
+        query = query.gte('userbudget', filters.p_userbudget_min);
+      }
+      if (filters.p_userbudget_max !== undefined && filters.p_userbudget_max !== null) {
+        query = query.lte('userbudget', filters.p_userbudget_max);
       }
       if (filters.p_userrating && filters.p_userrating.length > 0) {
         query = query.in('userrating', filters.p_userrating);

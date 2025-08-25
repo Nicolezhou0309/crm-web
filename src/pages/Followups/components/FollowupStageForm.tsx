@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Form, Input, Select, DatePicker, InputNumber, Cascader, Switch, Space } from 'antd';
 import dayjs from 'dayjs';
 import locale from 'antd/es/date-picker/locale/zh_CN';
@@ -101,6 +101,19 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
   enableManualAssign = false,
   onAllocationModeChange,
 }) => {
+  // 检查数据是否已加载
+  const isDataLoaded = useMemo(() => {
+    return {
+      community: communityEnum && communityEnum.length > 0,
+      followupstage: followupstageEnum && followupstageEnum.length > 0,
+      customerprofile: customerprofileEnum && customerprofileEnum.length > 0,
+      userrating: userratingEnum && userratingEnum.length > 0,
+      majorCategory: majorCategoryOptions && majorCategoryOptions.length > 0,
+      metroStation: metroStationOptions && metroStationOptions.length > 0
+    };
+  }, [communityEnum, followupstageEnum, customerprofileEnum, userratingEnum, majorCategoryOptions, metroStationOptions]);
+
+
   // 已到店阶段和赢单阶段不显示表单，因为它们在抽屉组件中单独处理
   if (stage === '已到店' || stage === '赢单') {
     return null;
@@ -109,6 +122,21 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
   // 如果阶段为空字符串或未定义，不渲染任何内容（等待状态更新）
   if (!stage || stage === '') {
     return null;
+  }
+  
+  // 检查关键数据是否已加载
+  const requiredDataLoaded = isDataLoaded.followupstage && isDataLoaded.customerprofile && 
+                             isDataLoaded.userrating && isDataLoaded.community && 
+                             isDataLoaded.majorCategory && isDataLoaded.metroStation;
+  
+  // 如果关键数据未加载完成，显示加载状态
+  if (!requiredDataLoaded) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 20px', color: '#999' }}>
+        <p>正在加载表单数据...</p>
+        <p>请稍候</p>
+      </div>
+    );
   }
   
   // 获取当前阶段需要的字段
@@ -148,19 +176,8 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
     }
   };
 
-  // 渲染单个字段
-  const renderField = (field: string) => {
-    const label = getFieldLabel(field, stage);
-    
-    // 确认需求阶段的所有字段都是必填项，除了入住时间
-    let isRequired = false;
-    if (stage === '确认需求') {
-      isRequired = field !== 'moveintime'; // 入住时间非必填，其他字段必填
-    } else {
-      // 其他阶段保持原有逻辑
-      isRequired = ['customerprofile', 'userrating', 'scheduledcommunity', 'majorcategory', 'followupresult'].includes(field);
-    }
-
+  // 渲染桌面端字段
+  const renderDesktopField = (field: string, label: string, isRequired: boolean) => {
     const formItemProps = {
       name: field,
       label,
@@ -205,7 +222,6 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
         );
 
       case 'scheduledcommunity':
-        // 🆕 邀约到店阶段的 scheduledcommunity 字段在特殊布局中处理，这里跳过
         if (stage === '邀约到店') {
           return null;
         }
@@ -219,8 +235,6 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
             />
           </Form.Item>
         );
-
-      // 移除 assigned_showingsales 字段，因为它在 followups 表中不存在
 
       case 'worklocation':
         return (
@@ -299,12 +313,6 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
           </Form.Item>
         );
 
-      // 移除已到店阶段字段，因为它们在 followups 表中不存在
-
-      // 移除 remark 字段，因为它在 followups 表中不存在
-
-      // 移除赢单阶段字段，因为它们在 followups 表中不存在
-
       default:
         return (
           <Form.Item {...formItemProps}>
@@ -317,8 +325,26 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
     }
   };
 
+  // 渲染单个字段
+  const renderField = (field: string) => {
+    const label = getFieldLabel(field, stage);
+    
+    // 确认需求阶段的所有字段都是必填项，除了入住时间
+    let isRequired = false;
+    if (stage === '确认需求') {
+      isRequired = field !== 'moveintime'; // 入住时间非必填，其他字段必填
+    } else {
+      // 其他阶段保持原有逻辑
+      isRequired = ['customerprofile', 'userrating', 'scheduledcommunity', 'majorcategory', 'followupresult'].includes(field);
+    }
+
+    // 使用桌面端组件
+    return renderDesktopField(field, label, isRequired);
+  };
+
   // 根据阶段渲染不同的布局
   const renderStageFields = () => {
+    // 根据阶段使用不同布局
     if (stage === '确认需求') {
       // 确认需求阶段使用三栏布局
       return (
@@ -360,7 +386,11 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
     if (stage !== '邀约到店') return null;
     
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '1fr 1fr', 
+        gap: '16px' 
+      }}>
         {/* 左侧：分配模式切换和带看人员选择 */}
         <div>
           {/* 分配模式切换 */}
@@ -408,7 +438,7 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
                   options={communityEnum}
                   showSearch
                   filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                    (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
                   }
                 />
               </Form.Item>
@@ -435,6 +465,19 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
       </div>
     );
   };
+
+  // 如果是不需要表单的阶段，返回空的Form组件
+  if (stage === '已到店' || stage === '赢单') {
+    return (
+      <Form
+        form={form}
+        layout="vertical"
+        preserve={false}
+      >
+        {/* 空内容，但Form组件存在以连接form实例 */}
+      </Form>
+    );
+  }
 
   return (
     <Form

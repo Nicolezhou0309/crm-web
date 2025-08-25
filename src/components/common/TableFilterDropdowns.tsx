@@ -169,48 +169,59 @@ export const NumberRangeFilterDropdown: React.FC<FilterDropdownPropsExtended> = 
   clearFilters,
   onReset,
   onConfirm
-}) => (
-  <div style={{ padding: 8 }}>
-    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <InputNumber
+}) => {
+  // 类型安全的设置函数
+  const setMinValue = (value: number | null) => {
+    setSelectedKeys([value, selectedKeys[1] || null].filter(v => v !== null) as any);
+  };
+  
+  const setMaxValue = (value: number | null) => {
+    setSelectedKeys([selectedKeys[0] || null, value].filter(v => v !== null) as any);
+  };
+  
+  return (
+    <div style={{ padding: 8 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <InputNumber
           placeholder="最小值"
           value={selectedKeys[0] as number}
-          onChange={(value) => setSelectedKeys([value, selectedKeys[1] || null])}
+          onChange={setMinValue}
           style={{ flex: 1 }}
         />
         <InputNumber
           placeholder="最大值"
           value={selectedKeys[1] as number}
-          onChange={(value) => setSelectedKeys([selectedKeys[0] || null, value])}
+          onChange={setMaxValue}
           style={{ flex: 1 }}
         />
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Button 
+          type="primary" 
+          size="small" 
+          style={{ flex: 1 }}
+          onClick={() => {
+            confirm();
+            onConfirm?.();
+          }}
+        >
+          筛选
+        </Button>
+        <Button 
+          size="small" 
+          style={{ flex: 1 }}
+          onClick={() => { 
+            setSelectedKeys([]);
+            if (clearFilters) clearFilters();
+            onReset?.();
+          }}
+        >
+          重置
+        </Button>
+      </div>
     </div>
-    <div style={{ display: 'flex', gap: 8 }}>
-      <Button 
-        type="primary" 
-        size="small" 
-        style={{ flex: 1 }}
-        onClick={() => {
-          confirm();
-          onConfirm?.();
-        }}
-      >
-        筛选
-      </Button>
-      <Button 
-        size="small" 
-        style={{ flex: 1 }}
-        onClick={() => { 
-          setSelectedKeys([]);
-          if (clearFilters) clearFilters();
-          onReset?.();
-        }}
-      >
-        重置
-      </Button>
-    </div>
-  </div>
-);
+  );
+};
 
 // 级联选择筛选器
 export const CascaderFilterDropdown: React.FC<FilterDropdownPropsExtended> = ({

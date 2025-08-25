@@ -134,3 +134,285 @@
 .followup-stage-drawer .form-scroll-area::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* 🆕 手机端样式优化 */
+.followup-stage-drawer.mobile {
+  /* 确保抽屉有足够的上边距，避免标题被浏览器头部遮挡 */
+  margin-top: 10vh !important;
+  /* 确保抽屉不会超出视口 */
+  max-height: 90vh !important;
+  /* 确保抽屉内容正确显示 */
+  overflow: visible !important;
+}
+
+.followup-stage-drawer.mobile .ant-drawer-header {
+  /* 增加标题区域的padding，确保标题完全可见 */
+  padding: 20px 24px 16px 24px;
+  /* 确保标题有足够的空间 */
+  min-height: 60px;
+  /* 添加顶部边距，避免被浏览器状态栏遮挡 */
+  padding-top: 20px;
+  /* 确保标题区域有足够的底部边距 */
+  padding-bottom: 16px;
+}
+
+.followup-stage-drawer.mobile .ant-drawer-title {
+  /* 确保标题文字完全可见 */
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.followup-stage-drawer.mobile .ant-drawer-body {
+  /* 调整内容区域的padding，确保内容不被标题和footer遮挡 */
+  padding: 16px 24px 80px 24px !important;
+  /* 确保内容区域有足够的高度，为footer预留空间 */
+  height: auto !important;
+  max-height: calc(90vh - 140px) !important;
+  /* 添加顶部边距，确保内容与标题有足够间距 */
+  margin-top: 0;
+  /* 确保内容可以滚动 */
+  overflow-y: auto;
+}
+
+.followup-stage-drawer.mobile .ant-drawer-footer {
+  /* 确保footer在手机端可见 */
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  background: #fff !important;
+  border-top: 1px solid #f0f0f0 !important;
+  padding: 16px 24px !important;
+  text-align: right !important;
+  /* 确保footer有足够的高度 */
+  min-height: 70px !important;
+  /* 添加阴影，增强视觉层次 */
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1) !important;
+  /* 确保footer不会被其他元素遮挡 */
+  z-index: 1000 !important;
+}
+
+.followup-stage-drawer.mobile .ant-drawer-footer .ant-btn {
+  /* 手机端按钮样式优化 */
+  height: 44px;
+  font-size: 16px;
+  border-radius: 8px;
+  min-width: 80px;
+}
+
+.followup-stage-drawer.mobile .ant-drawer-footer .ant-space {
+  /* 确保按钮组在手机端正确显示 */
+  width: 100%;
+  justify-content: flex-end;
+}
+
+/* 🆕 手机端步骤条横向滚动样式 */
+.followup-stage-drawer.mobile .steps-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 🆕 文字透明度过渡效果 */
+.followup-stage-drawer .ant-drawer-body {
+  transition: opacity 0.2s ease-out;
+}
+
+.followup-stage-drawer.mobile .steps-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.followup-stage-drawer.mobile .steps-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 2px;
+}
+
+.followup-stage-drawer.mobile .steps-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 2px;
+}
+
+.followup-stage-drawer.mobile .steps-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.followup-stage-drawer.mobile .ant-steps {
+  min-width: max-content;
+  padding: 0 16px;
+}
+
+.followup-stage-drawer.mobile .ant-steps-item {
+  flex-shrink: 0;
+}
+
+.followup-stage-drawer.mobile .ant-steps-item-title {
+  font-size: 13px !important;
+  white-space: nowrap;
+}
+
+@keyframes touchHintFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes touchHintFloat {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-3px);
+  }
+}
+
+/* 🆕 移动端抽屉滚动优化样式 */
+.mobile-followup-drawer {
+  /* 确保抽屉在移动端正确显示 */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1000 !important;
+}
+
+/* 移动端Popup滚动优化 */
+.mobile-followup-drawer .adm-popup {
+  /* 确保Popup支持触摸滚动 */
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-followup-drawer .adm-popup-body {
+  /* 优化Popup body的滚动 */
+  overflow: hidden !important;
+  height: 100% !important;
+}
+
+/* 移动端内容滚动区域优化 */
+.mobile-followup-drawer .content-scroll-area {
+  /* 确保滚动区域正确工作 */
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* 添加滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.mobile-followup-drawer .content-scroll-area::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mobile-followup-drawer .content-scroll-area::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.mobile-followup-drawer .content-scroll-area::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.mobile-followup-drawer .content-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 移动端触摸滚动提示 */
+.mobile-followup-drawer .scroll-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  animation: scrollHintFade 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+@keyframes scrollHintFade {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+/* 移动端按钮组优化 */
+.mobile-followup-drawer .button-group {
+  /* 确保按钮组在移动端正确显示 */
+  position: sticky;
+  bottom: 0;
+  background: white;
+  border-top: 1px solid #f0f0f0;
+  padding: 16px;
+  z-index: 100;
+}
+
+/* 移动端触摸反馈优化 */
+.mobile-followup-drawer .touch-feedback {
+  /* 添加触摸反馈效果 */
+  transition: all 0.2s ease;
+}
+
+.mobile-followup-drawer .touch-feedback:active {
+  transform: scale(0.98);
+  opacity: 0.8;
+}
+
+/* 🆕 固定底部按钮组样式 */
+.mobile-followup-drawer .fixed-footer {
+  /* 确保footer固定在底部 */
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  
+  /* 移动端优化 */
+  padding: 16px;
+  border-top: 1px solid #f0f0f0;
+  background-color: white;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  
+  /* 确保在移动端正确显示 */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* 移动端按钮组样式优化 */
+.mobile-followup-drawer .fixed-footer .button-group {
+  /* 确保按钮组在移动端正确显示 */
+  width: 100%;
+}
+
+.mobile-followup-drawer .fixed-footer .ant-btn {
+  /* 移动端按钮样式优化 */
+  height: 44px;
+  font-size: 16px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.mobile-followup-drawer .fixed-footer .ant-btn:last-child {
+  margin-bottom: 0;
+}
+
+/* 确保内容区域不被footer遮挡 */
+.mobile-followup-drawer .content-scroll-area {
+  padding-bottom: 120px !important;
+}

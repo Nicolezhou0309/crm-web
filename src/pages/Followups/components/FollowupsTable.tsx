@@ -105,7 +105,7 @@ interface FollowupsTableCompleteProps {
   leadtypeFilters: any[];
   remarkFilters: any[];
   worklocationFilters: any[];
-  userbudgetFilters: any[];
+  userbudgetFilters?: any[]; // 现在使用范围筛选器，可选
   followupresultFilters: any[];
   majorcategoryFilters: any[];
   scheduledcommunityFilters: any[];
@@ -139,7 +139,6 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
   leadtypeFilters,
   remarkFilters,
   worklocationFilters,
-  userbudgetFilters,
   followupresultFilters,
   majorcategoryFilters,
   scheduledcommunityFilters,
@@ -185,7 +184,6 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
       leadtypeFilters,
       remarkFilters,
       worklocationFilters,
-      userbudgetFilters,
       followupresultFilters,
       majorcategoryFilters,
       scheduledcommunityFilters,
@@ -211,7 +209,6 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
     leadtypeFilters,
     remarkFilters,
     worklocationFilters,
-    userbudgetFilters,
     followupresultFilters,
     majorcategoryFilters,
     scheduledcommunityFilters

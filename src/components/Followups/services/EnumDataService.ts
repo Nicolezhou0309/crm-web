@@ -102,10 +102,8 @@ export class EnumDataService {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('metro_stations')
-        .select('*')
-        .order('name');
+      // 使用数据库函数 get_metrostations，确保站点按照地理顺序排列
+      const { data, error } = await supabase.rpc('get_metrostations');
 
       if (error) {
         throw error;

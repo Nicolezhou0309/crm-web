@@ -1,6 +1,6 @@
 import React from 'react';
-import { Button, Input, Segmented } from 'antd';
-import { FilterOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Button, Input } from 'antd';
+import { FilterOutlined } from '@ant-design/icons';
 
 const { Search } = Input;
 
@@ -11,9 +11,6 @@ interface MobileHeaderProps {
   onKeywordClear: () => void;
   onFilterClick: () => void;
   showBackButton?: boolean;
-  // 视图切换相关
-  viewMode?: 'list' | 'waterfall';
-  onViewModeChange?: (mode: 'list' | 'waterfall') => void;
 }
 
 const MobileHeader: React.FC<MobileHeaderProps> = ({
@@ -22,13 +19,30 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
   onKeywordSearch,
   onKeywordClear,
   onFilterClick,
-  showBackButton = true,
-  viewMode = 'list',
-  onViewModeChange
+  showBackButton = true
 }) => {
   return (
-    <div className="mobile-header">
-      <div className="header-search">
+    <div 
+      className="mobile-header"
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        flexWrap: 'nowrap',
+        width: '100%'
+      }}
+    >
+      <div 
+        className="header-search"
+        style={{
+          flex: 1,
+          minWidth: '120px',
+          margin: 0,
+          padding: 0
+        }}
+      >
         <Search
           placeholder="编号、联系方式或管家..."
           value={keywordSearch || ''}
@@ -49,33 +63,19 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
           onClear={onKeywordClear}
           size="small"
           allowClear
+          style={{ width: '100%' }}
         />
       </div>
       
-      {/* 视图切换 */}
-      {onViewModeChange && (
-        <div className="header-view-switch">
-          <Segmented
-            value={viewMode}
-            onChange={onViewModeChange}
-            size="small"
-            options={[
-              {
-                label: '列表',
-                value: 'list',
-                icon: <UnorderedListOutlined />
-              },
-              {
-                label: '瀑布流',
-                value: 'waterfall',
-                icon: <AppstoreOutlined />
-              }
-            ]}
-          />
-        </div>
-      )}
-      
-      <div className="header-actions">
+      <div 
+        className="header-actions"
+        style={{
+          flexShrink: 0,
+          minWidth: '60px',
+          margin: 0,
+          padding: 0
+        }}
+      >
         <Button
           icon={<FilterOutlined />}
           onClick={onFilterClick}

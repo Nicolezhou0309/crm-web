@@ -344,8 +344,19 @@ const Followups: React.FC = () => {
       const rpcFilters: any = {};
       Object.entries(filters).forEach(([key, value]) => {
         if (value && Array.isArray(value) && value.length > 0) {
-          const rpcKey = `p_${key}`;
-          rpcFilters[rpcKey] = value;
+          // 特殊处理预算范围筛选器
+          if (key === 'userbudget' && value.length === 2) {
+            const [min, max] = value;
+            if (min !== null && min !== undefined && min !== '') {
+              rpcFilters.p_userbudget_min = Number(min);
+            }
+            if (max !== null && max !== undefined && max !== '') {
+              rpcFilters.p_userbudget_max = Number(max);
+            }
+          } else {
+            const rpcKey = `p_${key}`;
+            rpcFilters[rpcKey] = value;
+          }
         }
       });
       
@@ -729,7 +740,6 @@ const Followups: React.FC = () => {
               leadtypeFilters={enumData.leadtypeFilters}
               remarkFilters={enumData.remarkFilters}
               worklocationFilters={enumData.worklocationFilters}
-              userbudgetFilters={enumData.userbudgetFilters}
               followupresultFilters={enumData.followupresultFilters}
               majorcategoryFilters={enumData.majorcategoryFilters}
               scheduledcommunityFilters={enumData.scheduledcommunityFilters}
