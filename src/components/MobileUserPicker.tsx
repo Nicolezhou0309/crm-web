@@ -148,7 +148,7 @@ const MobileUserPicker: React.FC<MobileUserPickerProps> = ({
   }, []);
 
   // 处理确认选择
-  const handleConfirm = (val: (string | null)[], extend: any) => {
+  const handleConfirm = (val: any[], extend: any) => {
     console.log('选择结果:', val, extend);
     
     // 过滤出有效的用户ID（非部门节点）

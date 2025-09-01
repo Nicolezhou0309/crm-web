@@ -1450,7 +1450,7 @@ const MobileFollowups: React.FC = () => {
                   created_at_start: '',
                   created_at_end: '',
                   worklocation: [],
-                  majorcategory_primary: ''
+                  majorcategory_primary: []
                 });
                 
                 // 清除工作地点选择
