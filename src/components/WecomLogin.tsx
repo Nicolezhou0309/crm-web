@@ -11,7 +11,7 @@ interface WecomLoginProps {
   onError?: (error: string) => void;
 }
 
-const WecomLogin: React.FC<WecomLoginProps> = ({ onSuccess, onError }) => {
+const WecomLogin: React.FC<WecomLoginProps> = ({ onError }) => {
   const [qrCodeData, setQrCodeData] = useState<string>('');
   const [_qrCodeState, setQrCodeState] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -126,49 +126,8 @@ const WecomLogin: React.FC<WecomLoginProps> = ({ onSuccess, onError }) => {
   };
 
   // 处理企业微信登录成功
-  const _handleWecomLoginSuccess = async (userInfo: any) => {
-    if (!authLogin || !navigate) {
-      message.error('认证服务未初始化，请刷新页面重试');
-      return;
-    }
-
-    try {
-      // 使用企业微信用户信息进行登录
-      const { success, error } = await authLogin(
-        userInfo.email || `${userInfo.wechat_work_userid}@wecom.local`,
-        '', // 企业微信用户不需要密码
-        {
-          wechat_work_userid: userInfo.wechat_work_userid,
-          wechat_work_name: userInfo.wechat_work_name,
-          wechat_work_mobile: userInfo.wechat_work_mobile,
-          wechat_work_avatar: userInfo.wechat_work_avatar,
-          wechat_work_department: userInfo.wechat_work_department,
-          wechat_work_position: userInfo.wechat_work_position,
-          wechat_work_corpid: wecomConfig.corpId
-        }
-      );
-
-      if (success) {
-        message.success('企业微信登录成功！');
-        onSuccess?.(userInfo);
-        // 登录成功后跳转
-        navigate('/', { replace: true });
-      } else {
-        message.error(error || '企业微信登录失败');
-        onError?.(error || '企业微信登录失败');
-      }
-    } catch (error: any) {
-      console.error('企业微信登录处理失败:', error);
-      message.error('登录处理失败，请重试');
-      onError?.('登录处理失败');
-    }
-  };
 
   // 刷新二维码
-  const refreshQRCode = () => {
-    stopPolling();
-    generateQRCode();
-  };
 
   // 直接跳转企业微信授权页面
   const handleDirectWecomLogin = () => {
