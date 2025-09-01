@@ -24,6 +24,9 @@ import {
   FileDoneOutlined,
   BarChartOutlined,
   VideoCameraOutlined,
+  EnvironmentOutlined,
+  CalculatorOutlined,
+  RocketOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
 import { useRolePermissions } from '../hooks/useRolePermissions';
@@ -119,6 +122,40 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       path: '/live-stream-management',
       className: 'main-menu-item',
       permission: 'live_stream_manage',
+    },
+    
+    // 地铁工具菜单
+    {
+      key: 'metro-tools',
+      icon: <EnvironmentOutlined />,
+      label: '地铁工具',
+      className: 'main-menu-submenu-title',
+      children: [
+        {
+          key: 'metro-calculator',
+          icon: <CalculatorOutlined />,
+          label: '距离计算器',
+          path: '/metro-calculator',
+          className: 'main-menu-item',
+        },
+      ]
+    },
+
+    // 小红书工具菜单
+    {
+      key: 'xiaohongshu-tools',
+      icon: <RocketOutlined />,
+      label: '小红书工具',
+      className: 'main-menu-submenu-title',
+      children: [
+        {
+          key: 'xiaohongshu-test',
+          icon: <RocketOutlined />,
+          label: '自动发布测试',
+          path: '/xiaohongshu-test',
+          className: 'main-menu-item',
+        },
+      ]
     },
 
     // 分配管理一级菜单

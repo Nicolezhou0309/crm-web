@@ -25,6 +25,10 @@ export interface FollowupRecord {
   showingsales_user?: string;
   leadtype?: string;
   invalid?: boolean;
+  extended_data?: {
+    commute_times?: Record<string, number>;
+    community_recommendations?: any[];
+  };
 }
 
 // 分页状态类型
@@ -57,6 +61,13 @@ export interface FilterParams {
   p_moveintime_end?: string | null;
   p_scheduletime_start?: string | null;
   p_scheduletime_end?: string | null;
+  // 🆕 新增：非空条件参数
+  p_moveintime_not_null?: boolean[];
+  p_created_at_not_null?: boolean[];
+  p_scheduletime_not_null?: boolean[];
+  p_phone_not_null?: boolean[];
+  p_wechat_not_null?: boolean[];
+  p_worklocation_not_null?: boolean[];
   p_userbudget_min?: number;
   p_userbudget_max?: number;
   p_keyword?: string;
@@ -64,6 +75,26 @@ export interface FilterParams {
   p_showingsales_user?: string[];
   p_limit?: number;
   p_offset?: number;
+  // 🆕 新增：完整的筛选参数支持
+  p_qq?: string[];
+  p_location?: string[];
+  p_budget?: (string | number)[];
+  p_douyinid?: string[];
+  p_douyin_accountname?: string[];
+  p_staffname?: string[];
+  p_redbookid?: string[];
+  p_area?: string[];
+  p_notelink?: string[];
+  p_campaignid?: string[];
+  p_campaignname?: string[];
+  p_unitid?: string[];
+  p_unitname?: string[];
+  p_creativedid?: string[];
+  p_creativename?: string[];
+  p_traffictype?: string[];
+  p_interactiontype?: string[];
+  p_douyinleadid?: string[];
+  p_leadstatus?: string[];
   // 添加索引签名以支持动态访问
   [key: string]: any;
 }

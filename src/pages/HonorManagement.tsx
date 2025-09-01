@@ -14,6 +14,7 @@ import imageCompression from 'browser-image-compression';
 import Cropper from 'react-easy-crop';
 import { Modal as AntdModal } from 'antd';
 import { useUser } from '../context/UserContext';
+import { toBeijingDateTimeStr } from '../utils/timeUtils';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -540,7 +541,7 @@ export const HonorManagement: React.FC = () => {
         .from('avatar_frames')
         .update({ 
           icon_url: publicUrl,
-          updated_at: new Date().toISOString()
+          updated_at: toBeijingDateTimeStr(new Date())
         })
         .eq('id', frameId);
 
@@ -573,7 +574,7 @@ export const HonorManagement: React.FC = () => {
         .from('avatar_frames')
         .update({ 
           icon_url: null,
-          updated_at: new Date().toISOString()
+          updated_at: toBeijingDateTimeStr(new Date())
         })
         .eq('id', frameId);
 
@@ -627,7 +628,7 @@ export const HonorManagement: React.FC = () => {
           rarity: formData.rarity,
           code: formData.code,
           frame_data: updatedFrameData,
-          updated_at: new Date().toISOString()
+          updated_at: toBeijingDateTimeStr(new Date())
         })
         .eq('id', editingFrame.id);
 
@@ -659,7 +660,7 @@ export const HonorManagement: React.FC = () => {
             .upsert({
               user_id: userId,
               frame_id: frameId,
-              unlocked_at: new Date().toISOString()
+              unlocked_at: toBeijingDateTimeStr(new Date())
             }, { onConflict: 'user_id,frame_id' });
           if (error) {
             console.error('[发放头像框] 插入失败:', {
@@ -980,7 +981,7 @@ export const HonorManagement: React.FC = () => {
       title: '发放时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (text: string) => new Date(text).toLocaleString(),
+      render: (text: string) => toBeijingDateTimeStr(text),
     },
     {
       title: '发放说明',

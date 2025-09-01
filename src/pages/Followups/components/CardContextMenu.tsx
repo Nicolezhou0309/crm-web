@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { message } from 'antd';
 import { CopyOutlined, PhoneOutlined, WechatOutlined, MessageOutlined } from '@ant-design/icons';
@@ -18,9 +18,7 @@ export const CardContextMenu: React.FC<CardContextMenuProps> = ({
   x,
   y,
   record,
-  onClose,
-  onRollback
-}) => {
+  onClose}) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
 

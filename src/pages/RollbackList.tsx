@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Table, Tag, Space, Image, Input, Select } from 'antd';
 import { supabase } from '../supaClient';
 import './RollbackList.css';
+import { toBeijingDateTimeStr } from '../utils/timeUtils';
 
 
 const { Option } = Select;
@@ -114,7 +115,7 @@ const RollbackList: React.FC = () => {
               else { text = status; }
               return <Tag color={color}>{text}</Tag>;
             }},
-            { title: '发起时间', dataIndex: 'created_at', key: 'created_at', width: 160, render: (t) => t && new Date(t).toLocaleString() },
+            { title: '发起时间', dataIndex: 'created_at', key: 'created_at', width: 160, render: (t) => t && toBeijingDateTimeStr(t) },
           ]}
           scroll={{ x: 700, y: 350 }}
         />

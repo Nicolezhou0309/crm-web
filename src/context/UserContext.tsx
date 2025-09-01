@@ -29,6 +29,7 @@ interface UserContextType {
   profile: UserProfile | null;
   permissions: UserPermissions | null;
   loading: boolean;
+  profileLoading: boolean; // 新增：专门用于 profile 加载状态
   error: string | null;
   refreshUser: () => Promise<void>;
   clearUserCache: () => void;
@@ -50,6 +51,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [sessionTimeRemaining, setSessionTimeRemaining] = useState(SESSION_TIMEOUT);
   const [showSessionWarning, setShowSessionWarning] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false); // 新增：profile 加载状态
   
 
   
@@ -167,11 +169,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const sessionUser = authStatus.user;
       
-      if (sessionUser) {
-        setUser(sessionUser);
-        
-        // 获取用户 profile 信息
-        try {
+              if (sessionUser) {
+          setUser(sessionUser);
+          setProfileLoading(true); // 开始加载 profile
+          
+          // 获取用户 profile 信息
+          try {
           const { data: profileData, error: profileError } = await supabase
             .from('users_profile')
             .select('*')
@@ -233,24 +236,23 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
           
-        } catch (profileErr) {
-          setError('获取用户信息失败');
+                  } finally {
+            setProfileLoading(false); // profile 加载完成
+          }
+        } else {
+          setUser(null);
           setProfile(null);
+          setPermissions(null);
+          setProfileLoading(false); // 没有用户时也设置 profileLoading 为 false
         }
-      } else {
+          } catch (err) {
+        console.error('refreshUser: 刷新失败', err);
+        setError(err instanceof Error ? err.message : '获取用户信息失败');
         setUser(null);
         setProfile(null);
         setPermissions(null);
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('refreshUser: 刷新失败', err);
-      setError(err instanceof Error ? err.message : '获取用户信息失败');
-      setUser(null);
-      setProfile(null);
-      setPermissions(null);
-    } finally {
-      setLoading(false);
-    }
   }, []); // 移除loading依赖，避免循环调用
 
   // 清除用户缓存
@@ -267,7 +269,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (authStatus.isValid && authStatus.user) {
           setUser(authStatus.user);
-          setLoading(false);
+          setProfileLoading(true); // 开始加载 profile
           
           // 获取用户 profile 信息（简化版本，不触发复杂的权限检查）
           try {
@@ -281,7 +283,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setProfile(profileData);
             }
           } catch (profileErr) {
-            // 初始化时获取profile失败，但不影响登录
+            console.error('初始化时获取profile失败:', profileErr);
+          } finally {
+            setProfileLoading(false); // profile 加载完成
+            setLoading(false); // 整体加载完成
           }
         } else {
           setUser(null);
@@ -311,9 +316,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (event === 'SIGNED_IN' && session?.user) {
         // 立即更新用户状态，不检查用户ID差异
         setUser(session.user);
-        setLoading(false);
+        setProfileLoading(true); // 开始加载 profile
         
-        // 异步获取用户 profile 信息，不阻塞登录跳转
+        // 异步获取用户 profile 信息，等待完成后再设置 loading: false
         const fetchProfile = async () => {
           try {
             const { data: profileData, error: profileError } = await supabase
@@ -327,10 +332,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           } catch (profileErr) {
             console.error('获取用户profile失败:', profileErr);
+          } finally {
+            setProfileLoading(false); // profile 加载完成
+            setLoading(false); // 整体加载完成
           }
         };
         
-        // 立即执行，不等待
+        // 立即执行，等待完成
         fetchProfile();
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -352,6 +360,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     permissions,
     loading,
+    profileLoading,
     error,
     refreshUser,
     clearUserCache,

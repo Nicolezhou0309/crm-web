@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Layout, message, Modal, Button, Form, Select, Upload } from 'antd';
+import { Layout, message, Modal, Button, Form, Select, Upload, Drawer } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { PageHeader } from './components/PageHeader';
 import { FilterPanel } from './components/FilterPanel';
@@ -20,7 +20,9 @@ import { supabase } from '../../supaClient';
 import imageCompression from 'browser-image-compression';
 import RollbackList from '../RollbackList.tsx';
 import FollowupsCalendarView from '../FollowupsCalendarView';
+import LeadDetailDrawer from '../../components/LeadDetailDrawer';
 import './Followups.css';
+import { toBeijingTime } from '../../utils/timeUtils';
 
 const { Content } = Layout;
 
@@ -71,7 +73,7 @@ const Followups: React.FC = () => {
   // 初始化默认分组字段
   useEffect(() => {
     // 分组字段现在总是有默认值，不需要额外检查
-    setGroupPanelOpen(true); // 默认展开分组面板
+    setGroupPanelOpen(false); // 默认收起分组面板
   }, []);
   
   // 回退相关状态
@@ -89,6 +91,10 @@ const Followups: React.FC = () => {
   // 抽屉状态
   const [stageDrawerOpen, setStageDrawerOpen] = useState(false);
   const [currentEditRecord, setCurrentEditRecord] = useState<any>(null);
+  
+  // 新增：线索详情抽屉状态
+  const [leadDetailDrawerOpen, setLeadDetailDrawerOpen] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState<string>('');
   
   // 优化：添加数据加载状态跟踪
   const [groupDataLoaded, setGroupDataLoaded] = useState(false);
@@ -338,27 +344,101 @@ const Followups: React.FC = () => {
       return;
     }
     
-    // 筛选变化，更新筛选条件并刷新数据
-    if (filters && Object.keys(filters).length > 0) {
-      // 将表格筛选器转换为RPC参数格式
-      const rpcFilters: any = {};
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value && Array.isArray(value) && value.length > 0) {
-          // 特殊处理预算范围筛选器
-          if (key === 'userbudget' && value.length === 2) {
-            const [min, max] = value;
-            if (min !== null && min !== undefined && min !== '') {
-              rpcFilters.p_userbudget_min = Number(min);
+          // 筛选变化，更新筛选条件并刷新数据
+      if (filters && Object.keys(filters).length > 0) {
+        // 将表格筛选器转换为RPC参数格式
+        const rpcFilters: any = {};
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value && Array.isArray(value) && value.length > 0) {
+            // 特殊处理创建日期范围筛选器
+            if (key === 'created_at') {
+              // 处理日期范围
+              if (value.length >= 2) {
+                const [start, end] = value;
+                if (start && end) {
+                  rpcFilters.p_created_at_start = start;
+                  rpcFilters.p_created_at_end = end;
+                }
+              }
+              // 处理非空条件
+              const notNullItem = value.find((v: any) => v && typeof v === 'object' && v.notNull);
+              if (notNullItem) {
+                rpcFilters.p_created_at_not_null = [true];
+              }
+              return; // 使用return而不是continue
             }
-            if (max !== null && max !== undefined && max !== '') {
-              rpcFilters.p_userbudget_max = Number(max);
+            
+            // 特殊处理入住时间范围筛选器
+            if (key === 'moveintime') {
+              // 处理日期范围
+              if (value.length >= 2) {
+                const [start, end] = value;
+                if (start && end) {
+                  rpcFilters.p_moveintime_start = start;
+                  rpcFilters.p_moveintime_end = end;
+                }
+              }
+              // 处理非空条件
+              const notNullItem = value.find((v: any) => v && typeof v === 'object' && v.notNull);
+              if (notNullItem) {
+                rpcFilters.p_moveintime_not_null = [true];
+              }
+              return; // 使用return而不是continue
             }
-          } else {
-            const rpcKey = `p_${key}`;
-            rpcFilters[rpcKey] = value;
+            
+            // 特殊处理预约时间范围筛选器
+            if (key === 'scheduletime') {
+              console.log('🔍 [Followups] 处理预约时间筛选器:', { key, value, valueType: typeof value, isArray: Array.isArray(value) });
+              
+              // 处理日期范围
+              if (value.length >= 2) {
+                const [start, end] = value;
+                console.log('📅 [Followups] 预约时间范围:', { start, end, startType: typeof start, endType: typeof end });
+                
+                if (start && end) {
+                  rpcFilters.p_scheduletime_start = start;
+                  rpcFilters.p_scheduletime_end = end;
+                  console.log('✅ [Followups] 预约时间范围参数已设置:', { 
+                    p_scheduletime_start: rpcFilters.p_scheduletime_start, 
+                    p_scheduletime_end: rpcFilters.p_scheduletime_end 
+                  });
+                } else {
+                  console.log('⚠️ [Followups] 预约时间范围参数无效:', { start, end });
+                }
+              } else {
+                console.log('⚠️ [Followups] 预约时间值长度不足:', { length: value.length, value });
+              }
+              
+              // 处理非空条件
+              const notNullItem = value.find((v: any) => v && typeof v === 'object' && v.notNull);
+              if (notNullItem) {
+                rpcFilters.p_scheduletime_not_null = [true];
+                console.log('✅ [Followups] 预约时间非空条件已设置:', { 
+                  p_scheduletime_not_null: rpcFilters.p_scheduletime_not_null 
+                });
+              } else {
+                console.log('ℹ️ [Followups] 预约时间未选择非空条件');
+              }
+              
+              console.log('🔍 [Followups] 预约时间筛选器处理完成，rpcFilters:', rpcFilters);
+              return; // 使用return而不是continue
+            }
+            
+            // 特殊处理预算范围筛选器
+            if (key === 'userbudget' && value.length === 2) {
+              const [min, max] = value;
+              if (min !== null && min !== undefined && min !== '') {
+                rpcFilters.p_userbudget_min = Number(min);
+              }
+              if (max !== null && max !== undefined && max !== '') {
+                rpcFilters.p_userbudget_max = Number(max);
+              }
+            } else {
+              const rpcKey = `p_${key}`;
+              rpcFilters[rpcKey] = value;
+            }
           }
-        }
-      });
+        });
       
       // 验证枚举字段的值是否有效
       const enumFields = ['p_followupstage', 'p_customerprofile', 'p_userrating', 'p_scheduledcommunity', 'p_source'];
@@ -402,9 +482,21 @@ const Followups: React.FC = () => {
   const handleRowEdit = useCallback(async (record: any, field: keyof any, value: any) => {
     const originalValue = (followupsData.data.find(item => item.id === record.id) as any)?.[field];
     
-    if (originalValue === value) { 
+    // 改进的值比较逻辑，处理类型转换
+    const originalStr = originalValue !== undefined && originalValue !== null ? String(originalValue) : '';
+    const newStr = value !== undefined && value !== null ? String(value) : '';
+    
+    if (originalStr === newStr) { 
+      console.log(`🔄 [Followups] 字段 ${String(field)} 值未变化，跳过保存:`, { original: originalValue, new: value });
       return; // 值没有变化，不需要保存
     }
+    
+    console.log(`💾 [Followups] 开始保存字段 ${String(field)}:`, { 
+      recordId: record.id, 
+      original: originalValue, 
+      new: value,
+      field: String(field) 
+    });
     
     // 失焦更新：更新本地数据并保存到数据库
     optimizedLocalData.updateField(record.id, field as any, value);
@@ -416,17 +508,21 @@ const Followups: React.FC = () => {
       // 保存失败，回滚本地数据
       optimizedLocalData.rollbackField(record.id, field as any, originalValue);
       message.error('保存失败: ' + (result.error || '未知错误'));
+      console.error(`❌ [Followups] 字段 ${String(field)} 保存失败:`, result.error);
     } else if (!result.skipped) {
       // 保存成功（非跳过）
       message.success('保存成功');
+      console.log(`✅ [Followups] 字段 ${String(field)} 保存成功`);
     } else {
       // 保存被跳过（值相同）
+      console.log(`⏭️ [Followups] 字段 ${String(field)} 保存被跳过（值相同）`);
     }
   }, [followupsData.data, optimizedLocalData, autoSave]);
 
   // 处理线索详情点击
-  const handleLeadDetailClick = useCallback(() => {
-    // 这里可以打开线索详情抽屉或跳转页面
+  const handleLeadDetailClick = useCallback((leadid: string) => {
+    setSelectedLeadId(leadid);
+    setLeadDetailDrawerOpen(true);
   }, []);
 
   // 处理阶段点击
@@ -440,7 +536,14 @@ const Followups: React.FC = () => {
     // 更新本地数据
     optimizedLocalData.updateMultipleFields(record.id, updatedFields);
     
-    // 刷新数据以确保同步
+    // 检查是否是关闭时的自动保存，如果是则不触发全局刷新
+    if (updatedFields._autoSaveOnClose) {
+      // 自动保存时只更新本地数据，不触发全局刷新
+      console.log('🔄 [Followups] 抽屉关闭时自动保存，跳过全局刷新');
+      return;
+    }
+    
+    // 手动保存时刷新数据以确保同步
     const currentFilters = filterManager.getCurrentFiltersFn();
     followupsData.refreshData(currentFilters);
     
@@ -533,7 +636,7 @@ const Followups: React.FC = () => {
         // 使用图片压缩优化上传
         const compressedFile = await imageCompression(item.file, imageCompressionOptions);
         const fileExt = compressedFile.name.split('.').pop();
-        const fileName = `rollback-${Date.now()}-${Math.floor(Math.random()*10000)}.${fileExt}`;
+        const fileName = `rollback-${toBeijingTime(new Date()).valueOf()}-${Math.floor(Math.random()*10000)}.${fileExt}`;
         const filePath = `rollback/${fileName}`;
         const { error } = await supabase.storage.from('rollback').upload(filePath, compressedFile);
         if (error) throw error;
@@ -840,6 +943,21 @@ const Followups: React.FC = () => {
       >
         <FollowupsCalendarView />
       </Modal>
+
+      {/* 线索详情抽屉 */}
+      <Drawer
+        open={leadDetailDrawerOpen}
+        onClose={() => {
+          setLeadDetailDrawerOpen(false);
+          setSelectedLeadId('');
+        }}
+        title="线索详情"
+        width={800}
+        destroyOnHidden
+        placement="right"
+      >
+        {selectedLeadId && <LeadDetailDrawer leadid={selectedLeadId} />}
+      </Drawer>
 
       {/* 跟进阶段编辑抽屉 */}
       <FollowupStageDrawer

@@ -1,15 +1,200 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { Table, Button, Tag, Tooltip, Typography, InputNumber, Select, DatePicker, Cascader, Checkbox, Spin, Input } from 'antd';
-import { CopyOutlined, UserOutlined, MoreOutlined } from '@ant-design/icons';
-import type { FilterDropdownProps } from 'antd/es/table/interface';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { Table, Button, Tag, Typography, InputNumber, Select, DatePicker, Cascader, Input, Tooltip } from 'antd';
+import { CopyOutlined, UserOutlined } from '@ant-design/icons';
 import type { FollowupRecord, PaginationState, ColumnFilters, EnumOption, MetroStationOption, MajorCategoryOption } from '../types';
+import { getFollowupsTableFilters } from './TableFilterConfig';
+import CommunityRecommendations from '../../../components/Followups/components/CommunityRecommendations';
 import locale from 'antd/es/date-picker/locale/zh_CN';
 import dayjs from 'dayjs';
-import { getFollowupsTableFilters } from './TableFilterConfig';
-import { useTableColumns } from './TableColumns';
 
 const { Paragraph } = Typography;
-const { RangePicker } = DatePicker;
+
+// 推荐标签组件
+const RecommendationTag: React.FC<{ 
+  record: FollowupRecord; 
+  isExpanded?: boolean; 
+  onToggleExpand?: () => void; 
+}> = ({ record, isExpanded, onToggleExpand }) => {
+  const [topRecommendation, setTopRecommendation] = useState<{ community: string; score: number; reasons: string[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const loadTopRecommendation = async () => {
+      // 只有有工作地点、预算和用户画像的记录才加载推荐
+      if (!(record.worklocation && record.userbudget && record.customerprofile)) {
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // 调用真实的推荐服务获取数据
+        const recommendationService = (await import('../../../services/CommunityRecommendationService')).default.getInstance();
+        
+        const recommendations = await recommendationService.getRecommendationsWithCommuteTimes({
+          worklocation: record.worklocation || '',
+          userbudget: Number(record.userbudget) || 0,
+          customerprofile: record.customerprofile || '',
+          followupId: Number(record.id),
+          commuteTimes: record.extended_data?.commute_times || {}
+        });
+        
+        if (recommendations && recommendations.length > 0) {
+          // 按分数排序，取第一
+          const sorted = recommendations.sort((a: any, b: any) => b.score - a.score);
+          const topRec = sorted[0];
+          
+          // 分析推荐理由
+          const reasons = [];
+          if (topRec.commuteTime <= 30) reasons.push('通勤近');
+          else if (topRec.commuteTime <= 60) reasons.push('通勤适中');
+          if (topRec.budgetScore >= 90) reasons.push('预算匹配');
+          if (topRec.historicalScore >= 85) reasons.push('历史成交好');
+          if (topRec.score >= 90) reasons.push('综合推荐');
+          
+          setTopRecommendation({
+            community: topRec.community,
+            score: topRec.score,
+            reasons: reasons
+          });
+        }
+      } catch (error) {
+        console.error('加载推荐失败:', error);
+        // 如果推荐服务失败，尝试从 extended_data 中获取缓存的推荐
+        if (record.extended_data?.community_recommendations) {
+          try {
+            const cachedRecommendations = record.extended_data.community_recommendations;
+            if (Array.isArray(cachedRecommendations) && cachedRecommendations.length > 0) {
+              const sorted = cachedRecommendations.sort((a: any, b: any) => b.score - a.score);
+              const topRec = sorted[0];
+              
+              // 分析缓存数据的推荐理由
+              const reasons = [];
+              if (topRec.commuteTime <= 30) reasons.push('通勤近');
+              else if (topRec.commuteTime <= 60) reasons.push('通勤适中');
+              if (topRec.budgetScore >= 90) reasons.push('预算匹配');
+              if (topRec.historicalScore >= 85) reasons.push('历史成交好');
+              if (topRec.score >= 90) reasons.push('综合推荐');
+              
+              setTopRecommendation({
+                community: topRec.community,
+                score: topRec.score,
+                reasons: reasons
+              });
+            }
+          } catch (cacheError) {
+            console.error('读取缓存推荐失败:', cacheError);
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTopRecommendation();
+  }, [record.worklocation, record.userbudget, record.customerprofile, record.extended_data]);
+
+  // 如果没有必要信息，不显示标签
+  if (!(record.worklocation && record.userbudget && record.customerprofile)) {
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div style={{ 
+        padding: '6px 8px', 
+        borderBottom: '1px solid #f0f0f0',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: '#fafafa',
+        borderRadius: '4px',
+        fontSize: '12px',
+        color: '#666'
+      }}>
+        <span>计算中...</span>
+      </div>
+    );
+  }
+
+  if (!topRecommendation) {
+    return (
+      <div style={{ 
+        padding: '6px 8px', 
+        borderBottom: '1px solid #f0f0f0',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: '#fafafa',
+        borderRadius: '4px',
+        fontSize: '12px',
+        color: '#666'
+      }}>
+        <span>推荐社区</span>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      style={{ 
+        padding: '6px 8px', 
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: '#fafafa',
+        borderRadius: '4px',
+        cursor: onToggleExpand ? 'pointer' : 'default',
+        transition: 'all 0.2s ease'
+      }}
+      onMouseEnter={(e) => {
+        if (onToggleExpand) {
+          e.currentTarget.style.background = '#f0f0f0';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (onToggleExpand) {
+          e.currentTarget.style.background = '#fafafa';
+        }
+      }}
+      onClick={() => {
+        if (onToggleExpand) {
+          onToggleExpand();
+        }
+      }}
+    >
+      <div style={{ flex: 1 }}>
+                {/* 推荐社区名称 - 第一行 */}
+        <div style={{ 
+          fontSize: '13px', 
+          fontWeight: '500', 
+          color: '#333',
+          marginBottom: '6px',
+          lineHeight: '1.2'
+        }}>
+          {topRecommendation.community}
+        </div>
+        
+        {/* 推荐理由标签 - 第二行 */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+          {topRecommendation.reasons && topRecommendation.reasons.map((reason, index) => (
+            <Tag 
+              key={index}
+              color={reason === '通勤近' ? 'green' : 
+                     reason === '通勤适中' ? 'cyan' :
+                     reason === '预算匹配' ? 'orange' : 
+                     reason === '历史成交好' ? 'purple' : 'blue'}
+              style={{ fontSize: '10px', margin: 0, lineHeight: '1.2' }}
+            >
+              {reason}
+            </Tag>
+          ))}
+          
+
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // 独立的输入组件，避免在render函数中使用hooks
 const EditableInput: React.FC<{
@@ -67,10 +252,43 @@ const EditableInputNumber: React.FC<{
       placeholder={placeholder}
       style={style}
       onChange={newValue => setInputValue(newValue || undefined)}
-      onBlur={e => {
-        const newValue = e.target.value;
-        if (newValue !== value) {
-          onSave(newValue);
+      onBlur={() => {
+        // 使用当前输入值进行比较和保存
+        const currentValue = inputValue;
+        const originalValue = value ? Number(value) : undefined;
+        
+        // 检查值是否发生变化（考虑类型转换）
+        const hasChanged = currentValue !== originalValue && 
+                          (currentValue !== undefined || originalValue !== undefined);
+        
+        if (hasChanged) {
+          // 转换为字符串保存，与数据库字段类型保持一致
+          const stringValue = currentValue !== undefined && currentValue !== null ? String(currentValue) : '';
+          console.log('🔄 [EditableInputNumber] 预算值变化，触发保存:', {
+            original: originalValue,
+            current: currentValue,
+            stringValue: stringValue
+          });
+          onSave(stringValue);
+        }
+      }}
+      onPressEnter={() => {
+        // 回车键也可以触发保存
+        const currentValue = inputValue;
+        const originalValue = value ? Number(value) : undefined;
+        
+        // 检查值是否发生变化（考虑类型转换）
+        const hasChanged = currentValue !== originalValue && 
+                          (currentValue !== undefined || originalValue !== undefined);
+        
+        if (hasChanged) {
+          const stringValue = currentValue !== undefined && currentValue !== null ? String(currentValue) : '';
+          console.log('🔄 [EditableInputNumber] 预算值变化（回车），触发保存:', {
+            original: originalValue,
+            current: currentValue,
+            stringValue: stringValue
+          });
+          onSave(stringValue);
         }
       }}
       disabled={disabled}
@@ -146,6 +364,20 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
   interviewsalesUserLoading,
   findCascaderPath
 }) => {
+  // 展开行状态管理
+  const [expandedRowKeys, setExpandedRowKeys] = useState<React.Key[]>([]);
+  
+  // 优化的展开/收起处理函数
+  const handleToggleExpand = useCallback((recordId: React.Key) => {
+    setExpandedRowKeys(prev => {
+      if (prev.includes(recordId)) {
+        return prev.filter(key => key !== recordId);
+      } else {
+        return [...prev, recordId];
+      }
+    });
+  }, []);
+  
   // 确保 data 始终是数组类型
   const safeData = Array.isArray(data) ? data : [];
 
@@ -214,34 +446,36 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
     scheduledcommunityFilters
   ]);
 
-  // 完整的列配置，包含所有字段
-  const columns = [
+  // 表格列配置
+  const columns = useMemo(() => [
     {
       title: '线索编号',
       dataIndex: 'leadid',
       key: 'leadid',
       fixed: 'left' as const,
-      width: 140,
       ellipsis: true,
       filterDropdown: tableFilters.leadid,
       filteredValue: columnFilters.leadid ?? null,
-      onCell: () => ({ style: { minWidth: 120, maxWidth: 180 } }),
+      onCell: () => ({ style: { ...defaultCellStyle, minWidth: 120, maxWidth: 180 } }),
       render: (text: string, record: FollowupRecord) => {
         return text ? (
-          <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-            <Button
-              type="link"
-              size="small"
-              style={{ padding: 0, height: 'auto', fontSize: 15, color: '#1677ff', fontWeight: 'normal' }}
-              onClick={() => onLeadDetailClick(record.leadid)}
-            >
-              {text}
-            </Button>
-            <Paragraph
-              copyable={{ text, tooltips: false, icon: <CopyOutlined style={{ color: '#1677ff' }} /> }}
-              style={{ margin: 0, marginLeft: 4, display: 'inline-block' }}
-            />
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, height: 'auto', fontSize: 15, color: '#1677ff', fontWeight: 'normal', display: 'inline-block', whiteSpace: 'nowrap' }}
+                onClick={() => onLeadDetailClick(record.leadid)}
+              >
+                {text}
+              </Button>
+              <Paragraph
+                copyable={{ text, tooltips: false, icon: <CopyOutlined style={{ color: '#1677ff' }} /> }}
+                style={{ margin: 0, marginLeft: 4, display: 'inline-block', whiteSpace: 'nowrap' }}
+              />
+            </span>
+
+          </div>
         ) : <span style={{ color: '#bbb' }}>-</span>;
       }
     },
@@ -279,6 +513,31 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
           >
             {item?.label || text}
           </Button>
+        );
+      }
+    },
+    {
+      title: '推荐社区',
+      dataIndex: 'recommendation',
+      key: 'recommendation',
+      fixed: 'left' as const,
+      width: 'auto',
+      ellipsis: false,
+      onCell: () => ({ style: { minWidth: 160, maxWidth: 'none', whiteSpace: 'nowrap' } }),
+      render: (_: any, record: FollowupRecord) => {
+        const isExpanded = expandedRowKeys.includes(record.id);
+        const canExpand = !!(record.worklocation && record.userbudget && record.customerprofile);
+        
+
+        
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <RecommendationTag 
+              record={record} 
+              isExpanded={isExpanded}
+              onToggleExpand={canExpand ? () => handleToggleExpand(record.id) : undefined}
+            />
+          </div>
         );
       }
     },
@@ -433,7 +692,8 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
               let selectedText = '';
               if (selectedOptions && selectedOptions.length > 1) {
                 // 只保存站点名称，不保存线路信息（与旧页面保持一致）
-                selectedText = selectedOptions[1].label;
+                // 🆕 修复：确保保存的是站点名称，不是带"站"字的完整名称
+                selectedText = selectedOptions[1].label.replace(/站$/, '');
               } else if (selectedOptions && selectedOptions.length === 1) {
                 // 只有一级选项时，保存线路名称
                 selectedText = selectedOptions[0].label;
@@ -537,7 +797,7 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
       )
     },
     {
-      title: '主分类',
+      title: '跟进结果',
       dataIndex: 'majorcategory',
       key: 'majorcategory',
       width: 220,
@@ -663,7 +923,24 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
         </Button>
       ),
     }
-  ];
+  ], [
+    columnFilters,
+    communityEnum,
+    followupstageEnum,
+    customerprofileEnum,
+    sourceEnum,
+    userratingEnum,
+    majorCategoryOptions,
+    metroStationOptions,
+    onLeadDetailClick,
+    onStageClick,
+    onRollbackClick,
+    onRowEdit,
+    isFieldDisabled,
+    forceUpdate,
+    tableFilters,
+    findCascaderPath
+  ]);
 
   return (
     <Table
@@ -689,6 +966,36 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
       rowClassName={() => 'compact-table-row'}
       tableLayout="fixed"
       sticky
+      // 添加可展开行功能
+      expandable={{
+        expandedRowKeys: expandedRowKeys,
+        expandedRowRender: (record) => (
+          <div style={{ padding: '16px', background: '#fafafa', margin: '0 -16px' }}>
+            <CommunityRecommendations
+              worklocation={record.worklocation || ''}
+              userbudget={Number(record.userbudget) || 0}
+              customerprofile={record.customerprofile || ''}
+              record={record}
+              compact={true}
+            />
+          </div>
+        ),
+        rowExpandable: (record) => {
+          // 只有有工作地点、预算和用户画像的记录才可展开
+          return !!(record.worklocation && record.userbudget && record.customerprofile);
+        },
+        expandRowByClick: false, // 禁用点击行展开，只能点击展开图标
+        expandIcon: () => {
+          // 隐藏默认展开图标，使用推荐社区列的自定义展开按钮
+          return null;
+        },
+        onExpandedRowsChange: (expandedKeys) => {
+          setExpandedRowKeys([...expandedKeys]);
+        },
+        indentSize: 0, // 隐藏展开列的缩进
+        showExpandColumn: false, // 隐藏展开列
+
+      }}
       // 添加自定义空状态
       locale={{
         emptyText: (

@@ -76,11 +76,9 @@ export const useRealtimeNotifications = () => {
     // 1. 初始加载通知
     loadNotifications(profileId);
     
-    // 2. 订阅实时通知 - 暂时禁用 realtime 功能
-    console.log('[useRealtimeNotifications] realtime 功能已暂时禁用，profileId:', profileId);
+    // 2. 订阅实时通知
+    console.log('[useRealtimeNotifications] 启用 realtime 功能，profileId:', profileId);
     
-    // 暂时注释掉 realtime 订阅代码
-    /*
     const channel = supabase
       .channel(`public:notifications`)
       .on('postgres_changes', {
@@ -145,10 +143,6 @@ export const useRealtimeNotifications = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-    */
-    
-    // 暂时返回空函数，因为 realtime 已禁用
-    return () => {};
   }, [profileId]);
 
   // 重新计算未读数 - 使用useMemo优化

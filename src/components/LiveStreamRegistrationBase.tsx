@@ -11,6 +11,7 @@ import UserTreeSelect from './UserTreeSelect';
 import LiveStreamCardContextMenu from './LiveStreamCardContextMenu';
 import LiveStreamHistoryDrawer from './LiveStreamHistoryDrawer';
 import LiveStreamScoringDrawer from './LiveStreamScoringDrawer';
+import { toBeijingDateStr, getWeekStart, getWeekEnd } from '../utils/timeUtils';
 const { Option } = Select;
 
 
@@ -54,6 +55,7 @@ const ScheduleCard = memo<{
                   schedule.status === 'available' || 
                   schedule.status === 'editing' ||
                   (!schedule.status && schedule.status !== 'editing');
+  
   
   // 检查是否是当前用户报名的 - 使用profile.id进行比较
   // 对于available状态且没有参与者的卡片，不应该显示为"我报名的"
@@ -671,7 +673,6 @@ const ScheduleCard = memo<{
     if (schedule && schedule?.status === 'editing') {
       return renderCard(renderEditingCardContent());
     }
-    // 其他可编辑状态（空状态、available状态）
     return renderCard(renderEmptyOrAvailableCardContent());
   }
 
@@ -1009,14 +1010,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
     testDatabaseRecords();
   }, [selectedWeek]);
 
-  // 添加realtime订阅，监听数据变化 - 暂时禁用 realtime 功能
+  // 添加realtime订阅，监听数据变化
   useEffect(() => {
     if (!selectedWeek) return;
-    
-    console.log('[LiveStreamRegistrationBase] realtime 功能已暂时禁用');
-    
-    // 暂时注释掉 realtime 订阅代码
-    /*
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
     const reconnectDelay = 3000;
@@ -1033,8 +1029,8 @@ const LiveStreamRegistrationBase: React.FC = () => {
             const newSchedule = payload.new;
             
             // 检查是否在当前选中的周范围内
-            const weekStart = selectedWeek.startOf('week').utc().format('YYYY-MM-DD');
-            const weekEnd = selectedWeek.endOf('week').utc().format('YYYY-MM-DD');
+            const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+            const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
             
             if (newSchedule.date >= weekStart && newSchedule.date <= weekEnd) {
               
@@ -1086,6 +1082,10 @@ const LiveStreamRegistrationBase: React.FC = () => {
             const updatedSchedule = payload.new;
             
             
+            // 检查是否是编辑状态变化
+            if (updatedSchedule.status === 'editing') {
+            }
+            
             // 简单更新本地状态
             setSchedules(prev => {
               const updated = prev.map(schedule => 
@@ -1112,12 +1112,12 @@ const LiveStreamRegistrationBase: React.FC = () => {
                       createdAt: schedule.createdAt,
                       updatedAt: schedule.updatedAt,
                       createdBy: schedule.createdBy,
-                      editingBy: schedule.editingBy,
-                      editingAt: schedule.editingAt,
-                      editingExpiresAt: schedule.editingExpiresAt,
-                      lockType: schedule.lockType,
-                      lockReason: schedule.lockReason,
-                      lockEndTime: schedule.lockEndTime,
+                      editingBy: updatedSchedule.editing_by,
+                      editingAt: updatedSchedule.editing_at,
+                      editingExpiresAt: updatedSchedule.editing_expires_at,
+                      lockType: updatedSchedule.lock_type,
+                      lockReason: updatedSchedule.lock_reason,
+                      lockEndTime: updatedSchedule.lock_end_time,
                     }
                   : schedule
               );
@@ -1132,11 +1132,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
           } else if (payload.eventType === 'DELETE') {
             const deletedSchedule = payload.old;
             
-            
             // 从本地状态中移除
             setSchedules(prev => {
               const updated = prev.filter(schedule => schedule.id !== deletedSchedule.id.toString());
-              
               return updated;
             });
             
@@ -1147,29 +1145,26 @@ const LiveStreamRegistrationBase: React.FC = () => {
           }
         })
         .on('system', { event: 'disconnect' }, () => {
-          
         })
         .on('system', { event: 'reconnect' }, () => {
-          
           reconnectAttempts = 0; // 重置重连计数
         })
         .subscribe((status) => {
           
           // 如果连接失败，尝试重新连接
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('⚠️ [Realtime] 连接失败，状态:', status);
             
             if (reconnectAttempts < maxReconnectAttempts) {
               reconnectAttempts++;
               
               setTimeout(() => {
-                
                 establishConnection();
               }, reconnectDelay);
             } else {
-              console.error('❌ 重连失败，已达到最大重试次数');
+              console.error('❌ [Realtime] 重连失败，已达到最大重试次数');
             }
           } else if (status === 'SUBSCRIBED') {
-            
             reconnectAttempts = 0; // 重置重连计数
           }
         });
@@ -1182,10 +1177,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-    */
-    
-    // 暂时返回空函数，因为 realtime 已禁用
-    return () => {};
   }, [selectedWeek]);
 
 
@@ -1193,9 +1184,10 @@ const LiveStreamRegistrationBase: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      // 使用UTC时间，避免时区问题
-      const weekStart = selectedWeek.startOf('week').utc().format('YYYY-MM-DD');
-      const weekEnd = selectedWeek.endOf('week').utc().format('YYYY-MM-DD');
+      
+      // 使用北京时间，避免时区问题
+      const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+      const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
       
       const [schedulesData, timeSlotsData] = await Promise.all([
         getWeeklySchedule(weekStart, weekEnd),
@@ -1233,12 +1225,12 @@ const LiveStreamRegistrationBase: React.FC = () => {
   // 测试函数：检查数据库中的记录
   const testDatabaseRecords = async () => {
     try {
-      // 使用UTC时间，避免时区问题
-      const weekStart = selectedWeek.startOf('week').utc().format('YYYY-MM-DD');
-      const weekEnd = selectedWeek.endOf('week').utc().format('YYYY-MM-DD');
       
+      // 使用北京时间，避免时区问题
+      const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+      const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('live_stream_schedules')
         .select('*')
         .gte('date', weekStart)
@@ -1246,12 +1238,20 @@ const LiveStreamRegistrationBase: React.FC = () => {
         .order('date, time_slot_id');
       
       if (error) {
-        console.error('❌ 查询数据库失败:', error);
+        console.error('❌ [testDatabaseRecords] 查询数据库失败:', error);
         return;
       }
       
+      
+      
+      // 如果有编辑状态的记录，显示详细信息
+      const editingRecords = data?.filter(r => r.status === 'editing') || [];
+      if (editingRecords.length > 0) {
+        
+      }
+      
     } catch (error) {
-      console.error('❌ 测试数据库记录失败:', error);
+      console.error('❌ [testDatabaseRecords] 测试数据库记录失败:', error);
     }
   };
 
@@ -1333,11 +1333,8 @@ const LiveStreamRegistrationBase: React.FC = () => {
         return;
       }
 
-      console.log('✅ 有效的管家数据:', validManagers);
-
-      
       const scheduleData = {
-        date: editingSchedule ? editingSchedule.date : dayjs().format('YYYY-MM-DD'),
+        date: editingSchedule ? editingSchedule.date : toBeijingDateStr(dayjs()),
         timeSlotId: values.timeSlot,
         managers: validManagers.map((userId: string) => {
           // 尝试从用户缓存中获取真实姓名
@@ -1472,9 +1469,8 @@ const LiveStreamRegistrationBase: React.FC = () => {
       }
       
       
-
-      // 设置编辑状态
       
+      // 设置编辑状态
       setEditingSchedule(schedule);
       setModalVisible(true);
       
@@ -1486,11 +1482,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
           .filter((m: any) => m && m.id && m.id !== 'undefined' && m.id !== 'null')
           .map((m: any) => String(m.id));
         
-        console.log('📋 设置表单值:', {
-          timeSlot: schedule.timeSlotId,
-          managers: validManagerIds,
-          originalManagers: schedule.managers
-        });
+        
         
         // 设置独立的状态
         setSelectedManagers(validManagerIds);
@@ -1503,6 +1495,8 @@ const LiveStreamRegistrationBase: React.FC = () => {
         };
           
         form.setFieldsValue(formValues);
+        
+      
         
       }, 100);
       
@@ -1992,7 +1986,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
             >
               {timeSlots.map((slot: TimeSlot) => {
                 // 获取当前编辑记录的日期
-                const currentDate = editingSchedule?.date || dayjs().format('YYYY-MM-DD');
+                const currentDate = editingSchedule?.date || toBeijingDateStr(dayjs());
                 const dateInfo = dayjs(currentDate);
                 const dayOfWeek = dateInfo.format('ddd');
                 const dateStr = dateInfo.format('MM-DD');
@@ -2033,18 +2027,14 @@ const LiveStreamRegistrationBase: React.FC = () => {
             <UserTreeSelect
               value={selectedManagers}
               onChange={(val) => {
-                console.log('🔄 UserTreeSelect onChange:', val);
-                
                 // 限制只能选择2名直播管家
                 const limitedVal = val.slice(0, 2);
                 
                 // 如果被截断了，显示提示
                 if (val.length > 2) {
-                  console.log('⚠️ 用户尝试选择超过2名管家，已自动限制为前2名');
                   message.warning('最多只能选择2名直播管家，已自动保留前2名');
                 }
-                
-                console.log('✅ 最终选择的管家:', limitedVal);
+             
                 setSelectedManagers(limitedVal);
                 form.setFieldsValue({ managers: limitedVal });
               }}
@@ -2118,6 +2108,32 @@ const LiveStreamRegistrationBase: React.FC = () => {
             zIndex: 1999
           }
         }}
+        footer={
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'flex-end', 
+            gap: '12px',
+            alignItems: 'center'
+          }}>
+            <Button 
+              onClick={handleConfirmModalCancel}
+              style={{ 
+                minWidth: '80px'
+              }}
+            >
+              取消
+            </Button>
+            <Button 
+              type="primary" 
+              onClick={handleConfirmModalOk}
+              style={{
+                minWidth: '80px'
+              }}
+            >
+              确认
+            </Button>
+          </div>
+        }
       >
         <div style={{ 
           whiteSpace: 'pre-line', 

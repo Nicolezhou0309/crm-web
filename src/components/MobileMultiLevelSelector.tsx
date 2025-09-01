@@ -73,16 +73,30 @@ const MobileMultiLevelSelector: React.FC<MobileMultiLevelSelectorProps> = ({
     let finalValues: string[] = [];
     
     if (type === 'worklocation') {
-      // 工作地点：如果选择了线路，添加该线路下的所有站点
-      if (selectedLine) {
+      // 🆕 优化：同时选择路线和站点时，以站点选择为准
+      if (selectedStations.length > 0) {
+        // 如果选择了具体站点，优先使用站点选择
+        const stationNames = selectedStations.map(station => station.replace(/站$/, ''));
+        finalValues = stationNames;
+        
+        console.log('🔍 [MobileMultiLevelSelector] 使用站点选择:', {
+          selectedStations,
+          finalValues,
+          reason: '用户选择了具体站点，优先使用站点选择'
+        });
+      } else if (selectedLine) {
+        // 🆕 优化：如果没有选择具体站点，但选择了线路，则选择该线路下的所有站点
         const line = options.find(line => line.value === selectedLine);
         if (line?.children) {
-          finalValues = line.children.map(station => station.value);
+          // 🆕 修复：确保传递的是站点名称，不是带"站"字的完整名称
+          finalValues = line.children.map(station => station.value.replace(/站$/, ''));
+          
+          console.log('🔍 [MobileMultiLevelSelector] 使用线路选择（所有站点）:', {
+            selectedLine,
+            finalValues,
+            reason: '用户选择了线路但未选择具体站点，自动选择该线路下的所有站点'
+          });
         }
-      }
-      // 如果选择了具体站点，添加这些站点
-      if (selectedStations.length > 0) {
-        finalValues = [...new Set([...finalValues, ...selectedStations])];
       }
     } else {
       // 跟进结果：直接使用选中的值
@@ -96,6 +110,17 @@ const MobileMultiLevelSelector: React.FC<MobileMultiLevelSelectorProps> = ({
     
     onConfirm(finalValues);
     handleClose();
+  };
+
+  // 🆕 新增：处理直接选择站点（跳过线路选择）
+  const handleDirectStationSelect = (stationValue: string) => {
+    setSelectedStations(prev => {
+      if (prev.includes(stationValue)) {
+        return prev.filter(v => v !== stationValue);
+      } else {
+        return [...prev, stationValue];
+      }
+    });
   };
 
   // 处理线路选择
@@ -166,9 +191,17 @@ const MobileMultiLevelSelector: React.FC<MobileMultiLevelSelectorProps> = ({
   const getCurrentOptions = () => {
     if (currentStep === 0) {
       return filteredOptions;
-    } else {
+    } else if (currentStep === 1) {
       const line = options.find(line => line.value === selectedLine);
       return line?.children || [];
+    } else {
+      // 🆕 新增：直接选择站点模式下，所有站点都作为选项
+      return options.reduce((acc: MultiLevelOption[], line) => {
+        if (line.children) {
+          acc.push(...line.children);
+        }
+        return acc;
+      }, []);
     }
   };
 
@@ -187,29 +220,53 @@ const MobileMultiLevelSelector: React.FC<MobileMultiLevelSelectorProps> = ({
     }
 
     if (currentStep === 0) {
-      // 渲染线路选项
+      // 🆕 优化：渲染线路选项，并添加"直接选择站点"选项
       return (
-        <List
-          dataSource={currentOptions}
-          renderItem={(line) => (
-            <List.Item
-              className="selector-list-item"
-              onClick={() => handleLineSelect(line.value)}
-            >
-              <div className="item-content">
-                <EnvironmentOutlined className="item-icon" />
-                <span className="item-label">{line.label}</span>
-                <span className="item-count">
-                  {line.children?.length || 0} 个站点
-                </span>
-              </div>
-              <ArrowLeftOutlined className="item-arrow" />
-            </List.Item>
-          )}
-        />
+        <>
+          {/* 直接选择站点选项 */}
+          <List.Item
+            className="selector-list-item direct-station-option"
+            onClick={() => setCurrentStep(2)} // 直接跳转到站点选择步骤
+            style={{ 
+              borderBottom: '1px solid #f0f0f0',
+              backgroundColor: '#fafafa'
+            }}
+          >
+            <div className="item-content">
+              <EnvironmentOutlined className="item-icon" style={{ color: '#1890ff' }} />
+              <span className="item-label" style={{ color: '#1890ff', fontWeight: '500' }}>
+                直接选择站点
+              </span>
+              <span className="item-count" style={{ color: '#666' }}>
+                跳过线路选择
+              </span>
+            </div>
+            <ArrowLeftOutlined className="item-arrow" />
+          </List.Item>
+          
+          {/* 线路选项 */}
+          <List
+            dataSource={currentOptions}
+            renderItem={(line) => (
+              <List.Item
+                className="selector-list-item"
+                onClick={() => handleLineSelect(line.value)}
+              >
+                <div className="item-content">
+                  <EnvironmentOutlined className="item-icon" />
+                  <span className="item-label">{line.label}</span>
+                  <span className="item-count">
+                    {line.children?.length || 0} 个站点
+                  </span>
+                </div>
+                <ArrowLeftOutlined className="item-arrow" />
+              </List.Item>
+            )}
+          />
+        </>
       );
-    } else {
-      // 渲染站点选项
+    } else if (currentStep === 1) {
+      // 渲染特定线路下的站点选项
       return (
         <List
           dataSource={currentOptions}
@@ -234,16 +291,67 @@ const MobileMultiLevelSelector: React.FC<MobileMultiLevelSelectorProps> = ({
           }}
         />
       );
+    } else {
+      // 🆕 新增：渲染所有站点选项（直接选择模式）
+      return (
+        <List
+          dataSource={currentOptions}
+          renderItem={(station) => {
+            const isSelected = selectedStations.includes(station.value);
+            return (
+              <List.Item
+                className={`selector-list-item ${isSelected ? 'selected' : ''}`}
+                onClick={() => handleDirectStationSelect(station.value)}
+              >
+                <div className="item-content">
+                  <CheckCircleOutlined 
+                    className={`item-icon ${isSelected ? 'selected' : ''}`} 
+                  />
+                  <span className="item-label">{station.label}</span>
+                  <span className="item-count" style={{ fontSize: '12px', color: '#666' }}>
+                    {options.find(line => line.children?.some(s => s.value === station.value))?.label}
+                  </span>
+                </div>
+                {isSelected && (
+                  <CheckCircleOutlined className="check-icon" />
+                )}
+              </List.Item>
+            );
+          }}
+        />
+      );
     }
   };
 
   // 渲染步骤指示器
   const renderSteps = () => {
     if (type === 'worklocation') {
-      const steps = [
-        { title: '选择线路', description: selectedLine || '未选择' },
-        { title: '选择站点', description: selectedStations.length > 0 ? `${selectedStations.length}个站点` : '未选择' }
-      ];
+      let steps = [];
+      
+      if (currentStep === 0) {
+        // 第一步：选择方式
+        steps = [
+          { title: '选择方式', description: '选择筛选方式' },
+          { title: '选择线路', description: '未选择' },
+          { title: '选择站点', description: '未选择' }
+        ];
+      } else if (currentStep === 1) {
+        // 第二步：选择线路
+        steps = [
+          { title: '选择方式', description: '已选择' },
+          { title: '选择线路', description: selectedLine || '未选择' },
+          { title: '选择站点', description: '未选择' }
+        ];
+      } else {
+        // 第三步：选择站点
+        const step1Title = selectedLine ? '选择线路' : '直接选择';
+        const step1Desc = selectedLine || '跳过线路选择';
+        steps = [
+          { title: '选择方式', description: '已选择' },
+          { title: step1Title, description: step1Desc },
+          { title: '选择站点', description: selectedStations.length > 0 ? `${selectedStations.length}个站点` : '未选择' }
+        ];
+      }
       
       return (
         <Steps 
@@ -277,7 +385,28 @@ const MobileMultiLevelSelector: React.FC<MobileMultiLevelSelectorProps> = ({
           下一步
         </Button>
       );
+    } else if (currentStep === 1) {
+      return (
+        <div className="bottom-buttons">
+          <Button 
+            block 
+            onClick={handleBack}
+            style={{ flex: 1, marginRight: 8 }}
+          >
+            返回
+          </Button>
+          <Button 
+            type="primary" 
+            block 
+            onClick={handleConfirm}
+            style={{ flex: 1, marginLeft: 8 }}
+          >
+            确认选择 ({selectedStations.length})
+          </Button>
+        </div>
+      );
     } else {
+      // 第三步：直接选择站点模式
       return (
         <div className="bottom-buttons">
           <Button 

@@ -3,6 +3,7 @@ import { Drawer, Steps, Form, Button, message, Typography, Space, Divider, Tag }
 import { CopyOutlined } from '@ant-design/icons';
 import { supabase } from '../../../supaClient';
 import dayjs from 'dayjs';
+import { toBeijingDateStr, toBeijingDateTimeStr } from '../../../utils/timeUtils';
 // import { useUser } from '../../../context/UserContext';
 import type { FollowupRecord } from '../types';
 import { FollowupStageForm } from './FollowupStageForm';
@@ -1152,11 +1153,11 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                     const newRow: any = {
                       id: `new_${Date.now()}`,
                       leadid: record?.leadid || '',
-                      contractdate: dayjs().format('YYYY-MM-DD'),
+                      contractdate: toBeijingDateStr(dayjs()),
                       community: '',
                       contractnumber: '',
                       roomnumber: '',
-                      created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+                      created_at: toBeijingDateTimeStr(dayjs()),
                       isNew: true,
                       isEditing: true,
                     };
@@ -1169,7 +1170,7 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                         // 新增记录
                         const dealData = {
                           leadid: record?.leadid,
-                          contractdate: dealRecord.contractdate || dayjs().format('YYYY-MM-DD'),
+                          contractdate: dealRecord.contractdate || toBeijingDateStr(dayjs()),
                           community: dealRecord.community,
                           contractnumber: dealRecord.contractnumber,
                           roomnumber: dealRecord.roomnumber
@@ -1257,11 +1258,11 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                     const newRow: any = {
                       id: `new_${Date.now()}`,
                       leadid: record?.leadid || '',
-                      contractdate: dayjs().format('YYYY-MM-DD'),
+                      contractdate: toBeijingDateStr(dayjs()),
                       community: '',
                       contractnumber: '',
                       roomnumber: '',
-                      created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+                      created_at: toBeijingDateTimeStr(dayjs()),
                       isNew: true,
                       isEditing: true,
                     };
@@ -1274,7 +1275,7 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                         // 新增记录
                         const dealData = {
                           leadid: record?.leadid,
-                          contractdate: dealRecord.contractdate || dayjs().format('YYYY-MM-DD'),
+                          contractdate: dealRecord.contractdate || toBeijingDateStr(dayjs()),
                           community: dealRecord.community,
                           contractnumber: dealRecord.contractnumber,
                           roomnumber: dealRecord.roomnumber

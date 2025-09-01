@@ -1,7 +1,31 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { Form, Input, Selector, TextArea, CascadePicker, Button, CalendarPicker, List, NumberKeyboard, DatePicker } from 'antd-mobile';
+import { Form, Input, Selector, TextArea, CascadePicker, Button, CalendarPicker, List, NumberKeyboard, DatePicker, Rate } from 'antd-mobile';
 import dayjs from 'dayjs';
 import type { FollowupRecord } from '../types';
+
+// 🆕 来访意向评分转换函数（与卡片逻辑保持一致）
+const getRatingValue = (rating: string | number): number => {
+  if (typeof rating === 'number') return rating;
+  
+  switch (rating) {
+    case 'A': return 3;
+    case 'B+': return 2;
+    case 'B': return 1;
+    case 'C': return 0;
+    default: return 0;
+  }
+};
+
+// 🆕 数字评分转换为字符串值（与卡片逻辑保持一致）
+const getRatingString = (rating: number): string => {
+  switch (rating) {
+    case 3: return 'A';
+    case 2: return 'B+';
+    case 1: return 'B';
+    case 0: return 'C';
+    default: return 'C';
+  }
+};
 
 // 🆕 通用Selector组件，处理单选逻辑
 interface CommonSelectorProps {
@@ -10,6 +34,7 @@ interface CommonSelectorProps {
   onChange: (value: any) => void;
   placeholder?: string;
   loading?: boolean;
+  disabled?: boolean;
 }
 
 const CommonSelector: React.FC<CommonSelectorProps> = ({ 
@@ -17,7 +42,8 @@ const CommonSelector: React.FC<CommonSelectorProps> = ({
   value, 
   onChange, 
   placeholder = "请选择",
-  loading = false 
+  loading = false,
+  disabled = false
 }) => {
   const getDisplayValue = () => {
     // 🆕 修复：确保值处理逻辑正确
@@ -67,6 +93,7 @@ const CommonSelector: React.FC<CommonSelectorProps> = ({
       value={displayValue}
       multiple={false}
       onChange={handleChange}
+      disabled={disabled}
     />
   );
 };
@@ -96,11 +123,11 @@ const stageFields: Record<string, string[]> = {
   '丢单': ['majorcategory', 'followupresult'],
   '待接收': [],
   '确认需求': [
+    'userrating',
     'customerprofile',
     'worklocation',
     'userbudget',
     'moveintime',
-    'userrating',
     'majorcategory',
     'followupresult'
   ],
@@ -138,9 +165,10 @@ interface WorkLocationPickerProps {
   value?: any;
   onChange: (value: any) => void;
   placeholder: string;
+  disabled?: boolean;
 }
 
-const WorkLocationPicker: React.FC<WorkLocationPickerProps> = ({ options, value, onChange, placeholder }) => {
+const WorkLocationPicker: React.FC<WorkLocationPickerProps> = ({ options, value, onChange, placeholder, disabled = false }) => {
   const [visible, setVisible] = useState(false);
   
   // 获取显示文本
@@ -173,11 +201,11 @@ const WorkLocationPicker: React.FC<WorkLocationPickerProps> = ({ options, value,
           padding: '12px',
           border: '1px solid #d9d9d9',
           borderRadius: '6px',
-          backgroundColor: 'white',
-          cursor: 'pointer',
-          color: value ? 'inherit' : '#999'
+          backgroundColor: disabled ? '#f5f5f5' : 'white',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          color: disabled ? '#999' : (value ? 'inherit' : '#999')
         }}
-        onClick={() => setVisible(true)}
+        onClick={() => !disabled && setVisible(true)}
       >
         {getDisplayText()}
       </div>
@@ -216,9 +244,10 @@ interface MajorCategoryPickerProps {
   value?: any;
   onChange: (value: any) => void;
   placeholder: string;
+  disabled?: boolean;
 }
 
-const MajorCategoryPicker: React.FC<MajorCategoryPickerProps> = ({ options, value, onChange, placeholder }) => {
+const MajorCategoryPicker: React.FC<MajorCategoryPickerProps> = ({ options, value, onChange, placeholder, disabled = false }) => {
   const [visible, setVisible] = useState(false);
   
   // 获取显示文本
@@ -250,11 +279,11 @@ const MajorCategoryPicker: React.FC<MajorCategoryPickerProps> = ({ options, valu
           padding: '12px',
           border: '1px solid #d9d9d9',
           borderRadius: '6px',
-          backgroundColor: 'white',
-          cursor: 'pointer',
-          color: value ? 'inherit' : '#999'
+          backgroundColor: disabled ? '#f5f5f5' : 'white',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          color: disabled ? '#999' : (value ? 'inherit' : '#999')
         }}
-        onClick={() => setVisible(true)}
+        onClick={() => !disabled && setVisible(true)}
       >
         {getDisplayText()}
       </div>
@@ -285,9 +314,10 @@ interface MoveInTimePickerProps {
   value?: any;
   onChange: (value: any) => void;
   placeholder: string;
+  disabled?: boolean;
 }
 
-const MoveInTimePicker: React.FC<MoveInTimePickerProps> = ({ value, onChange, placeholder }) => {
+const MoveInTimePicker: React.FC<MoveInTimePickerProps> = ({ value, onChange, placeholder, disabled = false }) => {
   const [visible, setVisible] = useState(false);
   
   // 获取显示文本
@@ -340,31 +370,32 @@ const MoveInTimePicker: React.FC<MoveInTimePickerProps> = ({ value, onChange, pl
           padding: '12px',
           border: '1px solid #d9d9d9',
           borderRadius: '6px',
-          backgroundColor: 'white',
-          cursor: 'pointer',
-          color: value ? 'inherit' : '#999'
+          backgroundColor: disabled ? '#f5f5f5' : 'white',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          color: disabled ? '#999' : (value ? 'inherit' : '#999')
         }}
-        onClick={() => setVisible(true)}
+        onClick={() => !disabled && setVisible(true)}
       >
         {getDisplayText()}
       </div>
-      <CalendarPicker
+      <DatePicker
         title="选择入住时间"
         visible={visible}
-        selectionMode="single"
+        precision="day"
         defaultValue={getDefaultValue()}
         onClose={() => setVisible(false)}
-        onMaskClick={() => setVisible(false)}
-        onChange={(val) => {
+        onConfirm={(val) => {
           try {
-            if (val && Array.isArray(val) && val.length > 0) {
-              // CalendarPicker 返回的是 Date 数组，取第一个
-              const selectedDate = dayjs(val[0]);
+            if (val) {
+              // DatePicker返回的是dayjs对象，与电脑端保持一致
+              const selectedDate = dayjs(val);
               if (selectedDate.isValid()) {
+                // 🆕 修复：与电脑端格式保持一致，只保存日期部分
                 onChange(selectedDate);
               }
             }
           } catch (error) {
+            console.error('❌ [MoveInTimePicker] 入住时间选择失败:', error);
           }
           setVisible(false);
         }}
@@ -378,9 +409,10 @@ interface ScheduleTimePickerWithDatePickerProps {
   value?: any;
   onChange: (value: any) => void;
   placeholder: string;
+  disabled?: boolean;
 }
 
-const ScheduleTimePickerWithDatePicker: React.FC<ScheduleTimePickerWithDatePickerProps> = ({ value, onChange, placeholder }) => {
+const ScheduleTimePickerWithDatePicker: React.FC<ScheduleTimePickerWithDatePickerProps> = ({ value, onChange, placeholder, disabled = false }) => {
   const [visible, setVisible] = useState(false);
   
   // 获取显示文本
@@ -451,11 +483,11 @@ const ScheduleTimePickerWithDatePicker: React.FC<ScheduleTimePickerWithDatePicke
           padding: '12px',
           border: '1px solid #d9d9d9',
           borderRadius: '6px',
-          backgroundColor: 'white',
-          cursor: 'pointer',
-          color: value ? 'inherit' : '#999'
+          backgroundColor: disabled ? '#f5f5f5' : 'white',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          color: disabled ? '#999' : (value ? 'inherit' : '#999')
         }}
-        onClick={() => setVisible(true)}
+        onClick={() => !disabled && setVisible(true)}
       >
         {getDisplayText()}
       </div>
@@ -532,6 +564,48 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
         setHasUserCleared(false);
     }
   }, [record?.id, record?.userbudget]);
+
+  // 🆕 新增：初始化表单字段值，确保来访意向等字段能正确显示
+  useEffect(() => {
+    if (record && form) {
+      // 初始化来访意向字段
+      if (record.userrating) {
+        form.setFieldValue('userrating', record.userrating);
+        form.setFieldsValue({ userrating: record.userrating });
+      }
+      
+      // 初始化其他字段
+      if (record.customerprofile) {
+        form.setFieldValue('customerprofile', record.customerprofile);
+        form.setFieldsValue({ customerprofile: record.customerprofile });
+      }
+      
+      if (record.worklocation) {
+        form.setFieldValue('worklocation', record.worklocation);
+        form.setFieldsValue({ worklocation: record.worklocation });
+      }
+      
+      if (record.userbudget) {
+        form.setFieldValue('userbudget', record.userbudget);
+        form.setFieldsValue({ userbudget: record.userbudget });
+      }
+      
+      if (record.moveintime) {
+        form.setFieldValue('moveintime', record.moveintime);
+        form.setFieldsValue({ moveintime: record.moveintime });
+      }
+      
+      if (record.majorcategory) {
+        form.setFieldValue('majorcategory', record.majorcategory);
+        form.setFieldsValue({ majorcategory: record.majorcategory });
+      }
+      
+      if (record.followupresult) {
+        form.setFieldValue('followupresult', record.followupresult);
+        form.setFieldsValue({ followupresult: record.followupresult });
+      }
+    }
+  }, [record, form]);
   
   // 检查数据是否已加载
   const isDataLoaded = useMemo(() => {
@@ -741,6 +815,7 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
                   }
                 }}
                 loading={followupstageOptions.length === 0}
+                disabled={isFieldDisabled()}
               />
             </Form.Item>
           );
@@ -760,6 +835,7 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
                   }
                 }}
                 loading={customerprofileOptions.length === 0}
+                disabled={isFieldDisabled()}
               />
             </Form.Item>
           );
@@ -767,18 +843,25 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
         case 'userrating':
           return (
             <Form.Item {...formItemProps}>
-              <CommonSelector
-                options={userratingOptions}
-                value={form.getFieldValue(field) || record?.[field]}
+              <Rate
+                value={getRatingValue(form.getFieldValue(field) || record?.[field] || 'C')}
                 onChange={(value) => {
                   try {
-                    form.setFieldValue(field, value);
-                    form.setFieldsValue({ [field]: value });
+                    // 🆕 将数字评分转换为字符串值，与数据库存储格式保持一致
+                    const ratingString = getRatingString(value);
+                    form.setFieldValue(field, ratingString);
+                    form.setFieldsValue({ [field]: ratingString });
                   } catch (error) {
                     console.error('❌ [MobileFollowupStageForm] 设置来访意向失败:', error);
                   }
                 }}
-                loading={userratingOptions.length === 0}
+                count={3}
+                allowClear={false}
+                readOnly={isFieldDisabled()}
+                style={{
+                  fontSize: '20px',
+                  color: '#faad14'
+                }}
               />
             </Form.Item>
           );
@@ -798,6 +881,7 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
                   }
                 }}
                 loading={communityOptions.length === 0}
+                disabled={isFieldDisabled()}
               />
             </Form.Item>
           );
@@ -820,6 +904,7 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
                     }
                   }}
                   placeholder="请选择工作地点"
+                  disabled={isFieldDisabled()}
                 />
               ) : (
                 <div style={{ 
@@ -865,6 +950,8 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
                     cursor: 'pointer'
                   }}
                   onClick={(e) => {
+                    if (isFieldDisabled()) return;
+                    
                     e.preventDefault();
                     e.stopPropagation();
                     
@@ -911,48 +998,73 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
           );
 
         case 'moveintime':
-          
-          
           return (
             <Form.Item {...formItemProps}>
               <MoveInTimePicker
                 value={form.getFieldValue(field)}
-                                  onChange={(value) => {
-                    try {
-                      
-                      // 先设置到form实例
-                      form.setFieldValue(field, value);
-                      // 再强制触发form的onValuesChange
-                      form.setFieldsValue({ [field]: value });
-                      
-                    } catch (error) { 
+                onChange={(value) => {
+                  try {
+                    // 🆕 修复：与电脑端格式保持一致，保存时添加时间部分
+                    let formattedValue = value;
+                    if (value && dayjs.isDayjs(value)) {
+                      // 格式化为 YYYY-MM-DD 00:00:00，与电脑端保持一致
+                      formattedValue = value.format('YYYY-MM-DD') + ' 00:00:00';
                     }
-                  }}
+                    
+                    // 先设置到form实例
+                    form.setFieldValue(field, formattedValue);
+                    // 再强制触发form的onValuesChange
+                    form.setFieldsValue({ [field]: formattedValue });
+                    
+                    console.log('🔍 [MobileFollowupStageForm] 入住时间设置', {
+                      field,
+                      originalValue: value,
+                      formattedValue,
+                      formValue: form.getFieldValue(field)
+                    });
+                    
+                  } catch (error) { 
+                    console.error('❌ [MobileFollowupStageForm] 设置入住时间失败:', error);
+                  }
+                }}
                 placeholder="请选择入住时间"
+                disabled={isFieldDisabled()}
               />
             </Form.Item>
           );
 
         case 'scheduletime':
-          
           return (
             <Form.Item {...formItemProps}>
               <ScheduleTimePickerWithDatePicker
                 value={form.getFieldValue(field)}
                 onChange={(value) => {
                   try {
-
-                    // 先设置到form实例
-                    form.setFieldValue(field, value);
+                    // 🆕 修复：与电脑端格式保持一致，保存时添加时间部分
+                    let formattedValue = value;
+                    if (value && dayjs.isDayjs(value)) {
+                      // 格式化为 YYYY-MM-DD HH:mm:ss，与电脑端保持一致
+                      formattedValue = value.format('YYYY-MM-DD HH:mm:ss');
+                    }
                     
+                    // 先设置到form实例
+                    form.setFieldValue(field, formattedValue);
                     // 再强制触发form的onValuesChange
-                    form.setFieldsValue({ [field]: value });
+                    form.setFieldsValue({ [field]: formattedValue });
+                    
+                    console.log('🔍 [MobileFollowupStageForm] 预约时间设置', {
+                      field,
+                      originalValue: value,
+                      formattedValue,
+                      formValue: form.getFieldValue(field)
+                    });
                     
                   } catch (error) {
                     console.error('❌ [MobileFollowupStageForm] 设置预约时间失败:', error);
                   }
                 }}
                 placeholder="请选择预约时间"
+                disabled={isFieldDisabled()}
               />
             </Form.Item>
           );
@@ -975,6 +1087,7 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
                     }
                   }}
                   placeholder="请选择跟进结果"
+                  disabled={isFieldDisabled()}
                 />
               ) : (
                 <div style={{ 
@@ -998,6 +1111,7 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
                 rows={4}
                 maxLength={500}
                 showCount
+                disabled={isFieldDisabled()}
               />
             </Form.Item>
           );
@@ -1008,6 +1122,7 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
               <Input
                 placeholder={`请输入${label}`}
                 clearable
+                disabled={isFieldDisabled()}
               />
             </Form.Item>
           );
@@ -1034,12 +1149,12 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
   const renderField = (field: string) => {
     const label = getFieldLabel(field, stage);
     
-    // 确认需求阶段的所有字段都是必填项，除了入住时间
+    // 确认需求阶段的所有字段都是必填项，除了入住时间和来访意向
     let isRequired = false;
     if (stage === '确认需求') {
-      isRequired = field !== 'moveintime';
+      isRequired = !['moveintime', 'userrating'].includes(field);
     } else {
-      isRequired = ['customerprofile', 'userrating', 'scheduledcommunity', 'majorcategory', 'followupresult'].includes(field);
+      isRequired = ['customerprofile', 'scheduledcommunity', 'majorcategory', 'followupresult'].includes(field);
     }
 
     return renderMobileField(field, label, isRequired);
@@ -1053,6 +1168,29 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
           {renderField(field)}
         </div>
       ))}
+      
+      {/* 🆕 数字键盘背景遮罩层 - 实现置灰+锁定效果 */}
+      {visible === 'userbudget' && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            zIndex: 1000,
+            cursor: 'pointer',
+            // 🆕 新增：动画效果
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+          onClick={() => {
+            // 点击灰色区域自动退出输入
+            setVisible('');
+            console.log('🔍 [MobileFollowupStageForm] 点击背景退出数字输入');
+          }}
+        />
+      )}
       
       {/* 用户预算数字键盘 */}
       <NumberKeyboard
@@ -1127,7 +1265,10 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
         title='输入预算金额'
         customKey='.'
         style={{
-          zIndex: 1001
+          zIndex: 1001,
+          // 🆕 新增：移动端数字键盘样式优化
+          borderRadius: '16px 16px 0 0',
+          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.15)'
         }}
       />
     </>

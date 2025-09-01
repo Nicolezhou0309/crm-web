@@ -4,6 +4,7 @@ import { LockOutlined, MailOutlined, CheckCircleOutlined, SafetyOutlined } from 
 import { supabase } from '../supaClient';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { toBeijingDateTimeStr } from '../utils/timeUtils';
 
 const { Title, Text } = Typography;
 
@@ -239,7 +240,7 @@ const SetPassword: React.FC = () => {
             organization_id: inviteData.organization_id,
             organization_name: inviteData.organization_name,
             password_set: true,
-            password_set_at: new Date().toISOString()
+            password_set_at: toBeijingDateTimeStr(new Date())
           }
         }
       });
@@ -313,7 +314,7 @@ const SetPassword: React.FC = () => {
         password: password,
         data: {
           password_set: true,
-          password_set_at: new Date().toISOString()
+          password_set_at: toBeijingDateTimeStr(new Date())
         }
       });
 

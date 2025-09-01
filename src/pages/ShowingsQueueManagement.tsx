@@ -5,6 +5,7 @@ import { allocationApi } from '../utils/allocationApi';
 import { supabase, fetchEnumValues } from '../supaClient';
 import type { UserGroup } from '../types/allocation';
 import UserTreeSelect from '../components/UserTreeSelect';
+import { toBeijingDateTimeStr, toBeijingTime } from '../utils/timeUtils';
 
 const { Text } = Typography;
 
@@ -387,7 +388,7 @@ export default function ShowingsQueueManagement() {
       render: (time: string) => (
         <Space>
           <ClockCircleOutlined />
-          <Text>{new Date(time).toLocaleString()}</Text>
+          <Text>{toBeijingDateTimeStr(time)}</Text>
         </Space>
       )
     }
@@ -435,9 +436,9 @@ export default function ShowingsQueueManagement() {
       filteredValue: communityFilter ? [communityFilter] : null,
       onFilter: (value: any, record: any) => record.community === value,
     },
-    { title: '创建时间', dataIndex: 'created_at', render: (v: string) => v ? new Date(v).toLocaleString('zh-CN', { hour12: false }) : '-' },
+    { title: '创建时间', dataIndex: 'created_at', render: (v: string) => v ? toBeijingDateTimeStr(v) : '-' },
     { title: '已消耗', dataIndex: 'consumed', render: (v: any) => (v ? '是' : '否') },
-    { title: '消耗时间', dataIndex: 'consumed_at', render: (v: string) => v ? new Date(v).toLocaleString('zh-CN', { hour12: false }) : '-' },
+    { title: '消耗时间', dataIndex: 'consumed_at', render: (v: string) => v ? toBeijingDateTimeStr(v) : '-' },
     { 
       title: '操作理由', 
       dataIndex: 'remark', 

@@ -7,6 +7,7 @@ import RankingBoard from '../components/RankingBoard';
 import TodoCenter from '../components/TodoCenter';
 import PerformanceDashboard from '../components/PerformanceDashboard';
 import LoadingScreen from '../components/LoadingScreen';
+import { toBeijingDateStr } from '../utils/timeUtils';
 
 const Index: React.FC = () => {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ const Index: React.FC = () => {
     for (let i = 29; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = toBeijingDateStr(date);
       arr.push({
         date: dateStr,
         leads: Math.floor(Math.random() * 10 + 10), // 10~19

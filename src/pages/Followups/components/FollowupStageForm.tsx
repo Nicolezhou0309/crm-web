@@ -246,6 +246,20 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
               changeOnSelect={false}
               allowClear
               disabled={isFieldDisabled()}
+              onChange={(_value, selectedOptions) => {
+                let selectedText = '';
+                if (selectedOptions && selectedOptions.length > 1) {
+                  // 只保存站点名称，不保存线路信息（与表格保持一致）
+                  selectedText = selectedOptions[1].label;
+                } else if (selectedOptions && selectedOptions.length === 1) {
+                  // 只有一级选项时，保存线路名称
+                  selectedText = selectedOptions[0].label;
+                }
+                
+                if (selectedText) {
+                  form.setFieldValue(field, selectedText);
+                }
+              }}
             />
           </Form.Item>
         );

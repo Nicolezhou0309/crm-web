@@ -65,12 +65,12 @@ export const getFollowupsTableFilters = (
       createConfirmCallback('leadtype')
     ),
 
-    // 约访管家 - 搜索筛选器
+    // 约访管家 - UserTree筛选器
     interviewsales_user_id: createFilterDropdown(
-      'search',
+      'userTree',
       undefined,
-      '输入管家姓名',
-      200,
+      '选择约访管家',
+      300,
       createResetCallback('interviewsales_user_id'),
       createConfirmCallback('interviewsales_user_id')
     ),
@@ -122,7 +122,8 @@ export const getFollowupsTableFilters = (
       '选择入住时间范围',
       240,
       createResetCallback('moveintime'),
-      createConfirmCallback('moveintime')
+      createConfirmCallback('moveintime'),
+      'p_moveintime_not_null' // 🆕 新增：非空参数字段
     ),
 
     // 来访意向 - 多选筛选器
@@ -135,12 +136,12 @@ export const getFollowupsTableFilters = (
       createConfirmCallback('userrating')
     ),
 
-    // 主分类 - 级联选择筛选器
+    // 主分类 - 🆕 优化：分级筛选器（支持分别筛选一级分类和二级分类）
     majorcategory: createFilterDropdown(
-      'cascader',
+      'hierarchicalCategory',
       majorCategoryOptions,
-      '选择主分类',
-      240,
+      '选择跟进结果',
+      300,
       createResetCallback('majorcategory'),
       createConfirmCallback('majorcategory')
     ),
@@ -162,7 +163,8 @@ export const getFollowupsTableFilters = (
       '选择预约时间范围',
       240,
       createResetCallback('scheduletime'),
-      createConfirmCallback('scheduletime')
+      createConfirmCallback('scheduletime'),
+      'p_scheduletime_not_null' // 🆕 新增：非空参数字段
     ),
 
     // 预约社区 - 多选筛选器
@@ -175,12 +177,12 @@ export const getFollowupsTableFilters = (
       createConfirmCallback('scheduledcommunity')
     ),
 
-    // 带看管家 - 搜索筛选器
+    // 带看管家 - UserTree筛选器
     showingsales_user: createFilterDropdown(
-      'search',
+      'userTree',
       undefined,
-      '输入带看管家姓名',
-      200,
+      '选择带看管家',
+      300,
       createResetCallback('showingsales_user'),
       createConfirmCallback('showingsales_user')
     ),
@@ -192,7 +194,8 @@ export const getFollowupsTableFilters = (
       '选择创建时间范围',
       240,
       createResetCallback('created_at'),
-      createConfirmCallback('created_at')
+      createConfirmCallback('created_at'),
+      'p_created_at_not_null' // 🆕 新增：非空参数字段
     ),
 
     // 来源 - 多选筛选器

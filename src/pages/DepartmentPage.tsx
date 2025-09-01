@@ -7,6 +7,7 @@ import { EllipsisOutlined, ExclamationCircleOutlined, CrownOutlined, SearchOutli
 import { useRolePermissions } from '../hooks/useRolePermissions';
 import './DepartmentPage.css';
 import React from 'react';
+import { toBeijingTime } from '../utils/timeUtils';
 
 
 const statusColorMap: Record<string, string> = {
@@ -396,7 +397,7 @@ const DepartmentPage = () => {
       }
 
       // 4. 显示邀请进行中的提示
-      const inviteKey = `invite_${email}_${Date.now()}`;
+      const inviteKey = `invite_${email}_${toBeijingTime(new Date()).valueOf()}`;
       message.loading({
         content: '正在发送邀请邮件...',
         key: inviteKey,

@@ -24,17 +24,13 @@ import {
   UserOutlined,
   ZoomInOutlined,
   SearchOutlined,
-  UploadOutlined
+  UploadOutlined,
+  PhoneOutlined,
+  WechatOutlined
 } from '@ant-design/icons';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import ShowingConversionRate from '../components/ShowingConversionRate';
 import { 
-  getShowings, 
-  getShowingsCount, 
-  getCommunityOptions, 
-  getSalesOptions,
-  createShowing,
-  updateShowing,
   type Showing,
   type ShowingFilters
 } from '../api/showingsApi';
@@ -45,57 +41,20 @@ import type { FilterDropdownProps } from 'antd/es/table/interface';
 import { useUser } from '../context/UserContext';
 import imageCompression from 'browser-image-compression';
 import './leads-common.css';
+import { toBeijingTime } from '../utils/timeUtils';
+import ShowingsService, { 
+  type ShowingWithRelations, 
+  type QueueCardDetail, 
+  type ShowingsStats,
+  type RollbackApplication 
+} from '../services/ShowingsService';
 
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
 
-// 1. 字段类型适配
-interface ShowingWithRelations {
-  id: string;
-  leadid: string;
-  scheduletime: string | null;
-  community: string | null;
-  arrivaltime: string | null;
-  showingsales: number | null;
-  trueshowingsales: number | null;
-  viewresult: string;
-  budget: number;
-  moveintime: string;
-  remark: string;
-  renttime: number;
-  created_at: string;
-  updated_at: string;
-  invalid?: boolean; // 是否无效（回退/作废）
-  showingsales_nickname?: string;
-  trueshowingsales_nickname?: string;
-  interviewsales_nickname?: string;
-  interviewsales_user_id?: number | null; // 约访销售ID
-  lead_phone?: string;
-  lead_wechat?: string;
-}
+// 使用服务层定义的类型
 
-// 直通/轮空卡明细类型
-interface QueueCardDetail {
-  id: number;
-  user_id: number;
-  community: string;
-  queue_type: 'direct' | 'skip';
-  created_at: string;
-  consumed: boolean;
-  consumed_at: string | null;
-  remark?: string;
-}
-
-// 在顶部添加脱敏函数
-const maskPhone = (phone: string) => {
-  if (!phone) return '-';
-  return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
-};
-const maskWechat = (wechat: string) => {
-  if (!wechat) return '-';
-  if (wechat.length < 4) return wechat;
-  return wechat.substring(0, 2) + '****' + wechat.substring(wechat.length - 2);
-};
+// 使用服务层的脱敏方法
 
 const ShowingsList: React.FC = () => {
   const { profile } = useUser();
@@ -150,93 +109,22 @@ const ShowingsList: React.FC = () => {
 
   // 获取统计数据
   const fetchStats = async () => {
-    const now = dayjs();
-    const monthStart = now.startOf('month').toISOString();
-    const monthEnd = now.endOf('month').toISOString();
-    
-    // 使用与明细查询相同的存储过程来获取统计数据
-    const { data: showingsData } = await supabase.rpc('filter_showings', {
-      p_created_at_start: monthStart,
-      p_created_at_end: monthEnd,
-      p_limit: 1000, // 获取足够多的数据来统计
-      p_offset: 0
-    });
-    
-    // 过滤掉无效的带看记录（invalid = true）
-    const validShowingsData = showingsData?.filter((item: any) => !item.invalid) || [];
-    
-    // 统计带看量（只统计有效的）
-    const showingsCount = validShowingsData.length;
-    
-    // 统计直签量（只统计有效的）
-    const directDealsCount = validShowingsData.filter((item: any) => item.viewresult === '直签').length;
-    
-    // 统计预定量（只统计有效的）
-    const reservedCount = validShowingsData.filter((item: any) => item.viewresult === '预定').length;
-    
-    // 直通卡数量
-    const { count: directCount } = await supabase
-      .from('showings_queue_record')
-      .select('id', { count: 'exact', head: true })
-      .eq('queue_type', 'direct')
-      .eq('consumed', false);
-    
-    // 轮空卡数量
-    const { count: skipCount } = await supabase
-      .from('showings_queue_record')
-      .select('id', { count: 'exact', head: true })
-      .eq('queue_type', 'skip')
-      .eq('consumed', false);
-    
-    // 未填写表单数量（看房结果为空或未填写，只统计有效的）
-    const incompleteCount = validShowingsData.filter((item: any) => 
-      !item.viewresult || item.viewresult === ''
-    ).length;
-    
-    // 转化率 = (直签量 + 预定量) / 带看量
-    const totalDeals = directDealsCount + reservedCount;
-    const conversionRate = showingsCount && totalDeals ? (totalDeals / showingsCount) * 100 : 0;
-    
-    setStats({
-      monthShowings: showingsCount,
-      monthDeals: totalDeals,
-      conversionRate: Number(conversionRate.toFixed(2)),
-      directCount: directCount || 0,
-      skipCount: skipCount || 0,
-      incompleteCount: incompleteCount || 0,
-    });
+    try {
+      const statsData = await ShowingsService.getStats();
+      setStats(statsData);
+    } catch (error) {
+      console.error('获取统计数据失败:', error);
+      message.error('获取统计数据失败');
+    }
   };
 
   // 获取看房结果选项（使用Selection.id=2）
   const fetchViewResultOptions = async () => {
     try {
-      const { data } = await supabase
-        .from('Selection')
-        .select('selection')
-        .eq('id', 2)
-        .single();
-      
-      if (data && data.selection) {
-        setViewResultOptions(data.selection);
-      } else {
-        // 使用默认选项
-        setViewResultOptions([
-          { value: '直签', label: '直签' },
-          { value: '预定', label: '预定' },
-          { value: '意向金', label: '意向金' },
-          { value: '考虑中', label: '考虑中' },
-          { value: '已流失', label: '已流失' }
-        ]);
-      }
+      const options = await ShowingsService.getViewResultOptions();
+      setViewResultOptions(options);
     } catch (error) {
-      // 使用默认选项
-      setViewResultOptions([
-        { value: '直签', label: '直签' },
-        { value: '预定', label: '预定' },
-        { value: '意向金', label: '意向金' },
-        { value: '考虑中', label: '考虑中' },
-        { value: '已流失', label: '已流失' }
-      ]);
+      console.error('获取看房结果选项失败:', error);
     }
   };
 
@@ -255,15 +143,15 @@ const ShowingsList: React.FC = () => {
   const fetchOptions = async () => {
     try {
       // 获取社区选项
-      const communities = await getCommunityOptions();
-      setCommunityOptions((communities as string[]).map((c: string) => ({ value: c, label: c })));
+      const communities = await ShowingsService.getCommunityOptions();
+      setCommunityOptions(communities);
 
       // 获取看房结果选项（使用Selection.id=2）
       await fetchViewResultOptions();
 
       // 获取销售员选项
-      const sales = await getSalesOptions();
-      setSalesOptions(sales.map((s: any) => ({ value: s.id, label: s.nickname })));
+      const sales = await ShowingsService.getSalesOptions();
+      setSalesOptions(sales);
     } catch (error) {
       console.error('获取销售选项失败:', error);
     }
@@ -271,23 +159,9 @@ const ShowingsList: React.FC = () => {
 
   // 从数据中提取选项的函数
   const updateOptionsFromData = (showingsData: ShowingWithRelations[]) => {
-    // 获取约访管家选项（从现有数据中提取）
-    const interviewsalesSet = new Set<string>();
-    showingsData.forEach(item => {
-      if (item.interviewsales_nickname) {
-        interviewsalesSet.add(item.interviewsales_nickname);
-      }
-    });
-    setInterviewsalesOptions(Array.from(interviewsalesSet).map(name => ({ value: name, label: name })));
-
-    // 获取实际带看管家选项（从现有数据中提取）
-    const trueshowingsalesSet = new Set<string>();
-    showingsData.forEach(item => {
-      if (item.trueshowingsales_nickname) {
-        trueshowingsalesSet.add(item.trueshowingsales_nickname);
-      }
-    });
-    setTrueshowingsalesOptions(Array.from(trueshowingsalesSet).map(name => ({ value: name, label: name })));
+    const options = ShowingsService.extractOptionsFromData(showingsData);
+    setInterviewsalesOptions(options.interviewsalesOptions);
+    setTrueshowingsalesOptions(options.trueshowingsalesOptions);
   };
 
   const fetchData = async () => {
@@ -295,15 +169,35 @@ const ShowingsList: React.FC = () => {
     try {
       const offset = (currentPage - 1) * pageSize;
       const [showings, count] = await Promise.all([
-        getShowings({ 
+        ShowingsService.getShowings({ 
           ...filters, 
           limit: pageSize, 
           offset,
           orderBy: 'created_at',
           ascending: false
         }),
-        getShowingsCount(filters)
+        ShowingsService.getShowingsCount(filters)
       ]);
+      
+      // 调试信息：查看传递给RPC函数的参数
+      console.log('🖥️ 电脑端传递给RPC函数的参数:', {
+        filters,
+        limit: pageSize,
+        offset,
+        orderBy: 'created_at',
+        ascending: false
+      });
+      
+      // 调试信息：查看返回的数据结构
+      console.log('🖥️ 电脑端 getShowings返回的数据:', showings);
+      if (showings && showings.length > 0) {
+        console.log('🖥️ 电脑端 第一条记录的字段:', Object.keys(showings[0]));
+        console.log('🖥️ 电脑端 第一条记录的约访管家信息:', {
+          interviewsales_nickname: showings[0].interviewsales_nickname,
+          interviewsales_user_id: showings[0].interviewsales_user_id
+        });
+      }
+      
       setData(showings || []);
       setTotal(count);
       
@@ -330,10 +224,10 @@ const ShowingsList: React.FC = () => {
       delete showingData.interviewsales_user_id;
 
       if (editingRecord) {
-        await updateShowing(editingRecord.id, showingData);
+        await ShowingsService.updateShowing(editingRecord.id, showingData);
         message.success('更新带看记录成功！');
       } else {
-        await createShowing(showingData);
+        await ShowingsService.createShowing(showingData);
         message.success('添加带看记录成功！');
       }
 
@@ -366,13 +260,7 @@ const ShowingsList: React.FC = () => {
     setRollbackModalVisible(true);
   };
 
-  // 回退理由选项
-  const rollbackReasonOptions = [
-    { value: '临时取消', label: '临时取消' },
-    { value: '无效客户', label: '无效客户' },
-    { value: '重复带看', label: '重复带看' },
-    { value: '其他原因', label: '其他原因' }
-  ];
+  // 使用服务层的回退理由选项
 
   // 处理回退证据上传
   const handleRollbackEvidenceUpload = async (file: File) => {
@@ -432,74 +320,39 @@ const ShowingsList: React.FC = () => {
 
     setRollbackUploading(true);
     try {
-      // 0. 检查同一带看记录是否已存在未完成的回退审批流实例
-      const { data: existList, error: existError } = await supabase
-        .from('approval_instances')
-        .select('id, status')
-        .eq('type', 'showing_rollback')
-        .eq('target_id', rollbackRecord?.id)
-        .in('status', ['pending', 'processing']);
-      if (existError) {
-        setRollbackUploading(false);
-        message.error('回退检查失败，请重试');
-        return;
-      }
-      if (existList && existList.length > 0) {
-        setRollbackUploading(false);
-        message.error('该带看记录已提交回退申请，请勿重复提交');
-        return;
-      }
-
       // 1. 上传所有图片，获取url
-      const uploaded: any[] = [];
-      for (const item of rollbackEvidenceList) {
-        if (item.url) {
-          uploaded.push(item.url);
-          continue;
-        }
-        const fileExt = item.file.name.split('.').pop();
-        const fileName = `rollback-${Date.now()}-${Math.floor(Math.random()*10000)}.${fileExt}`;
-        const filePath = `rollback/${fileName}`;
-        const { error } = await supabase.storage.from('rollback').upload(filePath, item.file);
-        if (error) throw error;
-        const { data } = supabase.storage.from('rollback').getPublicUrl(filePath);
-        uploaded.push(data.publicUrl);
+      const files = rollbackEvidenceList
+        .filter(item => !item.url)
+        .map(item => item.file);
+      
+      const uploadedUrls = await ShowingsService.uploadRollbackEvidence(files);
+      
+      // 2. 合并已有的URL和新上传的URL
+      const existingUrls = rollbackEvidenceList
+        .filter(item => item.url)
+        .map(item => item.url);
+      const allUrls = [...existingUrls, ...uploadedUrls];
+
+      // 3. 提交回退申请
+      const application: RollbackApplication = {
+        reason: rollbackReason!,
+        evidence: allUrls,
+        leadid: rollbackRecord?.leadid || '',
+      };
+
+      const success = await ShowingsService.submitRollbackApplication(
+        rollbackRecord!,
+        application,
+        profile!.id
+      );
+
+      if (success) {
+        setRollbackModalVisible(false);
+        clearPreviewUrls(rollbackEvidenceList);
+        setRollbackRecord(null);
+        setRollbackReason(undefined);
+        setRollbackEvidenceList([]);
       }
-
-      // 2. 查找审批流模板id
-      const { data: flowData, error: flowError } = await supabase
-        .from('approval_flows')
-        .select('id')
-        .eq('type', 'showing_rollback')
-        .maybeSingle();
-      if (flowError || !flowData) {
-        message.error('未找到带看回退审批流模板，请联系管理员配置');
-        setRollbackUploading(false);
-        return;
-      }
-
-      // 3. 插入审批流实例，使用带看单编号作为target_id
-      const { error: approvalError } = await supabase.from('approval_instances').insert({
-        flow_id: flowData.id,
-        type: 'showing_rollback',
-        target_table: 'showings',
-        target_id: rollbackRecord?.id, // 使用带看单编号作为target_id
-        status: 'pending',
-        created_by: profile!.id,
-        config: {
-          reason: rollbackReason,
-          evidence: uploaded,
-          leadid: rollbackRecord?.leadid, // 将线索编号放在config中
-        },
-      });
-      if (approvalError) throw approvalError;
-
-      message.success('带看回退申请已提交，等待审批');
-      setRollbackModalVisible(false);
-      clearPreviewUrls(rollbackEvidenceList); // 清理预览URL
-      setRollbackRecord(null);
-      setRollbackReason(undefined);
-      setRollbackEvidenceList([]);
     } catch (e: any) {
       message.error('回退提交失败: ' + (e.message || e.toString()));
     }
@@ -508,16 +361,7 @@ const ShowingsList: React.FC = () => {
 
 
 
-  const getViewResultColor = (result: string) => {
-    const colorMap: { [key: string]: string } = {
-      '直签': 'success',
-      '预定': 'processing',
-      '意向金': 'processing',
-      '考虑中': 'warning',
-      '已流失': 'error',
-    };
-    return colorMap[result] || 'default';
-  };
+  // 使用服务层的方法获取看房结果颜色
 
   // 2. 表格字段适配
   const columns = [
@@ -594,7 +438,16 @@ const ShowingsList: React.FC = () => {
         </div>
       ),
       onFilter: (value: boolean | Key, record: ShowingWithRelations) => !!record.lead_phone?.toString().includes(String(value)),
-      render: (text: string) => maskPhone(text),
+      render: (text: string) => (
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <PhoneOutlined style={{ 
+            fontSize: '12px', 
+            color: 'rgba(0, 0, 0, 0.6)',
+            flexShrink: '0'
+          }} />
+          {ShowingsService.maskPhone(text)}
+        </span>
+      ),
     },
     {
       title: '微信号',
@@ -625,7 +478,16 @@ const ShowingsList: React.FC = () => {
         </div>
       ),
       onFilter: (value: boolean | Key, record: ShowingWithRelations) => !!record.lead_wechat?.toString().includes(String(value)),
-      render: (text: string) => maskWechat(text),
+      render: (text: string) => (
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <WechatOutlined style={{ 
+            fontSize: '12px', 
+            color: 'rgba(0, 0, 0, 0.6)',
+            flexShrink: '0'
+          }} />
+          {ShowingsService.maskWechat(text)}
+        </span>
+      ),
     },
     {
       title: '带看社区',
@@ -757,7 +619,7 @@ const ShowingsList: React.FC = () => {
         if (record.invalid) {
           return <Tag color="error">无效</Tag>;
         }
-        return <Tag color={getViewResultColor(text)}>{text}</Tag>;
+        return <Tag color={ShowingsService.getViewResultColor(text)}>{text}</Tag>;
       },
     },
     {
@@ -958,13 +820,14 @@ const ShowingsList: React.FC = () => {
   // 拉取卡片明细
   const fetchCardDetails = async (type: 'direct' | 'skip') => {
     setCardDetailLoading(true);
-    const { data } = await supabase
-      .from('showings_queue_record')
-      .select('*')
-      .eq('queue_type', type)
-      .order('created_at', { ascending: false });
-    setCardDetails(data || []);
-    setCardDetailLoading(false);
+    try {
+      const data = await ShowingsService.getQueueCardDetails(type);
+      setCardDetails(data);
+    } catch (error) {
+      console.error('获取卡片明细失败:', error);
+    } finally {
+      setCardDetailLoading(false);
+    }
   };
 
   // 卡片点击事件
@@ -1744,7 +1607,7 @@ const ShowingsList: React.FC = () => {
             value={rollbackReason}
             onChange={setRollbackReason}
             style={{ width: '100%' }}
-            options={rollbackReasonOptions}
+            options={ShowingsService.getRollbackReasonOptions()}
           />
         </div>
 

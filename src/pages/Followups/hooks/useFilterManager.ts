@@ -25,6 +25,15 @@ export const useFilterManager = () => {
       'p_source', 'p_wechat', 'p_phone', 'p_showingsales_user'
     ];
     
+    // 🆕 添加工作地点参数转换日志
+    if (rawFilters.p_worklocation) {
+      console.log('🔍 [useFilterManager] 工作地点参数转换前:', {
+        original: rawFilters.p_worklocation,
+        type: typeof rawFilters.p_worklocation,
+        isArray: Array.isArray(rawFilters.p_worklocation)
+      });
+    }
+    
     // 定义日期参数
     const dateParams = [
       'p_created_at_start', 'p_created_at_end',
@@ -228,7 +237,10 @@ export const useFilterManager = () => {
   const clearTableFilters = useCallback(() => {
     const tableFilterFields = [
       'p_followupstage', 'p_customerprofile', 'p_userrating', 'p_scheduledcommunity', 'p_source',
-      'p_leadtype', 'p_remark', 'p_worklocation', 'p_userbudget_min', 'p_userbudget_max', 'p_followupresult', 'p_majorcategory'
+      'p_leadtype', 'p_remark', 'p_worklocation', 'p_userbudget_min', 'p_userbudget_max', 'p_followupresult', 'p_majorcategory',
+      'p_created_at_start', 'p_created_at_end', // 添加创建日期字段
+      'p_moveintime_start', 'p_moveintime_end', // 添加入住日期字段
+      'p_scheduletime_start', 'p_scheduletime_end' // 添加预约时间字段
     ];
     
     setFilters(prev => {
@@ -321,6 +333,17 @@ export const useFilterManager = () => {
   const getCurrentFiltersFn = useCallback((): FilterParams => {
     // 直接使用当前的 filters 状态，避免依赖 useMemo 的时序问题
     const normalizedParams = normalizeFilterParams(filters);
+    
+    // 🆕 添加工作地点参数转换后日志
+    if (normalizedParams.p_worklocation) {
+      console.log('🔍 [useFilterManager] 工作地点参数转换后:', {
+        normalized: normalizedParams.p_worklocation,
+        type: typeof normalizedParams.p_worklocation,
+        isArray: Array.isArray(normalizedParams.p_worklocation),
+        length: Array.isArray(normalizedParams.p_worklocation) ? normalizedParams.p_worklocation.length : 'N/A'
+      });
+    }
+    
     return normalizedParams;
   }, [filters, normalizeFilterParams]);
 

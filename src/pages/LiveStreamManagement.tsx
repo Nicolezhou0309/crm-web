@@ -25,6 +25,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
+import { toBeijingDateStr, isBetween as dayjsIsBetween, toBeijingTime } from '../utils/timeUtils';
 
 dayjs.extend(isBetween);
 import { 
@@ -70,7 +71,7 @@ const LiveStreamManagement: React.FC = () => {
   const [filterParams, setFilterParams] = useState<LiveStreamFilterParams>({
     dateRange: {
       start: dayjs().subtract(1, 'month').format('YYYY-MM-DD'),
-      end: dayjs().format('YYYY-MM-DD')
+      end: toBeijingDateStr(dayjs())
     },
     scoreRange: {
       min: 0,
@@ -104,8 +105,8 @@ const LiveStreamManagement: React.FC = () => {
         filteredData = filteredData.filter(schedule => {
           const scheduleDate = dayjs(schedule.date);
           return scheduleDate.isBetween(
-            dayjs(filterParams.dateRange!.start), 
-            dayjs(filterParams.dateRange!.end), 
+            toBeijingTime(filterParams.dateRange!.start), 
+            toBeijingTime(filterParams.dateRange!.end), 
             'day', 
             '[]'
           );
@@ -343,7 +344,12 @@ const LiveStreamManagement: React.FC = () => {
         const startDate = dayjs(value[0]);
         const endDate = dayjs(value[1]);
         
-        return recordDate.isBetween(startDate, endDate, 'day', '[]');
+        return recordDate.isBetween(
+          toBeijingTime(startDate),
+          toBeijingTime(endDate),
+          'day',
+          '[]'
+        );
       }
     },
     {
@@ -666,7 +672,12 @@ const LiveStreamManagement: React.FC = () => {
       onFilter: (value: any, record: LiveStreamSchedule) => {
         if (!record.scored_at) return false;
         const scoredDate = dayjs(record.scored_at);
-        return scoredDate.isBetween(dayjs(value[0]), dayjs(value[1]), 'day', '[]');
+        return scoredDate.isBetween(
+          toBeijingTime(value[0]),
+          toBeijingTime(value[1]),
+          'day',
+          '[]'
+        );
       }
     },
     {

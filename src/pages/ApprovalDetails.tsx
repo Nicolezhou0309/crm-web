@@ -4,12 +4,11 @@ import { supabase } from '../supaClient';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import { useSearchParams } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { toBeijingDateTimeStr } from '../utils/timeUtils';
 
 function formatToBeijingTime(isoString?: string) {
   if (!isoString) return '-';
-  const date = new Date(isoString);
-  const bjDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-  return bjDate.toISOString().replace('T', ' ').substring(0, 19);
+  return toBeijingDateTimeStr(isoString);
 }
 
 const ApprovalDetails: React.FC = () => {

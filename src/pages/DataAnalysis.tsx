@@ -33,6 +33,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
+import { toBeijingDateStr } from '../utils/timeUtils';
 
 // 扩展dayjs支持时区
 dayjs.extend(utc);
@@ -796,7 +797,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
     
     // 处理时间字段，统一为北京时间日期格式
     if (typeof value === 'string' && value.includes('-')) {
-      return formatTimeField(value);
+      return toBeijingDateStr(value);
     }
     
     return String(value);
@@ -1928,7 +1929,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
       const url = URL.createObjectURL(blob);
       
       // 生成文件名
-      const timestamp = dayjs().format('YYYY-MM-DD_HH-mm-ss');
+      const timestamp = toBeijingDateStr(dayjs()).replace(/[-:]/g, '_');
       const configName = currentConfig?.name || 'pivot_data';
       const fileName = `${configName}_${timestamp}.csv`;
       

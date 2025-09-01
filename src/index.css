@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 弹窗动画 */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .animate-slide-up {
+    animation: slide-up 0.25s ease-out;
+  }
+}
+
 /* ========== 全局基础样式 ========== */
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;

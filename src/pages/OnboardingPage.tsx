@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '../supaClient';
 import { getCurrentProfileId } from '../api/pointsApi';
+import { toBeijingTime } from '../utils/timeUtils';
 
 
 
@@ -1009,7 +1010,7 @@ const OnboardingPage: React.FC = () => {
       
       // 恢复正式考试状态
       if (userStatus.status === 'formal_exam' && userStatus.formalExamStartTime) {
-        const elapsedTime = Math.floor((Date.now() - userStatus.formalExamStartTime) / 1000);
+        const elapsedTime = Math.floor((toBeijingTime(new Date()).valueOf() - userStatus.formalExamStartTime) / 1000);
         const remainingTime = Math.max(0, 900 - elapsedTime); // 15分钟 = 900秒
         
         if (remainingTime > 0) {
@@ -1088,7 +1089,7 @@ const OnboardingPage: React.FC = () => {
       status: 'formal_exam' as const,
       formalExamQuestions: selectedQuestions.map(q => q.id),
       formalExamAttempts: (status?.formalExamAttempts || 0) + 1,
-      formalExamStartTime: Date.now(),
+      formalExamStartTime: toBeijingTime(new Date()).valueOf(),
       formalExamTimeLimit: 900
     };
     saveUserStatus(newStatus);

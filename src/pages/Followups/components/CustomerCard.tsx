@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { Rate } from 'antd';
 import { 
   PhoneOutlined, 
   WechatOutlined, 
@@ -340,6 +341,17 @@ export const CustomerCard: React.FC<CustomerCardProps> = React.memo(({
     return wechat.substring(0, 2) + '****' + wechat.substring(wechat.length - 2);
   };
 
+  // 跟进意向评分转换函数
+  const getRatingValue = (rating: string): number => {
+    switch (rating) {
+      case 'A': return 3;
+      case 'B+': return 2;
+      case 'B': return 1;
+      case 'C': return 0;
+      default: return 0;
+    }
+  };
+
   return (
     <div className="customer-card-container">
       <div
@@ -360,20 +372,35 @@ export const CustomerCard: React.FC<CustomerCardProps> = React.memo(({
             <div className="lead-id">{record.leadid || '未知编号'}</div>
             <div className="stage-tag">{stage}</div>
           </div>
-          {/* 移除客户姓名显示，跟进数据中不包含用户姓名 */}
-          <div className="contact-info">
-            <div className="contact-row">
-              <span className="customer-phone" style={{ fontSize: '12px' }}>
-                <PhoneOutlined className="contact-icon" />
-                {record.phone ? maskPhone(record.phone) : '无电话'}
-              </span>
-              {wechat && (
-                <span className="customer-wechat" style={{ fontSize: '12px' }}>
-                  <WechatOutlined className="contact-icon" />
-                  {maskWechat(wechat)}
+          {/* 跟进意向和联系信息行 */}
+          <div className="rating-contact-row">
+            {/* 联系信息 - 左对齐 */}
+            <div className="contact-info">
+              <div className="contact-column">
+                <span className="customer-phone" style={{ fontSize: '12px' }}>
+                  <PhoneOutlined className="contact-icon" />
+                  {record.phone ? maskPhone(record.phone) : '无电话'}
                 </span>
-              )}
+                {wechat && (
+                  <span className="customer-wechat" style={{ fontSize: '12px' }}>
+                    <WechatOutlined className="contact-icon" />
+                    {maskWechat(wechat)}
+                  </span>
+                )}
+              </div>
             </div>
+            {/* 跟进意向 - 右对齐，使用Rate组件 */}
+            {record.userrating && (
+              <div className="rating-info">
+                <Rate 
+                  disabled 
+                  value={getRatingValue(record.userrating)} 
+                  count={3}
+                  style={{ color: '#faad14', fontSize: '14px' }}
+                  className="compact-rating"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -11,20 +11,20 @@
 
 /* 确保整个页面容器没有间距 */
 .min-h-screen {
-  margin: 0 !important;
-  padding: 0 !important;
+  margin: 0 ;
+  padding: 0 ;
 }
 
 /* 强制覆盖 Ant Design Layout Content 的默认边距 */
 .ant-layout-content {
-  padding: 0 !important;
-  margin: 0 !important;
+  padding: 0 ;
+  margin: 0 ;
 }
 
 /* 确保所有 Layout 组件都没有边距 */
 .ant-layout {
-  padding: 0 !important;
-  margin: 0 !important;
+  padding: 0 ;
+  margin: 0 ;
 }
 
 /* 强制移除所有可能的间距 */
@@ -182,6 +182,8 @@
   min-width: 0 !important; /* 允许输入框收缩 */
   margin: 0 !important;
 }
+
+/* 移除所有自定义搜索框样式，使用antd-mobile默认样式 */
 
 .mobile-header .header-actions {
   flex-shrink: 0 !important;

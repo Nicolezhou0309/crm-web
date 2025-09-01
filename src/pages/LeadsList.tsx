@@ -27,6 +27,7 @@ import dayjs from 'dayjs';
 import { formatCommunityRemark } from '../utils/validationUtils';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import './leads-common.css';
+import { toBeijingTime, toBeijingDateTimeStr, toBeijingDateStr, getDayStart, getDayEnd } from '../utils/timeUtils';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -221,7 +222,7 @@ const LeadsList: React.FC = () => {
       const leadToInsert = {
         ...newLead,
         remark: newRemark,
-        created_at: new Date().toISOString(),
+        created_at: toBeijingDateTimeStr(new Date()),
       };
       
       const { data, error } = await supabase
@@ -559,7 +560,7 @@ const LeadsList: React.FC = () => {
       dataIndex: 'created_at',
       key: 'created_at',
       width: 180,
-      sorter: (a: Lead, b: Lead) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      sorter: (a: Lead, b: Lead) => toBeijingTime(b.created_at).valueOf() - toBeijingTime(a.created_at).valueOf(),
       filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => {
         let rangeValue: any = undefined;
         if (Array.isArray(selectedKeys[0]) && selectedKeys[0].length === 2) {
@@ -610,10 +611,10 @@ const LeadsList: React.FC = () => {
       onFilter: (value: any, record: any) => {
         if (!value || !Array.isArray(value) || value.length !== 2) return true;
         const [start, end] = value;
-        const time = new Date(record.created_at).getTime();
-        return time >= new Date(start).getTime() && time <= new Date(end).getTime();
+        const time = toBeijingTime(record.created_at).valueOf();
+        return time >= toBeijingTime(start).valueOf() && time <= toBeijingTime(end).valueOf();
       },
-      render: (text: string) => new Date(text).toLocaleString('zh-CN'),
+      render: (text: string) => toBeijingDateTimeStr(text),
     },
   ];
 
@@ -664,8 +665,8 @@ const LeadsList: React.FC = () => {
       // created_at 区间
       if (key === 'created_at') {
         if (filters.created_at && Array.isArray(filters.created_at) && filters.created_at.length === 2) {
-          params.p_created_at_start = dayjs(filters.created_at[0]).tz('Asia/Shanghai').startOf('day').toISOString();
-          params.p_created_at_end = dayjs(filters.created_at[1]).tz('Asia/Shanghai').endOf('day').toISOString();
+          params.p_created_at_start = toBeijingDateStr(getDayStart(filters.created_at[0]));
+          params.p_created_at_end = toBeijingDateStr(getDayEnd(filters.created_at[1]));
         } else {
           params.p_created_at_start = null;
           params.p_created_at_end = null;
@@ -675,8 +676,8 @@ const LeadsList: React.FC = () => {
       // updata_at 区间
       if (key === 'updata_at') {
         if (filters.updata_at && Array.isArray(filters.updata_at) && filters.updata_at.length === 2) {
-          params.p_updata_at_start = dayjs(filters.updata_at[0]).tz('Asia/Shanghai').startOf('day').toISOString();
-          params.p_updata_at_end = dayjs(filters.updata_at[1]).tz('Asia/Shanghai').endOf('day').toISOString();
+          params.p_updata_at_start = toBeijingDateStr(getDayStart(filters.updata_at[0]));
+          params.p_updata_at_end = toBeijingDateStr(getDayEnd(filters.updata_at[1]));
         } else {
           params.p_updata_at_start = null;
           params.p_updata_at_end = null;

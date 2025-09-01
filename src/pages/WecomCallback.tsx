@@ -4,6 +4,7 @@ import { Result, Spin, Typography } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../supaClient';
+import { toBeijingTime } from '../utils/timeUtils';
 
 const { Text, Title } = Typography;
 
@@ -110,13 +111,13 @@ const WecomCallback: React.FC = () => {
 
       // 模拟用户信息
       return {
-        wechat_work_userid: `wecom_${Date.now()}`,
+        wechat_work_userid: `wecom_${toBeijingTime(new Date()).valueOf()}`,
         wechat_work_name: '企业微信用户',
         wechat_work_mobile: '13800138000',
         wechat_work_avatar: '',
         wechat_work_department: '技术部',
         wechat_work_position: '员工',
-        email: `wecom_${Date.now()}@wecom.local`
+        email: `wecom_${toBeijingTime(new Date()).valueOf()}@wecom.local`
       };
     } catch (error) {
       console.error('获取企业微信用户信息失败:', error);

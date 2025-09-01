@@ -35,7 +35,8 @@ import { getUsersProfile, type UserProfile } from '../api/usersApi';
 import dayjs from 'dayjs';
 import './leads-common.css';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
-import { testSupabaseConnection } from '../test-supabase-connection';
+import { toBeijingDateStr } from '../utils/timeUtils';
+
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -73,16 +74,7 @@ const DealsList: React.FC = () => {
     fetchData();
   }, [currentPage, pageSize, filters, sortedInfo, filteredInfo]);
 
-  // 测试Supabase连接
-  const handleTestConnection = async () => {
-    try {
-      await testSupabaseConnection();
-      message.success('Supabase连接测试完成，请查看控制台输出');
-    } catch (error) {
-      message.error('Supabase连接测试失败');
-      console.error('连接测试错误:', error);
-    }
-  };
+
 
   const fetchOptions = async () => {
     try {
@@ -469,13 +461,7 @@ const DealsList: React.FC = () => {
           >
             刷新
           </Button>
-          <Button 
-            onClick={handleTestConnection}
-            className="rounded-md font-medium"
-            type="dashed"
-          >
-            测试Supabase连接
-          </Button>
+
         </Space>
       </div>
       <div className="page-table-wrap">
@@ -536,7 +522,7 @@ const DealsList: React.FC = () => {
              const { channel, interviewsales_user_id, ...updateData } = values;
              const submitData = {
                ...updateData,
-               contractdate: values.contractdate ? values.contractdate.format('YYYY-MM-DD') : null,
+               contractdate: values.contractdate ? toBeijingDateStr(values.contractdate) : null,
              };
              
              await updateDeal(editingDeal!.id, submitData);

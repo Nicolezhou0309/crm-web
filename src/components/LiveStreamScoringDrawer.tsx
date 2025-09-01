@@ -16,6 +16,7 @@ import {
 import { useUser } from '../context/UserContext';
 import type { LiveStreamSchedule } from '../types/liveStream';
 import './LiveStreamScoringDrawer.css';
+import { toBeijingDateStr } from '../utils/timeUtils';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -137,7 +138,7 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
     return {
       scoring_version: '1.0',
       evaluator_id: profile?.id || 0,
-      evaluation_date: dayjs().format('YYYY-MM-DD'),
+      evaluation_date: toBeijingDateStr(dayjs()),
       dimensions: {},
       calculation: {
         total_score: 0,

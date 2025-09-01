@@ -293,7 +293,24 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
     const userInfo = userProfileCache?.[String(value)];
     const nickname = userInfo?.nickname || `用户${value}`;
     
-    return <Tag closable={closable} onClose={onClose}>{nickname}</Tag>;
+    return (
+      <Tag 
+        closable={closable} 
+        onClose={onClose}
+        style={{
+          background: '#f0f8ff',
+          border: '1px solid #91d5ff',
+          color: '#1890ff',
+          borderRadius: '6px',
+          padding: '2px 8px',
+          fontSize: '12px',
+          lineHeight: '1.4',
+          margin: '2px'
+        }}
+      >
+        {nickname}
+      </Tag>
+    );
   };
 
   // 组件初始化时加载数据

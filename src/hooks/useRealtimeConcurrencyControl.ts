@@ -242,12 +242,9 @@ export const useRealtimeConcurrencyControl = () => {
     }
   }, [releaseEditLock]);
 
-    // 实时监听状态变化 - 暂时禁用 realtime 功能
+    // 实时监听状态变化
   useEffect(() => {
-    console.log('[useRealtimeConcurrencyControl] realtime 功能已暂时禁用');
-    
-    // 暂时注释掉 realtime 订阅代码
-    /*
+    console.log('[useRealtimeConcurrencyControl] 启用 realtime 功能');
     const channel = supabase.channel('concurrency-control')
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -378,13 +375,6 @@ export const useRealtimeConcurrencyControl = () => {
       // 清理所有定时器
       Object.values(lockTimeouts.current).forEach(timeout => clearTimeout(timeout));
       supabase.removeChannel(channel);
-    };
-    */
-    
-    // 暂时返回空函数，因为 realtime 已禁用
-    return () => {
-      // 清理所有定时器
-      Object.values(lockTimeouts.current).forEach(timeout => clearTimeout(timeout));
     };
   }, []);
 

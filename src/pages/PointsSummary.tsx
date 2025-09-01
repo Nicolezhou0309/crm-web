@@ -3,6 +3,7 @@ import { getAllUserPointsWallets, submitPointsAdjustApproval } from '../api/poin
 import { Table, Spin, Alert, Select, Modal, Form, Input, InputNumber, message, Button } from 'antd';
 import { supabase } from '../supaClient';
 import { useUser } from '../context/UserContext';
+import { toBeijingDateTimeStr } from '../utils/timeUtils';
 
 interface UserProfile {
   id: number;
@@ -134,16 +135,7 @@ export default function PointsSummary() {
   // 工具函数：将UTC时间转为北京时间字符串
   function formatToBeijingTime(isoString?: string) {
     if (!isoString) return '-';
-    const date = new Date(isoString);
-    // 北京时间 = UTC+8
-    const beijingDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-    const y = beijingDate.getFullYear();
-    const m = String(beijingDate.getMonth() + 1).padStart(2, '0');
-    const d = String(beijingDate.getDate()).padStart(2, '0');
-    const h = String(beijingDate.getHours()).padStart(2, '0');
-    const min = String(beijingDate.getMinutes()).padStart(2, '0');
-    const s = String(beijingDate.getSeconds()).padStart(2, '0');
-    return `${y}-${m}-${d} ${h}:${min}:${s}`;
+    return toBeijingDateTimeStr(isoString);
   }
 
   const dataSource = wallets

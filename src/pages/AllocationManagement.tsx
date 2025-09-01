@@ -47,6 +47,7 @@ import UserTreeSelect from '../components/UserTreeSelect';
 import { supabase } from '../supaClient';
 import dayjs from 'dayjs';
 import { validateRuleForm, validateGroupForm } from '../utils/validationUtils';
+import { toBeijingDateTimeStr } from '../utils/timeUtils';
 
 
 const { Title, Text } = Typography;
@@ -746,7 +747,7 @@ const AllocationManagement: React.FC = () => {
       render: (time: string) => (
         <Space>
           <ClockCircleOutlined />
-          <Text>{new Date(time).toLocaleString()}</Text>
+          <Text>{toBeijingDateTimeStr(time)}</Text>
         </Space>
       )
     }

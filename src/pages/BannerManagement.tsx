@@ -4,6 +4,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant
 import { fetchBanners, fetchBannersByPageType, createBanner, updateBanner, deleteBanner } from '../api/bannersApi';
 import { supabase } from '../supaClient';
 import ImgCrop from 'antd-img-crop';
+import { toBeijingTime } from '../utils/timeUtils';
 
 interface Banner {
   id?: number;
@@ -208,7 +209,7 @@ const BannerManagement: React.FC = () => {
       // 使用3x精度压缩
       const blob = await compressImageTo3x(file, activeTab);
       const fileExt = 'jpg';
-      const filePath = `banner/${Date.now()}.${fileExt}`;
+      const filePath = `banner/${toBeijingTime(new Date()).valueOf()}.${fileExt}`;
       const { error } = await supabase.storage.from('banners').upload(filePath, blob, { upsert: true, contentType: 'image/jpeg' });
       if (error) throw error;
       const { data: publicUrlData } = supabase.storage.from('banners').getPublicUrl(filePath);

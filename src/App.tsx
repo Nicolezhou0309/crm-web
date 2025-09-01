@@ -3,11 +3,6 @@ import { Layout, Button, ConfigProvider } from 'antd';
 import {
   UserOutlined,
   LogoutOutlined,
-  HomeOutlined,
-  UserOutlined as UserIcon,
-  EyeOutlined,
-  CheckCircleOutlined,
-  WalletOutlined,
 } from '@ant-design/icons';
 import LottieLogo from './components/LottieLogo';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
@@ -63,6 +58,13 @@ import OnboardingPage from './pages/OnboardingPage';
 import LiveStreamRegistration from './pages/LiveStreamRegistration';
 import LiveStreamManagement from './pages/LiveStreamManagement';
 import TailwindTest from './components/TailwindTest';
+import MetroDistanceCalculatorPage from './pages/MetroDistanceCalculatorPage';
+import RealtimeTest from './pages/RealtimeTest';
+import ButtonStyleTest from './pages/ButtonStyleTest';
+import AuthStatusTest from './pages/AuthStatusTest';
+import XiaohongshuTest from './pages/XiaohongshuTest';
+
+
 
 // import LiveStreamManagement from './pages/LiveStreamManagement';
 // 暂时移除AuthErrorHandler，避免循环
@@ -73,6 +75,10 @@ const { Sider, Content, Header } = Layout;
 
 // 直接导入手机端组件
 import MobileFollowups from './pages/Followups/mobile';
+import MobileTabBar from './components/MobileTabBar';
+import MobileProfile from './pages/MobileProfile';
+import ResponsiveProfile from './pages/ResponsiveProfile';
+import MobileShowingsList from './pages/MobileShowingsList';
 
 // 响应式跟进记录组件
 const ResponsiveFollowups: React.FC = () => {
@@ -102,6 +108,36 @@ const ResponsiveFollowups: React.FC = () => {
 
   // 桌面端使用原有组件
   return <Followups />;
+};
+
+// 响应式带看记录组件
+const ResponsiveShowings: React.FC = () => {
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  // 检测屏幕尺寸
+  React.useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    // 初始检查
+    checkScreenSize();
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkScreenSize);
+
+    return () => {
+      window.removeEventListener('resize', checkScreenSize);
+    };
+  }, []);
+
+  // 根据屏幕尺寸渲染不同组件
+  if (isMobile) {
+    return <MobileShowingsList />;
+  }
+
+  // 桌面端使用原有组件
+  return <ShowingsList />;
 };
 
 // 彻底删除旧的menuItems相关children/path等所有无用代码块，只保留如下：
@@ -153,6 +189,25 @@ const AppContent: React.FC = () => {
   const [siderWidth] = React.useState(220);
   const minSiderWidth = 56;
   
+  // 手机端检测
+  const [isMobile, setIsMobile] = React.useState(false);
+  
+  React.useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    // 初始检查
+    checkScreenSize();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => {
+      window.removeEventListener('resize', checkScreenSize);
+    };
+  }, []);
+  
   // 使用统一的认证Hook，让PrivateRoute处理认证逻辑
   // 只保留UI相关的状态管理
 
@@ -161,7 +216,9 @@ const AppContent: React.FC = () => {
     'index': '/',
     'leads': '/leads',
     'followups': '/followups',
-    
+    'metro-calculator': '/metro-calculator',
+    'xiaohongshu-test': '/xiaohongshu-test',
+
 
     'showings': '/showings',
     'deals': '/deals',
@@ -581,20 +638,21 @@ const AppContent: React.FC = () => {
           <div className="app-header-user" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
             <UserMenu />
           </div>
-          {/* 头像悬浮卡片 */}
-          <Popover
-            content={userCardContent}
-            title={null}
-            placement="bottomRight"
-            trigger="hover"
-            styles={{ 
-              root: {
-                maxWidth: 340,
-                borderRadius: 8,
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-              }
-            }}
-          >
+          {/* 头像悬浮卡片 - 手机端不显示 */}
+          {!isMobile && (
+            <Popover
+              content={userCardContent}
+              title={null}
+              placement="bottomRight"
+              trigger="hover"
+              styles={{ 
+                root: {
+                  maxWidth: 340,
+                  borderRadius: 8,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+                }
+              }}
+            >
             <span style={{ position: 'absolute', top: 2, right: 48, zIndex: 10 }}>
               <div
                 style={{
@@ -719,7 +777,8 @@ const AppContent: React.FC = () => {
                 )}
               </div>
             </span>
-          </Popover>
+            </Popover>
+          )}
         </Header>
         <Layout style={{ marginTop: 60 }}>
           <Sider
@@ -751,7 +810,9 @@ const AppContent: React.FC = () => {
                   } />
                   <Route path="/followups" element={<ResponsiveFollowups />} />
 
-                  <Route path="/showings" element={<ShowingsList />} />
+                  <Route path="/mobile-profile" element={<MobileProfile />} />
+
+                  <Route path="/showings" element={<ResponsiveShowings />} />
 
                   <Route path="/deals" element={<DealsList />} />
                   <Route path="/allocation" element={
@@ -778,7 +839,7 @@ const AppContent: React.FC = () => {
                   } />
                   <Route path="/points/exchange" element={<PointsExchange />} />
 
-                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/profile" element={<ResponsiveProfile />} />
                   <Route path="/403" element={<Error403 />} />
                   <Route path="/departments" element={<DepartmentPage />} />
                   <Route path="/roles" element={
@@ -830,6 +891,13 @@ const AppContent: React.FC = () => {
                             </PermissionGate>
                           } />
                           <Route path="/onboarding" element={<OnboardingPage />} />
+
+                          <Route path="/metro-calculator" element={<MetroDistanceCalculatorPage />} />
+                          <Route path="/xiaohongshu-test" element={<XiaohongshuTest />} />
+                          <Route path="/realtime-test" element={<RealtimeTest />} />
+                          <Route path="/button-style-test" element={<ButtonStyleTest />} />
+                          <Route path="/auth-status-test" element={<AuthStatusTest />} />
+
                                                       <Route path="/live-stream-registration" element={<LiveStreamRegistration />} />
                             <Route path="/live-stream-management" element={
                               <PermissionGate permission="live_stream_manage" fallback={<Error403 />}>
@@ -851,68 +919,8 @@ const AppContent: React.FC = () => {
         </Layout>
         {notificationDrawer}
         
-        {/* 移动端底部菜单 */}
-        <div className="mobile-bottom-menu">
-          <a 
-            href="/" 
-            className={`mobile-menu-item ${location.pathname === '/' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate('/');
-            }}
-          >
-            <HomeOutlined className="mobile-menu-icon" />
-            <span className="mobile-menu-label">首页</span>
-          </a>
-          
-          <a 
-            href="/followups" 
-            className={`mobile-menu-item ${location.pathname === '/followups' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate('/followups');
-            }}
-          >
-            <UserIcon className="mobile-menu-icon" />
-            <span className="mobile-menu-label">跟进</span>
-          </a>
-          
-          <a 
-            href="/showings" 
-            className={`mobile-menu-item ${location.pathname === '/showings' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate('/showings');
-            }}
-          >
-            <EyeOutlined className="mobile-menu-icon" />
-            <span className="mobile-menu-label">带看</span>
-          </a>
-          
-          <a 
-            href="/deals" 
-            className={`mobile-menu-item ${location.pathname === '/deals' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate('/deals');
-            }}
-          >
-            <CheckCircleOutlined className="mobile-menu-icon" />
-            <span className="mobile-menu-label">成交</span>
-          </a>
-          
-          <a 
-            href="/points/exchange" 
-            className={`mobile-menu-item ${location.pathname === '/points/exchange' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate('/points/exchange');
-            }}
-          >
-            <WalletOutlined className="mobile-menu-icon" />
-            <span className="mobile-menu-label">积分</span>
-          </a>
-        </div>
+        {/* 移动端底部菜单 - 只在手机端显示 */}
+        {isMobile && <MobileTabBar />}
       </div>
     </ConfigProvider>
   );

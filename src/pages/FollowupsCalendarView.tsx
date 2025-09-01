@@ -6,6 +6,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import { supabase } from '../supaClient';
 import locale from 'antd/es/date-picker/locale/zh_CN';
 import './FollowupsCalendarView.css';
+import { toBeijingTime, toBeijingDateTimeStr } from '../utils/timeUtils';
 
 interface CalendarEvent {
   id: string;
@@ -33,9 +34,10 @@ const FollowupsCalendarView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<CalendarEvent[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [calendarValue, setCalendarValue] = useState<Dayjs>(dayjs());
+  const [calendarValue, setCalendarValue] = useState<Dayjs>(toBeijingTime(dayjs()));
 
   const [followupstageEnum, setFollowupstageEnum] = useState<{ label: string; value: string }[]>([]);
+  const [metroStationOptions, setMetroStationOptions] = useState<any[]>([]);
 
   // 抽屉相关状态
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -92,7 +94,7 @@ const FollowupsCalendarView: React.FC = () => {
     const converted: any = { ...record };
     ['moveintime', 'scheduletime'].forEach(field => {
       if (converted[field] && typeof converted[field] === 'string') {
-        converted[field] = dayjs(converted[field]);
+        converted[field] = toBeijingTime(converted[field]);
       }
     });
     return converted;
@@ -114,7 +116,7 @@ const FollowupsCalendarView: React.FC = () => {
       // 格式化日期字段
       ['moveintime', 'scheduletime'].forEach(field => {
         if (values[field] && typeof values[field]?.format === 'function') {
-          values[field] = values[field].format('YYYY-MM-DD HH:mm:ss');
+          values[field] = toBeijingDateTimeStr(values[field]);
         }
       });
 
@@ -319,6 +321,7 @@ const FollowupsCalendarView: React.FC = () => {
     
     // 加载枚举数据
     loadEnumWithCache('followupstage', setFollowupstageEnum);
+    loadMetroStationOptions(); // 加载地铁站数据
   }, []);
 
 
@@ -380,6 +383,67 @@ const FollowupsCalendarView: React.FC = () => {
       localStorage.setItem(`${cacheKey}_timestamp`, now.toString());
     } catch (error) {
       console.error(`加载${enumName}枚举失败:`, error);
+    }
+  };
+
+  // 加载地铁站数据
+  const loadMetroStationOptions = async () => {
+    const cacheKey = 'metro_stations';
+    const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
+    const now = Date.now();
+    
+    // 缓存5分钟有效
+    if (cacheTimestamp && (now - parseInt(cacheTimestamp)) < 5 * 60 * 1000) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        setMetroStationOptions(JSON.parse(cached));
+        return;
+      }
+    }
+    
+    try {
+      const { data, error } = await supabase.rpc('get_metrostations');
+      
+      if (error) {
+        console.error('加载地铁站数据失败:', error);
+        return;
+      }
+      
+      // 按线路分组，构建Cascader选项结构
+      const lineGroups = (data || []).reduce((acc: any, station: any) => {
+        const line = station.line || '其他';
+        if (!acc[line]) {
+          acc[line] = [];
+        }
+        acc[line].push(station);
+        return acc;
+      }, {});
+
+      // 构建Cascader选项结构
+      const options = Object.entries(lineGroups)
+        .sort(([lineA], [lineB]) => {
+          const getLineNumber = (line: string) => {
+            const match = line.match(/^(\d+)号线$/);
+            return match ? parseInt(match[1]) : 999999;
+          };
+          return getLineNumber(lineA) - getLineNumber(lineB);
+        })
+        .map(([line, stations]: [string, any]) => ({
+          value: line,
+          label: line,
+          children: stations.map((station: any) => ({
+            value: station.name,
+            label: station.name
+          }))
+        }));
+
+      setMetroStationOptions(options);
+      
+      // 缓存数据
+      localStorage.setItem(cacheKey, JSON.stringify(options));
+      localStorage.setItem(`${cacheKey}_timestamp`, now.toString());
+    } catch (error) {
+      console.error('加载地铁站数据失败:', error);
     }
   };
 
@@ -855,16 +919,31 @@ const FollowupsCalendarView: React.FC = () => {
                                 ? <Select options={followupstageEnum} placeholder="请选择阶段" loading={followupstageEnum.length === 0} disabled={followupstageEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
                                 : field === 'userrating'
                                   ? <Select options={[]} placeholder="请选择来访意向" disabled={isFieldDisabled()} key={forceUpdate} />
-                                  : field === 'worklocation'
-                                    ? <Cascader
-                                        options={[]}
-                                        placeholder="请选择工作地点"
-                                        showSearch
-                                        changeOnSelect={false}
-                                        allowClear
-                                        disabled={isFieldDisabled()}
-                                        key={forceUpdate}
-                                      />
+                                                                  : field === 'worklocation'
+                                  ? <Cascader
+                                      options={metroStationOptions}
+                                      placeholder="请选择工作地点"
+                                      showSearch
+                                      changeOnSelect={false}
+                                      allowClear
+                                      disabled={isFieldDisabled()}
+                                      key={forceUpdate}
+                                      onChange={(_value, selectedOptions) => {
+                                        let selectedText = '';
+                                        if (selectedOptions && selectedOptions.length > 1) {
+                                          // 只保存站点名称，不保存线路信息
+                                          // 🆕 修复：确保保存的是站点名称，不是带"站"字的完整名称
+                                          selectedText = selectedOptions[1].label.replace(/站$/, '');
+                                        } else if (selectedOptions && selectedOptions.length === 1) {
+                                          // 只有一级选项时，保存线路名称
+                                          selectedText = selectedOptions[0].label;
+                                        }
+                                        
+                                        if (selectedText) {
+                                          stageForm.setFieldValue(field, selectedText);
+                                        }
+                                      }}
+                                    />
                                     : field === 'moveintime' || field === 'scheduletime'
                                       ? <DatePicker
                                           showTime
@@ -925,15 +1004,30 @@ const FollowupsCalendarView: React.FC = () => {
                                 ? <Select options={followupstageEnum} placeholder="请选择阶段" loading={followupstageEnum.length === 0} disabled={followupstageEnum.length === 0 || isFieldDisabled()} key={forceUpdate} />
                                 : field === 'userrating'
                                   ? <Select options={[]} placeholder="请选择来访意向" disabled={isFieldDisabled()} key={forceUpdate} />
-                                  : field === 'worklocation'
-                                    ? <Cascader
-                                        options={[]}
+                                                                      : field === 'worklocation'
+                                      ? <Cascader
+                                        options={metroStationOptions}
                                         placeholder="请选择工作地点"
                                         showSearch
                                         changeOnSelect={false}
                                         allowClear
                                         disabled={isFieldDisabled()}
                                         key={forceUpdate}
+                                        onChange={(_value, selectedOptions) => {
+                                          let selectedText = '';
+                                          if (selectedOptions && selectedOptions.length > 1) {
+                                            // 只保存站点名称，不保存线路信息
+                                            // 🆕 修复：确保保存的是站点名称，不是带"站"字的完整名称
+                                            selectedText = selectedOptions[1].label.replace(/站$/, '');
+                                          } else if (selectedOptions && selectedOptions.length === 1) {
+                                            // 只有一级选项时，保存线路名称
+                                            selectedText = selectedOptions[0].label;
+                                          }
+                                          
+                                          if (selectedText) {
+                                            stageForm.setFieldValue(field, selectedText);
+                                          }
+                                        }}
                                       />
                                     : field === 'moveintime' || field === 'scheduletime'
                                       ? <DatePicker

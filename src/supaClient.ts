@@ -54,11 +54,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       }
     }
   },
-  // realtime: {  // 暂时禁用 realtime 功能
-  //   params: {
-  //     eventsPerSecond: 10
-  //   }
-  // },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  },
   global: {
     headers: {
       'X-Client-Info': 'crm-web-aliyun',

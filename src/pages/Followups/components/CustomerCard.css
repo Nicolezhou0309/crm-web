@@ -277,10 +277,55 @@
 
 /* 移除不再使用的customer-name样式 */
 
+/* 跟进意向和联系信息行 */
+.customer-card .rating-contact-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin: 0 0 8px 0;
+  gap: 8px;
+  min-height: 16px;
+}
+
 .customer-card .contact-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+}
+
+/* 联系信息列样式 */
+.customer-card .contact-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 跟进意向信息样式 */
+.customer-card .rating-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.customer-card .rating-text {
+  font-size: 10px;
+  color: #666;
+  text-align: center;
+  line-height: 1;
+}
+
+/* 紧凑的评分星星样式 */
+.customer-card .compact-rating .ant-rate-star {
+  margin-right: 2px ;
+  font-size: 12px ;
+  color: #faad14 ;
+}
+
+.customer-card .compact-rating .ant-rate-star:last-child {
+  margin-right: 0 !important;
 }
 
 /* 联系信息行样式 */
@@ -332,6 +377,24 @@
 
 .customer-card .stage-lose {
   background: linear-gradient(135deg, #fff2f0 0%, #ffccc7 100%);
+}
+
+/* 快速筛选按钮样式 */
+.quick-filter-button {
+  transition: all 0.2s ease;
+  user-select: none;
+  width: fit-content !important;
+  min-width: unset !important;
+  max-width: none !important;
+}
+
+.quick-filter-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.quick-filter-button.selected {
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
 }
 
 /* 响应式设计 - 仅区分大屏幕和小屏幕 */

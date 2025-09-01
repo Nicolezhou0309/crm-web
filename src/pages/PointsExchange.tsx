@@ -8,6 +8,7 @@ import { AchievementSystem } from '../components/AchievementSystem';
 import Lottie from 'lottie-react';
 import './PointsExchange.css';
 import { supabase } from '../supaClient';
+import { toBeijingTime, toBeijingDateStr, toBeijingTimeStr } from '../utils/timeUtils';
 
 const { Text } = Typography;
 
@@ -290,15 +291,15 @@ export default function PointsExchange() {
         title: '时间',
         dataIndex: 'created_at',
         key: 'created_at',
-        sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        sorter: (a, b) => toBeijingTime(a.created_at).valueOf() - toBeijingTime(b.created_at).valueOf(),
         defaultSortOrder: 'descend',
         render: (text) => (
           <div>
             <div className="exchange-time-date">
-              {new Date(text).toLocaleDateString()}
+              {toBeijingDateStr(text)}
             </div>
             <div className="exchange-time-time">
-              {new Date(text).toLocaleTimeString()}
+              {toBeijingTimeStr(text)}
             </div>
           </div>
         ),

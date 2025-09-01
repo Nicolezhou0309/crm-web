@@ -18,6 +18,7 @@ import { useUser } from '../context/UserContext';
 import { useAuth } from '../hooks/useAuth';
 import { tokenManager } from '../utils/tokenManager';
 import { supabase } from '../supaClient';
+import { toBeijingTime, toBeijingDateTimeStr } from '../utils/timeUtils';
 
 const { Title, Text } = Typography;
 
@@ -72,7 +73,7 @@ const Profile = () => {
       .eq('user_id', user.id)
       .single();
     setAvatarUrl(profileData?.avatar_url || null);
-    setAvatarTs(profileData?.updated_at ? new Date(profileData.updated_at).getTime() : Date.now());
+    setAvatarTs(profileData?.updated_at ? toBeijingTime(profileData.updated_at).valueOf() : Date.now());
     setLoadingProfile(false);
   };
 
@@ -538,7 +539,7 @@ const Profile = () => {
                 {role.role_display_name}
                 {role.expires_at && (
                   <Text type="secondary" style={{ marginLeft: 8 }}>
-                    (到期: {new Date(role.expires_at).toLocaleDateString()})
+                    (到期: {toBeijingDateTimeStr(role.expires_at)})
                   </Text>
                 )}
               </Tag>
@@ -561,7 +562,7 @@ const Profile = () => {
                   <List.Item>
                     <Text>{role.role_display_name}</Text>
                     <Text type="secondary">
-                      到期时间: {new Date(role.expires_at!).toLocaleString()}
+                      到期时间: {toBeijingDateTimeStr(role.expires_at!)}
                     </Text>
                   </List.Item>
                 )}
