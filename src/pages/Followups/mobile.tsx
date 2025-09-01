@@ -259,7 +259,7 @@ const MobileFollowups: React.FC = () => {
     created_at_start: '',
     created_at_end: '',
     worklocation: [] as string[],
-    majorcategory_primary: '' // 新增：记录选择的一级分类
+    majorcategory_primary: [] as string[] // 新增：记录选择的一级分类
   });
   
   // 回退相关状态

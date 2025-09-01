@@ -34,12 +34,12 @@ import MobileModal from '../components/MobileModal';
 import { MobileInput, MobileSelect, MobileDateInput, MobileButton } from '../components/MobileForm';
 import { Form, Selector, Input } from 'antd-mobile';
 import { ShowingCard } from '../components/ShowingCard';
-import dayjs from 'dayjs';
+
 import ShowingsService from '../services/ShowingsService';
 
 
 const MobileShowingsList: React.FC = () => {
-  const navigate = useNavigate();
+
   
   // 数据状态
   const [showings, setShowings] = useState<ExtendedShowing[]>([]);
@@ -462,7 +462,7 @@ const MobileShowingsList: React.FC = () => {
             label="带看结果"
             value={formData.viewresult}
             onChange={(value) => setFormData({ ...formData, viewresult: value as string })}
-            options={viewResultOptions.map(r => ({ label: r, value: r }))}
+            options={viewResultOptions.map(r => ({ label: r.label, value: r.value }))}
             required
           />
           
@@ -573,7 +573,7 @@ const MobileShowingsList: React.FC = () => {
               label="看房结果"
               value={editFormData.viewresult}
               onChange={(value) => setEditFormData({ ...editFormData, viewresult: value as string })}
-              options={viewResultOptions.map(r => ({ label: r, value: r }))}
+              options={viewResultOptions.map(r => ({ label: r.label, value: r.value }))}
               required
             />
             
@@ -648,7 +648,7 @@ const MobileShowingsList: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">带看结果</label>
               <Selector
-                options={viewResultOptions.map(r => ({ label: r, value: r }))}
+                options={viewResultOptions}
                 value={filters.viewresult || []}
                 onChange={(value: string[]) => setFilters({ ...filters, viewresult: value })}
                 multiple

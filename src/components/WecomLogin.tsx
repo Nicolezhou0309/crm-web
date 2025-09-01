@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, message, Typography, Space, Spin } from 'antd';
 import { WechatOutlined } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+
 
 const { Text } = Typography;
 
