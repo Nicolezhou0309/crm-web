@@ -600,6 +600,7 @@ const MobileShowingsList: React.FC = () => {
               value={editFormData.moveintime}
               onChange={(value) => setEditFormData({ ...editFormData, moveintime: value })}
               type="date"
+              required
             />
             
             <MobileInput
@@ -607,6 +608,7 @@ const MobileShowingsList: React.FC = () => {
               value={editFormData.remark}
               onChange={(value) => setEditFormData({ ...editFormData, remark: value })}
               placeholder="请输入备注信息"
+              required
             />
             
             <div className="pt-4 pb-4">

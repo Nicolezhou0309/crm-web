@@ -21,12 +21,10 @@ const WecomLogin: React.FC<WecomLoginProps> = ({ onError }) => {
   
   // 安全地获取 useAuth 和 useNavigate
   let authLogin: any = null;
-  let navigate: any = null;
   
   try {
     const auth = useAuth();
     authLogin = auth.login;
-    navigate = useNavigate();
   } catch (err) {
     console.error('WecomLogin: 初始化认证或导航失败:', err);
     setError('组件初始化失败');
