@@ -16,7 +16,7 @@ import {
   ImageViewer,
   Space,
   Grid,
-  Badge
+
 } from 'antd-mobile';
 import { 
   UserOutline, 
@@ -44,7 +44,7 @@ const MobileProfile: React.FC = () => {
   const [email, setEmail] = useState('');
   const [department] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [_avatarUploading, setAvatarUploading] = useState(false);
   const [avatarModal, setAvatarModal] = useState(false);
   const [avatarTs, setAvatarTs] = useState<number>(Date.now());
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -59,7 +59,7 @@ const MobileProfile: React.FC = () => {
   const { 
     userRoles, 
     userPermissions, 
-    loading, 
+    // loading, 
     isSuperAdmin, 
     isSystemAdmin,
     getPermissionsByCategory,
@@ -270,9 +270,8 @@ const MobileProfile: React.FC = () => {
                 src={avatarUrl ? `${avatarUrl}?t=${avatarTs}` : ''}
                 className="w-16 h-16"
                 onClick={() => setAvatarModal(true)}
-              >
-                <UserOutline />
-              </Avatar>
+                fallback={<UserOutline />}
+              />
               {equippedFrame && (
                 <div className="absolute -top-1 -left-1 -right-1 -bottom-1 rounded-full border-2 border-blue-500 pointer-events-none" />
               )}
