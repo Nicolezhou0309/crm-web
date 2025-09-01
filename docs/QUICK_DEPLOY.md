@@ -49,20 +49,20 @@ supabase functions deploy role-permission-management
 
 1. 访问：https://supabase.com/dashboard/project/wteqgprgiylmxzszcnws/auth/url-configuration
 2. 在"Redirect URLs"中添加：
-   - `https://wteqgprgiylmxzszcnws.supabase.co/set-password`
+   - `http://47.123.26.25:8000/set-password`
 
 ## 🧪 测试部署
 
 ### 测试Edge Function
 ```bash
-curl -X POST https://wteqgprgiylmxzszcnws.supabase.co/functions/v1/invite-user \
+curl -X POST http://47.123.26.25:8000/functions/v1/invite-user \
   -H "Authorization: Bearer YOUR_ANON_KEY" \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","name":"Test User","organizationId":"your-org-id"}'
 ```
 
 ### 测试邀请链接
-访问：`https://wteqgprgiylmxzszcnws.supabase.co/set-password?token=test-token`
+访问：`http://47.123.26.25:8000/set-password?token=test-token`
 
 ## 🔗 有用的链接
 
@@ -96,6 +96,6 @@ curl -X POST https://wteqgprgiylmxzszcnws.supabase.co/functions/v1/invite-user \
 ## 📧 重定向URL配置
 
 当前配置的重定向URL：
-- `https://wteqgprgiylmxzszcnws.supabase.co/set-password`
+- `http://47.123.26.25:8000/set-password`
 
 如果需要使用自定义域名，请更新Edge Function中的重定向URL并重新部署。 

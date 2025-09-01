@@ -23,8 +23,8 @@ vercel
 
 3. **设置环境变量**：
 在Vercel控制台中设置以下环境变量：
-- `VITE_SUPABASE_URL`: 您的Supabase项目URL
-- `VITE_SUPABASE_ANON_KEY`: 您的Supabase匿名密钥
+- `VITE_SUPABASE_URL`: http://47.123.26.25:8000
+- `VITE_SUPABASE_ANON_KEY`: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE
 
 ### 3. 更新Edge Function
 
@@ -72,8 +72,8 @@ export default defineConfig({
 
 确保在生产环境中正确设置以下环境变量：
 
-- `VITE_SUPABASE_URL`: Supabase项目URL
-- `VITE_SUPABASE_ANON_KEY`: Supabase匿名密钥
+- `VITE_SUPABASE_URL`: http://47.123.26.25:8000
+- `VITE_SUPABASE_ANON_KEY`: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE
 
 ## 注意事项
 

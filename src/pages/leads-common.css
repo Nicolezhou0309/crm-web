@@ -731,8 +731,9 @@
 /* 确保按钮高度一致 */
 .ant-btn {
   height: 32px !important;
-  display: flex !important;
+  display: inline-flex !important;
   align-items: center !important;
+  justify-content: center !important;
 }
 
 

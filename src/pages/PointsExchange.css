@@ -1078,6 +1078,11 @@
 .confirm-modal-glass .ant-modal-footer {
   background: rgba(255, 255, 255, 0.1) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-wrap: nowrap !important;
 }
 
 .confirm-modal-glass .ant-modal-title {

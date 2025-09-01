@@ -126,24 +126,54 @@ export class ShowingsService {
    */
   static async getViewResultOptions(): Promise<any[]> {
     try {
+      // 尝试从数据库RPC函数获取选项
       const { data, error } = await supabase.rpc('get_showings_viewresult_options');
       
-      if (error) throw error;
-      if (data) {
+      if (error) {
+        console.warn('RPC函数不存在，使用默认选项:', error.message);
+      } else if (data && data.length > 0) {
+        console.log('✅ 从数据库获取看房结果选项:', data);
         return data;
       }
     } catch (error) {
       console.error('获取看房结果选项失败:', error);
     }
     
+    // 如果RPC函数不存在或失败，尝试从showings表查询已有的viewresult值
+    try {
+      const { data: existingResults, error: queryError } = await supabase
+        .from('showings')
+        .select('viewresult')
+        .not('viewresult', 'is', null)
+        .not('viewresult', 'eq', '');
+      
+      if (!queryError && existingResults) {
+        // 去重并创建选项
+        const uniqueResults = [...new Set(existingResults.map(r => r.viewresult))];
+        if (uniqueResults.length > 0) {
+          const dynamicOptions = uniqueResults.map(result => ({
+            value: result,
+            label: result
+          }));
+          console.log('✅ 从showings表获取看房结果选项:', dynamicOptions);
+          return dynamicOptions;
+        }
+      }
+    } catch (queryError) {
+      console.error('从showings表查询看房结果失败:', queryError);
+    }
+    
     // 默认选项
-    return [
+    const defaultOptions = [
       { value: '直签', label: '直签' },
       { value: '预定', label: '预定' },
       { value: '意向金', label: '意向金' },
       { value: '考虑中', label: '考虑中' },
       { value: '已流失', label: '已流失' }
     ];
+    
+    console.log('✅ 使用默认看房结果选项:', defaultOptions);
+    return defaultOptions;
   }
 
   /**

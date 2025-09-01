@@ -34,6 +34,7 @@ import MobileModal from '../components/MobileModal';
 import { MobileInput, MobileSelect, MobileDateInput, MobileButton } from '../components/MobileForm';
 import { Form, Selector, Input } from 'antd-mobile';
 import { ShowingCard } from '../components/ShowingCard';
+import MobileUserPicker from '../components/MobileUserPicker';
 
 import ShowingsService from '../services/ShowingsService';
 
@@ -111,11 +112,11 @@ const MobileShowingsList: React.FC = () => {
       ]);
       
       setCommunityOptions(communities.map(c => c.value));
-      console.log('🔄 移动端 viewResults 数据结构:', viewResults);
       setViewResultOptions(viewResults || []);
       setSalesOptions(sales.map(s => ({ id: s.value, nickname: s.label })));
       setUserOptions(users || []);
     } catch (error) {
+      console.error('🔄 移动端获取选项数据错误:', error);
       Toast.show({
         content: '获取选项数据失败',
         position: 'center',
@@ -561,13 +562,22 @@ const MobileShowingsList: React.FC = () => {
               required
             />
             
-            <MobileSelect
-              label="实际带看管家"
-              value={editFormData.trueshowingsales}
-              onChange={(value) => setEditFormData({ ...editFormData, trueshowingsales: value as string })}
-              options={salesOptions.map(s => ({ label: s.nickname, value: s.id }))}
-              required
-            />
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-gray-700">
+                实际带看管家
+                <span className="text-red-500 ml-1">*</span>
+              </div>
+              <MobileUserPicker
+                value={editFormData.trueshowingsales ? [editFormData.trueshowingsales] : []}
+                onChange={(value) => setEditFormData({ 
+                  ...editFormData, 
+                  trueshowingsales: value.length > 0 ? value[0] : '' 
+                })}
+                placeholder="请选择实际带看管家"
+                title="选择实际带看管家"
+                multiple={false}
+              />
+            </div>
             
             <MobileSelect
               label="看房结果"
