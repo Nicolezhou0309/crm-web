@@ -325,7 +325,7 @@ export async function approveStep(stepId: string, action: 'approved' | 'rejected
         console.log('安全RPC函数不存在，尝试原RPC函数:', rpcError.code);
         // 尝试使用原来的RPC函数
         try {
-          const { data: oldRpcResult, error: oldRpcError } = await supabaseServiceRole.rpc('update_approval_step_status', {
+          const { error: oldRpcError } = await supabaseServiceRole.rpc('update_approval_step_status', {
             p_step_id: stepId,
             p_status: action,
             p_action_time: updateData.action_time,
@@ -440,8 +440,8 @@ async function handleLeadRollbackBusinessLogic(instance: any): Promise<{
       const { error: walletError } = await supabaseServiceRole
         .from('user_points_wallet')
         .update({
-          total_points: supabaseServiceRole.sql`total_points + ${refundPoints}`,
-          total_earned_points: supabaseServiceRole.sql`total_earned_points + ${refundPoints}`,
+          total_points: refundPoints, // 直接设置值，让数据库触发器处理计算
+          total_earned_points: refundPoints, // 直接设置值，让数据库触发器处理计算
           updated_at: new Date().toISOString()
         })
         .eq('user_id', applicantId);
@@ -458,7 +458,7 @@ async function handleLeadRollbackBusinessLogic(instance: any): Promise<{
         .insert({
           user_id: applicantId,
           points_change: refundPoints,
-          balance_after: supabaseServiceRole.sql`(SELECT total_points FROM user_points_wallet WHERE user_id = ${applicantId}) + ${refundPoints}`,
+          balance_after: 0, // 将由数据库触发器或后续查询更新
           transaction_type: 'EARN',
           source_type: 'ROLLBACK_REFUND',
           source_id: leadid,

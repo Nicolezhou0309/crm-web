@@ -21,7 +21,7 @@ import Login from './pages/Login';
 import SetPassword from './pages/SetPassword';
 import UserMenu from './components/UserMenu';
 import NavigationMenu from './components/NavigationMenu';
-import Profile from './pages/Profile';
+
 import DepartmentPage from './pages/DepartmentPage';
 import RolePermissionManagement from './pages/RolePermissionManagement';
 

@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/nichole",
+        "/Users/nichole/Desktop",
+        "/Users/nichole/Documents",
+        "/Users/nichole/Downloads",
+        "/Users/nichole/Pictures",
+        "/Users/nichole/Music",
+        "/Users/nichole/Movies"
+      ]
+    },
+    "git": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-git"
+      ]
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ]
+    }
+  }
+}

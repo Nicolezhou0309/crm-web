@@ -1,7 +1,5 @@
 import React from 'react';
-import { Table, Button, DatePicker, Select, Input, Tag } from 'antd';
-import type { Deal } from './followupTypes';
-import dayjs from 'dayjs';
+import { Button } from 'antd';
 
 // 表格头部组件
 interface TableHeaderProps {

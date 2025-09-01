@@ -51,7 +51,7 @@ export class BaseDataService {
       }
 
       const { data, error } = await query;
-      return { data, error };
+      return { data: data as T[] | null, error };
     } catch (error) {
       console.error(`[BaseDataService] 查询失败:`, error);
       return { data: null, error };
@@ -68,7 +68,7 @@ export class BaseDataService {
         .select(select || '*')
         .eq('id', id)
         .single();
-      return { data, error };
+      return { data: data as T | null, error };
     } catch (error) {
       console.error(`[BaseDataService] 根据ID查询失败:`, error);
       return { data: null, error };

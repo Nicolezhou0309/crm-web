@@ -1,0 +1,404 @@
+.metro-distance-calculator {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+.calculator-title {
+  text-align: center;
+  margin-bottom: 32px !important;
+  color: #1890ff;
+}
+
+.calculator-title .anticon {
+  margin-right: 12px;
+  font-size: 28px;
+}
+
+.calculator-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 768px) {
+  .calculator-container {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1200px) {
+  .calculator-container {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.station-selection-card,
+.result-card,
+.stations-list-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+.station-selection-card .ant-card-head {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.result-card .ant-card-head {
+  background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.stations-list-card .ant-card-head {
+  background: linear-gradient(135deg, #722ed1 0%, #531dab 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.station-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.station-input-group .ant-typography {
+  margin-bottom: 0;
+}
+
+.search-result-item {
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.search-result-item:hover {
+  background-color: #f0f0f0;
+}
+
+.result-content {
+  padding: 16px 0;
+}
+
+.route-info {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.route-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.route-arrow {
+  font-size: 24px;
+  color: #1890ff;
+  font-weight: bold;
+}
+
+.result-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 8px;
+  border-left: 4px solid #1890ff;
+}
+
+.detail-icon {
+  color: #1890ff;
+  font-size: 18px;
+}
+
+.detail-value {
+  color: #1890ff;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.station-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.station-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e8e8e8;
+}
+
+.stations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.station-tag {
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.station-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border-color: #1890ff;
+  background: #f0f8ff;
+}
+
+.station-tag .ant-typography {
+  margin: 0;
+}
+
+.station-tag .ant-typography-strong {
+  color: #262626;
+}
+
+.station-tag .ant-typography-secondary {
+  color: #8c8c8c;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .metro-distance-calculator {
+    padding: 16px;
+  }
+  
+  .calculator-title {
+    font-size: 20px !important;
+    margin-bottom: 24px !important;
+  }
+  
+  .stations-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .route-item {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .detail-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+/* 滚动条样式 */
+.stations-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.stations-grid::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.stations-grid::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.stations-grid::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 加载状态 */
+.metro-distance-calculator.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* 动画效果 */
+.station-selection-card,
+.result-card,
+.stations-list-card {
+  animation: slideInUp 0.5s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 站点标签悬停效果 */
+.station-tag.selected {
+  border-color: #52c41a;
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+/* 错误状态 */
+.station-input-group.error .ant-select {
+  border-color: #ff4d4f;
+}
+
+.station-input-group.error .ant-typography {
+  color: #ff4d4f;
+}
+
+/* 成功状态 */
+.station-input-group.success .ant-select {
+  border-color: #52c41a;
+}
+
+/* 计算按钮悬停效果 */
+.ant-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
+}
+
+/* 卡片悬停效果 */
+.station-selection-card:hover,
+.result-card:hover,
+.stations-list-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.transfer-details {
+  margin-top: 8px;
+}
+
+.transfer-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.transfer-detail .ant-tag {
+  margin: 0;
+}
+
+.route-summary {
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.route-summary .ant-typography {
+  margin: 0;
+  color: #0369a1;
+  font-weight: 500;
+}
+
+.recommended-routes-card {
+  margin-bottom: 16px;
+}
+
+.recommended-routes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recommended-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.recommended-route:hover {
+  background-color: #e9ecef;
+  cursor: pointer;
+}
+
+.recommended-route .ant-tag {
+  margin: 0;
+}
+
+.recommended-route .ant-typography {
+  margin: 0;
+}
+
+.recommended-route .ant-btn {
+  margin-left: auto;
+  padding: 0 8px;
+  height: auto;
+  line-height: 1.2;
+}
+
+/* 系统状态信息样式 */
+.system-status-alert {
+  margin-bottom: 16px;
+}
+
+.system-status-alert .ant-alert-action {
+  margin-left: 8px;
+}
+
+/* 加载状态样式 */
+.calculator-loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.calculator-loading .ant-btn {
+  pointer-events: none;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .recommended-route {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .recommended-route .ant-btn {
+    margin-left: 0;
+    align-self: flex-end;
+  }
+  
+  .system-status-alert .ant-alert-action {
+    margin-top: 8px;
+    margin-left: 0;
+  }
+}

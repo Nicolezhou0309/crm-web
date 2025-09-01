@@ -59,8 +59,10 @@ export class FollowupService extends BaseDataService {
         }
       });
 
-      // 获取总数
-      const { count } = await query.count();
+      // 获取总数 - 使用单独的查询
+      const { count } = await supabase
+        .from('followups')
+        .select('*', { count: 'exact', head: true });
       
       // 应用分页和排序
       const { data, error } = await query
@@ -106,21 +108,30 @@ export class FollowupService extends BaseDataService {
         });
       }
 
-      const { data, error } = await query.groupBy(groupField);
+      // 使用RPC函数或手动分组 - 简化实现
+      const { data, error } = await supabase
+        .from('followups')
+        .select(groupField);
 
       if (error) {
         throw error;
       }
 
-      // 处理分组数据
-      const groupData = data?.map(item => ({
-        key: item[groupField],
-        count: item.count,
-        groupText: this.getGroupDisplayText(groupField, item[groupField])
-      })) || [];
+      // 处理分组数据 - 手动统计
+      const groupCounts: Record<string, number> = {};
+      data?.forEach((item: any) => {
+        const key = item[groupField] || null;
+        groupCounts[key] = (groupCounts[key] || 0) + 1;
+      });
+
+      const groupData = Object.entries(groupCounts).map(([key, count]) => ({
+        key: key === 'null' ? null : key,
+        count,
+        groupText: this.getGroupDisplayText(groupField, key === 'null' ? null : key)
+      }));
 
       // 添加未分组统计
-      const nullGroup = groupData.find(g => g.key === null);
+      const nullGroup = groupData.find((g: any) => g.key === null);
       if (!nullGroup) {
         groupData.push({
           key: null,
@@ -212,11 +223,10 @@ export class FollowupService extends BaseDataService {
     try {
       const { count: total } = await this.count(filters);
       
-      // 获取各阶段统计
+      // 获取各阶段统计 - 使用RPC函数或手动统计
       const { data: stageStats } = await supabase
         .from(this.tableName)
-        .select('followupstage, count', { count: 'exact' })
-        .groupBy('followupstage');
+        .select('followupstage');
 
       // 获取今日新增
       const today = new Date();

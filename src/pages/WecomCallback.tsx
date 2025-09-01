@@ -35,7 +35,7 @@ const WecomCallback: React.FC = () => {
       }
 
       // 调用企业微信认证服务
-      const result = await authenticateWithWecom(code, state);
+      const result = await authenticateWithWecom(code, state || '');
       
       if (result.success) {
         setStatus('success');

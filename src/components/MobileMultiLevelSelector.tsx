@@ -10,7 +10,6 @@ import {
   message 
 } from 'antd';
 import { 
-  SearchOutlined, 
   EnvironmentOutlined, 
   CheckCircleOutlined,
   ArrowLeftOutlined,

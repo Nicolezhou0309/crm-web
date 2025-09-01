@@ -32,7 +32,7 @@ export class EnumDataService {
       }
 
       // 格式化数据
-      const formattedData = data?.map(item => ({
+      const formattedData = data?.map((item: any) => ({
         value: item[valueField],
         label: item[labelField]
       })) || [];

@@ -1,0 +1,56 @@
+/* 手机端个人页面样式 */
+.mobile-profile-page {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+/* 卡片悬停效果 */
+.profile-card {
+  transition: all 0.3s ease;
+}
+
+.profile-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* 头像框悬停效果 */
+.avatar-frame {
+  transition: all 0.2s ease;
+}
+
+.avatar-frame:hover {
+  transform: scale(1.05);
+}
+
+/* 按钮悬停效果 */
+.profile-button {
+  transition: all 0.2s ease;
+}
+
+.profile-button:hover {
+  transform: translateY(-1px);
+}
+
+/* 标签悬停效果 */
+.profile-tag {
+  transition: all 0.2s ease;
+}
+
+.profile-tag:hover {
+  transform: scale(1.05);
+}
+
+/* 响应式调整 */
+@media (max-width: 640px) {
+  .mobile-profile-page {
+    padding: 0 12px;
+  }
+}
+
+/* 暗色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .mobile-profile-page {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  }
+}

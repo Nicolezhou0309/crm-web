@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Button, message, Typography, Space, Divider, Spin } from 'antd';
-import { WechatOutlined, QrcodeOutlined } from '@ant-design/icons';
+import { Button, message, Typography, Space, Spin } from 'antd';
+import { WechatOutlined } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,9 +13,9 @@ interface WecomLoginProps {
 
 const WecomLogin: React.FC<WecomLoginProps> = ({ onSuccess, onError }) => {
   const [qrCodeData, setQrCodeData] = useState<string>('');
-  const [qrCodeState, setQrCodeState] = useState<string>('');
+  const [_qrCodeState, setQrCodeState] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [polling, setPolling] = useState(false);
+  const [_polling, setPolling] = useState(false);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [error, setError] = useState<string | null>(null);
   
@@ -126,7 +126,7 @@ const WecomLogin: React.FC<WecomLoginProps> = ({ onSuccess, onError }) => {
   };
 
   // 处理企业微信登录成功
-  const handleWecomLoginSuccess = async (userInfo: any) => {
+  const _handleWecomLoginSuccess = async (userInfo: any) => {
     if (!authLogin || !navigate) {
       message.error('认证服务未初始化，请刷新页面重试');
       return;

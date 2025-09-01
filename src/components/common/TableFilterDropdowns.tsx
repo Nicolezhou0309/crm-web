@@ -10,7 +10,7 @@ const { Search } = Input;
 
 // 通用筛选器下拉框组件
 export interface FilterDropdownPropsExtended extends FilterDropdownProps {
-  filterType: 'search' | 'select' | 'dateRange' | 'numberRange' | 'cascader' | 'checkbox' | 'hierarchicalLocation' | 'userTree';
+  filterType: 'search' | 'select' | 'dateRange' | 'numberRange' | 'cascader' | 'checkbox' | 'hierarchicalLocation' | 'userTree' | 'hierarchicalCategory';
   options?: Array<{ label: string; value: any }>;
   placeholder?: string;
   width?: number;
@@ -721,7 +721,6 @@ export const HierarchicalCategoryFilterDropdown: React.FC<FilterDropdownPropsExt
 // UserTree筛选器
 export const UserTreeFilterDropdown: React.FC<FilterDropdownPropsExtended> = ({
   setSelectedKeys,
-  selectedKeys,
   confirm,
   clearFilters,
   width = 300,
