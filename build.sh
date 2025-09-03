@@ -21,11 +21,7 @@ echo "🔨 构建项目..."
 # 跳过TypeScript编译，直接使用Vite构建
 npx vite build
 
-# 4. 安装运行时依赖
-echo "📦 安装运行时依赖..."
-npm install express http-proxy-middleware
-
-# 5. 验证构建结果
+# 4. 验证构建结果
 if [ ! -d "dist" ]; then
     echo "❌ 构建失败，dist目录不存在"
     exit 1

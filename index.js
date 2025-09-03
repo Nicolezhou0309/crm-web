@@ -1,6 +1,11 @@
-const express = require('express');
-const path = require('path');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+import express from 'express';
+import path from 'path';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import { fileURLToPath } from 'url';
+
+// ES模块中获取__dirname的替代方案
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 9000;
@@ -38,7 +43,7 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 // 导出处理函数（函数计算需要）
-exports.handler = (event, context, callback) => {
+export const handler = (event, context, callback) => {
   // 这里可以添加函数计算特定的处理逻辑
   // 对于静态网站，主要依赖Express服务器
   callback(null, {
