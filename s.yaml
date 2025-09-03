@@ -1,0 +1,39 @@
+edition: 1.0.0
+name: crm-frontend
+access: default
+
+services:
+  crm-frontend:
+    component: fc
+    props:
+      region: cn-shanghai
+      service:
+        name: crm-frontend
+        description: 'CRM前端应用服务 - Vite + React + Function Compute'
+      function:
+        name: crm-frontend-app
+        description: 'CRM前端应用函数 - 适配Vite构建'
+        codeUri: ./fc-app
+        handler: index.handler
+        runtime: nodejs18
+        memorySize: 1024
+        timeout: 60
+        environmentVariables:
+          VITE_SUPABASE_URL: 'http://47.123.26.25:8000'
+          VITE_SUPABASE_ANON_KEY: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE'
+          VITE_SUPABASE_SERVICE_ROLE_KEY: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE'
+          VITE_APP_ENV: 'production'
+          VITE_APP_VERSION: '1.0.0'
+          NODE_ENV: 'production'
+      triggers:
+        - name: http-trigger
+          type: http
+          config:
+            authType: ANONYMOUS
+            methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS', 'PATCH']
+            path: '/{proxy+}'
+            cors:
+              allowOrigin: '*'
+              allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS', 'PATCH']
+              allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+              maxAge: 86400
