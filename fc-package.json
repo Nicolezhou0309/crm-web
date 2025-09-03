@@ -1,0 +1,35 @@
+{
+  "name": "crm-fc-app",
+  "version": "1.0.0",
+  "description": "CRM前端应用 - 函数计算版本",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd ../ && npm run build && cp -r dist ./fc-app/",
+    "deploy": "fun deploy --use-ros",
+    "deploy:dev": "fun deploy --use-ros --template template-dev.yml",
+    "deploy:prod": "fun deploy --use-ros --template template-prod.yml",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@alicloud/fun": "^3.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "crm",
+    "function-compute",
+    "vite",
+    "react",
+    "supabase"
+  ],
+  "author": "Nicole Zhou",
+  "license": "MIT"
+}
