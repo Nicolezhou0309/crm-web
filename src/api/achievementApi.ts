@@ -195,7 +195,7 @@ class AchievementApi {
   // 获取稀有度文本
   getRarityText(rarity: string): string {
     const textMap: Record<string, string> = {
-      'common': '普通',
+      'common': '基础',
       'rare': '稀有',
       'epic': '史诗',
       'legendary': '传说'

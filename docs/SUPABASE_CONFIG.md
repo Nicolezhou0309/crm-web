@@ -4,6 +4,9 @@
 - **项目URL**: http://47.123.26.25:8000
 - **项目引用**: aliyun-supabase
 
+⚠️ **混合内容问题**: 此服务器仅支持HTTP协议。当部署到HTTPS环境（如Vercel）时会出现混合内容错误。
+解决方案：请参考 [混合内容错误修复指南](./MIXED_CONTENT_ERROR_FIX.md)
+
 ## API Keys
 
 ### Anon Key (公开密钥)

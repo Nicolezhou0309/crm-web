@@ -224,7 +224,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
       prevRangeRef.current = [start, end];
       return;
     }
-    // 普通缩放
+    // 基础缩放
     setRange(newRange);
     prevRangeRef.current = newRange;
   };

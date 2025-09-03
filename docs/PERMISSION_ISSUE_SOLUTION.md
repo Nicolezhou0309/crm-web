@@ -46,9 +46,9 @@ const handleInviteUser = async (email: string) => {
 };
 ```
 
-### 2. 密码重置 → 使用普通用户API
+### 2. 密码重置 → 使用基础用户API
 ```typescript
-// ✅ 这个API普通用户可以调用
+// ✅ 这个API基础用户可以调用
 const handleResetPassword = async (email: string) => {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,

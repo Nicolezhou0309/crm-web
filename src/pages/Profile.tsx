@@ -358,7 +358,7 @@ const Profile = () => {
             {avatarFrames.map(frame => {
               // 稀有度色系与大字
               let bg = '#fff';
-              let bigText = '普通';
+              let bigText = '基础';
               let bigTextColor = '#bfbfbf';
               if (frame.rarity === 'legendary') {
                 bg = 'linear-gradient(180deg, #ede7f6 0%, #fff 100%)';

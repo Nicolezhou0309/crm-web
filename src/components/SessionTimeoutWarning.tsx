@@ -20,14 +20,49 @@ const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
   const [countdown, setCountdown] = useState(timeRemaining);
   const [isExtending, setIsExtending] = useState(false);
 
+  // 日志记录函数
+  const logCountdownEvent = (event: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🕐 [SessionTimeoutWarning] ${event}`, {
+        timestamp: new Date().toISOString(),
+        timeRemaining: timeRemaining,
+        countdown: countdown,
+        isVisible: isVisible,
+        ...data
+      });
+    }
+  };
+
   // 倒计时
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible) {
+      logCountdownEvent('倒计时停止 - 组件不可见');
+      return;
+    }
+
+    logCountdownEvent('倒计时开始', { 
+      initialTime: timeRemaining,
+      warningThreshold: '5分钟'
+    });
 
     const interval = setInterval(() => {
       setCountdown(prev => {
         const newTime = prev - 1000;
+        
+        // 记录关键时间点的日志
+        if (newTime <= 30000 && newTime > 25000) { // 30秒警告
+          logCountdownEvent('30秒警告', { remainingTime: newTime });
+        } else if (newTime <= 10000 && newTime > 5000) { // 10秒警告
+          logCountdownEvent('10秒警告', { remainingTime: newTime });
+        } else if (newTime <= 5000 && newTime > 0) { // 5秒警告
+          logCountdownEvent('5秒警告', { remainingTime: newTime });
+        }
+        
         if (newTime <= 0) {
+          logCountdownEvent('倒计时结束 - 自动登出', { 
+            finalTime: newTime,
+            action: 'logout'
+          });
           onLogout();
           return 0;
         }
@@ -35,21 +70,50 @@ const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
       });
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [isVisible, onLogout]);
+    return () => {
+      logCountdownEvent('倒计时清理 - 组件卸载或重新渲染');
+      clearInterval(interval);
+    };
+  }, [isVisible, onLogout, timeRemaining]);
 
   // 重置倒计时
   useEffect(() => {
+    logCountdownEvent('倒计时重置', { 
+      oldTime: countdown,
+      newTime: timeRemaining,
+      reason: 'timeRemaining prop changed'
+    });
     setCountdown(timeRemaining);
   }, [timeRemaining]);
 
   const handleExtend = async () => {
+    logCountdownEvent('用户点击延长会话', { 
+      currentTime: countdown,
+      action: 'extend_session'
+    });
+    
     setIsExtending(true);
     try {
       await onExtend();
+      logCountdownEvent('会话延长成功', { 
+        action: 'extend_success'
+      });
+    } catch (error) {
+      logCountdownEvent('会话延长失败', { 
+        error: error,
+        action: 'extend_failed'
+      });
     } finally {
       setIsExtending(false);
     }
+  };
+
+  const handleLogout = () => {
+    logCountdownEvent('用户主动登出', { 
+      currentTime: countdown,
+      action: 'manual_logout'
+    });
+    onLogout();
   };
 
   const formatTime = (ms: number) => {
@@ -108,7 +172,7 @@ const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
             继续使用
           </Button>
           <Button
-            onClick={onLogout}
+            onClick={handleLogout}
             size="large"
           >
             立即登出

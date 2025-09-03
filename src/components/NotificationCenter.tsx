@@ -478,7 +478,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       );
     }
     
-    // 使用普通List替代VirtualList，确保实时更新
+    // 使用基础List替代VirtualList，确保实时更新
     return (
       <div style={{ padding: '0', maxHeight, overflow: 'auto' }}>
         <List
@@ -761,7 +761,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             </div>
           </div>
         ) : selectedNotification ? (
-          // 普通通知弹窗
+          // 基础通知弹窗
           <div>
             <Descriptions
               column={1}

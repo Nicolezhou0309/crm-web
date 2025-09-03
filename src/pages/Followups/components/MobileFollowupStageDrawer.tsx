@@ -11,13 +11,15 @@ import {
   Input,
   CalendarPicker,
   Picker,
-  DatePicker
+  DatePicker,
+  Switch
 } from 'antd-mobile';
 import { supabase } from '../../../supaClient';
 import dayjs from 'dayjs';
 import type { FollowupRecord } from '../types';
 import { ContractDealsTable } from '../../../components/Followups/ContractDealsTable';
 import { MobileFollowupStageForm } from './MobileFollowupStageForm';
+import MobileUserPicker from '../../../components/MobileUserPicker';
 import './FollowupStageDrawer.css';
 
 // 枚举数据类型定义
@@ -140,7 +142,7 @@ const hasValueChanged = (originalValue: any, currentValue: any): boolean => {
       return numOriginal !== numCurrent;
     }
     
-    // 普通值比较
+    // 基础值比较
     return originalValue !== currentValue;
   }
   
@@ -211,6 +213,7 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
   
   // 发放带看单相关状态
   const [assignShowingLoading, setAssignShowingLoading] = useState(false);
+  const [enableManualAssign, setEnableManualAssign] = useState(false);
   
   // 签约记录相关状态
   const [dealsList, setDealsList] = useState<any[]>([]);
@@ -349,10 +352,6 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
       // 🆕 修复：只有允许滑动关闭的页面才处理触摸事件
       if (!canSwipeClose) return;
       
-      // 🆕 新增：在触摸开始时就阻止默认行为，防止浏览器默认右滑动作
-      e.preventDefault();
-      e.stopPropagation();
-      
       const touch = e.touches[0];
       touchStartRef.current = {
         x: touch.clientX,
@@ -367,6 +366,9 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      
+      // 🆕 修复：不在这里阻止默认行为，让点击事件正常工作
+      // 只在 touchMoveHandler 中根据滑动方向决定是否阻止默认行为
     };
     
     const touchMoveHandler = (e: TouchEvent) => {
@@ -382,6 +384,15 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
       // 🆕 修改：处理右滑和下滑关闭
       const deltaX = currentX - startX;
       const deltaY = currentY - startY;
+      
+      // 🆕 新增：只有移动距离超过阈值时才认为是滑动操作
+      const minSwipeDistance = 10; // 最小滑动距离
+      const totalDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      if (totalDistance < minSwipeDistance) {
+        // 移动距离太小，不处理，让点击事件正常工作
+        return;
+      }
       
       // 判断滑动方向
       const isRightSwipe = deltaX > 0 && Math.abs(deltaX) > Math.abs(deltaY);
@@ -705,6 +716,137 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
     }
   }, [form, record, open, currentStage, fetchDealsList]); // 🆕 添加 currentStage 依赖
 
+  // 🆕 新增：返回按钮点击处理函数
+  const handleBackButtonClick = useCallback(() => {
+    console.log('🔙 [MobileFollowupStageDrawer] 返回按钮被点击');
+    
+    // 🆕 临时简化：直接关闭，用于测试
+    console.log('🔙 [MobileFollowupStageDrawer] 直接调用 onClose');
+    onClose();
+    
+    // TODO: 恢复完整的未保存更改检查逻辑
+    /*
+    // 检查是否有未保存的更改
+    if (record && form && !disableAutoSave) {
+      console.log('🔙 [MobileFollowupStageDrawer] 开始检查未保存更改');
+      try {
+        const values = form.getFieldsValue();
+        const processedValues = processFormValues(values);
+        
+        // 检查是否有实际的数据变化
+        const originalValues = {
+          customerprofile: record.customerprofile,
+          worklocation: record.worklocation,
+          userbudget: record.userbudget,
+          moveintime: record.moveintime,
+          userrating: record.userrating,
+          majorcategory: record.majorcategory,
+          followupresult: record.followupresult,
+          scheduledcommunity: record.scheduledcommunity,
+          scheduletime: record.scheduletime
+        };
+        
+        let hasChanges = false;
+        Object.keys(processedValues).forEach(key => {
+          const currentValue = processedValues[key];
+          const originalValue = originalValues[key as keyof typeof originalValues];
+          
+          if (hasValueChanged(originalValue, currentValue)) {
+            hasChanges = true;
+          }
+        });
+        
+        console.log('🔙 [MobileFollowupStageDrawer] 检查结果:', { hasChanges });
+        
+        if (hasChanges) {
+          console.log('🔙 [MobileFollowupStageDrawer] 有未保存更改，显示确认对话框');
+          // 有未保存的更改，显示确认对话框
+          Modal.confirm({
+            title: '未保存的更改',
+            content: '您有未保存的更改，是否要保存后退出？',
+            confirmText: '保存并退出',
+            cancelText: '直接退出',
+            onConfirm: async () => {
+              // 用户选择保存并退出
+              try {
+                // 执行保存逻辑
+                const values = form.getFieldsValue();
+                const processedValues = processFormValues(values);
+                
+                // 构建更新对象
+                const updateObj: any = {};
+                const originalValues = {
+                  customerprofile: record.customerprofile,
+                  worklocation: record.worklocation,
+                  userbudget: record.userbudget,
+                  moveintime: record.moveintime,
+                  userrating: record.userrating,
+                  majorcategory: record.majorcategory,
+                  followupresult: record.followupresult,
+                  scheduledcommunity: record.scheduledcommunity,
+                  scheduletime: record.scheduletime
+                };
+                
+                Object.keys(processedValues).forEach(key => {
+                  const currentValue = processedValues[key];
+                  const originalValue = originalValues[key as keyof typeof originalValues];
+                  
+                  if (hasValueChanged(originalValue, currentValue)) {
+                    updateObj[key] = currentValue;
+                  }
+                });
+                
+                // 处理日期字段
+                ['moveintime', 'scheduletime'].forEach(field => {
+                  if (updateObj[field] && typeof updateObj[field]?.format === 'function') {
+                    updateObj[field] = updateObj[field].format('YYYY-MM-DD HH:mm:ss');
+                  }
+                });
+                
+                // 保存到数据库
+                const { error } = await supabase
+                  .from('followups')
+                  .update(updateObj)
+                  .eq('id', record.id);
+                
+                if (error) {
+                  Toast.show({ content: '数据保存失败，请检查网络连接', position: 'center' });
+                } else {
+                  // 使用乐观更新
+                  const updatedRecord = { ...record, ...updateObj };
+                  triggerOptimisticUpdate(updatedRecord, updateObj, 'auto');
+                }
+              } catch (error) {
+                console.error('保存失败:', error);
+                Toast.show({ content: '保存失败，请重试', position: 'center' });
+              } finally {
+                // 关闭抽屉
+                onClose();
+              }
+            },
+            onCancel: () => {
+              // 用户选择直接退出，不保存
+              onClose();
+            },
+          });
+        } else {
+          console.log('🔙 [MobileFollowupStageDrawer] 没有未保存更改，直接关闭');
+          // 没有未保存的更改，直接关闭
+          onClose();
+        }
+      } catch (error) {
+        console.error('检查未保存更改时出错:', error);
+        // 出错时直接关闭
+        onClose();
+      }
+    } else {
+      console.log('🔙 [MobileFollowupStageDrawer] 没有记录或表单，直接关闭');
+      // 没有记录或表单，直接关闭
+      onClose();
+    }
+    */
+  }, [onClose]);
+
   // 🆕 统一的关闭处理函数 - 包含自动保存逻辑
   const handleUnifiedClose = async () => {
     // 🆕 简化：只检查是否正在关闭
@@ -714,9 +856,39 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
     isClosingRef.current = true;
     
     try {
+      // 🆕 新增：检查是否有未保存的更改
+      let hasUnsavedChanges = false;
+      if (record && form && !disableAutoSave) {
+        // 获取当前表单值
+        const values = form.getFieldsValue();
+        const processedValues = processFormValues(values);
+        
+        // 检查是否有实际的数据变化
+        const originalValues = {
+          customerprofile: record.customerprofile,
+          worklocation: record.worklocation,
+          userbudget: record.userbudget,
+          moveintime: record.moveintime,
+          userrating: record.userrating,
+          majorcategory: record.majorcategory,
+          followupresult: record.followupresult,
+          scheduledcommunity: record.scheduledcommunity,
+          scheduletime: record.scheduletime
+        };
+        
+        Object.keys(processedValues).forEach(key => {
+          const currentValue = processedValues[key];
+          const originalValue = originalValues[key as keyof typeof originalValues];
+          
+          if (hasValueChanged(originalValue, currentValue)) {
+            hasUnsavedChanges = true;
+          }
+        });
+      }
+      
+      // 直接关闭，不显示确认弹窗
+      
       // 关闭前自动保存当前表单数据
-      
-      
       if (record && form && !disableAutoSave) {
         
         
@@ -942,7 +1114,19 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
     }
   };
 
-  // 处理发放带看单
+  // 🆕 处理分配模式切换
+  const handleAllocationModeChange = (checked: boolean) => {
+    setEnableManualAssign(checked);
+    if (checked) {
+      // 手动分配模式：清空带看人员选择，保留其他字段
+      form.setFieldsValue({ assigned_showingsales: undefined });
+    } else {
+      // 自动分配模式：清空带看人员选择
+      form.setFieldsValue({ assigned_showingsales: undefined });
+    }
+  };
+
+  // 处理发放带看单 - 参考电脑端实现
   const handleAssignShowing = async () => {
     if (!record) {
       Toast.show({ content: '无当前记录，无法分配', position: 'center' });
@@ -952,46 +1136,148 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
     try {
       setAssignShowingLoading(true);
       
-      // 🆕 记录阶段切换前的状态
-      const targetStage = '已到店';
+      // 获取表单值
+      const values = await form.validateFields();
+      const scheduletime = values.scheduletime;
+      const scheduledcommunity = values.scheduledcommunity;
       
-      // 这里可以添加发放带看单的逻辑
-      // 暂时只是推进到下一阶段
-      const result = await handleSave({ followupstage: targetStage });
+      if (!scheduletime) {
+        Toast.show({ content: '请先选择预约到店时间', position: 'center' });
+        return;
+      }
+      
+      // 🆕 根据分配模式处理带看管家分配
+      let assignedShowingsales = null;
+      let assignedShowingsalesName = '系统自动分配';
+      
+      if (enableManualAssign) {
+        // 手动分配模式 - 需要带看人员
+        const assignedUserId = values.assigned_showingsales;
+        if (!assignedUserId) {
+          Toast.show({ content: '请选择带看人员', position: 'center' });
+          return;
+        }
+        
+        assignedShowingsales = assignedUserId;
+        
+        // 获取带看管家姓名
+        try {
+          const { data: userData } = await supabase
+            .from('users_profile')
+            .select('nickname')
+            .eq('id', assignedUserId)
+            .single();
+          assignedShowingsalesName = userData?.nickname || `用户${assignedUserId}`;
+        } catch (error) {
+          console.warn('获取带看管家姓名失败:', error);
+          assignedShowingsalesName = `用户${assignedUserId}`;
+        }
+      } else {
+        // 自动分配模式 - 需要预约社区
+        if (!scheduledcommunity) {
+          Toast.show({ content: '请先选择预约社区', position: 'center' });
+          return;
+        }
+        
+        // 调用分配函数
+        const { data: assignedUserId, error } = await supabase.rpc('assign_showings_user', { p_community: scheduledcommunity });
+        
+        if (error || !assignedUserId) {
+          Toast.show({ content: '分配带看人员失败: ' + (error?.message || '无可用人员'), position: 'center' });
+          return;
+        }
+        
+        assignedShowingsales = assignedUserId;
+        
+        // 查询成员昵称
+        try {
+          const { data: userData } = await supabase
+            .from('users_profile')
+            .select('nickname')
+            .eq('id', assignedUserId)
+            .single();
+          assignedShowingsalesName = userData?.nickname || String(assignedUserId);
+        } catch (error) {
+          console.warn('获取带看管家姓名失败:', error);
+        }
+      }
+      
+      // 🆕 创建带看单记录
+      const showingData = {
+        leadid: record.leadid,
+        scheduletime: dayjs(scheduletime).toISOString(),
+        community: scheduledcommunity || null,
+        showingsales: assignedShowingsales,
+        viewresult: '待填写',
+        budget: 0,
+        moveintime: dayjs().add(1, 'month').toISOString(),
+        remark: '',
+        renttime: 12
+      };
+      
+      // 插入带看单记录
+      const { data: newShowing, error: showingError } = await supabase
+        .from('showings')
+        .insert([showingData])
+        .select()
+        .single();
+      
+      if (showingError) {
+        console.error('创建带看单失败:', showingError);
+        Toast.show({ content: '创建带看单失败: ' + showingError.message, position: 'center' });
+        return;
+      }
+      
+      // 🆕 更新跟进记录，推进到已到店阶段
+      // 注意：只更新 followupstage 字段，带看管家信息存储在 showings 表中
+      const updateData = {
+        followupstage: '已到店'
+      };
+      
+      const result = await handleSave(updateData);
       if (result && result.success) {
         setCurrentStep(currentStep + 1);
-        setCurrentStage(targetStage);
-        Toast.show({ content: '已推进到已到店阶段', position: 'center' });
+        setCurrentStage('已到店');
+        
+        // 🆕 显示分配成功的提示
+        const message = assignedShowingsales 
+          ? `带看单已发放，已分配给：${assignedShowingsalesName}`
+          : '带看单已发放，系统将自动分配带看管家';
+        
+        Toast.show({ 
+          content: message, 
+          position: 'center',
+          duration: 3000
+        });
+        
+        console.log('✅ [MobileFollowupStageDrawer] 带看单发放成功:', {
+          recordId: record.id,
+          showingId: newShowing?.id,
+          assignedShowingsales,
+          assignedShowingsalesName,
+          scheduletime: dayjs(scheduletime).format('YYYY-MM-DD HH:mm:ss'),
+          scheduledcommunity
+        });
       } else {
         console.warn('⚠️ [MobileFollowupStageDrawer] 阶段切换失败 - 发放带看单', {
           recordId: record?.id,
           fromStage: currentStage,
-          toStage: targetStage,
+          toStage: '已到店',
           saveResult: result,
           error: result?.error,
-          currentStep,
-          targetStep: currentStep + 1
+          timestamp: new Date().toISOString()
         });
-        
-        // 🆕 新增：显示具体的失败原因
-        if (result?.error) {
-          Toast.show({ 
-            content: '发放带看单失败: ' + result.error, 
-            position: 'center' 
-          });
-        }
+        Toast.show({ content: '阶段切换失败，请重试', position: 'center' });
       }
-      
     } catch (error: any) {
-      console.error('❌ [MobileFollowupStageDrawer] 阶段切换异常 - 发放带看单', {
+      console.error('❌ [MobileFollowupStageDrawer] 发放带看单异常:', {
         recordId: record?.id,
         fromStage: currentStage,
-        error: error.message
+        error: error.message || error.toString(),
+        stack: error.stack,
+        timestamp: new Date().toISOString()
       });
-      Toast.show({ 
-        content: '发放带看单失败: ' + (error.message || '未知错误'), 
-        position: 'center' 
-      });
+      Toast.show({ content: '操作失败: ' + (error.message || '未知错误'), position: 'center' });
     } finally {
       setAssignShowingLoading(false);
     }
@@ -1385,6 +1671,9 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
           majorCategoryOptions={majorCategoryOptions}
           metroStationOptions={metroStationOptions}
           // 🆕 新增：预算字段变化回调
+          // 🆕 分配模式相关
+          enableManualAssign={enableManualAssign}
+          onAllocationModeChange={handleAllocationModeChange}
           onBudgetChange={(value) => {
             // 直接更新表单值，确保自动保存时能获取到最新值
             form.setFieldValue('userbudget', value);
@@ -1433,12 +1722,12 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
           display: 'flex', 
           flexDirection: 'column',
           overflow: 'hidden',
-          touchAction: 'pan-y',
-          userSelect: 'none'
+          touchAction: 'pan-y'
+          // 🆕 移除 userSelect: 'none'，避免影响点击事件
         }}
       >
         <NavBar
-          onBack={handleUnifiedClose}
+          onBack={handleBackButtonClick}
           className="border-b-0"
           style={{
             flexShrink: 0,
@@ -1742,25 +2031,32 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
               label="签约日期"
               rules={[{ required: true, message: '请选择签约日期' }]}
             >
-              <div
-                className="date-picker-trigger"
-                style={{
-                  padding: '12px',
-                  border: '1px solid #d9d9d9',
-                  borderRadius: '6px',
-                  backgroundColor: 'white',
-                  cursor: 'pointer',
-                  color: dealForm.getFieldValue('contractdate') ? 'inherit' : '#999',
-                  minHeight: '44px',
-                  display: 'flex',
-                  alignItems: 'center'
+              <Form.Item shouldUpdate={(prevValues, curValues) => prevValues.contractdate !== curValues.contractdate} noStyle>
+                {({ getFieldValue }) => {
+                  const contractDate = getFieldValue('contractdate');
+                  return (
+                    <div
+                      className="date-picker-trigger"
+                      style={{
+                        padding: '12px',
+                        border: '1px solid #d9d9d9',
+                        borderRadius: '6px',
+                        backgroundColor: 'white',
+                        cursor: 'pointer',
+                        color: contractDate ? 'inherit' : '#999',
+                        minHeight: '44px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                      onClick={() => setDatePickerVisible(true)}
+                    >
+                      {contractDate ? 
+                        contractDate.format('YYYY-MM-DD') : 
+                        '请选择签约日期'}
+                    </div>
+                  );
                 }}
-                onClick={() => setDatePickerVisible(true)}
-              >
-                {dealForm.getFieldValue('contractdate') ? 
-                  dealForm.getFieldValue('contractdate').format('YYYY-MM-DD') : 
-                  '请选择签约日期'}
-              </div>
+              </Form.Item>
             </Form.Item>
             
             <Form.Item

@@ -2262,7 +2262,7 @@ const AllocationManagement: React.FC = () => {
 
           <Form.Item name="conditions" label="触发条件">
             <Input.TextArea 
-              placeholder="请输入JSON格式的触发条件，例如：{'sources': ['抖音'], 'lead_types': ['普通']}"
+              placeholder="请输入JSON格式的触发条件，例如：{'sources': ['抖音'], 'lead_types': ['基础']}"
               rows={4}
             />
           </Form.Item>

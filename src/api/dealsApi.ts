@@ -144,4 +144,19 @@ export async function deleteDeal(id: string) {
     .eq('id', id);
   
   if (error) throw error;
+}
+
+// 获取可用的线索编号选项（从跟进记录中获取）
+export async function getAvailableLeadIds() {
+  const { data, error } = await supabase
+    .from('followups')
+    .select('leadid')
+    .not('leadid', 'is', null)
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  
+  // 去重并返回选项格式
+  const uniqueLeadIds = [...new Set(data.map(item => item.leadid))];
+  return uniqueLeadIds.map(leadid => ({ value: leadid, label: leadid }));
 } 

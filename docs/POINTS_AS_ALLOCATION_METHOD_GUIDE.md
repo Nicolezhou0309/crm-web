@@ -30,7 +30,7 @@ SELECT allocate_lead_simple('LEAD001', '抖音', '意向客户', '浦江公园�
 ```sql
 -- 用户组可以配置不同的分配模式
 UPDATE users_list SET allocation = 'points' WHERE groupname = '积分销售组';
-UPDATE users_list SET allocation = 'round_robin' WHERE groupname = '普通销售组';
+UPDATE users_list SET allocation = 'round_robin' WHERE groupname = '基础销售组';
 ```
 
 ## 核心实现

@@ -27,6 +27,8 @@ import {
   // getDealsContractNumberOptions,
   // getDealsRoomNumberOptions,
   getDealsSourceOptions,
+  getAvailableLeadIds,
+  createDeal,
   updateDeal,
   type Deal,
   type DealFilters
@@ -62,12 +64,18 @@ const DealsList: React.FC = () => {
   const [editForm] = Form.useForm();
   const [editLoading, setEditLoading] = useState(false);
 
+  // 新增状态
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [addForm] = Form.useForm();
+  const [addLoading, setAddLoading] = useState(false);
+
   // 选项数据
   const [communityOptions, setCommunityOptions] = useState<{ value: string; label: string }[]>([]);
   // const [contractNumberOptions, setContractNumberOptions] = useState<{ value: string; label: string }[]>([]);
   // const [roomNumberOptions, setRoomNumberOptions] = useState<{ value: string; label: string }[]>([]);
   const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([]);
   const [sourceOptions, setSourceOptions] = useState<{ value: string; label: string }[]>([]);
+  const [leadIdOptions, setLeadIdOptions] = useState<{ value: string; label: string }[]>([]);
 
   useEffect(() => {
     fetchOptions();
@@ -85,6 +93,10 @@ const DealsList: React.FC = () => {
       // 获取渠道选项
       const sources = await getDealsSourceOptions();
       setSourceOptions((sources as string[]).map(s => ({ value: s, label: s })));
+
+      // 获取线索编号选项（从跟进记录中获取）
+      const leadIds = await getAvailableLeadIds();
+      setLeadIdOptions(leadIds);
 
       // 获取合同编号选项
       // const contractNumbers = await getDealsContractNumberOptions();
@@ -440,15 +452,15 @@ const DealsList: React.FC = () => {
     <div className="page-card">
       <div className="flex justify-between items-center mb-6">
         <Title level={4} className="m-0 font-bold text-gray-800">
-          成交记录管理
+          成交记录
         </Title>
         <Space>
           <Button 
             type="primary" 
             icon={<PlusOutlined />} 
             onClick={() => {
-              // TODO: 实现新增成交记录功能
-              message.info('新增功能开发中...');
+              addForm.resetFields();
+              setAddModalVisible(true);
             }}
             className="rounded-md font-medium"
           >
@@ -613,6 +625,103 @@ const DealsList: React.FC = () => {
            >
              <Input placeholder="请输入房间号" />
            </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 新增成交记录模态框 */}
+      <Modal
+        title="新增成交记录"
+        open={addModalVisible}
+        onCancel={() => setAddModalVisible(false)}
+        onOk={async () => {
+          try {
+            setAddLoading(true);
+            const values = await addForm.validateFields();
+            
+            // 处理日期格式
+            const submitData = {
+              ...values,
+              contractdate: values.contractdate ? toBeijingDateStr(values.contractdate) : null,
+            };
+            
+            await createDeal(submitData);
+            message.success('成交记录创建成功');
+            setAddModalVisible(false);
+            fetchData(); // 刷新列表
+          } catch (error) {
+            message.error('创建成交记录失败: ' + (error as Error).message);
+          } finally {
+            setAddLoading(false);
+          }
+        }}
+        confirmLoading={addLoading}
+        destroyOnHidden
+      >
+        <Form
+          form={addForm}
+          layout="vertical"
+        >
+          <Form.Item
+            name="contractdate"
+            label="合同日期"
+            rules={[{ required: true, message: '请选择合同日期' }]}
+          >
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="leadid"
+            label="线索编号"
+            rules={[{ required: true, message: '请选择线索编号' }]}
+          >
+            <Select 
+              placeholder="请选择线索编号"
+              showSearch
+              filterOption={(input, option) =>
+                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+              optionFilterProp="children"
+            >
+              {leadIdOptions.map(option => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="community"
+            label="社区"
+            rules={[{ required: true, message: '请选择社区' }]}
+          >
+            <Select 
+              placeholder="请选择社区"
+              showSearch
+              filterOption={(input, option) =>
+                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+              optionFilterProp="children"
+            >
+              {communityOptions.map(option => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="contractnumber"
+            label="操作编号"
+            rules={[{ required: true, message: '请输入操作编号' }]}
+          >
+            <Input placeholder="请输入操作编号" />
+          </Form.Item>
+          <Form.Item
+            name="roomnumber"
+            label="房间号"
+            rules={[{ required: true, message: '请输入房间号' }]}
+          >
+            <Input placeholder="请输入房间号" />
+          </Form.Item>
         </Form>
       </Modal>
     </div>

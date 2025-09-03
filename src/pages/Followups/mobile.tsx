@@ -923,9 +923,10 @@ const MobileFollowups: React.FC = () => {
             <Form.Item label="跟进阶段">
               <Selector
                 multiple={true}
-                options={enumData.followupstageEnum?.map((item: any) => ({
+                options={enumData.followupstageEnum?.map((item: any, index: number) => ({
                   label: item.label,
-                  value: item.value
+                  value: item.value,
+                  key: `followupstage-${item.value}-${index}`
                 })) || []}
                 onChange={(value) => setFilterValues(prev => ({ ...prev, followupstage: value }))}
               />
@@ -944,9 +945,10 @@ const MobileFollowups: React.FC = () => {
             <Form.Item label="用户画像">
               <Selector
                 multiple={true}
-                options={enumData.customerprofileEnum?.map((item: any) => ({
+                options={enumData.customerprofileEnum?.map((item: any, index: number) => ({
                   label: item.label,
-                  value: item.value
+                  value: item.value,
+                  key: `customerprofile-${item.value}-${index}`
                 })) || []}
                 onChange={(value) => setFilterValues(prev => ({ ...prev, customerprofile: value }))}
               />
@@ -956,9 +958,10 @@ const MobileFollowups: React.FC = () => {
             <Form.Item label="工作地点">
               <Selector
                 multiple={true}
-                options={enumData.metroStationOptions?.map((item: any) => ({
+                options={enumData.metroStationOptions?.map((item: any, index: number) => ({
                   label: item.label,
-                  value: item.value
+                  value: item.value,
+                  key: `metroStation-${item.value}-${index}`
                 })) || []}
                 onChange={(value) => {
                   console.log('🔍 [MobileFollowups] 工作地点筛选选择变化:', { value, selectedValues: value });
@@ -1175,9 +1178,10 @@ const MobileFollowups: React.FC = () => {
             <Form.Item label="来访意向">
               <Selector
                 multiple={true}
-                options={enumData.userratingEnum?.map((item: any) => ({
+                options={enumData.userratingEnum?.map((item: any, index: number) => ({
                   label: item.label,
-                  value: item.value
+                  value: item.value,
+                  key: `userrating-${item.value}-${index}`
                 })) || []}
                 onChange={(value) => setFilterValues(prev => ({ ...prev, userrating: value }))}
               />
@@ -1191,9 +1195,10 @@ const MobileFollowups: React.FC = () => {
                   <div className="text-sm font-medium text-gray-700 mb-2">选择一级分类</div>
                   <Selector
                     multiple={true}
-                    options={enumData.majorCategoryOptions?.map((item: any) => ({
+                    options={enumData.majorCategoryOptions?.map((item: any, index: number) => ({
                       label: item.label,
-                      value: item.value
+                      value: item.value,
+                      key: `majorCategory-${item.value}-${index}`
                     })) || []}
                     value={filterValues.majorcategory_primary || []}
                     onChange={(value) => {
@@ -1258,9 +1263,10 @@ const MobileFollowups: React.FC = () => {
             <Form.Item label="预约社区">
               <Selector
                 multiple={true}
-                options={enumData.communityEnum?.map((item: any) => ({
+                options={enumData.communityEnum?.map((item: any, index: number) => ({
                   label: item.label,
-                  value: item.value
+                  value: item.value,
+                  key: `scheduledcommunity-${item.value}-${index}`
                 })) || []}
                 onChange={(value) => setFilterValues(prev => ({ ...prev, scheduledcommunity: value }))}
               />
@@ -1279,9 +1285,10 @@ const MobileFollowups: React.FC = () => {
             <Form.Item label="来源">
               <Selector
                 multiple={true}
-                options={enumData.sourceEnum?.map((item: any) => ({
+                options={enumData.sourceEnum?.map((item: any, index: number) => ({
                   label: item.label,
-                  value: item.value
+                  value: item.value,
+                  key: `source-${item.value}-${index}`
                 })) || []}
                 onChange={(value) => setFilterValues(prev => ({ ...prev, source: value }))}
               />

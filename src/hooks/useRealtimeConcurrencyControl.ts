@@ -53,7 +53,7 @@ export const useRealtimeConcurrencyControl = () => {
     return userProfile?.id;
   };
 
-  // 检查用户5分钟内报名次数
+  // 检查用户3分钟内报名次数
   const checkUserRegisterLimit = useCallback(async () => {
     try {
       const currentUserId = await getCurrentUserId();
@@ -63,19 +63,25 @@ export const useRealtimeConcurrencyControl = () => {
         .from('live_stream_schedules')
         .select('created_at')
         .eq('created_by', currentUserId)
-        .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+        .gte('created_at', new Date(Date.now() - 3 * 60 * 1000).toISOString());
 
-      if (recentRegistrations && recentRegistrations.length >= 2) {
+      if (recentRegistrations && recentRegistrations.length >= 1) {
+        const lastRegistrationTime = new Date(recentRegistrations[0].created_at).getTime();
+        const remainingTime = Math.max(0, 3 * 60 - Math.floor((Date.now() - lastRegistrationTime) / 1000));
+        const nextAvailableTime = new Date(lastRegistrationTime + 3 * 60 * 1000);
+        
         return { 
           success: false, 
-          error: '5分钟内最多只能报名2场直播',
-          remainingTime: 5 * 60 - Math.floor((Date.now() - new Date(recentRegistrations[0].created_at).getTime()) / 1000)
+          error: '3分钟内最多只能报名1场直播',
+          remainingTime: remainingTime,
+          nextAvailableTime: nextAvailableTime,
+          lastRegistrationTime: new Date(lastRegistrationTime)
         };
       }
 
       return { 
         success: true, 
-        remainingRegisters: 2 - (recentRegistrations?.length || 0)
+        remainingRegisters: 1 - (recentRegistrations?.length || 0)
       };
     } catch (error) {
       return { success: false, error: '检查报名限制失败' };
@@ -244,7 +250,7 @@ export const useRealtimeConcurrencyControl = () => {
 
     // 实时监听状态变化
   useEffect(() => {
-    console.log('[useRealtimeConcurrencyControl] 启用 realtime 功能');
+    console.log('🔄 [Realtime] 启用 realtime 功能');
     const channel = supabase.channel('concurrency-control')
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -252,9 +258,22 @@ export const useRealtimeConcurrencyControl = () => {
         table: 'live_stream_schedules',
         filter: 'status=eq.editing'
       }, async (payload) => {
+        console.log('📡 [Realtime] 收到 editing 状态更新事件:', {
+          eventType: 'UPDATE',
+          table: 'live_stream_schedules',
+          filter: 'status=eq.editing',
+          payload: {
+            old: payload.old,
+            new: payload.new,
+            commit_timestamp: payload.commit_timestamp
+          }
+        });
+        
         const schedule = payload.new;
 
         if (schedule.editing_by) {
+          console.log('👤 [Realtime] 开始获取编辑用户信息:', { editing_by: schedule.editing_by });
+          
           // 获取编辑用户信息
           const { data: userProfile } = await supabase
             .from('users_profile')
@@ -263,19 +282,36 @@ export const useRealtimeConcurrencyControl = () => {
             .single();
 
           const userName = userProfile?.nickname || userProfile?.email || '未知用户';
+          console.log('✅ [Realtime] 获取到用户信息:', { 
+            editing_by: schedule.editing_by, 
+            user_name: userName,
+            user_profile: userProfile 
+          });
 
-          setEditLocks(prev => ({
-            ...prev,
-            [schedule.id]: {
-              editing_by: schedule.editing_by,
-              editing_at: schedule.editing_at,
-              editing_expires_at: schedule.editing_expires_at,
-              user_name: userName
-            }
-          }));
+          setEditLocks(prev => {
+            const newLocks = {
+              ...prev,
+              [schedule.id]: {
+                editing_by: schedule.editing_by,
+                editing_at: schedule.editing_at,
+                editing_expires_at: schedule.editing_expires_at,
+                user_name: userName
+              }
+            };
+            console.log('🔒 [Realtime] 更新编辑锁定状态:', {
+              schedule_id: schedule.id,
+              new_lock: newLocks[schedule.id as keyof typeof newLocks],
+              all_locks: newLocks
+            });
+            return newLocks;
+          });
 
           // 显示通知
-          message.info(`${userName} 正在编辑 ${schedule.date} ${schedule.time_slot_id}`);
+          const notificationMessage = `${userName} 正在编辑 ${schedule.date} ${schedule.time_slot_id}`;
+          console.log('📢 [Realtime] 显示通知:', notificationMessage);
+          message.info(notificationMessage);
+        } else {
+          console.log('⚠️ [Realtime] editing_by 为空，跳过处理');
         }
       })
       .on('postgres_changes', {
@@ -284,16 +320,35 @@ export const useRealtimeConcurrencyControl = () => {
         table: 'live_stream_schedules',
         filter: 'status=eq.available'
       }, (payload) => {
+        console.log('📡 [Realtime] 收到 available 状态更新事件:', {
+          eventType: 'UPDATE',
+          table: 'live_stream_schedules',
+          filter: 'status=eq.available',
+          payload: {
+            old: payload.old,
+            new: payload.new,
+            commit_timestamp: payload.commit_timestamp
+          }
+        });
+        
         const schedule = payload.new;
 
         setEditLocks(prev => {
           const newLocks = { ...prev };
+          const deletedLock = newLocks[schedule.id];
           delete newLocks[schedule.id];
+          console.log('🔓 [Realtime] 清除编辑锁定状态:', {
+            schedule_id: schedule.id,
+            deleted_lock: deletedLock,
+            remaining_locks: newLocks
+          });
           return newLocks;
         });
 
         // 显示通知
-        message.success(`${schedule.date} ${schedule.time_slot_id} 已可编辑`);
+        const notificationMessage = `${schedule.date} ${schedule.time_slot_id} 已可编辑`;
+        console.log('📢 [Realtime] 显示通知:', notificationMessage);
+        message.success(notificationMessage);
       })
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -301,16 +356,34 @@ export const useRealtimeConcurrencyControl = () => {
         table: 'live_stream_schedules',
         filter: 'status=eq.booked'
       }, async (payload) => {
+        console.log('📡 [Realtime] 收到 booked 状态更新事件:', {
+          eventType: 'UPDATE',
+          table: 'live_stream_schedules',
+          filter: 'status=eq.booked',
+          payload: {
+            old: payload.old,
+            new: payload.new,
+            commit_timestamp: payload.commit_timestamp
+          }
+        });
+        
         const schedule = payload.new;
 
         // 清除编辑锁定
         setEditLocks(prev => {
           const newLocks = { ...prev };
+          const deletedLock = newLocks[schedule.id];
           delete newLocks[schedule.id];
+          console.log('🔓 [Realtime] 清除编辑锁定状态 (booked):', {
+            schedule_id: schedule.id,
+            deleted_lock: deletedLock,
+            remaining_locks: newLocks
+          });
           return newLocks;
         });
 
         // 获取报名用户信息
+        console.log('👤 [Realtime] 开始获取报名用户信息:', { created_by: schedule.created_by });
         const { data: userProfile } = await supabase
           .from('users_profile')
           .select('nickname, email')
@@ -318,9 +391,16 @@ export const useRealtimeConcurrencyControl = () => {
             .single();
 
         const userName = userProfile?.nickname || userProfile?.email || '未知用户';
+        console.log('✅ [Realtime] 获取到报名用户信息:', { 
+          created_by: schedule.created_by, 
+          user_name: userName,
+          user_profile: userProfile 
+        });
 
         // 显示通知
-        message.success(`${userName} 报名了 ${schedule.date} ${schedule.time_slot_id}`);
+        const notificationMessage = `${userName} 报名了 ${schedule.date} ${schedule.time_slot_id}`;
+        console.log('📢 [Realtime] 显示通知:', notificationMessage);
+        message.success(notificationMessage);
       })
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -328,28 +408,59 @@ export const useRealtimeConcurrencyControl = () => {
         table: 'live_stream_schedules',
         filter: 'status=eq.locked'
       }, async (payload) => {
+        console.log('📡 [Realtime] 收到 locked 状态更新事件:', {
+          eventType: 'UPDATE',
+          table: 'live_stream_schedules',
+          filter: 'status=eq.locked',
+          payload: {
+            old: payload.old,
+            new: payload.new,
+            commit_timestamp: payload.commit_timestamp
+          }
+        });
+        
         const schedule = payload.new;
 
-        setTimeSlotLocks(prev => ({
-          ...prev,
-          [schedule.id]: {
-            lock_type: schedule.lock_type,
-            lock_reason: schedule.lock_reason,
-            lock_end_time: schedule.lock_end_time
-          }
-        }));
+        setTimeSlotLocks(prev => {
+          const newLocks = {
+            ...prev,
+            [schedule.id]: {
+              lock_type: schedule.lock_type,
+              lock_reason: schedule.lock_reason,
+              lock_end_time: schedule.lock_end_time
+            }
+          };
+          console.log('🔒 [Realtime] 更新时间段锁定状态:', {
+            schedule_id: schedule.id,
+            new_lock: newLocks[schedule.id as keyof typeof newLocks],
+            all_locks: newLocks
+          });
+          return newLocks;
+        });
 
         // 显示通知
-        message.warning(`${schedule.date} ${schedule.time_slot_id} 已被锁定`);
+        const notificationMessage = `${schedule.date} ${schedule.time_slot_id} 已被锁定`;
+        console.log('📢 [Realtime] 显示通知:', notificationMessage);
+        message.warning(notificationMessage);
       })
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'live_stream_schedules'
       }, async (payload) => {
+        console.log('📡 [Realtime] 收到 INSERT 事件:', {
+          eventType: 'INSERT',
+          table: 'live_stream_schedules',
+          payload: {
+            new: payload.new,
+            commit_timestamp: payload.commit_timestamp
+          }
+        });
+        
         const schedule = payload.new;
 
         // 获取创建用户信息
+        console.log('👤 [Realtime] 开始获取创建用户信息:', { created_by: schedule.created_by });
         const { data: userProfile } = await supabase
             .from('users_profile')
             .select('nickname, email')
@@ -357,17 +468,31 @@ export const useRealtimeConcurrencyControl = () => {
             .single();
 
         const userName = userProfile?.nickname || userProfile?.email || '未知用户';
+        console.log('✅ [Realtime] 获取到创建用户信息:', { 
+          created_by: schedule.created_by, 
+          user_name: userName,
+          user_profile: userProfile 
+        });
 
         // 显示通知
-        message.success(`${userName} 报名了 ${schedule.date} ${schedule.time_slot_id}`);
+        const notificationMessage = `${userName} 报名了 ${schedule.date} ${schedule.time_slot_id}`;
+        console.log('📢 [Realtime] 显示通知:', notificationMessage);
+        message.success(notificationMessage);
       })
       .on('system', { event: 'disconnect' }, () => {
+        console.log('🔌 [Realtime] 系统断开连接');
         setConnectedWithDebounce(false);
       })
       .on('system', { event: 'reconnect' }, () => {
+        console.log('🔌 [Realtime] 系统重新连接');
         setConnectedWithDebounce(true);
       })
       .subscribe((status) => {
+        console.log('📡 [Realtime] 订阅状态变化:', {
+          status: status,
+          is_subscribed: status === 'SUBSCRIBED',
+          timestamp: new Date().toISOString()
+        });
         setConnectedWithDebounce(status === 'SUBSCRIBED');
       });
 

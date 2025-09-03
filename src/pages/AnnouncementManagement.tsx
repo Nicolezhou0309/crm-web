@@ -541,7 +541,7 @@ const AnnouncementManagement: React.FC = () => {
                 rules={[{ required: true, message: '请选择优先级' }]}
               >
                 <Select placeholder="请选择优先级">
-                  <Option value={0}>普通</Option>
+                  <Option value={0}>基础</Option>
                   <Option value={1}>重要</Option>
                   <Option value={2}>紧急</Option>
                   <Option value={3}>特急</Option>

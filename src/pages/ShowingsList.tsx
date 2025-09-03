@@ -24,9 +24,7 @@ import {
   UserOutlined,
   ZoomInOutlined,
   SearchOutlined,
-  UploadOutlined,
-  PhoneOutlined,
-  WechatOutlined
+  UploadOutlined
 } from '@ant-design/icons';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import ShowingConversionRate from '../components/ShowingConversionRate';
@@ -438,16 +436,7 @@ const ShowingsList: React.FC = () => {
         </div>
       ),
       onFilter: (value: boolean | Key, record: ShowingWithRelations) => !!record.lead_phone?.toString().includes(String(value)),
-      render: (text: string) => (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <PhoneOutlined style={{ 
-            fontSize: '12px', 
-            color: 'rgba(0, 0, 0, 0.6)',
-            flexShrink: '0'
-          }} />
-          {ShowingsService.maskPhone(text)}
-        </span>
-      ),
+      render: (text: string) => ShowingsService.maskPhone(text),
     },
     {
       title: '微信号',
@@ -478,16 +467,7 @@ const ShowingsList: React.FC = () => {
         </div>
       ),
       onFilter: (value: boolean | Key, record: ShowingWithRelations) => !!record.lead_wechat?.toString().includes(String(value)),
-      render: (text: string) => (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <WechatOutlined style={{ 
-            fontSize: '12px', 
-            color: 'rgba(0, 0, 0, 0.6)',
-            flexShrink: '0'
-          }} />
-          {ShowingsService.maskWechat(text)}
-        </span>
-      ),
+      render: (text: string) => ShowingsService.maskWechat(text),
     },
     {
       title: '带看社区',

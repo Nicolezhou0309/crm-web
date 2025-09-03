@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { Form, Input, Selector, TextArea, CascadePicker, Button, CalendarPicker, List, NumberKeyboard, DatePicker, Rate } from 'antd-mobile';
+import { Form, Input, Selector, TextArea, CascadePicker, Button, CalendarPicker, List, NumberKeyboard, DatePicker, Rate, Switch } from 'antd-mobile';
 import dayjs from 'dayjs';
 import type { FollowupRecord } from '../types';
+import MobileUserPicker from '../../../components/MobileUserPicker';
 
 // 🆕 来访意向评分转换函数（与卡片逻辑保持一致）
 const getRatingValue = (rating: string | number): number => {
@@ -87,9 +88,15 @@ const CommonSelector: React.FC<CommonSelectorProps> = ({
     );
   }
 
+  // 为每个选项添加唯一的 key
+  const optionsWithKey = options.map((option, index) => ({
+    ...option,
+    key: `${option.value || option.label || index}-${index}`
+  }));
+
   return (
     <Selector
-      options={options}
+      options={optionsWithKey}
       value={displayValue}
       multiple={false}
       onChange={handleChange}
@@ -113,6 +120,9 @@ interface MobileFollowupStageFormProps {
   metroStationOptions: any[];
   // 🆕 新增：预算字段变化回调
   onBudgetChange?: (value: string) => void;
+  // 🆕 分配模式相关
+  enableManualAssign?: boolean;
+  onAllocationModeChange?: (checked: boolean) => void;
 }
 
 // 跟进阶段配置
@@ -131,7 +141,7 @@ const stageFields: Record<string, string[]> = {
     'majorcategory',
     'followupresult'
   ],
-  '邀约到店': ['scheduletime', 'scheduledcommunity'],
+  '邀约到店': ['scheduletime', 'scheduledcommunity', 'assigned_showingsales'],
   '已到店': [],
   '赢单': []
 };
@@ -148,6 +158,7 @@ const getFieldLabel = (field: string, currentStage?: string): string => {
     followupresult: '跟进备注',
     scheduletime: '预约到店时间',
     scheduledcommunity: '预约社区',
+    assigned_showingsales: '带看管家',
     followupstage: '跟进阶段',
     leadtype: '线索类型',
     invalid: '是否无效'
@@ -529,6 +540,9 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
   majorCategoryOptions,
   metroStationOptions,
   onBudgetChange,
+  // 🆕 分配模式相关
+  enableManualAssign = false,
+  onAllocationModeChange,
 }) => {
   // 🆕 优化：数字键盘状态管理
   const [visible, setVisible] = useState<string>('');
@@ -886,6 +900,30 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
             </Form.Item>
           );
 
+        case 'assigned_showingsales':
+          return (
+            <Form.Item {...formItemProps}>
+              <MobileUserPicker
+                value={form.getFieldValue(field) || (record as any)?.[field]}
+                onChange={(value) => {
+                  try {
+                    // MobileUserPicker返回的是数组，取第一个值
+                    const selectedUserId = Array.isArray(value) && value.length > 0 ? value[0] : null;
+                    form.setFieldValue(field, selectedUserId);
+                    form.setFieldsValue({ [field]: selectedUserId });
+                  } catch (error) {
+                    console.error('❌ [MobileFollowupStageForm] 设置带看管家失败:', error);
+                  }
+                }}
+                placeholder="请选择带看管家"
+                buttonText="选择带看管家"
+                title="选择带看管家"
+                multiple={false}
+                disabled={isFieldDisabled()}
+              />
+            </Form.Item>
+          );
+
         case 'worklocation': 
           
           return (
@@ -1153,6 +1191,16 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
     let isRequired = false;
     if (stage === '确认需求') {
       isRequired = !['moveintime', 'userrating'].includes(field);
+    } else if (stage === '邀约到店') {
+      // 邀约到店阶段：预约时间是必填的，带看管家在手动分配模式下是必填的
+      if (field === 'scheduletime') {
+        isRequired = true;
+      } else if (field === 'assigned_showingsales' && enableManualAssign) {
+        isRequired = true;
+      } else if (field === 'scheduledcommunity' && !enableManualAssign) {
+        // 自动分配模式下，预约社区是必填的
+        isRequired = true;
+      }
     } else {
       isRequired = ['customerprofile', 'scheduledcommunity', 'majorcategory', 'followupresult'].includes(field);
     }
@@ -1162,12 +1210,47 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
   
   return (
     <>
-      {/* 🆕 优化：直接渲染字段，减少包装div，去除分割线 */}
-      {currentFields.map((field, index) => (
-        <div key={field} className="border-b-0 border-t-0">
-          {renderField(field)}
+      {/* 🆕 邀约到店阶段的分配模式切换 */}
+      {stage === '邀约到店' && (
+        <div className="border-b-0 border-t-0" style={{ padding: '12px 0' }}>
+          <Form.Item label="分配模式" className="border-b-0 border-t-0">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '14px', color: '#666' }}>
+                {enableManualAssign ? '定向分配' : '自动分配'}
+              </span>
+              <Switch
+                checked={enableManualAssign}
+                onChange={onAllocationModeChange || (() => {})}
+                disabled={isFieldDisabled()}
+              />
+            </div>
+            <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+              {enableManualAssign ? '手动选择带看管家' : '根据社区自动分配带看管家'}
+            </div>
+          </Form.Item>
         </div>
-      ))}
+      )}
+      
+      {/* 🆕 优化：直接渲染字段，减少包装div，去除分割线 */}
+      {currentFields.map((field, index) => {
+        // 🆕 根据分配模式动态显示/隐藏字段
+        if (stage === '邀约到店') {
+          if (field === 'assigned_showingsales' && !enableManualAssign) {
+            // 自动分配模式下隐藏带看管家选择
+            return null;
+          }
+          if (field === 'scheduledcommunity' && enableManualAssign) {
+            // 手动分配模式下隐藏预约社区选择（可选）
+            return null;
+          }
+        }
+        
+        return (
+          <div key={field} className="border-b-0 border-t-0">
+            {renderField(field)}
+          </div>
+        );
+      })}
       
       {/* 🆕 数字键盘背景遮罩层 - 实现置灰+锁定效果 */}
       {visible === 'userbudget' && (

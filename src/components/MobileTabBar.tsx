@@ -40,11 +40,7 @@ const MobileTabBar: FC = () => {
       title: '成交',
       icon: <CheckCircleOutlined className="text-lg" />,
     },
-    {
-      key: '/xiaohongshu-test',
-      title: '小红书',
-      icon: <RocketOutlined className="text-lg" />,
-    },
+
     {
       key: '/mobile-profile',
       title: '个人',

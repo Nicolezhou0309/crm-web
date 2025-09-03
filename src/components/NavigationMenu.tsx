@@ -39,6 +39,8 @@ interface NavigationMenuProps {
   onCollapse?: (collapsed: boolean) => void;
 }
 
+
+
 const NavigationMenu: React.FC<NavigationMenuProps> = ({
   selectedKey,
   onMenuClick,
@@ -47,6 +49,9 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
 }) => {
   const [search, setSearch] = React.useState('');
   const { hasPermission, hasRole, loading: permissionsLoading, isSuperAdmin } = useRolePermissions();
+
+  // 检查是否为admin角色（包括admin、super_admin、system_admin）
+  const isAdmin = hasRole('admin') || hasRole('super_admin') || hasRole('system_admin') || isSuperAdmin;
 
   const menuItems = [
     { 
@@ -141,22 +146,7 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       ]
     },
 
-    // 小红书工具菜单
-    {
-      key: 'xiaohongshu-tools',
-      icon: <RocketOutlined />,
-      label: '小红书工具',
-      className: 'main-menu-submenu-title',
-      children: [
-        {
-          key: 'xiaohongshu-test',
-          icon: <RocketOutlined />,
-          label: '自动发布测试',
-          path: '/xiaohongshu-test',
-          className: 'main-menu-item',
-        },
-      ]
-    },
+
 
     // 分配管理一级菜单
     {
@@ -331,8 +321,16 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
     
     if (!keyword) {
       const filtered = items.filter(item => {
+        // 非admin用户只显示直播报名菜单
+        if (!isAdmin) {
+          // 只保留直播报名菜单
+          if (item.key === 'live-stream-registration') {
+            return true;
+          }
+          return false;
+        }
         
-        // 检查权限或角色
+        // admin用户正常显示所有菜单，检查权限或角色
         if (item.permission) {
           if (item.permission === 'admin') {
             // 检查是否有管理员角色
@@ -366,11 +364,23 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
       return filtered;
     }
     
-    // 搜索模式的处理逻辑保持不变
+    // 搜索模式的处理逻辑
     const lower = keyword.toLowerCase();
     return items
       .map((item: any) => {
-        // 检查权限或角色
+        // 非admin用户只显示直播报名菜单
+        if (!isAdmin) {
+          // 只保留直播报名菜单
+          if (item.key === 'live-stream-registration') {
+            if (item.label && String(item.label).toLowerCase().includes(lower)) {
+              return item;
+            }
+            return null;
+          }
+          return null;
+        }
+        
+        // admin用户正常显示所有菜单，检查权限或角色
         if (item.permission) {
           if (item.permission === 'admin') {
             const hasAdminRole = hasRole('admin') || hasRole('super_admin') || hasRole('system_admin');

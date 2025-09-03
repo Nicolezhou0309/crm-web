@@ -371,6 +371,11 @@ export const updateLiveStreamSchedule = async (
         updateData.editing_by = null;
         updateData.editing_at = null;
         updateData.editing_expires_at = null;
+        
+        // 确保participant_ids字段被正确更新
+        if (updates.managers) {
+          updateData.participant_ids = updates.managers.length > 0 ? updates.managers.map(m => parseInt(m.id)) : [];
+        }
       }
     }
 

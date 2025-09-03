@@ -5,7 +5,7 @@ import { LeftOutline } from 'antd-mobile-icons';
 interface MobileModalProps {
   visible: boolean;
   onClose: () => void;
-  title: string;
+  title: string | React.ReactNode;
   children: React.ReactNode;
   height?: string;
 }
@@ -178,14 +178,20 @@ const MobileModal: React.FC<MobileModalProps> = ({
         }}
       >
         {/* 标题栏 */}
-        <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white rounded-t-2xl">
-          <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+        <div className="relative flex items-center p-4 border-b border-gray-200 bg-white rounded-t-2xl">
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="absolute left-4 p-2 rounded-full transition-colors bg-transparent border-none z-10"
           >
             <LeftOutline className="w-5 h-5" />
           </button>
+          <div className="flex-1 flex justify-center">
+            {typeof title === 'string' ? (
+              <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+            ) : (
+              title
+            )}
+          </div>
         </div>
         
         {/* 内容区域 */}

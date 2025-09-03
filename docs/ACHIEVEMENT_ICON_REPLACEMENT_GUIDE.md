@@ -630,7 +630,7 @@ export const batchReplaceIcons = async () => {
 ```typescript
 const COLOR_SCHEMES = {
   // 成就等级颜色
-  'common': '#52c41a',    // 绿色 - 普通
+  'common': '#52c41a',    // 绿色 - 基础
   'rare': '#1890ff',      // 蓝色 - 稀有
   'epic': '#fa8c16',      // 橙色 - 史诗
   'legendary': '#722ed1', // 紫色 - 传说

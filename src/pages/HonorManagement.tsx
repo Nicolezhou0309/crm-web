@@ -958,7 +958,7 @@ export const HonorManagement: React.FC = () => {
 
   const getRarityText = (rarity: string): string => {
     const textMap: Record<string, string> = {
-      'common': '普通',
+      'common': '基础',
       'rare': '稀有',
       'epic': '史诗',
       'legendary': '传说'
@@ -1072,7 +1072,7 @@ export const HonorManagement: React.FC = () => {
                         placeholder="选择稀有度"
                       >
                         <Option value="all">全部</Option>
-                        <Option value="common">普通</Option>
+                        <Option value="common">基础</Option>
                         <Option value="rare">稀有</Option>
                         <Option value="epic">史诗</Option>
                         <Option value="legendary">传说</Option>
@@ -1217,7 +1217,7 @@ export const HonorManagement: React.FC = () => {
           </Form.Item>
           <Form.Item label="稀有度" name="rarity" rules={[{ required: true, message: '请选择稀有度' }]}> 
             <Select placeholder="选择稀有度">
-              <Option value="common">普通</Option>
+              <Option value="common">基础</Option>
               <Option value="rare">稀有</Option>
               <Option value="epic">史诗</Option>
               <Option value="legendary">传说</Option>
@@ -1308,7 +1308,7 @@ export const HonorManagement: React.FC = () => {
               
               <Form.Item label="稀有度" name="rarity" rules={[{ required: true }]}>
                 <Select placeholder="选择稀有度">
-                  <Option value="common">普通</Option>
+                  <Option value="common">基础</Option>
                   <Option value="rare">稀有</Option>
                   <Option value="epic">史诗</Option>
                   <Option value="legendary">传说</Option>

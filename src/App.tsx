@@ -5,7 +5,7 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons';
 import LottieLogo from './components/LottieLogo';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import LeadsList from './pages/LeadsList';
 import ShowingsList from './pages/ShowingsList';
 
@@ -48,6 +48,7 @@ import { Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import { UserProvider, useUser } from './context/UserContext';
 import { useAuth } from './hooks/useAuth';
+import { useRolePermissions } from './hooks/useRolePermissions';
 import NotificationTemplateManager from './pages/NotificationTemplateManager';
 import ApprovalFlowManagement from './pages/ApprovalFlowManagement';
 import PointsSummary from './pages/PointsSummary';
@@ -62,7 +63,7 @@ import MetroDistanceCalculatorPage from './pages/MetroDistanceCalculatorPage';
 import RealtimeTest from './pages/RealtimeTest';
 import ButtonStyleTest from './pages/ButtonStyleTest';
 import AuthStatusTest from './pages/AuthStatusTest';
-import XiaohongshuTest from './pages/XiaohongshuTest';
+
 
 
 
@@ -140,17 +141,7 @@ const ResponsiveShowings: React.FC = () => {
   return <ShowingsList />;
 };
 
-// 彻底删除旧的menuItems相关children/path等所有无用代码块，只保留如下：
-const menuItems: MenuProps['items'] = [
-  {
-    label: '跟进记录',
-    key: 'followups',
-  },
-  {
-    label: '新手入门',
-    key: 'onboarding',
-  },
-];
+
 
 // 全局错误边界
 class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
@@ -185,9 +176,25 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   const { profile } = useUser();
   const { logout } = useAuth();
+  const { hasRole, isSuperAdmin } = useRolePermissions();
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth] = React.useState(220);
   const minSiderWidth = 56;
+
+  // 检查是否为admin角色
+  const isAdmin = hasRole('admin') || hasRole('super_admin') || hasRole('system_admin') || isSuperAdmin;
+
+  // 顶部导航菜单项，根据用户角色过滤
+  const menuItems: MenuProps['items'] = [
+    ...(isAdmin ? [{
+      label: '跟进记录',
+      key: 'followups',
+    }] : []),
+    {
+      label: '新手入门',
+      key: 'onboarding',
+    },
+  ];
   
   // 手机端检测
   const [isMobile, setIsMobile] = React.useState(false);
@@ -217,7 +224,7 @@ const AppContent: React.FC = () => {
     'leads': '/leads',
     'followups': '/followups',
     'metro-calculator': '/metro-calculator',
-    'xiaohongshu-test': '/xiaohongshu-test',
+
 
 
     'showings': '/showings',
@@ -241,7 +248,6 @@ const AppContent: React.FC = () => {
     'approval-performance': '/approval-performance',
     'data-analysis': '/data-analysis',
     'live-stream-registration': '/live-stream-registration',
-
     'live-stream-management': '/live-stream-management',
 
   };
@@ -250,7 +256,13 @@ const AppContent: React.FC = () => {
   Object.entries(keyPathMap).forEach(([k, v]) => { pathKeyMap[v] = k; });
 
   // 计算 selectedKey
-  const selectedKey = pathKeyMap[location.pathname] || '';
+  const selectedKey = (() => {
+    // 如果当前路径是根路径，映射到直播报名页面
+    if (location.pathname === '/') {
+      return 'live-stream-registration';
+    }
+    return pathKeyMap[location.pathname] || '';
+  })();
 
   // 侧边栏菜单点击跳转
   const handleMenuClick = (key: string) => {
@@ -593,7 +605,7 @@ const AppContent: React.FC = () => {
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* 顶部导航条 */}
         <Header className="app-header" style={{ height: 60, padding: '0 16px', display: 'flex', alignItems: 'center', position: 'fixed', top: 0, left: 0, right: 0, width: '100%', zIndex: 1000, background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-          {/* 顶部导航菜单，仅跟进记录 */}
+          {/* 顶部导航菜单，根据用户角色显示 */}
           <Menu
             onClick={e => {
               if (e.key === 'followups') navigate('/followups');
@@ -800,7 +812,7 @@ const AppContent: React.FC = () => {
             <Content className="content-main">
               <PrivateRoute>
                 <Routes>
-                  <Route path="/" element={<Index />} />
+                  <Route path="/" element={<Navigate to="/live-stream-registration" replace />} />
                   <Route path="/tailwind-test" element={<TailwindTest />} />
 
                   <Route path="/leads" element={
@@ -893,7 +905,7 @@ const AppContent: React.FC = () => {
                           <Route path="/onboarding" element={<OnboardingPage />} />
 
                           <Route path="/metro-calculator" element={<MetroDistanceCalculatorPage />} />
-                          <Route path="/xiaohongshu-test" element={<XiaohongshuTest />} />
+
                           <Route path="/realtime-test" element={<RealtimeTest />} />
                           <Route path="/button-style-test" element={<ButtonStyleTest />} />
                           <Route path="/auth-status-test" element={<AuthStatusTest />} />

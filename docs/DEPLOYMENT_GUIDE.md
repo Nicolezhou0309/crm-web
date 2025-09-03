@@ -24,7 +24,9 @@ vercel
 3. **设置环境变量**：
 在Vercel控制台中设置以下环境变量：
 - `VITE_SUPABASE_URL`: http://47.123.26.25:8000
-- `VITE_SUPABASE_ANON_KEY`: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE
+- `VITE_SUPABASE_ANON_KEY`: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI8MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE
+
+⚠️ **混合内容警告**: 使用HTTP的Supabase URL在HTTPS环境中会出现错误。请参考 [混合内容错误修复指南](../MIXED_CONTENT_ERROR_FIX.md)
 
 ### 3. 更新Edge Function
 
@@ -74,6 +76,8 @@ export default defineConfig({
 
 - `VITE_SUPABASE_URL`: http://47.123.26.25:8000
 - `VITE_SUPABASE_ANON_KEY`: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE
+
+⚠️ **混合内容问题**: 当前Supabase服务器仅支持HTTP，在HTTPS部署中会遇到问题。详见 [混合内容错误修复指南](./MIXED_CONTENT_ERROR_FIX.md)
 
 ## 注意事项
 

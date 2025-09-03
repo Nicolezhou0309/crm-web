@@ -133,6 +133,10 @@ export class ShowingsService {
         console.warn('RPC函数不存在，使用默认选项:', error.message);
       } else if (data && data.length > 0) {
         console.log('✅ 从数据库获取看房结果选项:', data);
+        // 确保返回的是对象数组格式
+        if (typeof data[0] === 'string') {
+          return data.map((item: any) => ({ value: item, label: item }));
+        }
         return data;
       }
     } catch (error) {

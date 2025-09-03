@@ -458,7 +458,7 @@ const MobileMultiLevelSelector: React.FC<MobileMultiLevelSelectorProps> = ({
         display: 'flex',
         flexDirection: 'column'
       }}
-      destroyOnClose
+      destroyOnHidden
     >
       <div className="selector-container">
         {/* 步骤指示器 */}

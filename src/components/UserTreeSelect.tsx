@@ -14,6 +14,7 @@ interface UserTreeSelectProps {
   treeDefaultExpandAll?: boolean;
   popupMatchSelectWidth?: boolean;
   multiple?: boolean; // 是否支持多选，默认为true
+  currentUserId?: string; // 当前用户ID，用于标识"本人"tag
 }
 
 interface UserInfo {
@@ -37,7 +38,8 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
   maxTagCount = "responsive",
   treeDefaultExpandAll = true,
   popupMatchSelectWidth = false,
-  multiple = true
+  multiple = true,
+  currentUserId
 }) => {
   const [treeData, setTreeData] = useState<any[]>([]);
   const [userProfileCache, setUserProfileCache] = useState<UserProfileCache>({});
@@ -293,22 +295,45 @@ const UserTreeSelect: React.FC<UserTreeSelectProps> = ({
     const userInfo = userProfileCache?.[String(value)];
     const nickname = userInfo?.nickname || `用户${value}`;
     
+    // 检查是否是当前用户（本人）
+    const isCurrentUser = currentUserId && String(value) === String(currentUserId);
+    
     return (
       <Tag 
-        closable={closable} 
-        onClose={onClose}
+        closable={isCurrentUser ? false : closable} // 本人tag不可删除
+        onClose={isCurrentUser ? undefined : onClose} // 本人tag没有删除回调
         style={{
-          background: '#f0f8ff',
-          border: '1px solid #91d5ff',
-          color: '#1890ff',
+          background: isCurrentUser ? '#fff7e6' : '#f0f8ff', // 本人tag使用不同的背景色
+          border: isCurrentUser ? '1px solid #ffd591' : '1px solid #91d5ff',
+          color: isCurrentUser ? '#d46b08' : '#1890ff',
           borderRadius: '6px',
           padding: '2px 8px',
           fontSize: '12px',
           lineHeight: '1.4',
-          margin: '2px'
+          margin: '2px',
+          position: 'relative'
         }}
       >
-        {nickname}
+        {isCurrentUser ? `本人 (${nickname})` : nickname}
+        {isCurrentUser && (
+          <span style={{
+            position: 'absolute',
+            top: '-2px',
+            right: '-2px',
+            background: '#ff4d4f',
+            color: 'white',
+            borderRadius: '50%',
+            width: '12px',
+            height: '12px',
+            fontSize: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 'bold'
+          }}>
+            锁
+          </span>
+        )}
       </Tag>
     );
   };

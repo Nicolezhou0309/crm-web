@@ -193,7 +193,7 @@ const RankingBoard: React.FC = () => {
             </div>
           )}
         </div>
-        {/* 其余名次普通渲染 */}
+        {/* 其余名次基础渲染 */}
         <div>
           {data.slice(3).map((item, idx) => (
             <div key={item.id} style={{

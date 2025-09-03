@@ -2904,7 +2904,7 @@ const DataAnalysis: React.FC<DataAnalysisProps> = () => {
               onChange={(value) => {
                 // 当操作符改变时，根据新操作符清空相关字段
                 if (value === 'date_between') {
-                  // 如果切换到日期范围，清空普通输入框和第二个值
+                  // 如果切换到日期范围，清空基础输入框和第二个值
                   filterForm.setFieldsValue({
                     value: undefined,
                     value2: undefined

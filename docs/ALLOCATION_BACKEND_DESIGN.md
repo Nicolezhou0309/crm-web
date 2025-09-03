@@ -534,7 +534,7 @@ function LeadCreateForm() {
     
     const endpoint = manualAssign 
       ? '/functions/v1/allocation-management?action=create-lead-with-assignment'
-      : '/api/leads'; // 普通创建接口
+      : '/api/leads'; // 基础创建接口
     
     const response = await fetch(endpoint, {
       method: 'POST',

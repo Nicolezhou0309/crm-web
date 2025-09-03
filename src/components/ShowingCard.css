@@ -97,6 +97,7 @@
   gap: 8px;
   min-height: 20px;
   width: 100%; /* 确保行占满整个宽度 */
+  padding-right: 4px;
 }
 
 /* 线索编号区域 */
@@ -178,7 +179,7 @@
 /* 联系信息行 */
 .showing-card .contact-row {
   display: flex;
-  flex-direction: column; /* 改为垂直布局，实现换行 */
+  flex-direction: row; /* 改为垂直布局，实现换行 */
   justify-content: flex-start;
   align-items: flex-start;
   margin: 0;
@@ -309,9 +310,8 @@
 
 /* 备注信息 */
 .showing-card .remark-section {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+    padding-top: 0;
+    border-top: none;
 }
 
 .showing-card .remark-content {
@@ -337,7 +337,7 @@
   }
   
   .showing-card .contact-row {
-    gap: 12px;
+    gap: 16px;
   }
   
   .showing-card .info-row {

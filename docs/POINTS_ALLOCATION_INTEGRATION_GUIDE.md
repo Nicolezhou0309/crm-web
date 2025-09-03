@@ -47,7 +47,7 @@
      ```json
      {
        "sources": ["抖音", "微信"],
-       "lead_types": ["普通", "高意向"],
+       "lead_types": ["基础", "高意向"],
        "communities": ["测试社区"]
      }
      ```

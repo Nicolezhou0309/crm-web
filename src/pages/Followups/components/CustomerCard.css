@@ -40,10 +40,7 @@
   z-index: 2;
 }
 
-/* 滑动状态 - 菜单覆盖整个卡片，不需要滑动 */
-.customer-card.swiped {
-  /* 保持原位置，菜单覆盖显示 */
-}
+
 
 .customer-card:hover {
   box-shadow: none;
@@ -113,7 +110,7 @@
   flex-basis: auto;
 }
 
-/* 信息行容器 - 普通容器，每行一个column */
+/* 信息行容器 - 基础容器，每行一个column */
 .customer-card .info-columns {
   display: flex;
   flex-direction: column; /* 垂直布局 */

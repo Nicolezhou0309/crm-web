@@ -70,7 +70,7 @@ const ApprovalDetails: React.FC = () => {
         </div>
       );
     }
-    // 普通对象，展示所有key/value
+    // 基础对象，展示所有key/value
     if (typeof cfg === 'object') {
       return (
         <div style={{ maxWidth: 400 }}>

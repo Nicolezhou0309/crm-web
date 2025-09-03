@@ -226,7 +226,7 @@ const ACHIEVEMENT_ICON_STYLES = {
 
 ```typescript
 const BADGE_ICON_STYLES = {
-  // 普通勋章
+  // 基础勋章
   'common': {
     borderColor: '#d9d9d9',
     backgroundColor: '#f5f5f5',

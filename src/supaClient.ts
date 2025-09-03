@@ -22,7 +22,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   `)
 }
 
-// 创建匿名用户客户端（用于普通操作）
+// 创建匿名用户客户端（用于基础操作）
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,

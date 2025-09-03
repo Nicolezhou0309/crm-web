@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Button, 
   Toast, 
@@ -38,6 +38,43 @@ import MobileUserPicker from '../components/MobileUserPicker';
 
 import ShowingsService from '../services/ShowingsService';
 
+// 添加自定义标题样式
+const titleStyles = `
+  .simple-title-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: 36px !important;
+  }
+
+  .simple-title-main {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #262626 !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+    text-align: center !important;
+  }
+
+  .simple-title-sub {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    color: #666 !important;
+    line-height: 1.3 !important;
+    margin: 2px 0 0 0 !important;
+    text-align: center !important;
+  }
+`;
+
+// 动态添加样式
+if (typeof document !== 'undefined') {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = titleStyles;
+  document.head.appendChild(styleElement);
+}
+
 
 const MobileShowingsList: React.FC = () => {
 
@@ -54,7 +91,6 @@ const MobileShowingsList: React.FC = () => {
   const [filterVisible, setFilterVisible] = useState(false);
   
   // 表单状态
-  const [formVisible, setFormVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
   const [editingShowing, setEditingShowing] = useState<ExtendedShowing | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -65,17 +101,7 @@ const MobileShowingsList: React.FC = () => {
   const [salesOptions, setSalesOptions] = useState<{ id: number; nickname: string }[]>([]);
   const [userOptions, setUserOptions] = useState<UserProfile[]>([]);
   
-  // 表单数据
-  const [formData, setFormData] = useState({
-    leadid: '',
-    scheduletime: '',
-    community: '',
-    showingsales: '',
-    viewresult: '',
-    budget: '',
-    renttime: '',
-    remark: ''
-  });
+
   
   // 编辑表单数据
   const [editFormData, setEditFormData] = useState({
@@ -115,6 +141,8 @@ const MobileShowingsList: React.FC = () => {
       setViewResultOptions(viewResults || []);
       setSalesOptions(sales.map(s => ({ id: s.value, nickname: s.label })));
       setUserOptions(users || []);
+      
+      // 调试信息：检查看房结果选项数据
     } catch (error) {
       console.error('🔄 移动端获取选项数据错误:', error);
       Toast.show({
@@ -200,38 +228,15 @@ const MobileShowingsList: React.FC = () => {
         trueshowingsales: cleanValues.trueshowingsales ? Number(cleanValues.trueshowingsales) : null,
       };
       
-      console.log('🔄 移动端提交数据:', submitData);
+      await ShowingsService.updateShowing(editingShowing!.id, submitData);
+      Toast.show({
+        content: '更新成功',
+        position: 'center',
+      });
       
-      if (editingShowing) {
-        console.log('🔄 移动端更新带看记录:', editingShowing.id);
-        await ShowingsService.updateShowing(editingShowing.id, submitData);
-        Toast.show({
-          content: '更新成功',
-          position: 'center',
-        });
-      } else {
-        console.log('🔄 移动端创建带看记录');
-        await ShowingsService.createShowing(submitData);
-        Toast.show({
-          content: '创建成功',
-          position: 'center',
-        });
-      }
-      
-      setFormVisible(false);
       setEditVisible(false);
       setEditingShowing(null);
       // 重置表单数据
-      setFormData({
-        leadid: '',
-        scheduletime: '',
-        community: '',
-        showingsales: '',
-        viewresult: '',
-        budget: '',
-        renttime: '',
-        remark: ''
-      });
       setEditFormData({
         leadid: '',
         scheduletime: '',
@@ -288,7 +293,7 @@ const MobileShowingsList: React.FC = () => {
   const handleEdit = (showing: ExtendedShowing) => {
     setEditingShowing(showing);
     // 设置编辑表单数据，完全复制电脑端逻辑
-    setEditFormData({
+    const editData = {
       leadid: showing.leadid || '',
       scheduletime: showing.scheduletime || '',
       community: showing.community || '',
@@ -303,9 +308,29 @@ const MobileShowingsList: React.FC = () => {
       // 约访管家字段，完全复制电脑端逻辑
       interviewsales_user_id: (showing as any).interviewsales_user_id?.toString() || '',
       interviewsales_nickname: showing.interviewsales_nickname || '',
-    });
+    };
+    
+    
+    // 检查选项数据是否已加载
+    if (viewResultOptions.length === 0) {
+      console.warn('⚠️ [MobileShowingsList] 看房结果选项数据未加载，尝试重新获取');
+      fetchOptions();
+    }
+    
+    setEditFormData(editData);
     setEditVisible(true);
   };
+
+  // 使用 useMemo 优化选项数据的创建，确保 key 的稳定性
+  const salesSelectOptions = useMemo(() => 
+    salesOptions.map(s => ({ label: s.nickname, value: s.id })), 
+    [salesOptions]
+  );
+  
+  const viewResultSelectOptions = useMemo(() => {
+    const options = viewResultOptions.map(r => ({ label: r.label, value: r.value }));
+    return options;
+  }, [viewResultOptions]);
 
   // 渲染带看记录项 - 使用ShowingCard组件
   const renderShowingItem = (showing: ExtendedShowing) => {
@@ -324,7 +349,7 @@ const MobileShowingsList: React.FC = () => {
       {/* 搜索栏和筛选按钮行 */}
       <div style={{
         background: 'transparent',
-        padding: '16px 20px',
+        padding: '0 20px',
         zIndex: 90
       }}>
         <div style={{
@@ -407,104 +432,7 @@ const MobileShowingsList: React.FC = () => {
         {loading && <Loading />}
       </div>
 
-      {/* 新增表单弹窗 */}
-      <MobileModal
-        visible={formVisible}
-        onClose={() => {
-          setFormVisible(false);
-          setFormData({
-            leadid: '',
-            scheduletime: '',
-            community: '',
-            showingsales: '',
-            viewresult: '',
-            budget: '',
-            renttime: '',
-            remark: ''
-          });
-        }}
-        title="新增带看记录"
-        height="80vh"
-      >
-        <Form layout="vertical" className="p-4">
-          <MobileInput
-            label="线索编号"
-            value={formData.leadid}
-            onChange={(value) => setFormData({ ...formData, leadid: value })}
-            placeholder="请输入线索编号"
-            required
-          />
-          
-          <MobileDateInput
-            label="预约时间"
-            value={formData.scheduletime}
-            onChange={(value) => setFormData({ ...formData, scheduletime: value })}
-            type="datetime-local"
-            required
-          />
-          
-          <MobileSelect
-            label="社区"
-            value={formData.community}
-            onChange={(value) => setFormData({ ...formData, community: value as string })}
-            options={communityOptions.map(c => ({ label: c, value: c }))}
-            required
-          />
-          
-          <MobileSelect
-            label="带看销售"
-            value={formData.showingsales}
-            onChange={(value) => setFormData({ ...formData, showingsales: value as string })}
-            options={salesOptions.map(s => ({ label: s.nickname, value: s.id }))}
-            required
-          />
-          
-          <MobileSelect
-            label="带看结果"
-            value={formData.viewresult}
-            onChange={(value) => setFormData({ ...formData, viewresult: value as string })}
-            options={viewResultOptions.map(r => ({ label: r.label, value: r.value }))}
-            required
-          />
-          
-          <MobileInput
-            label="预算"
-            value={formData.budget}
-            onChange={(value) => setFormData({ ...formData, budget: value })}
-            placeholder="请输入预算金额"
-            type="number"
-            required
-          />
-          
-          <MobileInput
-            label="租期(月)"
-            value={formData.renttime}
-            onChange={(value) => setFormData({ ...formData, renttime: value })}
-            placeholder="请输入租期月数"
-            type="number"
-            required
-          />
-          
-          <MobileInput
-            label="备注"
-            value={formData.remark}
-            onChange={(value) => setFormData({ ...formData, remark: value })}
-            placeholder="请输入备注信息"
-          />
-          
-          <div className="pt-4">
-            <MobileButton
-              onClick={() => handleSubmit(formData)}
-              type="primary"
-              size="large"
-              loading={submitting}
-              fullWidth
-            >
-              提交
-            </MobileButton>
-          </div>
-        </Form>
-      </MobileModal>
+
 
       {/* 编辑表单弹窗 */}
       <MobileModal
@@ -529,7 +457,16 @@ const MobileShowingsList: React.FC = () => {
           });
           setEditingShowing(null);
         }}
-        title="编辑带看记录"
+        title={
+          <div className="simple-title-container">
+            <div className="simple-title-main">
+              编辑带看记录
+            </div>
+            <div className="simple-title-sub">
+              {editingShowing?.leadid || '带看记录'}
+            </div>
+          </div>
+        }
         height="90vh"
       >
         <div className="p-4 space-y-4" style={{ 
@@ -562,30 +499,36 @@ const MobileShowingsList: React.FC = () => {
               required
             />
             
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-700">
-                实际带看管家
-                <span className="text-red-500 ml-1">*</span>
-              </div>
-              <MobileUserPicker
-                value={editFormData.trueshowingsales ? [editFormData.trueshowingsales] : []}
-                onChange={(value) => setEditFormData({ 
-                  ...editFormData, 
-                  trueshowingsales: value.length > 0 ? value[0] : '' 
-                })}
-                placeholder="请选择实际带看管家"
-                title="选择实际带看管家"
-                multiple={false}
-              />
-            </div>
-            
             <MobileSelect
-              label="看房结果"
-              value={editFormData.viewresult}
-              onChange={(value) => setEditFormData({ ...editFormData, viewresult: value as string })}
-              options={viewResultOptions.map(r => ({ label: r.label, value: r.value }))}
+              label="实际带看管家"
+              value={editFormData.trueshowingsales}
+              onChange={(value) => setEditFormData({ 
+                ...editFormData, 
+                trueshowingsales: value as string
+              })}
+              options={salesSelectOptions}
               required
             />
+            
+            <Form.Item
+              label="看房结果"
+              rules={[{ required: true, message: '请选择看房结果' }]}
+            >
+              <Selector
+                options={viewResultSelectOptions.map((option, index) => ({ 
+                  ...option, 
+                  key: `viewresult-edit-${option.value}-${index}` 
+                }))}
+                value={editFormData.viewresult ? [editFormData.viewresult] : []}
+                onChange={(value) => {
+                  setEditFormData({ 
+                    ...editFormData, 
+                    viewresult: value.length > 0 ? value[0] : '' 
+                  });
+                }}
+                multiple={false}
+              />
+            </Form.Item>
             
             <MobileInput
               label="预算"
@@ -648,7 +591,7 @@ const MobileShowingsList: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">社区</label>
               <Selector
-                options={communityOptions.map(c => ({ label: c, value: c }))}
+                options={communityOptions.map((c, index) => ({ label: c, value: c, key: `community-${c}-${index}` }))}
                 value={filters.community || []}
                 onChange={(value: string[]) => setFilters({ ...filters, community: value })}
                 multiple
@@ -658,7 +601,7 @@ const MobileShowingsList: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">带看结果</label>
               <Selector
-                options={viewResultOptions}
+                options={viewResultOptions.map((option, index) => ({ ...option, key: `viewresult-${option.value}-${index}` }))}
                 value={filters.viewresult || []}
                 onChange={(value: string[]) => setFilters({ ...filters, viewresult: value })}
                 multiple
@@ -668,7 +611,7 @@ const MobileShowingsList: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">带看销售</label>
               <Selector
-                options={salesOptions.map(s => ({ label: s.nickname, value: s.id }))}
+                options={salesOptions.map((s, index) => ({ label: s.nickname, value: s.id, key: `sales-${s.id}-${index}` }))}
                 value={filters.showingsales || []}
                 onChange={(value: number[]) => setFilters({ ...filters, showingsales: value })}
                 multiple

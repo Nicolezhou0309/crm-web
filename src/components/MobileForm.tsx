@@ -1,5 +1,5 @@
-import React from 'react';
-import { Form, Input, Selector, DatePicker, Button } from 'antd-mobile';
+import React, { useMemo, useState } from 'react';
+import { Form, Input, Picker, DatePicker, Button } from 'antd-mobile';
 import dayjs from 'dayjs';
 
 interface InputProps {
@@ -54,16 +54,62 @@ export const MobileSelect: React.FC<SelectProps> = ({
   required = false,
   disabled = false
 }) => {
+  const [visible, setVisible] = useState(false);
+
+  // 使用 useMemo 优化选项数据的创建
+  const pickerOptions = useMemo(() => {
+    return options.map((option, index) => ({
+      label: option.label,
+      value: option.value,
+      key: `${option.value}-${index}` // 添加唯一的key
+    }));
+  }, [options]);
+
+  // 获取显示文本
+  const getDisplayText = () => {
+    if (!value) return `请选择${label}`;
+    const selectedOption = options.find(option => option.value === value);
+    return selectedOption ? selectedOption.label : `请选择${label}`;
+  };
+
+  // 处理选择确认
+  const handleConfirm = (selectedValue: any) => {
+    if (selectedValue && selectedValue.length > 0) {
+      onChange(selectedValue[0]);
+    }
+    setVisible(false);
+  };
+
   return (
     <Form.Item
       label={label}
       rules={required ? [{ required: true, message: `请选择${label}` }] : []}
     >
-      <Selector
-        options={options}
-        value={value ? [value] : []}
-        onChange={(val) => onChange(val[0])}
+      <Button
+        onClick={() => {
+          if (!disabled) {
+            setVisible(true);
+          }
+        }}
         disabled={disabled}
+        fill="outline"
+        style={{
+          color: disabled ? '#999' : '#1890ff',
+          borderColor: disabled ? '#d9d9d9' : '#1890ff',
+          textAlign: 'left',
+          justifyContent: 'flex-start'
+        }}
+      >
+        {getDisplayText()}
+      </Button>
+      
+      <Picker
+        title={label}
+        columns={[pickerOptions]}
+        visible={visible}
+        onClose={() => setVisible(false)}
+        onConfirm={handleConfirm}
+        value={value ? [value] : []}
       />
     </Form.Item>
   );

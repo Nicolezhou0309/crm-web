@@ -790,7 +790,7 @@ const LeadsList: React.FC = () => {
         width={800}
         className="page-modal"
         centered
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={form}
