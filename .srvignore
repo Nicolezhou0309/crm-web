@@ -1,0 +1,24 @@
+# 忽略不需要部署的文件
+node_modules/
+.git/
+.gitignore
+README.md
+docs/
+tests/
+playwright-report/
+test-results/
+*.log
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.md
+!README.md
