@@ -120,7 +120,16 @@ const MetroDistanceCalculatorOptimized: React.FC = () => {
       if (useFrontendCalculation) {
         // 使用前端计算
         console.log('🚇 [前端计算] 使用前端算法计算通勤时间');
-        result = await frontendCommuteService.calculateMetroCommuteTime(fromStation, toStation);
+        const frontendResult = await frontendCommuteService.calculateMetroCommuteTime(fromStation, toStation);
+        // 转换类型以匹配组件期望的格式
+        result = {
+          ...frontendResult,
+          transfers: frontendResult.transfers.map(transfer => ({
+            station: transfer.station,
+            from_line: transfer.fromLine,
+            to_line: transfer.toLine
+          }))
+        };
       } else {
         // 使用数据库计算
         console.log('🚇 [数据库计算] 使用数据库算法计算通勤时间');

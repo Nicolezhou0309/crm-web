@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Card, Statistic, Row, Col, Alert, Button, Space } from 'antd';
-import { PerformanceOutlined, WarningOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { DashboardOutlined, WarningOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
 interface PerformanceMetrics {
   handlerName: string;
@@ -96,7 +96,7 @@ export const RealtimePerformanceMonitor: React.FC = () => {
       <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 1000 }}>
         <Button 
           type="primary" 
-          icon={<PerformanceOutlined />}
+          icon={<DashboardOutlined />}
           onClick={() => setIsVisible(true)}
           size="small"
         >
@@ -111,7 +111,7 @@ export const RealtimePerformanceMonitor: React.FC = () => {
       <Card 
         title={
           <Space>
-            <PerformanceOutlined />
+            <DashboardOutlined />
             实时性能监控
             <Button 
               type="text" 
