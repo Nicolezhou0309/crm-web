@@ -43,28 +43,25 @@ const CommunityRecommendations: React.FC<CommunityRecommendationsProps> = ({
   }, [commuteTimes]);
 
   useEffect(() => {
-    if (worklocation && userbudget && customerprofile && hasCommuteTimes) {
+    // 只有在有通勤时间数据或用户预算时才加载推荐
+    if (hasCommuteTimes || userbudget > 0) {
       loadRecommendations();
     }
   }, [worklocation, userbudget, customerprofile, hasCommuteTimes]);
 
   const loadRecommendations = async () => {
-    if (!hasCommuteTimes) {
-      setError('缺少通勤时间数据');
-      return;
-    }
-
     setLoading(true);
     setError(null);
     
     try {
       // 直接使用extended_data中的通勤时间数据计算推荐
+      // 如果没有通勤时间数据，传入空对象，服务会使用默认值0
       const data = await recommendationService.getRecommendationsWithCommuteTimes({
         worklocation,
         userbudget,
         customerprofile,
         followupId: Number(record.id),
-        commuteTimes: commuteTimes!
+        commuteTimes: commuteTimes || {}
       });
       
       setRecommendations(data);
@@ -100,23 +97,13 @@ const CommunityRecommendations: React.FC<CommunityRecommendationsProps> = ({
     );
   }
 
-  if (!worklocation || !userbudget || !customerprofile) {
+  // 如果没有通勤时间数据和用户预算，显示提示信息
+  if (!hasCommuteTimes && userbudget <= 0) {
     return (
       <div style={{ textAlign: 'center', padding: compact ? '12px' : '20px', color: '#999' }}>
         <span style={{ fontSize: compact ? '14px' : '16px', marginRight: '4px' }}>ℹ️</span>
         <span style={{ fontSize: compact ? '12px' : '14px' }}>
-          请完善工作地点、预算和客户画像信息
-        </span>
-      </div>
-    );
-  }
-
-  if (!hasCommuteTimes) {
-    return (
-      <div style={{ textAlign: 'center', padding: compact ? '12px' : '20px', color: '#999' }}>
-        <span style={{ fontSize: compact ? '14px' : '16px', marginRight: '4px' }}>⏳</span>
-        <span style={{ fontSize: compact ? '12px' : '14px' }}>
-          等待通勤时间数据加载...
+          请设置用户预算或计算通勤时间以获取社区推荐
         </span>
       </div>
     );
@@ -222,7 +209,7 @@ const CommunityRecommendations: React.FC<CommunityRecommendationsProps> = ({
             textAlign: 'left'
           }}>
             <Space split={<span style={{ color: '#d9d9d9', margin: '0 4px' }}>|</span>}>
-              <span>通勤: {rec.commuteTime}分钟</span>
+              <span>通勤: {rec.commuteTime >= 0 ? `${rec.commuteTime}分钟` : '未计算'}</span>
               <span>预算: {rec.budgetScore}分</span>
               <span>历史: {rec.historicalScore}分</span>
             </Space>

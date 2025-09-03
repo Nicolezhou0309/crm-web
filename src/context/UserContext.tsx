@@ -35,6 +35,9 @@ interface UserContextType {
   clearUserCache: () => void;
   sessionTimeRemaining: number;
   isSessionExpired: boolean;
+  // 新增：用户信息缓存功能
+  getCachedUserInfo: (userId: string) => Promise<{ displayName: string; nickname?: string; email?: string }>;
+  clearUserInfoCache: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -53,7 +56,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false); // 新增：profile 加载状态
   
-
+  // 用户信息缓存
+  const userInfoCache = useRef<Map<string, { 
+    data: { displayName: string; nickname?: string; email?: string }; 
+    timestamp: number; 
+  }>>(new Map());
   
   // 使用 useRef 来避免循环依赖
   const userRef = useRef(user);
@@ -260,6 +267,49 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('last_activity_timestamp');
   }, []);
 
+  // 获取缓存的用户信息
+  const getCachedUserInfo = useCallback(async (userId: string) => {
+    const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
+    const now = Date.now();
+    
+    // 检查缓存
+    const cached = userInfoCache.current.get(userId);
+    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+      return cached.data;
+    }
+
+    try {
+      // 异步获取用户信息，不阻塞主线程
+      const { data: userProfile } = await supabase
+        .from('users_profile')
+        .select('nickname, email')
+        .eq('id', userId)
+        .single();
+
+      const userInfo = {
+        displayName: userProfile?.nickname || userProfile?.email || '未知用户',
+        nickname: userProfile?.nickname,
+        email: userProfile?.email
+      };
+
+      // 缓存结果
+      userInfoCache.current.set(userId, {
+        data: userInfo,
+        timestamp: now
+      });
+
+      return userInfo;
+    } catch (error) {
+      console.error('获取用户信息失败:', error);
+      return { displayName: '未知用户' };
+    }
+  }, []);
+
+  // 清除用户信息缓存
+  const clearUserInfoCache = useCallback(() => {
+    userInfoCache.current.clear();
+  }, []);
+
   useEffect(() => {
     // 简化的初始化逻辑，避免循环
     const initUser = async () => {
@@ -366,6 +416,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearUserCache,
     sessionTimeRemaining,
     isSessionExpired: sessionTimeRemaining <= 0,
+    getCachedUserInfo,
+    clearUserInfoCache,
   };
 
   return (

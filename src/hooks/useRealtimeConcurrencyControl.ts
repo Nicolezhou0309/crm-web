@@ -22,6 +22,7 @@ export const useRealtimeConcurrencyControl = () => {
   const [currentUserLocks, setCurrentUserLocks] = useState<Set<string>>(new Set());
   const [isConnected, setIsConnected] = useState(false);
   const lockTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  const { getCachedUserInfo } = useUser();
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { user } = useUser();
 
@@ -448,36 +449,39 @@ export const useRealtimeConcurrencyControl = () => {
         schema: 'public',
         table: 'live_stream_schedules'
       }, async (payload) => {
-        console.log('📡 [Realtime] 收到 INSERT 事件:', {
-          eventType: 'INSERT',
-          table: 'live_stream_schedules',
-          payload: {
-            new: payload.new,
-            commit_timestamp: payload.commit_timestamp
-          }
-        });
+        const startTime = performance.now();
         
-        const schedule = payload.new;
+        try {
+          console.log('📡 [Realtime] 收到 INSERT 事件:', {
+            eventType: 'INSERT',
+            table: 'live_stream_schedules',
+            payload: {
+              new: payload.new,
+              commit_timestamp: payload.commit_timestamp
+            }
+          });
+          
+          const schedule = payload.new;
 
-        // 获取创建用户信息
-        console.log('👤 [Realtime] 开始获取创建用户信息:', { created_by: schedule.created_by });
-        const { data: userProfile } = await supabase
-            .from('users_profile')
-            .select('nickname, email')
-            .eq('id', schedule.created_by)
-            .single();
-
-        const userName = userProfile?.nickname || userProfile?.email || '未知用户';
-        console.log('✅ [Realtime] 获取到创建用户信息:', { 
-          created_by: schedule.created_by, 
-          user_name: userName,
-          user_profile: userProfile 
-        });
-
-        // 显示通知
-        const notificationMessage = `${userName} 报名了 ${schedule.date} ${schedule.time_slot_id}`;
-        console.log('📢 [Realtime] 显示通知:', notificationMessage);
-        message.success(notificationMessage);
+          // 立即显示基础通知，异步更新用户信息
+          const basicMessage = `有人报名了 ${schedule.date} ${schedule.time_slot_id}`;
+          message.success(basicMessage);
+          
+          // 异步获取详细用户信息并更新通知（使用缓存）
+          getCachedUserInfo(schedule.created_by.toString()).then(userInfo => {
+            if (userInfo.displayName !== '未知用户') {
+              const detailedMessage = `${userInfo.displayName} 报名了 ${schedule.date} ${schedule.time_slot_id}`;
+              // 可以在这里添加更详细的通知逻辑
+              console.log('📢 [Realtime] 详细通知:', detailedMessage);
+            }
+          });
+          
+        } finally {
+          const duration = performance.now() - startTime;
+          if (duration > 100) {
+            console.warn(`⚠️ [实时性能] INSERT 事件处理耗时 ${duration.toFixed(2)}ms`);
+          }
+        }
       })
       .on('system', { event: 'disconnect' }, () => {
         console.log('🔌 [Realtime] 系统断开连接');

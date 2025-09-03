@@ -96,6 +96,53 @@ const processFormValues = (values: any): any => {
   return processedValues;
 };
 
+// 🆕 验证更新对象，确保数据有效性
+const validateUpdateObject = (updateObj: any, recordId: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  // 检查 ID 是否存在
+  if (!recordId) {
+    errors.push('记录ID不能为空');
+  }
+  
+  // 检查更新对象是否为空
+  if (!updateObj || Object.keys(updateObj).length === 0) {
+    errors.push('更新对象不能为空');
+  }
+  
+  // 检查每个字段的值
+  Object.entries(updateObj).forEach(([key, value]) => {
+    // 检查是否有循环引用
+    try {
+      JSON.stringify(value);
+    } catch (e) {
+      errors.push(`字段 ${key} 包含循环引用`);
+    }
+    
+    // 检查日期字段格式
+    if (key === 'moveintime' || key === 'scheduletime') {
+      if (value && typeof value === 'string') {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) {
+          errors.push(`字段 ${key} 的日期格式无效: ${value}`);
+        }
+      }
+    }
+    
+    // 检查数字字段
+    if (key === 'userbudget') {
+      if (value !== null && value !== undefined && value !== '' && isNaN(Number(value))) {
+        errors.push(`字段 ${key} 必须是数字: ${value}`);
+      }
+    }
+  });
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
 export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
   open,
   onClose,
@@ -263,15 +310,43 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
             }
           });
           
-          // 保存到数据库
-          const { error } = await supabase
+          // 验证更新对象
+          const validation = validateUpdateObject(updateObj, record.id);
+          if (!validation.isValid) {
+            console.error('❌ [自动保存数据验证失败] 更新对象验证失败:', validation.errors);
+            message.warning(`数据验证失败: ${validation.errors.join(', ')}`);
+            return;
+          }
+          
+          // 保存到数据库，添加详细错误日志
+          console.log('🔍 [调试] 自动保存请求参数:', {
+            table: 'followups',
+            id: record.id,
+            updateObj: updateObj,
+            updateObjKeys: Object.keys(updateObj)
+          });
+          
+          const { error, data } = await supabase
             .from('followups')
             .update(updateObj)
-            .eq('id', record.id);
+            .eq('id', record.id)
+            .select();
           
           if (error) {
+            console.error('❌ [自动保存错误] 详细错误信息:', {
+              code: error.code,
+              message: error.message,
+              details: error.details,
+              hint: error.hint,
+              requestParams: {
+                table: 'followups',
+                id: record.id,
+                updateObj: updateObj
+              }
+            });
             message.warning('数据保存失败，请检查网络连接');
           } else {
+            console.log('✅ [自动保存成功] 更新成功:', data);
             // 只有在没有手动保存过的情况下才显示自动保存提示
             if (!hasManualSavedRef.current) {
               message.success('数据已自动保存');
@@ -548,6 +623,17 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
       
       // 合并额外字段（如阶段推进）
       const updateObj = { ...followupValues, ...additionalFields };
+      
+      // 🆕 检查是否是阶段推进操作
+      const isStageChange = additionalFields && additionalFields.followupstage;
+      if (isStageChange) {
+        updateObj._stageChange = true;
+      }
+
+      // 🆕 检查工作地点是否更新，如果更新则自动触发通勤时间计算
+      const originalWorklocation = record.worklocation;
+      const newWorklocation = updateObj.worklocation;
+      const worklocationChanged = newWorklocation && newWorklocation !== originalWorklocation;
 
       // 保存到数据库
       const { error } = await supabase
@@ -562,9 +648,32 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
       // 🆕 标记已手动保存，避免关闭时重复提示
       hasManualSavedRef.current = true;
       
-      // 通知父组件更新
+      // 通知父组件更新 - 使用乐观更新
       if (onSave) {
         onSave(record, updateObj);
+      }
+      
+      // 🆕 如果工作地点更新，自动触发通勤时间计算
+      if (worklocationChanged) {
+        console.log(`🚀 [FollowupStageDrawer] 保存成功，开始自动通勤时间计算`);
+        
+        // 延迟1秒后触发通勤时间计算，确保数据库更新完成
+        setTimeout(async () => {
+          try {
+            const { error: commuteError } = await supabase.rpc('calculate_commute_times_for_worklocation', {
+              p_followup_id: record.id,
+              p_worklocation: newWorklocation
+            });
+            
+            if (commuteError) {
+              console.error('❌ [FollowupStageDrawer] 自动通勤时间计算失败:', commuteError);
+            } else {
+              console.log('✅ [FollowupStageDrawer] 自动通勤时间计算已触发');
+            }
+          } catch (error) {
+            console.error('❌ [FollowupStageDrawer] 自动通勤时间计算异常:', error);
+          }
+        }, 1000);
       }
       
       // 如果没有额外字段，则不自动关闭抽屉
@@ -668,9 +777,10 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
       placement="bottom"
       open={open}
       onClose={handleUnifiedClose}
-      destroyOnClose
+      destroyOnHidden
       height="60vh"
       className="followup-stage-drawer"
+      maskClosable={true}
       footer={
         <div style={{ 
           display: 'flex', 
@@ -938,14 +1048,95 @@ export const FollowupStageDrawer: React.FC<FollowupStageDrawerProps> = ({
                   });
                   
                   
-                  // 保存到数据库
-                  const { error } = await supabase
-                    .from('followups')
-                    .update(safeUpdateObj)
-                    .eq('id', record.id);
+                  // 🆕 检查工作地点是否更新，如果更新则自动触发通勤时间计算
+                  const originalWorklocation = record.worklocation;
+                  const newWorklocation = safeUpdateObj.worklocation;
+                  const worklocationChanged = newWorklocation && newWorklocation !== originalWorklocation;
+                  
+                  if (worklocationChanged) {
+                    console.log(`🚀 [FollowupStageDrawer] 工作地点更新，自动触发通勤时间计算:`, {
+                      recordId: record.id,
+                      oldWorklocation: originalWorklocation,
+                      newWorklocation: newWorklocation
+                    });
+                  }
+
+                  // 保存到数据库，添加重试机制和详细错误日志
+                  let retryCount = 0;
+                  const maxRetries = 3;
+                  let error: any = null;
+                  
+                  // 验证更新对象
+                  const validation = validateUpdateObject(safeUpdateObj, record.id);
+                  if (!validation.isValid) {
+                    console.error('❌ [数据验证失败] 更新对象验证失败:', validation.errors);
+                    throw new Error(`数据验证失败: ${validation.errors.join(', ')}`);
+                  }
+                  
+                  // 记录请求参数用于调试
+                  console.log('🔍 [调试] 数据库更新请求参数:', {
+                    table: 'followups',
+                    id: record.id,
+                    updateObj: safeUpdateObj,
+                    updateObjKeys: Object.keys(safeUpdateObj),
+                    updateObjValues: Object.values(safeUpdateObj).map(v => 
+                      typeof v === 'object' && v !== null ? '[Object]' : v
+                    )
+                  });
+                  
+                  while (retryCount < maxRetries) {
+                    try {
+                      const { error: updateError, data } = await supabase
+                        .from('followups')
+                        .update(safeUpdateObj)
+                        .eq('id', record.id)
+                        .select(); // 添加 select 以获取更详细的错误信息
+                      
+                      if (updateError) {
+                        console.error('❌ [数据库错误] 详细错误信息:', {
+                          code: updateError.code,
+                          message: updateError.message,
+                          details: updateError.details,
+                          hint: updateError.hint,
+                          requestParams: {
+                            table: 'followups',
+                            id: record.id,
+                            updateObj: safeUpdateObj
+                          }
+                        });
+                        throw updateError;
+                      }
+                      
+                      console.log('✅ [数据库成功] 更新成功:', data);
+                      // 成功保存，跳出重试循环
+                      error = null;
+                      break;
+                    } catch (retryError: any) {
+                      error = retryError;
+                      retryCount++;
+                      
+                      console.error(`❌ [数据库重试] 第${retryCount}次尝试失败:`, {
+                        error: retryError,
+                        code: retryError.code,
+                        message: retryError.message,
+                        details: retryError.details,
+                        hint: retryError.hint
+                      });
+                      
+                      // 如果是超时错误且还有重试次数，等待后重试
+                      if (retryError.code === '57014' && retryCount < maxRetries) {
+                        console.warn(`⏰ [数据库超时] 第${retryCount}次重试...`);
+                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // 递增延迟
+                        continue;
+                      }
+                      
+                      // 其他错误或重试次数用完，直接抛出
+                      throw retryError;
+                    }
+                  }
                   
                   if (error) {
-                    console.error('下一步保存失败:', error);
+                    console.error('❌ [最终失败] 下一步保存失败:', error);
                     throw error;
                   }
                   

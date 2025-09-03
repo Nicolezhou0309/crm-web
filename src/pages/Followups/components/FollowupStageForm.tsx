@@ -44,6 +44,7 @@ const stageFields: Record<string, string[]> = {
 
 // 字段标签映射 - 只包含 followups 表中实际存在的字段
 const getFieldLabel = (field: string, currentStage?: string): string => {
+  console.log('🔍 [getFieldLabel] 函数调用:', { field, currentStage });
   const labelMap: Record<string, string> = {
     customerprofile: '用户画像',
     worklocation: '工作地点',
@@ -62,28 +63,15 @@ const getFieldLabel = (field: string, currentStage?: string): string => {
   
   // 根据当前阶段动态调整字段标签
   if (currentStage === '丢单' && field === 'followupresult') {
+    console.log('🔍 [getFieldLabel] 返回丢单原因');
     return '丢单原因';
   }
-  return labelMap[field] || field;
+  const result = labelMap[field] || field;
+  console.log('🔍 [getFieldLabel] 返回结果:', { field, result });
+  return result;
 };
 
-// 查找级联选择器的路径
-const findCascaderPath = (options: any[], value: string): string[] => {
-  if (!value || !options) return [];
-  
-  for (const option of options) {
-    if (option.value === value) {
-      return [option.value];
-    }
-    if (option.children) {
-      const childPath = findCascaderPath(option.children, value);
-      if (childPath.length > 0) {
-        return [option.value, ...childPath];
-      }
-    }
-  }
-  return [];
-};
+
 
 export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
   form,
@@ -101,59 +89,58 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
   enableManualAssign = false,
   onAllocationModeChange,
 }) => {
-  // 检查数据是否已加载
+  // 添加调试信息
+  console.log('🔍 [FollowupStageForm] 组件开始渲染:', { stage, record: record?.id });
+  
+  // 早期错误检查 - 必须在所有 Hooks 之前
+  if (!form) {
+    console.error('❌ [FollowupStageForm] form 参数为空');
+    return <div>表单参数错误</div>;
+  }
+  
+  if (!stage) {
+    console.warn('⚠️ [FollowupStageForm] stage 参数为空');
+    return <div>阶段参数为空</div>;
+  }
+
+  // 检查数据是否已加载 - 使用更安全的方式避免循环引用
   const isDataLoaded = useMemo(() => {
     return {
-      community: communityEnum && communityEnum.length > 0,
-      followupstage: followupstageEnum && followupstageEnum.length > 0,
-      customerprofile: customerprofileEnum && customerprofileEnum.length > 0,
-      userrating: userratingEnum && userratingEnum.length > 0,
-      majorCategory: majorCategoryOptions && majorCategoryOptions.length > 0,
-      metroStation: metroStationOptions && metroStationOptions.length > 0
+      community: Array.isArray(communityEnum) && communityEnum.length > 0,
+      followupstage: Array.isArray(followupstageEnum) && followupstageEnum.length > 0,
+      customerprofile: Array.isArray(customerprofileEnum) && customerprofileEnum.length > 0,
+      userrating: Array.isArray(userratingEnum) && userratingEnum.length > 0,
+      majorCategory: Array.isArray(majorCategoryOptions) && majorCategoryOptions.length > 0,
+      metroStation: Array.isArray(metroStationOptions) && metroStationOptions.length > 0
     };
-  }, [communityEnum, followupstageEnum, customerprofileEnum, userratingEnum, majorCategoryOptions, metroStationOptions]);
+  }, [
+    communityEnum, 
+    followupstageEnum, 
+    customerprofileEnum, 
+    userratingEnum, 
+    majorCategoryOptions, 
+    metroStationOptions
+  ]);
 
-
-  // 已到店阶段和赢单阶段不显示表单，因为它们在抽屉组件中单独处理
-  if (stage === '已到店' || stage === '赢单') {
-    return null;
-  }
-  
-  // 如果阶段为空字符串或未定义，不渲染任何内容（等待状态更新）
-  if (!stage || stage === '') {
-    return null;
-  }
-  
-  // 检查关键数据是否已加载
-  const requiredDataLoaded = isDataLoaded.followupstage && isDataLoaded.customerprofile && 
-                             isDataLoaded.userrating && isDataLoaded.community && 
-                             isDataLoaded.majorCategory && isDataLoaded.metroStation;
-  
-  // 如果关键数据未加载完成，显示加载状态
-  if (!requiredDataLoaded) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px 20px', color: '#999' }}>
-        <p>正在加载表单数据...</p>
-        <p>请稍候</p>
-      </div>
-    );
-  }
-  
   // 获取当前阶段需要的字段
-  const currentFields = stageFields[stage] || [];
+  const currentFields = useMemo(() => stageFields[stage] || [], [stage]);
   
-  // 如果没有字段，显示提示信息
-  if (currentFields.length === 0) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px 20px', color: '#999' }}>
-        <p>当前阶段无需填写额外信息</p>
-        <p>点击"下一步"继续推进</p>
-      </div>
-    );
-  }
+  // 检查当前阶段是否需要特定数据
+  const needsCommunityData = currentFields.includes('scheduledcommunity');
+  const needsCustomerProfileData = currentFields.includes('customerprofile');
+  const needsUserRatingData = currentFields.includes('userrating');
+  const needsMajorCategoryData = currentFields.includes('majorcategory');
+  const needsMetroStationData = currentFields.includes('worklocation');
+  
+  // 根据当前阶段需要的字段检查数据是否已加载
+  const requiredDataLoaded = (!needsCommunityData || isDataLoaded.community) &&
+                             (!needsCustomerProfileData || isDataLoaded.customerprofile) &&
+                             (!needsUserRatingData || isDataLoaded.userrating) &&
+                             (!needsMajorCategoryData || isDataLoaded.majorCategory) &&
+                             (!needsMetroStationData || isDataLoaded.metroStation);
 
   // 处理表单值变化，确保日期字段为 dayjs 对象
-  const handleValuesChange = (changed: any) => {
+  const handleValuesChange = useCallback((changed: any) => {
     const dateFields = ['moveintime', 'scheduletime'];
     let needSet = false;
     const patch: any = {};
@@ -174,10 +161,10 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
     if (needSet) {
       form.setFieldsValue(patch);
     }
-  };
+  }, [form]);
 
   // 渲染桌面端字段
-  const renderDesktopField = (field: string, label: string, isRequired: boolean) => {
+  const renderDesktopField = useCallback((field: string, label: string, isRequired: boolean) => {
     const formItemProps = {
       name: field,
       label,
@@ -240,7 +227,7 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
         return (
           <Form.Item {...formItemProps}>
             <Cascader
-              options={metroStationOptions}
+              options={Array.isArray(metroStationOptions) ? metroStationOptions : []}
               placeholder={`请选择${label}`}
               showSearch
               changeOnSelect={false}
@@ -296,7 +283,7 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
       case 'majorcategory':
         return (
           <Form.Item {...formItemProps}>
-            {majorCategoryOptions && majorCategoryOptions.length > 0 ? (
+            {Array.isArray(majorCategoryOptions) && majorCategoryOptions.length > 0 ? (
               <Cascader
                 options={majorCategoryOptions}
                 placeholder={`请选择${label}`}
@@ -337,11 +324,13 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
           </Form.Item>
         );
     }
-  };
+  }, [followupstageEnum, customerprofileEnum, userratingEnum, majorCategoryOptions, metroStationOptions, isFieldDisabled, stage, form]);
 
   // 渲染单个字段
-  const renderField = (field: string) => {
+  const renderField = useCallback((field: string) => {
+    console.log('🔍 [FollowupStageForm] renderField 调用:', { field, stage });
     const label = getFieldLabel(field, stage);
+    console.log('🔍 [FollowupStageForm] getFieldLabel 结果:', { field, stage, label });
     
     // 确认需求阶段的所有字段都是必填项，除了入住时间
     let isRequired = false;
@@ -354,10 +343,10 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
 
     // 使用桌面端组件
     return renderDesktopField(field, label, isRequired);
-  };
+  }, [stage, renderDesktopField]);
 
   // 根据阶段渲染不同的布局
-  const renderStageFields = () => {
+  const renderStageFields = useCallback(() => {
     // 根据阶段使用不同布局
     if (stage === '确认需求') {
       // 确认需求阶段使用三栏布局
@@ -393,10 +382,10 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
         </div>
       );
     }
-  };
+  }, [stage, currentFields, renderField]);
 
   // 🆕 渲染邀约到店阶段的特殊布局（包含分配模式切换）
-  const renderInviteToStoreFields = () => {
+  const renderInviteToStoreFields = useCallback(() => {
     if (stage !== '邀约到店') return null;
     
     return (
@@ -478,7 +467,35 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
         </div>
       </div>
     );
-  };
+  }, [stage, enableManualAssign, onAllocationModeChange, isFieldDisabled, communityEnum]);
+
+  // 如果关键数据未加载完成，显示加载状态
+  if (!requiredDataLoaded) {
+    return (
+      <div style={{ 
+        textAlign: 'center', 
+        padding: '40px 20px', 
+        color: '#999' 
+      }}>
+        <p>正在加载表单数据...</p>
+        <p>请稍候</p>
+      </div>
+    );
+  }
+  
+  // 如果没有字段，显示提示信息
+  if (currentFields.length === 0) {
+    return (
+      <div style={{ 
+        textAlign: 'center', 
+        padding: '40px 20px', 
+        color: '#999' 
+      }}>
+        <p>当前阶段无需填写额外信息</p>
+        <p>点击"下一步"继续推进</p>
+      </div>
+    );
+  }
 
   // 如果是不需要表单的阶段，返回空的Form组件
   if (stage === '已到店' || stage === '赢单') {

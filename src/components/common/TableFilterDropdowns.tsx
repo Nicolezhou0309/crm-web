@@ -379,8 +379,8 @@ export const HierarchicalLocationFilterDropdown: React.FC<FilterDropdownPropsExt
       if (line.children) {
         line.children.forEach((station: any) => {
           // 确保站点名称不包含"站"字
-          const stationName = station.value.replace(/站$/, '');
-          const stationLabel = station.label.replace(/站$/, '');
+                  const stationName = station.value;
+        const stationLabel = station.label;
           stations.push({
             label: stationLabel,
             value: stationName
@@ -405,7 +405,7 @@ export const HierarchicalLocationFilterDropdown: React.FC<FilterDropdownPropsExt
       // 如果选择了具体站点，优先使用站点选择
       selectedStations.forEach(station => {
         // 🆕 修复：确保传递的是站点名称，不是带"站"字的完整名称
-        const stationName = station.replace(/站$/, ''); // 移除末尾的"站"字
+        const stationName = station;
         finalKeys.push(stationName);
       });
       
@@ -420,7 +420,7 @@ export const HierarchicalLocationFilterDropdown: React.FC<FilterDropdownPropsExt
       if (line && line.children) {
         line.children.forEach((station: any) => {
           // 🆕 修复：确保传递的是站点名称，不是带"站"字的完整名称
-          const stationName = station.value.replace(/站$/, ''); // 移除末尾的"站"字
+          const stationName = station.value;
           finalKeys.push(stationName);
         });
         

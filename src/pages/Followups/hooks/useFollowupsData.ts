@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { message } from 'antd';
 import { supabase } from '../../../supaClient';
 import dayjs from 'dayjs';
+import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import type { 
   FollowupRecord, 
   PaginationState, 
@@ -50,17 +51,11 @@ export const useFollowupsData = () => {
     }
   }, []);
 
-  // 初始化时自动加载数据
+  // 自动初始化加载 - 页面挂载时自动加载数据
   useEffect(() => {
-    // 延迟调用，确保 fetchFollowups 已经定义
-    const timer = setTimeout(() => {
-      if (typeof fetchFollowups === 'function') {
-        fetchFollowups();
-      }
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, []); // 保持空依赖，避免循环依赖
+    // 组件挂载时自动加载数据，使用空的筛选条件
+    fetchFollowups({}, 1, pagination.pageSize);
+  }, []); // 只在组件挂载时执行一次
 
   // 允许的参数（与SQL函数声明一致）
   const allowedParams = [
@@ -83,7 +78,7 @@ export const useFollowupsData = () => {
 
   const fetchFollowups = useCallback(async (
     filters: FilterParams = {},
-    page = pagination.current,
+    page = currentPageRef.current || pagination.current,
     pageSize = pagination.pageSize,
     append = false // 是否追加数据而不是替换
   ) => {
@@ -95,9 +90,7 @@ export const useFollowupsData = () => {
     if (!filters || Object.keys(filters).length === 0) {
       // 🆕 关键修复：初始加载和追加模式都允许空的筛选条件
       if (page === 1 && !append) {
-        console.log('🔄 [useFollowupsData] 初始加载，允许空的筛选条件');
       } else if (append) {
-        console.log('🔄 [useFollowupsData] 追加模式，允许空的筛选条件继续加载');
       } else {
         console.warn('⚠️ [useFollowupsData] 检测到空的筛选条件:', {
           filters,
@@ -111,15 +104,6 @@ export const useFollowupsData = () => {
     
     // 🆕 关键修复：如果是追加模式，检查筛选条件是否发生变化
     if (append && newFiltersHash !== currentFiltersHash) {
-      console.log('🔄 [useFollowupsData] 追加模式下筛选条件发生变化:', {
-        newFiltersHash,
-        currentFiltersHash,
-        filters,
-        append,
-        page,
-        timestamp: new Date().toISOString()
-      });
-      
       // 🆕 关键修复：避免递归调用，直接返回，让调用方处理
       return;
     }
@@ -205,15 +189,6 @@ export const useFollowupsData = () => {
         'p_douyinleadid', 'p_leadstatus'
       ];
       
-      // 🆕 添加工作地点筛选条件日志
-      if (params.p_worklocation) {
-        console.log('🔍 [useFollowupsData] 工作地点筛选条件:', {
-          original: params.p_worklocation,
-          type: typeof params.p_worklocation,
-          isArray: Array.isArray(params.p_worklocation),
-          length: Array.isArray(params.p_worklocation) ? params.p_worklocation.length : 'N/A'
-        });
-      }
 
       // 确保所有数组参数都是数组类型
       arrayParams.forEach(key => {
@@ -280,13 +255,6 @@ export const useFollowupsData = () => {
         Object.entries(params).filter(([key]) => allowedParams.includes(key) || key === 'p_groupby_field')
       );
 
-      // 🆕 添加RPC调用前的参数日志
-      console.log('🔍 [useFollowupsData] RPC调用参数:', {
-        allParams: params,
-        rpcParams: rpcParams,
-        worklocationParam: rpcParams.p_worklocation,
-        timestamp: new Date().toISOString()
-      });
 
       const { data: responseData, error } = await supabase.rpc('filter_followups', rpcParams);
       
@@ -296,18 +264,7 @@ export const useFollowupsData = () => {
         return;
       }
 
-      // 🆕 添加RPC调用成功后的数据日志
-      console.log('✅ [useFollowupsData] RPC调用成功:', {
-        responseDataLength: responseData?.length || 0,
-        worklocationFilter: rpcParams.p_worklocation,
-        sampleData: responseData?.slice(0, 3)?.map((item: any) => ({
-          id: item.id,
-          leadid: item.leadid,
-          worklocation: item.worklocation,
-          created_at: item.created_at
-        })),
-        timestamp: new Date().toISOString()
-      });
+
       
 
       // 🆕 优化：尝试获取总数，如果不存在则使用实际数据长度
@@ -444,9 +401,9 @@ export const useFollowupsData = () => {
           setLocalData(safeData);
           localDataRef.current = safeData;
         }
-        setPagination(prev => ({ ...prev, total, current: 1, pageSize }));
+        setPagination(prev => ({ ...prev, total, current: page, pageSize }));
         // 🆕 同步更新当前页数引用
-        currentPageRef.current = 1;
+        currentPageRef.current = page;
       }
       
       // 🆕 保存当前筛选条件和哈希值
@@ -466,7 +423,8 @@ export const useFollowupsData = () => {
         setData([]);
         setLocalData([]);
         localDataRef.current = [];
-        setPagination(prev => ({ ...prev, total: 0, current: 1 }));
+        setPagination(prev => ({ ...prev, total: 0, current: page }));
+        currentPageRef.current = page;
 
       } else {
 
@@ -476,44 +434,41 @@ export const useFollowupsData = () => {
       setLoadingMore(false);
 
     }
-  }, [pagination.current, pagination.pageSize]); // 保持最小依赖，避免循环依赖
+  }, []); // 移除pagination依赖，避免使用过时状态
+
+  // 🆕 优化：使用防抖来减少频繁的状态更新
+  const debouncedUpdateState = useDebouncedCallback((newData: FollowupRecord[]) => {
+    setLocalData(newData);
+    setData(newData);
+  }, 100); // 100ms 防抖
 
   const updateLocalData = useCallback((id: string, field: keyof FollowupRecord, value: any) => {
-    
     // 🆕 修复：优先使用 localDataRef 中的最新数据
     const currentData = localDataRef.current.length > 0 ? localDataRef.current : data;
     const recordIndex = currentData.findIndex(item => item.id === id);
     
-
     if (recordIndex === -1) {
-      console.warn('⚠️ [useFollowupsData] 未找到要更新的记录', { id, field, value });
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ [useFollowupsData] 未找到要更新的记录', { id, field, value });
+      }
       return;
+    }
+    
+    // 检查值是否真的发生了变化
+    const currentRecord = currentData[recordIndex];
+    if (currentRecord[field] === value) {
+      return; // 值没有变化，不需要更新
     }
     
     const newData = [...currentData];
     newData[recordIndex] = { ...newData[recordIndex], [field]: value };
     
-
-    // 🆕 修复：先更新 ref，再更新 state，确保数据一致性
+    // 🆕 修复：先更新 ref，确保数据一致性
     localDataRef.current = newData;
     
-    // 🆕 修复：同时更新 localData 和 data 状态
-    setLocalData(newData);
-    setData(newData);
-    
-    // 🆕 新增：强制触发重新渲染
-    setForceUpdate(prev => prev + 1);
-    
-
-    // 🆕 特别记录卡片数据更新后的状态
-    const updatedRecord = newData[recordIndex];
-    // 🆕 验证状态更新是否成功
-    setTimeout(() => {
-      // 🆕 修复：使用 ref 中的最新数据来验证，而不是可能过时的 state
-      const currentData = localDataRef.current.find(item => item.id === id);
-
-    }, 100);
-  }, []); // 🆕 修复：移除 data 依赖，避免函数重新创建导致的状态更新问题
+    // 🆕 优化：使用防抖更新状态，减少频繁重渲染
+    debouncedUpdateState(newData);
+  }, [data, debouncedUpdateState]); // 保留必要依赖
 
   // 🆕 优化：检查是否还有更多数据，考虑筛选条件变化的情况
   const hasMore = useMemo(() => {
@@ -561,14 +516,12 @@ export const useFollowupsData = () => {
       
       // 🆕 关键修复：处理无筛选条件的情况，确保无限滚动正常工作
       if (!currentFilters || Object.keys(currentFilters).length === 0) {
-        console.log('🔄 [useFollowupsData] loadMore 无筛选条件，使用空对象继续加载');
         // 即使没有筛选条件，也允许加载更多，这是正常的初始状态
         await fetchFollowups({}, nextPage, pagination.pageSize, true);
       } else {
         await fetchFollowups(currentFilters, nextPage, pagination.pageSize, true);
       }
     } else {
-      console.log('🔄 [useFollowupsData] loadMore 已无更多数据');
     }
   }, [loadingMore, hasMore, pagination.current, pagination.pageSize, pagination.total, data.length, fetchFollowups]); // 保持必要依赖
 
@@ -598,22 +551,21 @@ export const useFollowupsData = () => {
       setLocalData([]);
       localDataRef.current = [];
       
-      // 🆕 关键修复：重置分页和加载状态，确保分页状态完全重置
+      // 🆕 修复：筛选后重置到第一页，这是筛选逻辑的标准做法
       setPagination(prev => ({ 
         ...prev, 
-        current: 1, 
         total: 0,
-        // 🆕 确保分页状态完全重置
+        current: 1, // 筛选后从第一页开始
         pageSize: prev.pageSize 
       }));
       setLoadingMore(false);
       
-      // 🆕 关键修复：强制重置当前页数引用，避免分页状态不一致
+      // 🆕 修复：重置当前页数引用到第一页
       currentPageRef.current = 1;
       
       // 🆕 关键修复：使用 Promise 确保数据获取完成后再继续
       try {
-        await fetchFollowups(newFilters, 1, pagination.pageSize);
+        await fetchFollowups(newFilters, 1, pagination.pageSize); // 从第一页开始加载
         
         // 🆕 关键修复：不再等待状态更新，让 React 自然处理
       } catch (error) {
@@ -625,10 +577,8 @@ export const useFollowupsData = () => {
       // 🆕 关键修复：当没有新筛选条件时，使用当前筛选条件或空对象
       const currentFilters = currentFiltersRef.current;
       if (currentFilters && Object.keys(currentFilters).length > 0) {
-        console.log('🔄 [useFollowupsData] refreshData 使用当前筛选条件刷新数据');
         fetchFollowups(currentFilters);
       } else {
-        console.log('🔄 [useFollowupsData] refreshData 无筛选条件，使用空对象刷新数据');
         fetchFollowups({});
       }
     }
@@ -636,7 +586,22 @@ export const useFollowupsData = () => {
 
   const resetPagination = useCallback(() => {
     setPagination(prev => ({ ...prev, current: 1 }));
+    currentPageRef.current = 1;
   }, []); // 无依赖，使用 ref 避免循环依赖
+
+  // 🆕 新增：分页状态同步函数
+  const syncPaginationState = useCallback((newPagination: Partial<PaginationState>) => {
+    console.log('🔄 [useFollowupsData] 同步分页状态:', {
+      old: pagination,
+      new: newPagination,
+      currentPageRef: currentPageRef.current
+    });
+    
+    setPagination(prev => ({ ...prev, ...newPagination }));
+    if (newPagination.current !== undefined) {
+      currentPageRef.current = newPagination.current;
+    }
+  }, [pagination]);
 
   return {
     data,
@@ -652,6 +617,7 @@ export const useFollowupsData = () => {
     loadMore,
     resetPagination,
     setPagination,
+    syncPaginationState,
     setData,
     setLocalData,
     setForceUpdate

@@ -727,6 +727,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const { getCachedUserInfo } = useUser();
   const [editingSchedule, setEditingSchedule] = useState<LiveStreamSchedule | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<Dayjs>(dayjs());
   const [form] = Form.useForm();

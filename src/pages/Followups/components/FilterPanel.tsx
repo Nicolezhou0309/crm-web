@@ -23,7 +23,9 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
 
   // 获取筛选条件数量
   const getFilterCount = (): number => {
-    return Object.keys(filters).length;
+    // 排除初始化标记，只计算真正的筛选条件
+    const realFilters = Object.keys(filters).filter(key => key !== '_initialized');
+    return realFilters.length;
   };
 
   // 获取用户昵称
@@ -121,9 +123,9 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
         return;
       }
 
-      // 跳过特殊字段
+      // 跳过特殊字段和内部标记
       if (['p_keyword', 'p_created_at_start', 'p_created_at_end', 'p_moveintime_start', 'p_moveintime_end', 
-           'p_scheduletime_start', 'p_scheduletime_end', 'p_scheduletime_not_null'].includes(key)) {
+           'p_scheduletime_start', 'p_scheduletime_end', 'p_scheduletime_not_null', '_initialized'].includes(key)) {
         return;
       }
 

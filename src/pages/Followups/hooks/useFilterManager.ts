@@ -10,7 +10,9 @@ export const useFilterManager = () => {
 
   // 初始化时设置默认筛选条件
   useEffect(() => {
-    // 可以在这里设置一些默认的筛选条件
+    // 设置一个初始化的标记，确保页面加载时会触发数据加载
+    // 使用一个微小的状态变化来触发筛选条件变化的useEffect
+    setFilters({ _initialized: true });
   }, []);
 
   // 统一的筛选参数处理函数 - 确保明细和分组使用相同的参数格式
@@ -42,8 +44,9 @@ export const useFilterManager = () => {
     ];
     
     Object.entries(rawFilters).forEach(([key, value]) => {
-      if (value === null || value === undefined || value === '') {
-        return; // 跳过空值
+      // 跳过初始化标记和空值
+      if (key === '_initialized' || value === null || value === undefined || value === '') {
+        return;
       }
       
       // 处理数组参数
@@ -145,7 +148,7 @@ export const useFilterManager = () => {
 
   // 重置所有筛选条件
   const resetAllFilters = useCallback(() => {
-    setFilters({});
+    setFilters({ _initialized: true });
     setColumnFilters({});
     setKeywordSearch('');
     setQuickDateKey(null);

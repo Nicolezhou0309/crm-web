@@ -28,7 +28,7 @@ const debounce = (func: (...args: any[]) => void, wait: number) => {
 };
 
 export const useRealtimeNotifications = () => {
-  const { user } = useUser();
+  const { user, getCachedUserInfo } = useUser();
   const [profileId, setProfileId] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -77,7 +77,9 @@ export const useRealtimeNotifications = () => {
     loadNotifications(profileId);
     
     // 2. 订阅实时通知
-    console.log('[useRealtimeNotifications] 启用 realtime 功能，profileId:', profileId);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useRealtimeNotifications] 启用 realtime 功能，profileId:', profileId);
+    }
     
     const channel = supabase
       .channel(`public:notifications`)
@@ -86,7 +88,9 @@ export const useRealtimeNotifications = () => {
         schema: 'public',
         table: 'notifications'
       }, (payload) => {
-        console.log('[Realtime][INSERT] 收到新通知:', payload);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Realtime][INSERT] 收到新通知:', payload);
+        }
         const newNotification = payload.new as Notification;
         if (newNotification.user_id !== profileId) return;
         setNotifications(prev => {
@@ -104,7 +108,9 @@ export const useRealtimeNotifications = () => {
         schema: 'public',
         table: 'notifications'
       }, (payload) => {
-        console.log('[Realtime][UPDATE] 通知更新:', payload);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Realtime][UPDATE] 通知更新:', payload);
+        }
         const updatedNotification = payload.new as Notification;
         if (updatedNotification.user_id !== profileId) return;
         setNotifications(prev => {
@@ -119,7 +125,9 @@ export const useRealtimeNotifications = () => {
         schema: 'public',
         table: 'notifications'
       }, (payload) => {
-        console.log('[Realtime][DELETE] 通知删除:', payload);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Realtime][DELETE] 通知删除:', payload);
+        }
         if (payload.old.user_id !== profileId) return;
         setNotifications(prev => {
           const result = prev.filter(n => n.id !== payload.old.id);
@@ -132,9 +140,13 @@ export const useRealtimeNotifications = () => {
         setLastUpdate(Date.now());
       })
       .subscribe((status) => {
-        console.log('[Realtime] 订阅状态:', status);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Realtime] 订阅状态:', status);
+        }
         if (status === 'SUBSCRIBED') {
-          console.log('[Realtime] ✅ 实时通知订阅成功!');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[Realtime] ✅ 实时通知订阅成功!');
+          }
         } else if (status === 'CHANNEL_ERROR') {
           console.error('[Realtime] ❌ 实时通知订阅失败');
         }
@@ -157,11 +169,11 @@ export const useRealtimeNotifications = () => {
     setUnreadCount(count);
   }, []);
 
-  // 防抖的未读数量更新
+  // 防抖的未读数量更新 - 增加防抖时间，减少频繁更新
   const debouncedUpdateUnreadCount = useCallback(
     debounce((arr: Notification[]) => {
       updateUnreadCount(arr);
-    }, 300),
+    }, 500), // 增加防抖时间到500ms
     [updateUnreadCount]
   );
 

@@ -76,15 +76,20 @@ const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
     };
   }, [isVisible, onLogout, timeRemaining]);
 
-  // 重置倒计时
+  // 重置倒计时 - 只在时间差异较大时重置，避免频繁重置
   useEffect(() => {
-    logCountdownEvent('倒计时重置', { 
-      oldTime: countdown,
-      newTime: timeRemaining,
-      reason: 'timeRemaining prop changed'
-    });
-    setCountdown(timeRemaining);
-  }, [timeRemaining]);
+    const timeDiff = Math.abs(countdown - timeRemaining);
+    // 只有当时间差异超过5秒时才重置，避免频繁重置
+    if (timeDiff > 5000) {
+      logCountdownEvent('倒计时重置', { 
+        oldTime: countdown,
+        newTime: timeRemaining,
+        timeDiff: timeDiff,
+        reason: 'timeRemaining prop changed significantly'
+      });
+      setCountdown(timeRemaining);
+    }
+  }, [timeRemaining, countdown]);
 
   const handleExtend = async () => {
     logCountdownEvent('用户点击延长会话', { 

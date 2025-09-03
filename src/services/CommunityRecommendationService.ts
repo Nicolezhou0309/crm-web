@@ -226,17 +226,36 @@ export class CommunityRecommendationService {
     
     let reason = `${communityName}社区推荐理由：`;
     
-    if (commuteScore >= 85) {
-      reason += `通勤时间优秀(${commuteTime}分钟)`;
-    } else if (commuteScore >= 70) {
-      reason += `通勤时间良好(${commuteTime}分钟)`;
-    } else if (commuteScore >= 50) {
-      reason += `通勤时间一般(${commuteTime}分钟)`;
+    // 通勤时间部分
+    if (commuteTime >= 0) {
+      if (commuteScore >= 85) {
+        reason += `通勤时间优秀(${commuteTime}分钟)`;
+      } else if (commuteScore >= 70) {
+        reason += `通勤时间良好(${commuteTime}分钟)`;
+      } else if (commuteScore >= 50) {
+        reason += `通勤时间一般(${commuteTime}分钟)`;
+      } else {
+        reason += `通勤时间较长(${commuteTime}分钟)`;
+      }
     } else {
-      reason += `通勤时间较长(${commuteTime}分钟)`;
+      reason += `通勤时间未计算(默认50分)`;
     }
     
-    reason += `，预算匹配度${budgetScore}分，历史成交率${historicalScore}分，综合评分${totalScore}分`;
+    // 预算匹配度部分
+    if (budgetScore > 0) {
+      reason += `，预算匹配度${budgetScore}分`;
+    } else {
+      reason += `，预算信息缺失(默认50分)`;
+    }
+    
+    // 历史成交率部分
+    if (historicalScore > 0) {
+      reason += `，历史成交率${historicalScore}分`;
+    } else {
+      reason += `，历史数据缺失(默认50分)`;
+    }
+    
+    reason += `，综合评分${totalScore}分`;
     
     return reason;
   }
@@ -283,25 +302,31 @@ export class CommunityRecommendationService {
 
       for (const community of communities) {
         try {
-          // 使用传入的通勤时间数据
-          const commuteTime = params.commuteTimes[community.community];
-          if (commuteTime === undefined || commuteTime === null) {
-            console.warn(`⚠️ [社区推荐] 社区 ${community.community} 没有通勤时间数据，跳过`);
+          // 使用传入的通勤时间数据，如果没有则默认为0
+          const commuteTime = params.commuteTimes[community.community] || 0;
+
+          // 计算通勤评分（如果没有通勤时间数据，通勤评分为50分；0分钟表示就在地铁站，给100分）
+          const commuteScore = commuteTime >= 0 ? this.getCommuteScore(commuteTime) : 50;
+          
+          // 计算预算匹配评分（如果没有预算数据，预算评分为50分）
+          const budgetScore = params.userbudget > 0 ? 
+            this.getBudgetScore(params.userbudget, community.lowest_price, community.highest_price) : 50;
+          
+          // 计算历史成交率评分（如果没有用户画像数据，历史评分为50分）
+          const conversionRate = params.customerprofile ? 
+            this.getConversionRate(community.conversion_rates, params.customerprofile) : 0;
+          const historicalScore = params.customerprofile ? this.getHistoricalScore(conversionRate) : 50;
+          
+          // 计算综合评分（即使某些字段缺失，也计算总分）
+          const totalScore = Math.round(commuteScore * 0.4 + budgetScore * 0.4 + historicalScore * 0.2);
+          
+          // 只有在有有效数据时才添加推荐（需要有通勤时间数据或用户预算）
+          const hasCommuteData = commuteTime >= 0 && Object.keys(params.commuteTimes).length > 0;
+          const hasBudgetData = params.userbudget > 0;
+          const hasValidData = hasCommuteData || hasBudgetData;
+          if (!hasValidData) {
             continue;
           }
-
-          // 计算通勤评分
-          const commuteScore = this.getCommuteScore(commuteTime);
-          
-          // 计算预算匹配评分
-          const budgetScore = this.getBudgetScore(params.userbudget, community.lowest_price, community.highest_price);
-          
-          // 计算历史成交率评分
-          const conversionRate = this.getConversionRate(community.conversion_rates, params.customerprofile);
-          const historicalScore = this.getHistoricalScore(conversionRate);
-          
-          // 计算综合评分
-          const totalScore = Math.round(commuteScore * 0.4 + budgetScore * 0.4 + historicalScore * 0.2);
           
           // 生成推荐理由
           const reason = this.buildRecommendationReason(community, {

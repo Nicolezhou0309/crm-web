@@ -115,6 +115,7 @@ export const useEnumData = () => {
       }, {} as Record<string, typeof metroData>);
 
       // 构建Cascader选项结构，按线路数字顺序排列，站点保持原有顺序
+      // 使用深拷贝避免循环引用，确保每个对象都是独立的
       const options = Object.entries(lineGroups)
         .sort(([lineA], [lineB]) => {
           // 提取数字进行排序
@@ -124,15 +125,18 @@ export const useEnumData = () => {
           };
           return getLineNumber(lineA) - getLineNumber(lineB);
         })
-        .map(([line, stations]) => ({
-          value: line,
-          label: line,
-          // 站点保持数据库中的原有顺序，不进行额外排序
-          children: stations.map(station => ({
-            value: station.name,
-            label: station.name
-          }))
-        }));
+        .map(([line, stations]) => {
+          // 创建完全独立的对象，避免任何可能的循环引用
+          const lineOption = {
+            value: String(line), // 确保值是字符串
+            label: String(line), // 确保标签是字符串
+            children: stations.map(station => ({
+              value: String(station.name), // 确保值是字符串
+              label: String(station.name)  // 确保标签是字符串
+            }))
+          };
+          return lineOption;
+        });
 
       setMetroStationOptions(options);
       

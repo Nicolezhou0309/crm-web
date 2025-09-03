@@ -75,8 +75,7 @@ const MobileMultiLevelSelector: React.FC<MobileMultiLevelSelectorProps> = ({
       // 🆕 优化：同时选择路线和站点时，以站点选择为准
       if (selectedStations.length > 0) {
         // 如果选择了具体站点，优先使用站点选择
-        const stationNames = selectedStations.map(station => station.replace(/站$/, ''));
-        finalValues = stationNames;
+        finalValues = selectedStations;
         
         console.log('🔍 [MobileMultiLevelSelector] 使用站点选择:', {
           selectedStations,
@@ -88,7 +87,7 @@ const MobileMultiLevelSelector: React.FC<MobileMultiLevelSelectorProps> = ({
         const line = options.find(line => line.value === selectedLine);
         if (line?.children) {
           // 🆕 修复：确保传递的是站点名称，不是带"站"字的完整名称
-          finalValues = line.children.map(station => station.value.replace(/站$/, ''));
+          finalValues = line.children.map(station => station.value);
           
           console.log('🔍 [MobileMultiLevelSelector] 使用线路选择（所有站点）:', {
             selectedLine,

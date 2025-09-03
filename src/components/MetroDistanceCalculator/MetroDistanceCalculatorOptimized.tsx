@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Select, Button, Card, Tag, Space, Divider, List, Typography, Alert, message } from 'antd';
+import { Select, Button, Card, Tag, Space, Divider, List, Typography, Alert, message, Switch } from 'antd';
 import { SearchOutlined, ClockCircleOutlined, EnvironmentOutlined, InfoCircleOutlined, DatabaseOutlined } from '@ant-design/icons';
 import { supabase } from '../../supaClient';
+import FrontendCommuteCalculationService from '../../services/FrontendCommuteCalculationService';
 import './MetroDistanceCalculator.css';
 
 const { Option } = Select;
@@ -40,6 +41,15 @@ const MetroDistanceCalculatorOptimized: React.FC = () => {
   const [allStations, setAllStations] = useState<MetroStation[]>([]);
   const [loading, setLoading] = useState(false);
   const [systemStats, setSystemStats] = useState<any>(null);
+  
+  // 前端计算相关状态
+  const [useFrontendCalculation, setUseFrontendCalculation] = useState(false);
+  const [frontendCommuteService] = useState(() => FrontendCommuteCalculationService.getInstance());
+  
+  // 批量计算相关状态
+  const [batchCalculating, setBatchCalculating] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, currentCommunity: '' });
+  const [batchResult, setBatchResult] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     fetchAllStations();
@@ -99,23 +109,44 @@ const MetroDistanceCalculatorOptimized: React.FC = () => {
     }
   };
 
-  // 调用数据库函数计算通勤时间
+  // 计算通勤时间（支持数据库和前端两种方式）
   const handleCalculate = async () => {
     if (!fromStation || !toStation) return;
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .rpc('calculate_metro_commute_time', {
-          p_start_station: fromStation,
-          p_end_station: toStation
-        });
+      let result: MetroCommuteResult;
 
-      if (error) throw error;
+      if (useFrontendCalculation) {
+        // 使用前端计算
+        console.log('🚇 [前端计算] 使用前端算法计算通勤时间');
+        result = await frontendCommuteService.calculateMetroCommuteTime(fromStation, toStation);
+      } else {
+        // 使用数据库计算
+        console.log('🚇 [数据库计算] 使用数据库算法计算通勤时间');
+        const { data, error } = await supabase
+          .rpc('calculate_metro_commute_time', {
+            p_start_station: fromStation,
+            p_end_station: toStation
+          });
+
+        if (error) throw error;
+        result = data;
+      }
       
-      if (data) {
-        setCommuteResult(data);
-        message.success('计算完成！');
+      if (result) {
+        // 转换前端计算结果格式以匹配组件期望的类型
+        const convertedResult: MetroCommuteResult = {
+          ...result,
+          transfers: result.transfers.map(transfer => ({
+            station: transfer.station,
+            from_line: (transfer as any).fromLine || transfer.from_line,
+            to_line: (transfer as any).toLine || transfer.to_line
+          }))
+        };
+        setCommuteResult(convertedResult);
+        const method = useFrontendCalculation ? '前端' : '数据库';
+        message.success(`${method}计算完成！`);
       }
     } catch (error: any) {
       console.error('计算通勤信息时出错:', error);
@@ -147,6 +178,46 @@ const MetroDistanceCalculatorOptimized: React.FC = () => {
     fetchAllStations();
     fetchSystemStats();
     message.success('数据已刷新');
+  };
+
+  // 批量计算通勤时间（测试功能）
+  const handleBatchCalculate = async () => {
+    if (!fromStation) {
+      message.warning('请先选择起始站点');
+      return;
+    }
+
+    setBatchCalculating(true);
+    setBatchProgress({ current: 0, total: 0, currentCommunity: '' });
+    setBatchResult(null);
+
+    try {
+      const result = await frontendCommuteService.calculateCommuteTimesForWorklocation(
+        'test-followup-id', // 测试用的跟进记录ID
+        fromStation,
+        {
+          maxCommunities: 10, // 限制计算10个社区进行测试
+          onProgress: (current, total, community) => {
+            setBatchProgress({ current, total, currentCommunity: community });
+          },
+          onComplete: (commuteTimes) => {
+            setBatchResult(commuteTimes);
+            message.success(`批量计算完成！共计算 ${Object.keys(commuteTimes).length} 个社区`);
+          }
+        }
+      );
+
+      if (result.success) {
+        console.log('✅ 批量计算成功:', result);
+      } else {
+        message.error(`批量计算失败: ${result.error}`);
+      }
+    } catch (error: any) {
+      console.error('❌ 批量计算异常:', error);
+      message.error(`批量计算异常: ${error.message}`);
+    } finally {
+      setBatchCalculating(false);
+    }
   };
 
   return (
@@ -256,6 +327,34 @@ const MetroDistanceCalculatorOptimized: React.FC = () => {
               </Select>
             </div>
 
+            {/* 计算方式切换开关 */}
+            <div style={{ marginBottom: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '6px' }}>
+              <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
+                <Space>
+                  <DatabaseOutlined style={{ color: '#1890ff' }} />
+                  <Text strong>计算方式：</Text>
+                </Space>
+                <Space>
+                  <Text style={{ color: !useFrontendCalculation ? '#1890ff' : undefined }}>数据库</Text>
+                  <Switch
+                    checked={useFrontendCalculation}
+                    onChange={setUseFrontendCalculation}
+                    checkedChildren="前端"
+                    unCheckedChildren="数据库"
+                  />
+                  <Text style={{ color: useFrontendCalculation ? '#1890ff' : undefined }}>前端</Text>
+                </Space>
+              </Space>
+              <div style={{ marginTop: '8px' }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  {useFrontendCalculation 
+                    ? '使用前端算法计算，避免数据库超时问题' 
+                    : '使用数据库Dijkstra算法计算，结果更准确'
+                  }
+                </Text>
+              </div>
+            </div>
+
             <Button
               type="primary"
               size="large"
@@ -265,7 +364,7 @@ const MetroDistanceCalculatorOptimized: React.FC = () => {
               style={{ width: '100%' }}
               loading={loading}
             >
-              {loading ? '计算中...' : '计算通勤时间'}
+              {loading ? '计算中...' : `计算通勤时间 (${useFrontendCalculation ? '前端' : '数据库'})`}
             </Button>
 
             <Button
@@ -282,6 +381,69 @@ const MetroDistanceCalculatorOptimized: React.FC = () => {
             >
               测试：莘庄 → 人民广场
             </Button>
+
+            {/* 批量计算测试按钮 */}
+            <Button
+              type="default"
+              size="large"
+              onClick={handleBatchCalculate}
+              disabled={!fromStation || batchCalculating}
+              loading={batchCalculating}
+              style={{ width: '100%', marginTop: '8px' }}
+            >
+              {batchCalculating ? '批量计算中...' : '批量计算测试 (前端)'}
+            </Button>
+
+            {/* 批量计算进度显示 */}
+            {batchCalculating && (
+              <div style={{ marginTop: '12px', padding: '12px', background: '#f0f8ff', borderRadius: '6px' }}>
+                <Text strong>批量计算进度：</Text>
+                <div style={{ marginTop: '8px' }}>
+                  <Text>
+                    {batchProgress.current} / {batchProgress.total} 
+                    {batchProgress.currentCommunity && ` - 当前: ${batchProgress.currentCommunity}`}
+                  </Text>
+                </div>
+                <div style={{ marginTop: '4px' }}>
+                  <div style={{ 
+                    width: '100%', 
+                    height: '8px', 
+                    background: '#e6f7ff', 
+                    borderRadius: '4px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%`,
+                      height: '100%',
+                      background: '#1890ff',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 批量计算结果显示 */}
+            {batchResult && (
+              <div style={{ marginTop: '12px', padding: '12px', background: '#f6ffed', borderRadius: '6px' }}>
+                <Text strong>批量计算结果：</Text>
+                <div style={{ marginTop: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                  {Object.entries(batchResult).map(([community, time]) => (
+                    <div key={community} style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      padding: '4px 0',
+                      borderBottom: '1px solid #f0f0f0'
+                    }}>
+                      <Text>{community}</Text>
+                      <Text style={{ color: time < 60 ? '#52c41a' : time < 90 ? '#faad14' : '#f5222d' }}>
+                        {time}分钟
+                      </Text>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </Space>
         </Card>
 

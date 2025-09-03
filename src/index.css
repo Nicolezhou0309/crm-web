@@ -482,9 +482,6 @@ button:focus-visible {
   background: #e6f7ff;
   box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
 }
-.group-btn-title {
-  font-weight: 500;
-}
 .group-btn-count {
   color: #1677ff;
   font-weight: 600;
@@ -535,8 +532,6 @@ button:focus-visible {
 }
 
 .group-panel-sidebar.open {
-  width: 280px;
-  min-width: 280px;
   margin-right: 16px;
   opacity: 1;
   pointer-events: auto;

@@ -430,12 +430,12 @@ const MobileFollowups: React.FC = () => {
       filterManager?.setFilters?.(rpcFilters);
       
       // 🆕 使用新的筛选条件刷新数据
-              try {
-          console.log('🔄 [MobileFollowups] 开始快速筛选数据刷新');
-          const startTime = toBeijingTime(new Date()).valueOf();
-          await followupsData?.refreshData?.(rpcFilters);
-          const endTime = toBeijingTime(new Date()).valueOf();
-          console.log('✅ [MobileFollowups] 快速筛选数据刷新完成，耗时:', endTime - startTime, 'ms');
+      try {
+        console.log('🔄 [MobileFollowups] 开始快速筛选数据刷新');
+        const startTime = toBeijingTime(new Date()).valueOf();
+        await followupsData?.refreshData?.(rpcFilters);
+        const endTime = toBeijingTime(new Date()).valueOf();
+        console.log('✅ [MobileFollowups] 快速筛选数据刷新完成，耗时:', endTime - startTime, 'ms');
           
                     // 🆕 立即检查数据状态（不延迟）
           console.log('🔍 [MobileFollowups] 快速筛选数据刷新后立即检查:', {
@@ -650,31 +650,21 @@ const MobileFollowups: React.FC = () => {
       // 🆕 更新筛选器状态
       filterManager?.setFilters?.(rpcFilters);
       
-      // 🆕 使用新的筛选条件刷新数据，这会自动清理现有数据并重置分页
-              try {
+      // 🆕 使用新的筛选条件刷新数据，这会自动清理现有数据并重置分页到第一页
+      try {
+        // 🆕 优化：减少日志输出，只在开发环境记录
+        if (process.env.NODE_ENV === 'development') {
           console.log('🔄 [MobileFollowups] 开始刷新数据，筛选条件:', rpcFilters);
-          const startTime = toBeijingTime(new Date()).valueOf();
-          await followupsData?.refreshData?.(rpcFilters);
-          const endTime = toBeijingTime(new Date()).valueOf();
-          console.log('✅ [MobileFollowups] 数据刷新完成，耗时:', endTime - startTime, 'ms');
-          
-          // 🆕 立即检查数据状态（不延迟）
-          console.log('🔍 [MobileFollowups] 数据刷新后立即检查:', {
-            dataLength: followupsData?.data?.length || 0,
-            total: followupsData?.pagination?.total || 0,
-            currentPage: followupsData?.pagination?.current || 1,
-            pageSize: followupsData?.pagination?.pageSize || 20,
-            hasMore: followupsData?.hasMore,
-            loading: followupsData?.loading,
-            loadingMore: followupsData?.loadingMore,
-            appliedFilters: rpcFilters
-          });
-          
-          // 🆕 使用 useEffect 监听数据变化，而不是延迟检查
-          // 这样可以确保在数据实际更新后再进行检查
-        } catch (error) {
-          console.error('⚠️ [MobileFollowups] 筛选条件变更刷新数据失败:', error);
         }
+        
+        await followupsData?.refreshData?.(rpcFilters);
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ [MobileFollowups] 数据刷新完成');
+        }
+      } catch (error) {
+        console.error('⚠️ [MobileFollowups] 筛选条件变更刷新数据失败:', error);
+      }
       
       // 🆕 关闭筛选抽屉
       setFilterDrawerOpen(false);
@@ -722,7 +712,7 @@ const MobileFollowups: React.FC = () => {
       } else if (updatedFields._stageChange) {
         message.success('阶段推进成功');
       } else {
-        followupsData?.refreshData?.();
+        // 🆕 使用乐观更新，不触发全局刷新
         message.success('保存成功');
       }
     } catch (error) {
@@ -977,14 +967,14 @@ const MobileFollowups: React.FC = () => {
                       // 如果选择了线路，添加该线路下的所有站点
                       const stationValues = line.children.map((station: any) => {
                         // 🆕 修复：确保传递的是站点名称，不是带"站"字的完整名称
-                        return station.value.replace(/站$/, '');
+                        return station.value;
                       });
                       allStationValues.push(...stationValues);
                       console.log(`🔍 [MobileFollowups] 线路 ${lineValue} 下的站点:`, stationValues);
                     } else {
                       // 如果没有子级，可能是单独的站点值
                       // 🆕 修复：确保传递的是站点名称，不是带"站"字的完整名称
-                      const stationName = lineValue.replace(/站$/, '');
+                      const stationName = lineValue;
                       allStationValues.push(stationName);
                       console.log(`🔍 [MobileFollowups] 单独站点值:`, stationName);
                     }

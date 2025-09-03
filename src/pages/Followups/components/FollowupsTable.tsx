@@ -1,9 +1,12 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { Table, Button, Tag, Typography, InputNumber, Select, DatePicker, Cascader, Input, Tooltip } from 'antd';
+import { Table, Button, Tag, Typography, InputNumber, Select, DatePicker, Cascader, Input, Tooltip, message } from 'antd';
 import { CopyOutlined, UserOutlined } from '@ant-design/icons';
 import type { FollowupRecord, PaginationState, ColumnFilters, EnumOption, MetroStationOption, MajorCategoryOption } from '../types';
 import { getFollowupsTableFilters } from './TableFilterConfig';
 import CommunityRecommendations from '../../../components/Followups/components/CommunityRecommendations';
+// import CommuteTimeButton from '../../../components/CommuteTimeButton'; // 取消单独的计算按钮
+import { supabase } from '../../../supaClient';
+import { useCommuteTimeRealtime } from '../../../hooks/useCommuteTimeRealtime';
 import locale from 'antd/es/date-picker/locale/zh_CN';
 import dayjs from 'dayjs';
 
@@ -17,88 +20,129 @@ const RecommendationTag: React.FC<{
 }> = ({ record, isExpanded, onToggleExpand }) => {
   const [topRecommendation, setTopRecommendation] = useState<{ community: string; score: number; reasons: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // 使用优化的通勤时间计算 hook
+  const { startCalculation, isCalculating } = useCommuteTimeRealtime();
 
-  useEffect(() => {
-    const loadTopRecommendation = async () => {
-      // 只有有工作地点、预算和用户画像的记录才加载推荐
-      if (!(record.worklocation && record.userbudget && record.customerprofile)) {
-        return;
+  // 计算通勤时间 - 使用优化的realtime hook
+  const calculateCommuteTimes = useCallback(async () => {
+    if (!record.worklocation) {
+      message.warning('工作地点缺失，无法计算通勤时间');
+      return;
+    }
+    
+    await startCalculation(
+      record.id,
+      record.worklocation,
+      // 成功回调
+      (result) => {
+        console.log('✅ 通勤时间计算成功:', result);
+        // 重新加载推荐数据
+        loadTopRecommendation();
+      },
+      // 错误回调
+      (error) => {
+        console.error('❌ 通勤时间计算失败:', error);
       }
+    );
+  }, [record.id, record.worklocation, startCalculation]);
 
-      setLoading(true);
-      try {
-        // 调用真实的推荐服务获取数据
-        const recommendationService = (await import('../../../services/CommunityRecommendationService')).default.getInstance();
+
+
+  // 加载推荐数据
+  const loadTopRecommendation = async () => {
+    // 只有在有通勤时间数据或用户预算时才加载推荐
+    const hasCommuteTimes = record.extended_data?.commute_times && 
+      Object.keys(record.extended_data.commute_times).length > 0;
+    const hasBudget = Number(record.userbudget) > 0;
+    
+    if (!(hasCommuteTimes || hasBudget)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 调用真实的推荐服务获取数据
+      const recommendationService = (await import('../../../services/CommunityRecommendationService')).default.getInstance();
+      
+      const recommendations = await recommendationService.getRecommendationsWithCommuteTimes({
+        worklocation: record.worklocation || '',
+        userbudget: Number(record.userbudget) || 0,
+        customerprofile: record.customerprofile || '',
+        followupId: Number(record.id),
+        commuteTimes: record.extended_data?.commute_times || {}
+      });
+      
+      if (recommendations && recommendations.length > 0) {
+        // 按分数排序，取第一
+        const sorted = recommendations.sort((a: any, b: any) => b.score - a.score);
+        const topRec = sorted[0];
         
-        const recommendations = await recommendationService.getRecommendationsWithCommuteTimes({
-          worklocation: record.worklocation || '',
-          userbudget: Number(record.userbudget) || 0,
-          customerprofile: record.customerprofile || '',
-          followupId: Number(record.id),
-          commuteTimes: record.extended_data?.commute_times || {}
-        });
-        
-        if (recommendations && recommendations.length > 0) {
-          // 按分数排序，取第一
-          const sorted = recommendations.sort((a: any, b: any) => b.score - a.score);
-          const topRec = sorted[0];
-          
-          // 分析推荐理由
-          const reasons = [];
+        // 分析推荐理由
+        const reasons = [];
+        // 只有在有实际通勤时间数据时才推荐通勤相关的标签（包括0分钟）
+        if (topRec.commuteTime >= 0) {
           if (topRec.commuteTime <= 30) reasons.push('通勤近');
           else if (topRec.commuteTime <= 60) reasons.push('通勤适中');
-          if (topRec.budgetScore >= 90) reasons.push('预算匹配');
-          if (topRec.historicalScore >= 85) reasons.push('历史成交好');
-          if (topRec.score >= 90) reasons.push('综合推荐');
-          
-          setTopRecommendation({
-            community: topRec.community,
-            score: topRec.score,
-            reasons: reasons
-          });
         }
-      } catch (error) {
-        console.error('加载推荐失败:', error);
-        // 如果推荐服务失败，尝试从 extended_data 中获取缓存的推荐
-        if (record.extended_data?.community_recommendations) {
-          try {
-            const cachedRecommendations = record.extended_data.community_recommendations;
-            if (Array.isArray(cachedRecommendations) && cachedRecommendations.length > 0) {
-              const sorted = cachedRecommendations.sort((a: any, b: any) => b.score - a.score);
-              const topRec = sorted[0];
-              
-              // 分析缓存数据的推荐理由
-              const reasons = [];
+        if (topRec.budgetScore >= 90) reasons.push('预算匹配');
+        if (topRec.historicalScore >= 85) reasons.push('成交率高');
+        
+        setTopRecommendation({
+          community: topRec.community,
+          score: topRec.score,
+          reasons: reasons
+        });
+      }
+    } catch (error) {
+      console.error('加载推荐失败:', error);
+      // 如果推荐服务失败，尝试从 extended_data 中获取缓存的推荐
+      if (record.extended_data?.community_recommendations) {
+        try {
+          const cachedRecommendations = record.extended_data.community_recommendations;
+          if (Array.isArray(cachedRecommendations) && cachedRecommendations.length > 0) {
+            const sorted = cachedRecommendations.sort((a: any, b: any) => b.score - a.score);
+            const topRec = sorted[0];
+            
+            // 分析缓存数据的推荐理由
+            const reasons = [];
+            // 只有在有实际通勤时间数据时才推荐通勤相关的标签（包括0分钟）
+            if (topRec.commuteTime >= 0) {
               if (topRec.commuteTime <= 30) reasons.push('通勤近');
               else if (topRec.commuteTime <= 60) reasons.push('通勤适中');
-              if (topRec.budgetScore >= 90) reasons.push('预算匹配');
-              if (topRec.historicalScore >= 85) reasons.push('历史成交好');
-              if (topRec.score >= 90) reasons.push('综合推荐');
-              
-              setTopRecommendation({
-                community: topRec.community,
-                score: topRec.score,
-                reasons: reasons
-              });
             }
-          } catch (cacheError) {
-            console.error('读取缓存推荐失败:', cacheError);
+            if (topRec.budgetScore >= 90) reasons.push('预算匹配');
+            if (topRec.historicalScore >= 85) reasons.push('成交率高');
+            
+            setTopRecommendation({
+              community: topRec.community,
+              score: topRec.score,
+              reasons: reasons
+            });
           }
+        } catch (cacheError) {
+          console.error('读取缓存推荐失败:', cacheError);
         }
-      } finally {
-        setLoading(false);
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadTopRecommendation();
-  }, [record.worklocation, record.userbudget, record.customerprofile, record.extended_data]);
+  }, [record.worklocation, record.userbudget, record.customerprofile, record.extended_data?.commute_times]);
 
   // 如果没有必要信息，不显示标签
-  if (!(record.worklocation && record.userbudget && record.customerprofile)) {
+  const hasCommuteTimes = record.extended_data?.commute_times && 
+    Object.keys(record.extended_data.commute_times).length > 0;
+  const hasBudget = Number(record.userbudget) > 0;
+  
+  if (!(hasCommuteTimes || hasBudget)) {
     return null;
   }
 
-  if (loading) {
+  if (loading || isCalculating(record.id)) {
     return (
       <div style={{ 
         padding: '6px 8px', 
@@ -111,12 +155,18 @@ const RecommendationTag: React.FC<{
         fontSize: '12px',
         color: '#666'
       }}>
-        <span>计算中...</span>
+        <span>{isCalculating(record.id) ? '计算通勤中...' : '计算推荐中...'}</span>
       </div>
     );
   }
 
   if (!topRecommendation) {
+    // 检查是否有通勤时间数据
+    const hasCommuteTimes = record.extended_data?.commute_times && 
+      Object.keys(record.extended_data.commute_times).length > 0;
+    
+
+    
     return (
       <div style={{ 
         padding: '6px 8px', 
@@ -130,6 +180,14 @@ const RecommendationTag: React.FC<{
         color: '#666'
       }}>
         <span>推荐社区</span>
+        <Button
+          type="link"
+          size="small"
+          onClick={calculateCommuteTimes}
+          style={{ padding: '0', height: 'auto', fontSize: '12px' }}
+        >
+          计算通勤
+        </Button>
       </div>
     );
   }
@@ -191,6 +249,11 @@ const RecommendationTag: React.FC<{
           
 
         </div>
+      </div>
+      
+      {/* 右侧操作按钮 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+        {/* 通勤时间相关按钮 - 已移除地铁站icon按钮 */}
       </div>
     </div>
   );
@@ -526,9 +589,10 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
       onCell: () => ({ style: { minWidth: 160, maxWidth: 'none', whiteSpace: 'nowrap' } }),
       render: (_: any, record: FollowupRecord) => {
         const isExpanded = expandedRowKeys.includes(record.id);
-        const canExpand = !!(record.worklocation && record.userbudget && record.customerprofile);
-        
-
+        const hasCommuteTimes = record.extended_data?.commute_times && 
+          Object.keys(record.extended_data.commute_times).length > 0;
+        const hasBudget = Number(record.userbudget) > 0;
+        const canExpand = !!(hasCommuteTimes || hasBudget);
         
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -693,7 +757,7 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
               if (selectedOptions && selectedOptions.length > 1) {
                 // 只保存站点名称，不保存线路信息（与旧页面保持一致）
                 // 🆕 修复：确保保存的是站点名称，不是带"站"字的完整名称
-                selectedText = selectedOptions[1].label.replace(/站$/, '');
+                selectedText = selectedOptions[1].label;
               } else if (selectedOptions && selectedOptions.length === 1) {
                 // 只有一级选项时，保存线路名称
                 selectedText = selectedOptions[0].label;
@@ -981,8 +1045,11 @@ export const FollowupsTable: React.FC<FollowupsTableCompleteProps> = ({
           </div>
         ),
         rowExpandable: (record) => {
-          // 只有有工作地点、预算和用户画像的记录才可展开
-          return !!(record.worklocation && record.userbudget && record.customerprofile);
+          // 有通勤时间数据或用户预算的记录才可展开
+          const hasCommuteTimes = record.extended_data?.commute_times && 
+            Object.keys(record.extended_data.commute_times).length > 0;
+          const hasBudget = Number(record.userbudget) > 0;
+          return !!(hasCommuteTimes || hasBudget);
         },
         expandRowByClick: false, // 禁用点击行展开，只能点击展开图标
         expandIcon: () => {

@@ -6,6 +6,7 @@ import {
   METRO_LINES_DATA,
   SHANGHAI_METRO_STATIONS
 } from '../utils/metroDistanceCalculator';
+import MetroDataService from './MetroDataService';
 
 /**
  * 地铁服务类
@@ -15,9 +16,13 @@ export class MetroService {
   private static instance: MetroService;
   private transferStations!: Map<string, string[]>;
   private stationToLines!: Map<string, string[]>;
+  private metroDataService: MetroDataService;
+  private dynamicStations: MetroStation[] = [];
 
   private constructor() {
+    this.metroDataService = MetroDataService.getInstance();
     this.initializeMappings();
+    this.initializeDynamicStations();
   }
 
   /**
@@ -56,6 +61,20 @@ export class MetroService {
   }
 
   /**
+   * 初始化动态站点数据
+   */
+  private async initializeDynamicStations(): Promise<void> {
+    try {
+      this.dynamicStations = await this.metroDataService.getAllStations();
+      console.log(`✅ [MetroService] 动态加载了 ${this.dynamicStations.length} 个地铁站点`);
+    } catch (error) {
+      console.error('❌ [MetroService] 初始化动态站点数据失败:', error);
+      // 使用静态数据作为备用
+      this.dynamicStations = SHANGHAI_METRO_STATIONS;
+    }
+  }
+
+  /**
    * 计算两个站点之间的通勤信息
    */
   public calculateCommute(fromStationName: string, toStationName: string): DistanceResult | null {
@@ -88,7 +107,31 @@ export class MetroService {
   public findStation(query: string): MetroStation | null {
     const lowerQuery = query.toLowerCase();
 
-    // 先按名称精确匹配
+    // 优先使用动态站点数据
+    if (this.dynamicStations.length > 0) {
+      // 先按名称精确匹配
+      let station = this.dynamicStations.find(s =>
+        s.title.toLowerCase() === lowerQuery
+      );
+
+      if (station) return station;
+
+      // 按名称模糊匹配
+      station = this.dynamicStations.find(s =>
+        s.title.toLowerCase().includes(lowerQuery)
+      );
+
+      if (station) return station;
+
+      // 按ID匹配
+      station = this.dynamicStations.find(s =>
+        s.id.toLowerCase().includes(lowerQuery)
+      );
+
+      if (station) return station;
+    }
+
+    // 如果动态数据中没有找到，使用静态数据作为备用
     let station = SHANGHAI_METRO_STATIONS.find(s =>
       s.title.toLowerCase() === lowerQuery
     );
@@ -121,7 +164,8 @@ export class MetroService {
    * 获取所有站点列表
    */
   public getAllStations(): MetroStation[] {
-    return SHANGHAI_METRO_STATIONS;
+    // 优先返回动态站点数据，如果为空则返回静态数据
+    return this.dynamicStations.length > 0 ? this.dynamicStations : SHANGHAI_METRO_STATIONS;
   }
 
   /**

@@ -21,6 +21,7 @@ import imageCompression from 'browser-image-compression';
 import RollbackList from '../RollbackList.tsx';
 import FollowupsCalendarView from '../FollowupsCalendarView';
 import LeadDetailDrawer from '../../components/LeadDetailDrawer';
+import FrontendCommuteCalculationService from '../../services/FrontendCommuteCalculationService';
 import './Followups.css';
 import { toBeijingTime } from '../../utils/timeUtils';
 
@@ -75,6 +76,13 @@ const Followups: React.FC = () => {
     // 分组字段现在总是有默认值，不需要额外检查
     setGroupPanelOpen(false); // 默认收起分组面板
   }, []);
+
+  // 页面初始化时的数据加载
+  useEffect(() => {
+    // 页面初始化时加载数据，使用空的筛选条件
+    const initialFilters = filterManager.getCurrentFiltersFn();
+    followupsData.refreshData(initialFilters);
+  }, []); // 只在组件挂载时执行一次
   
   // 回退相关状态
   const [rollbackModalVisible, setRollbackModalVisible] = useState(false);
@@ -313,34 +321,45 @@ const Followups: React.FC = () => {
     // 重置数据加载状态，确保筛选后能重新加载分组数据
     setGroupDataLoaded(false);
     
-    // 使用防抖，避免频繁刷新，但提高响应性
+    // 使用防抖，避免频繁刷新，优化性能
     const timeoutId = setTimeout(() => {
-      
-      
       // 使用统一的筛选参数刷新明细数据
       followupsData.refreshData(currentFilters);
       
       // 始终刷新分组统计数据（确保时间筛选器生效）
       groupManager.fetchGroupData(groupManager.groupField, currentFilters);
-    }, 200); // 减少到200ms，提高响应性
+    }, 300); // 增加到300ms，减少频繁刷新
     
     return () => clearTimeout(timeoutId);
-  }, [filterManager.filters, groupManager.groupField]); // 移除 groupPanelOpen 依赖，避免面板状态变化时重新加载数据
+  }, [filterManager.filters]); // 移除 groupManager.groupField 依赖，避免分组字段变更时刷新明细表
 
   // 处理表格变更 - 统一筛选参数管理
   const handleTableChange = useCallback((pagination: any, filters: any) => {
+    console.log('🔄 [Followups] 表格变更:', {
+      pagination,
+      currentPagination: followupsData.pagination,
+      filters
+    });
+    
     // 检查是否是分页变化
     if (pagination.current !== followupsData.pagination.current || 
         pagination.pageSize !== followupsData.pagination.pageSize) {
+      console.log('📄 [Followups] 分页变化:', {
+        from: { current: followupsData.pagination.current, pageSize: followupsData.pagination.pageSize },
+        to: { current: pagination.current, pageSize: pagination.pageSize }
+      });
+      
       // 分页变化，保持当前筛选条件，直接调用fetchFollowups
-      followupsData.setPagination({
+      // 使用新的同步函数更新分页状态
+      followupsData.syncPaginationState({
         current: pagination.current,
         pageSize: pagination.pageSize,
         total: pagination.total
       });
-          // 使用统一的筛选参数
-    const currentFilters = filterManager.getCurrentFiltersFn();
-    followupsData.fetchFollowups(currentFilters, pagination.current, pagination.pageSize);
+      
+      // 使用统一的筛选参数，确保使用最新的分页参数
+      const currentFilters = filterManager.getCurrentFiltersFn();
+      followupsData.fetchFollowups(currentFilters, pagination.current, pagination.pageSize);
       return;
     }
     
@@ -478,6 +497,9 @@ const Followups: React.FC = () => {
     }
   }, [followupsData, filterManager, groupManager]);
 
+  // 前端通勤时间计算服务实例
+  const frontendCommuteService = useMemo(() => FrontendCommuteCalculationService.getInstance(), []);
+
   // 处理行编辑 - 统一使用失焦更新模式
   const handleRowEdit = useCallback(async (record: any, field: keyof any, value: any) => {
     const originalValue = (followupsData.data.find(item => item.id === record.id) as any)?.[field];
@@ -513,11 +535,105 @@ const Followups: React.FC = () => {
       // 保存成功（非跳过）
       message.success('保存成功');
       console.log(`✅ [Followups] 字段 ${String(field)} 保存成功`);
+      
+      // 🆕 如果工作地点更新，自动触发前端通勤时间计算
+      if (field === 'worklocation' && value && value !== originalValue) {
+        console.log(`🚀 [Followups] 工作地点更新，自动触发前端通勤时间计算:`, {
+          recordId: record.id,
+          oldWorklocation: originalValue,
+          newWorklocation: value
+        });
+        
+        // 延迟1秒后触发前端通勤时间计算，确保数据库更新完成
+        setTimeout(async () => {
+          try {
+            const result = await frontendCommuteService.calculateCommuteTimesForWorklocation(
+              record.id,
+              value,
+              {
+                maxCommunities: 10, // 限制计算数量，避免前端计算时间过长
+                onProgress: (current, total, community) => {
+                  console.log(`📊 [Followups] 通勤时间计算进度: ${current}/${total} - ${community}`);
+                },
+                onComplete: async (commuteTimes) => {
+                  console.log('✅ [Followups] 前端通勤时间计算完成:', commuteTimes);
+                  // 先保存到数据库
+                  const updatedExtendedData = {
+                    ...record.extended_data,
+                    commute_times: commuteTimes
+                  };
+                  
+                  try {
+                    const { error } = await supabase
+                      .from('followups')
+                      .update({ extended_data: updatedExtendedData })
+                      .eq('id', record.id);
+                    
+                    if (error) {
+                      console.error('❌ [Followups] 通勤时间数据保存失败:', error);
+                      message.error('通勤时间数据保存失败: ' + error.message);
+                      return; // 保存失败，不进行乐观更新
+                    } else {
+                      console.log('✅ [Followups] 通勤时间数据保存成功');
+                      // 数据保存成功后，进行乐观更新
+                      optimizedLocalData.updateMultipleFields(record.id, {
+                        extended_data: updatedExtendedData
+                      });
+                      console.log('✅ [Followups] 前端乐观更新完成');
+                    }
+                  } catch (error) {
+                    console.error('❌ [Followups] 通勤时间数据保存异常:', error);
+                    message.error('通勤时间数据保存失败');
+                  }
+                }
+              }
+            );
+            
+            if (result.success) {
+              if (result.commute_times && Object.keys(result.commute_times).length > 0) {
+                const updatedExtendedData = {
+                  ...record.extended_data,
+                  commute_times: result.commute_times
+                };
+                
+                // 先保存到数据库
+                try {
+                  const { error } = await supabase
+                    .from('followups')
+                    .update({ extended_data: updatedExtendedData })
+                    .eq('id', record.id);
+                  
+                  if (error) {
+                    console.error('❌ [Followups] 通勤时间数据保存失败:', error);
+                    message.error('通勤时间数据保存失败: ' + error.message);
+                  } else {
+                    console.log('✅ [Followups] 通勤时间数据保存成功');
+                    // 数据保存成功后，进行乐观更新
+                    optimizedLocalData.updateMultipleFields(record.id, {
+                      extended_data: updatedExtendedData
+                    });
+                    console.log('✅ [Followups] 前端乐观更新完成');
+                  }
+                } catch (error) {
+                  console.error('❌ [Followups] 通勤时间数据保存异常:', error);
+                  message.error('通勤时间数据保存失败');
+                }
+              }
+            } else {
+              console.error('❌ [Followups] 前端通勤时间计算失败:', result.error);
+              message.error(`通勤时间计算失败: ${result.error}`);
+            }
+          } catch (error: any) {
+            console.error('❌ [Followups] 前端通勤时间计算异常:', error);
+            message.error(`通勤时间计算异常: ${error.message || '未知错误'}`);
+          }
+        }, 1000);
+      }
     } else {
       // 保存被跳过（值相同）
       console.log(`⏭️ [Followups] 字段 ${String(field)} 保存被跳过（值相同）`);
     }
-  }, [followupsData.data, optimizedLocalData, autoSave]);
+  }, [followupsData.data, optimizedLocalData, autoSave, frontendCommuteService]);
 
   // 处理线索详情点击
   const handleLeadDetailClick = useCallback((leadid: string) => {
@@ -531,25 +647,28 @@ const Followups: React.FC = () => {
     setStageDrawerOpen(true);
   }, []);
 
-  // 处理抽屉保存
+  // 处理抽屉保存 - 使用乐观更新，避免全局刷新
   const handleStageDrawerSave = useCallback((record: any, updatedFields: any) => {
-    // 更新本地数据
+    console.log('🔄 [Followups] 抽屉保存操作:', { 
+      recordId: record.id, 
+      updatedFields,
+      isAutoSave: updatedFields._autoSaveOnClose,
+      isStageChange: updatedFields._stageChange
+    });
+    
+    // 使用乐观更新：直接更新本地数据，不触发全局刷新
     optimizedLocalData.updateMultipleFields(record.id, updatedFields);
     
-    // 检查是否是关闭时的自动保存，如果是则不触发全局刷新
-    if (updatedFields._autoSaveOnClose) {
-      // 自动保存时只更新本地数据，不触发全局刷新
-      console.log('🔄 [Followups] 抽屉关闭时自动保存，跳过全局刷新');
-      return;
+    // 检查是否是阶段推进操作，如果是则更新分组统计
+    if (updatedFields._stageChange && updatedFields.followupstage) {
+      console.log('📊 [Followups] 阶段推进，更新分组统计');
+      const currentFilters = filterManager.getCurrentFiltersFn();
+      groupManager.fetchGroupData(groupManager.groupField, currentFilters);
     }
     
-    // 手动保存时刷新数据以确保同步
-    const currentFilters = filterManager.getCurrentFiltersFn();
-    followupsData.refreshData(currentFilters);
-    
-    // 刷新分组统计
-    groupManager.fetchGroupData(groupManager.groupField, currentFilters);
-  }, [optimizedLocalData, filterManager, followupsData, groupManager]);
+    // 所有抽屉操作都使用乐观更新，不触发明细表全局刷新
+    console.log('✅ [Followups] 抽屉操作完成，使用乐观更新，跳过全局刷新');
+  }, [optimizedLocalData, filterManager, groupManager]);
 
   // 处理抽屉关闭
   const handleStageDrawerClose = useCallback(() => {
@@ -939,7 +1058,7 @@ const Followups: React.FC = () => {
         width="95vw"
         style={{ top: 20 }}
         styles={{ body: { padding: '24px', maxHeight: '85vh', overflow: 'auto' } }}
-        destroyOnClose
+        destroyOnHidden
       >
         <FollowupsCalendarView />
       </Modal>

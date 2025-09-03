@@ -933,7 +933,7 @@ const FollowupsCalendarView: React.FC = () => {
                                         if (selectedOptions && selectedOptions.length > 1) {
                                           // 只保存站点名称，不保存线路信息
                                           // 🆕 修复：确保保存的是站点名称，不是带"站"字的完整名称
-                                          selectedText = selectedOptions[1].label.replace(/站$/, '');
+                                          selectedText = selectedOptions[1].label;
                                         } else if (selectedOptions && selectedOptions.length === 1) {
                                           // 只有一级选项时，保存线路名称
                                           selectedText = selectedOptions[0].label;
@@ -1018,7 +1018,7 @@ const FollowupsCalendarView: React.FC = () => {
                                           if (selectedOptions && selectedOptions.length > 1) {
                                             // 只保存站点名称，不保存线路信息
                                             // 🆕 修复：确保保存的是站点名称，不是带"站"字的完整名称
-                                            selectedText = selectedOptions[1].label.replace(/站$/, '');
+                                            selectedText = selectedOptions[1].label;
                                           } else if (selectedOptions && selectedOptions.length === 1) {
                                             // 只有一级选项时，保存线路名称
                                             selectedText = selectedOptions[0].label;
