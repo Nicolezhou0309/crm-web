@@ -19,6 +19,7 @@ import Followups from './pages/Followups';
 // import FollowupsCalendarView from './pages/FollowupsCalendarView';
 import Login from './pages/Login';
 import SetPassword from './pages/SetPassword';
+import Debug from './pages/Debug';
 import UserMenu from './components/UserMenu';
 import NavigationMenu from './components/NavigationMenu';
 
@@ -408,7 +409,7 @@ const AppContent: React.FC = () => {
   // })();
 
   // 判断是否为公开页面（不需要登录）
-  const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password';
+  const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password' || location.pathname === '/debug';
 
   // 公开页面（登录页面和设置密码页面）不需要用户认证，直接渲染
   if (isPublicPage) {
@@ -416,6 +417,7 @@ const AppContent: React.FC = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/set-password" element={<SetPassword />} />
+        <Route path="/debug" element={<Debug />} />
       </Routes>
     );
   }
