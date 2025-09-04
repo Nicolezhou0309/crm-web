@@ -24,9 +24,9 @@ export default defineConfig(({ mode }) => {
           '**/dist/**',
           '**/.git/**'
         ],
-        // 使用默认轮询设置，提高响应速度
-        usePolling: false,
-        interval: 1000 // 设置为1秒轮询作为WebSocket的替代方案
+        // 启用轮询作为WebSocket的降级方案
+        usePolling: true,
+        interval: 1000 // 1秒轮询间隔，避免WebSocket不安全连接问题
       }
     },
     // 优化构建配置

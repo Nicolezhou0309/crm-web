@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { withRetry, supabaseRetryOptions } from './utils/retryUtils'
+import { pollingService } from './services/PollingService'
 
 // 使用环境变量配置，移除硬编码的备用地址
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -10,12 +11,18 @@ const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 let supabaseInstance: SupabaseClient | null = null;
 let supabaseServiceRoleInstance: SupabaseClient | null = null;
 
+// 检查是否在HTTPS环境下
+const isHTTPS = typeof window !== 'undefined' && window.location.protocol === 'https:';
+
 // 调试信息
 console.log('🔧 Supabase配置信息:', {
   supabaseUrl,
   protocol: typeof window !== 'undefined' ? window.location.protocol : 'unknown',
   environment: '阿里云内网',
-  envUrl: import.meta.env.VITE_SUPABASE_URL
+  envUrl: import.meta.env.VITE_SUPABASE_URL,
+  isHTTPS,
+  realtimeEnabled: !isHTTPS,
+  pollingServiceAvailable: true
 })
 
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -70,6 +77,8 @@ function createSupabaseClient(): SupabaseClient {
         }
       },
       realtime: {
+        // 在HTTPS环境下禁用realtime功能，避免WebSocket不安全连接问题
+        enabled: !isHTTPS,
         params: {
           eventsPerSecond: 10
         }
@@ -125,6 +134,13 @@ function createSupabaseServiceRoleClient(): SupabaseClient {
               // 忽略存储错误
             }
           }
+        }
+      },
+      realtime: {
+        // 在HTTPS环境下禁用realtime功能，避免WebSocket不安全连接问题
+        enabled: !isHTTPS,
+        params: {
+          eventsPerSecond: 10
         }
       },
       global: {
