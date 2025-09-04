@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
         ],
         // 使用默认轮询设置，提高响应速度
         usePolling: false,
-        interval: 100 // 减少轮询间隔，提高响应速度
+        interval: 1000 // 设置为1秒轮询作为WebSocket的替代方案
       }
     },
     // 优化构建配置

@@ -1,44 +1,32 @@
-# HTTPS页面连接HTTP服务器解决方案
+# 函数计算环境混合内容解决方案
 
 ## 问题描述
 
-您的应用部署在HTTPS环境（`https://lead.vld.com.cn/`），但Supabase服务器使用HTTP协议（`http://47.123.26.25:8000`），导致浏览器阻止混合内容请求。
+您的应用部署在阿里云函数计算环境（`https://lead.vld.com.cn/`），但Supabase服务器使用HTTP协议（`http://47.123.26.25:8000`），导致浏览器阻止混合内容请求。
 
 ## 解决方案
 
-### 方案1：配置Nginx反向代理（推荐）
+### 方案1：API网关代理（推荐）
 
-在您的服务器上配置Nginx反向代理，将HTTPS请求转发到HTTP后端：
+在阿里云控制台配置API网关：
 
-```nginx
-server {
-    listen 443 ssl;
-    server_name lead.vld.com.cn;
-    
-    # SSL证书配置
-    ssl_certificate /path/to/your/cert.pem;
-    ssl_certificate_key /path/to/your/key.pem;
-    
-    # 代理Supabase API请求
-    location /supabase/ {
-        proxy_pass http://47.123.26.25:8000/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # WebSocket支持
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-}
-```
+1. **创建API网关服务**
+   - 进入阿里云API网关控制台
+   - 创建API分组
+   - 配置HTTPS监听器
 
-然后修改环境变量：
-```env
-VITE_SUPABASE_URL=https://lead.vld.com.cn/supabase
-```
+2. **配置代理规则**
+   ```yaml
+   API路径: /supabase/*
+   后端地址: http://47.123.26.25:8000
+   支持WebSocket: 是
+   HTTPS证书: 绑定您的SSL证书
+   ```
+
+3. **修改环境变量**
+   ```env
+   VITE_SUPABASE_URL=https://your-api-gateway-domain/supabase
+   ```
 
 ### 方案2：配置Apache反向代理
 
