@@ -76,14 +76,12 @@ function createSupabaseClient(): SupabaseClient {
           }
         }
       },
-      // 在HTTPS环境下不配置realtime，避免WebSocket不安全连接问题
-      ...(isHTTPS ? {} : {
-        realtime: {
-          params: {
-            eventsPerSecond: 10
-          }
-        }
-      }),
+      // 完全禁用realtime配置，避免WebSocket不安全连接问题
+      // realtime: {
+      //   params: {
+      //     eventsPerSecond: 10
+      //   }
+      // },
       global: {
         headers: {
           'X-Client-Info': 'crm-web-aliyun',
@@ -137,14 +135,12 @@ function createSupabaseServiceRoleClient(): SupabaseClient {
           }
         }
       },
-      // 在HTTPS环境下不配置realtime，避免WebSocket不安全连接问题
-      ...(isHTTPS ? {} : {
-        realtime: {
-          params: {
-            eventsPerSecond: 10
-          }
-        }
-      }),
+      // 完全禁用realtime配置，避免WebSocket不安全连接问题
+      // realtime: {
+      //   params: {
+      //     eventsPerSecond: 10
+      //   }
+      // },
       global: {
         headers: {
           'X-Client-Info': 'crm-web-aliyun-service-role',
