@@ -1478,36 +1478,16 @@ const LiveStreamRegistrationBase: React.FC = () => {
     testDatabaseRecords();
   }, [selectedWeek]);
 
-  // 添加轮询检查，监听数据变化（禁用realtime避免WebSocket混合内容问题）
+  // 注意：现在使用realtime功能，不再需要轮询检查
+  // 数据变化会通过realtime自动推送到前端
   useEffect(() => {
     if (!selectedWeek) return;
     
-    console.log('🔄 [LiveStream] 开始轮询检查数据变化');
+    console.log('🔄 [LiveStream] 使用realtime功能监听数据变化');
     
-    const pollForChanges = async () => {
-      try {
-        // 这里可以添加数据变化检查逻辑
-        // 由于禁用了realtime，我们使用轮询方式定期刷新数据
-        console.log('📡 [LiveStream] 轮询检查数据变化');
-        
-        // 可以在这里触发数据刷新
-        // 例如：重新获取当前周的数据
-        
-      } catch (error) {
-        console.error('❌ [LiveStream] 轮询检查失败:', error);
-      }
-    };
-
-    // 立即执行一次
-    pollForChanges();
-
-    // 设置轮询定时器（每10秒检查一次）
-    const pollInterval = setInterval(pollForChanges, 10000);
-
-    return () => {
-      clearInterval(pollInterval);
-      console.log('🛑 [LiveStream] 停止轮询检查');
-    };
+    // 可以在这里添加其他初始化逻辑
+    // 数据变化会通过realtime自动处理
+    
   }, [selectedWeek]);
 
   // 注释掉原来的realtime订阅代码

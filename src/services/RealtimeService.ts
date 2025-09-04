@@ -31,7 +31,7 @@ class RealtimeService {
 
   constructor() {
     this.config = {
-      enabled: false, // 统一禁用realtime，使用轮询替代
+      enabled: true, // 代理服务器支持WebSocket，启用realtime
       maxReconnectAttempts: 5,
       reconnectDelay: 3000,
       heartbeatInterval: 30000
@@ -40,7 +40,7 @@ class RealtimeService {
     console.log('🔧 [RealtimeService] 初始化配置:', {
       enabled: this.config.enabled,
       protocol: typeof window !== 'undefined' ? window.location.protocol : 'unknown',
-      note: '统一禁用realtime，使用轮询替代'
+      note: '代理服务器支持WebSocket，启用realtime功能'
     });
   }
 

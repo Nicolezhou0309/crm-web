@@ -30,16 +30,15 @@ VITE_APP_VERSION=1.0.0
 - 修复了 `OnboardingPage.tsx` 中的硬编码IP地址
 - 现在使用环境变量 `${import.meta.env.VITE_SUPABASE_URL}`
 
-✅ **分散的Realtime服务**：
+✅ **Realtime服务优化**：
 - 创建了统一的 `RealtimeService` 管理器
-- 创建了轮询替代方案：
-  - `useConcurrencyControl.ts` - 替代 `useRealtimeConcurrencyControl.ts`
-  - `useCommuteTimeCalculation.ts` - 替代 `useCommuteTimeRealtime.ts`
-- 禁用了 `LiveStreamRegistrationBase.tsx` 中的realtime功能
+- 启用了所有realtime功能（代理服务器支持WebSocket）
+- 删除了不再需要的轮询替代方案
+- 恢复了 `LiveStreamRegistrationBase.tsx` 中的realtime功能
 
 ✅ **环境变量配置**：
 - 所有URL现在都使用环境变量
-- 统一禁用realtime功能，使用轮询替代
+- 代理服务器支持WebSocket，已启用realtime功能
 - 移除了HTTPS/HTTP分支逻辑
 
 ### 3. 配置说明
@@ -54,11 +53,12 @@ VITE_APP_VERSION=1.0.0
    - 您的 `https://lead-service.vld.com.cn` 应该正确代理到后端服务
    - 支持WebSocket升级（如果需要realtime功能）
 
-2. **轮询替代方案**：
-   - 统一使用轮询方式替代realtime
-   - 避免了混合内容问题和协议分支逻辑
-   - 可以根据需要调整轮询间隔
-   - 不再需要检查HTTPS/HTTP环境
+2. **Realtime功能**：
+   - 代理服务器支持WebSocket，已启用realtime功能
+   - 提供实时数据同步，性能优于轮询
+   - 支持实时通知、并发控制等功能
+   - 避免了混合内容问题
+   - 已删除轮询替代方案，统一使用realtime
 
 ### 5. 验证修复
 

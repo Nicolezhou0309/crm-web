@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket支持测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { border-color: #4CAF50; background-color: #f1f8e9; }
+        .error { border-color: #f44336; background-color: #ffebee; }
+        .info { border-color: #2196F3; background-color: #e3f2fd; }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #1976D2; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .log {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 代理服务器WebSocket支持测试</h1>
+        
+        <div class="test-section info">
+            <h3>测试配置</h3>
+            <p><strong>代理服务器:</strong> https://lead-service.vld.com.cn</p>
+            <p><strong>测试目标:</strong> Supabase Realtime WebSocket连接</p>
+        </div>
+
+        <div class="test-section">
+            <h3>测试操作</h3>
+            <button onclick="testHttpConnection()">测试HTTP连接</button>
+            <button onclick="testWebSocketConnection()">测试WebSocket连接</button>
+            <button onclick="clearLog()">清空日志</button>
+        </div>
+
+        <div class="test-section">
+            <h3>测试结果</h3>
+            <div id="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>详细日志</h3>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://lead-service.vld.com.cn';
+        const SUPABASE_ANON_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzU1Nzg1ODY3LCJleHAiOjEzMjY2NDI1ODY3fQ.h_DW3s03LaUCtf_7LepkEwmFVxdqPZ6zfHhuSMc5Ewg';
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('log');
+            const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            logElement.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span>\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateResult(message, type = 'info') {
+            const resultsElement = document.getElementById('results');
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            resultsElement.innerHTML = `<div class="test-section ${className}">${message}</div>`;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testHttpConnection() {
+            log('🔄 开始测试HTTP连接...');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                if (response.ok) {
+                    log('✅ HTTP连接成功！', 'success');
+                    log(`   状态码: ${response.status}`);
+                    log(`   响应头: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`);
+                    updateResult('✅ HTTP连接成功！代理服务器支持HTTP请求。', 'success');
+                    return true;
+                } else {
+                    log(`❌ HTTP连接失败: ${response.status} ${response.statusText}`, 'error');
+                    updateResult(`❌ HTTP连接失败: ${response.status} ${response.statusText}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                log(`❌ HTTP连接异常: ${error.message}`, 'error');
+                updateResult(`❌ HTTP连接异常: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        function testWebSocketConnection() {
+            log('🔄 开始测试WebSocket连接...');
+            
+            const wsUrl = `${SUPABASE_URL.replace('https://', 'wss://')}/realtime/v1/websocket?apikey=${SUPABASE_ANON_KEY}&vsn=1.0.0`;
+            log(`   WebSocket URL: ${wsUrl}`);
+            
+            try {
+                const ws = new WebSocket(wsUrl);
+                
+                const timeout = setTimeout(() => {
+                    ws.close();
+                    log('⏰ WebSocket连接超时 (10秒)', 'error');
+                    updateResult('❌ WebSocket连接超时 - 代理服务器可能不支持WebSocket或配置有问题', 'error');
+                }, 10000);
+                
+                ws.onopen = () => {
+                    clearTimeout(timeout);
+                    log('✅ WebSocket连接成功！', 'success');
+                    log('   - 代理服务器支持WebSocket');
+                    log('   - Supabase Realtime功能可用');
+                    
+                    // 发送测试消息
+                    const testMessage = {
+                        topic: 'phoenix',
+                        event: 'heartbeat',
+                        payload: {},
+                        ref: '1'
+                    };
+                    
+                    ws.send(JSON.stringify(testMessage));
+                    log('📤 发送心跳测试消息');
+                    
+                    updateResult('✅ WebSocket连接成功！代理服务器支持Supabase Realtime功能。', 'success');
+                    
+                    setTimeout(() => {
+                        ws.close();
+                        log('🔌 WebSocket连接正常关闭');
+                    }, 2000);
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        log(`📥 收到服务器响应: ${JSON.stringify(message, null, 2)}`);
+                    } catch (error) {
+                        log(`📥 收到原始响应: ${event.data}`);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    clearTimeout(timeout);
+                    log(`❌ WebSocket连接失败: ${error.message || '未知错误'}`, 'error');
+                    
+                    let errorMessage = 'WebSocket连接失败';
+                    if (error.message && error.message.includes('ECONNREFUSED')) {
+                        errorMessage = '连接被拒绝 - 代理服务器可能不支持WebSocket';
+                    } else if (error.message && error.message.includes('ENOTFOUND')) {
+                        errorMessage = '域名解析失败 - 请检查代理服务器地址';
+                    } else if (error.message && error.message.includes('UNABLE_TO_VERIFY_LEAF_SIGNATURE')) {
+                        errorMessage = 'SSL证书验证失败 - 代理服务器SSL配置问题';
+                    }
+                    
+                    updateResult(`❌ ${errorMessage}`, 'error');
+                };
+                
+                ws.onclose = (event) => {
+                    clearTimeout(timeout);
+                    if (event.code === 1000) {
+                        log('🔌 WebSocket连接正常关闭');
+                    } else {
+                        log(`🔌 WebSocket连接关闭: ${event.code} - ${event.reason}`, 'error');
+                    }
+                };
+                
+            } catch (error) {
+                log(`❌ WebSocket创建失败: ${error.message}`, 'error');
+                updateResult(`❌ WebSocket创建失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载时自动测试HTTP连接
+        window.onload = () => {
+            log('🚀 页面加载完成，开始自动测试...');
+            testHttpConnection();
+        };
+    </script>
+</body>
+</html>

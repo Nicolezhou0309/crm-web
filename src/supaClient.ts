@@ -1,6 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { withRetry, supabaseRetryOptions } from './utils/retryUtils'
-import { pollingService } from './services/PollingService'
 
 // 使用环境变量配置，移除硬编码的备用地址
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -17,8 +16,7 @@ console.log('🔧 Supabase配置信息:', {
   protocol: typeof window !== 'undefined' ? window.location.protocol : 'unknown',
   environment: '生产环境',
   envUrl: import.meta.env.VITE_SUPABASE_URL,
-  realtimeEnabled: false, // 统一禁用realtime，使用轮询替代
-  pollingServiceAvailable: true
+  realtimeEnabled: true // 代理服务器支持WebSocket，启用realtime
 })
 
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -72,12 +70,12 @@ function createSupabaseClient(): SupabaseClient {
           }
         }
       },
-      // 完全禁用realtime配置，避免WebSocket不安全连接问题
-      // realtime: {
-      //   params: {
-      //     eventsPerSecond: 10
-      //   }
-      // },
+      // 启用realtime配置，代理服务器支持WebSocket
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
+      },
       global: {
         headers: {
           'X-Client-Info': 'crm-web-aliyun',
@@ -131,12 +129,12 @@ function createSupabaseServiceRoleClient(): SupabaseClient {
           }
         }
       },
-      // 完全禁用realtime配置，避免WebSocket不安全连接问题
-      // realtime: {
-      //   params: {
-      //     eventsPerSecond: 10
-      //   }
-      // },
+      // 启用realtime配置，代理服务器支持WebSocket
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
+      },
       global: {
         headers: {
           'X-Client-Info': 'crm-web-aliyun-service-role',
