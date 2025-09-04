@@ -68,11 +68,9 @@ export class LiveStreamRegistrationService {
     
     // 检查缓存
     if (this.configCache && (now - this.configCacheTime) < this.CACHE_DURATION) {
-      console.log('📋 [配置] 使用缓存配置，缓存时间:', new Date(this.configCacheTime).toLocaleString());
       return this.configCache;
     }
 
-    console.log('🔍 [配置] 开始获取报名配置...');
     
     try {
       const { data, error } = await supabase
@@ -95,14 +93,6 @@ export class LiveStreamRegistrationService {
       }
       
       const config = data[0];
-      console.log('✅ [配置] 成功获取报名配置:');
-      console.log('  📅 基础报名时间:', `周${config.registration_open_day_of_week} ${config.registration_open_time} - 周${config.registration_close_day_of_week} ${config.registration_close_time}`);
-      console.log('  🎯 提前报名时间:', `周${config.privilege_advance_open_day_of_week} ${config.privilege_advance_open_time} - 周${config.privilege_advance_close_day_of_week} ${config.privilege_advance_close_time}`);
-      console.log('  👥 VIP主播ID:', config.privilege_managers);
-      console.log('  📊 基础用户每周限制:', config.weekly_limit_per_user);
-      console.log('  🎯 提前报名每周限制:', config.privilege_advance_limit);
-      console.log('  🚨 紧急关闭:', config.is_emergency_closed);
-      console.log('  ⚡ 配置启用:', config.is_active);
       
       this.configCache = config;
       this.configCacheTime = now;
@@ -116,8 +106,7 @@ export class LiveStreamRegistrationService {
   /**
    * 检查用户报名限制
    */
-  async checkUserLimit(userId: number, currentPrivilegeType?: 'normal' | 'vip' | 'none'): Promise<UserLimitResult | null> {
-    console.log(`🔍 [限制检查] 开始检查用户 ${userId} 的报名限制...`);
+  async checkUserLimit(userId: number, currentPrivilegeType?: 'normal' | 'vip' | 'none'): Promise<UserLimitResult | null> { 
     
     try {
       // 获取配置
@@ -149,20 +138,9 @@ export class LiveStreamRegistrationService {
       weekEnd.setUTCDate(weekStart.getUTCDate() + 6); // 周日
       weekEnd.setUTCHours(23, 59, 59, 999);
 
-      console.log(`📅 [限制检查] 本周时间范围: ${weekStart.toISOString().split('T')[0]} 到 ${weekEnd.toISOString().split('T')[0]}`);
-
       // 检查是否为VIP主播
       const isPrivilegeUser = config.privilege_managers.includes(userId);
-      console.log(`👤 [限制检查] 用户 ${userId} 是否为VIP主播: ${isPrivilegeUser}`);
 
-      // 统计用户本周报名数量 - 直接查询包含用户ID的记录
-      console.log(`🔍 [限制检查] 开始查询用户 ${userId} 的报名记录...`);
-      console.log(`📅 [限制检查] 查询条件:`, {
-        status: 'booked',
-        date_gte: weekStart.toISOString().split('T')[0],
-        date_lte: weekEnd.toISOString().split('T')[0]
-      });
-      
       const { data: userSchedules, error } = await supabase
         .from('live_stream_schedules')
         .select('id, participant_ids, date, status, created_by')
@@ -175,42 +153,12 @@ export class LiveStreamRegistrationService {
         throw error;
       }
 
-      console.log(`📊 [限制检查] 本周所有已报名记录数: ${userSchedules?.length || 0}`);
-      if (userSchedules && userSchedules.length > 0) {
-        console.log(`📋 [限制检查] 本周所有已报名记录详情:`, userSchedules.map(schedule => ({
-          id: schedule.id,
-          date: schedule.date,
-          status: schedule.status,
-          created_by: schedule.created_by,
-          participant_ids: schedule.participant_ids
-        })));
-      }
-
       // 统计用户参与的场次数量
       const userParticipatedSchedules = userSchedules?.filter(schedule => 
         schedule.participant_ids && schedule.participant_ids.includes(userId)
       ) || [];
       
       const userWeeklyCount = userParticipatedSchedules.length;
-      console.log(`✅ [限制检查] 用户 ${userId} 本周报名数量: ${userWeeklyCount}`);
-
-      if (userParticipatedSchedules.length > 0) {
-        console.log(`📝 [已报名场次] 用户 ${userId} 本周已报名的场次详情:`);
-        userParticipatedSchedules.forEach((schedule, index) => {
-          console.log(`  📅 场次 ${index + 1}:`);
-          console.log(`    🆔 记录ID: ${schedule.id}`);
-          console.log(`    👥 参与者: [${schedule.participant_ids.join(', ')}]`);
-          console.log(`    📊 参与人数: ${schedule.participant_ids.length}人`);
-          console.log(`    🎯 用户位置: 第${schedule.participant_ids.indexOf(userId) + 1}位`);
-        });
-        
-        console.log(`📊 [已报名场次] 用户 ${userId} 报名统计:`);
-        console.log(`  📈 总报名场次: ${userWeeklyCount}场`);
-        console.log(`  👥 合作用户: ${[...new Set(userParticipatedSchedules.flatMap(s => s.participant_ids).filter(id => id !== userId))].join(', ') || '无'}`);
-        console.log(`  🎯 主要位置: ${userParticipatedSchedules.filter(s => s.participant_ids[0] === userId).length}场作为主负责人`);
-      } else {
-        console.log(`📝 [已报名场次] 用户 ${userId} 本周尚未报名任何场次`);
-      }
 
       // 确定限制数量 - 根据当前权益类型而不是用户身份
       let weeklyLimit: number;
@@ -230,9 +178,6 @@ export class LiveStreamRegistrationService {
         limitType = '默认限制（无权益）';
       }
       
-      console.log(`📊 [限制检查] 用户 ${userId} 每周限制: ${weeklyLimit} (${limitType})`);
-      console.log(`🎯 [限制检查] 用户身份: ${isPrivilegeUser ? 'VIP主播' : '基础用户'}, 当前权益类型: ${currentPrivilegeType || '未指定'}`);
-
       const result = {
         success: userWeeklyCount < weeklyLimit,
         is_privilege_user: isPrivilegeUser,
@@ -243,12 +188,6 @@ export class LiveStreamRegistrationService {
         week_end: weekEnd.toISOString().split('T')[0]
       };
 
-      console.log(`🎯 [限制检查] 用户 ${userId} 检查结果:`, {
-        可报名: result.success,
-        当前数量: result.user_weekly_count,
-        限制数量: result.weekly_limit,
-        VIP主播: result.is_privilege_user
-      });
 
       return result;
     } catch (error) {
@@ -261,7 +200,6 @@ export class LiveStreamRegistrationService {
    * 检查是否在报名时间窗口内
    */
   checkRegistrationWindow(config: RegistrationConfig): TimeWindowResult {
-    console.log('🕐 [时间窗口] 开始检查报名时间窗口...');
     
     // 获取当前北京时间 - 使用正确的时区转换
     const now = new Date();
@@ -269,10 +207,6 @@ export class LiveStreamRegistrationService {
     
     const currentDay = beijingTime.getUTCDay() === 0 ? 7 : beijingTime.getUTCDay();
     const currentTime = `${beijingTime.getUTCHours().toString().padStart(2, '0')}:${beijingTime.getUTCMinutes().toString().padStart(2, '0')}:${beijingTime.getUTCSeconds().toString().padStart(2, '0')}`;
-    
-    console.log(`🕐 [时间窗口] 当前北京时间: 周${currentDay} ${currentTime}`);
-    console.log(`📅 [时间窗口] 基础报名时间: 周${config.registration_open_day_of_week} ${config.registration_open_time} - 周${config.registration_close_day_of_week} ${config.registration_close_time}`);
-    console.log(`🎯 [时间窗口] 提前报名时间: 周${config.privilege_advance_open_day_of_week} ${config.privilege_advance_open_time} - 周${config.privilege_advance_close_day_of_week} ${config.privilege_advance_close_time}`);
     
     // 检查基础报名时间窗口
     const inNormalWindow = this.checkTimeWindow(
@@ -293,9 +227,6 @@ export class LiveStreamRegistrationService {
       config.privilege_advance_open_time,
       config.privilege_advance_close_time
     );
-
-    console.log(`✅ [时间窗口] 检查结果: 基础窗口=${inNormalWindow}, VIP主播窗口=${inPrivilegeWindow}`);
-
     return { inNormalWindow, inPrivilegeWindow };
   }
 
@@ -420,15 +351,11 @@ export class LiveStreamRegistrationService {
     // 根据当前权益类型检查用户限制
     const userLimitResult = await this.checkUserLimit(userId, currentPrivilegeType);
 
-    console.log(`🎯 [权益切换] 用户 ${userId} 当前权益类型: ${currentPrivilegeType}`);
-
     // 如果是编辑已报名场次，只检查时间窗口，不检查每周限制
     let canRegister: boolean;
     let statusMessage: string;
     
     if (isEditingExisting) {
-      console.log('🔍 [报名状态] 编辑已报名场次，只检查时间窗口...');
-      
       if (!config) {
         canRegister = false;
         statusMessage = '配置不可用，无法编辑';
@@ -479,14 +406,13 @@ export class LiveStreamRegistrationService {
   clearConfigCache(): void {
     this.configCache = null;
     this.configCacheTime = 0;
-    console.log('🔄 已清除报名配置缓存');
   }
 
   /**
    * 检查报名日期是否在允许的范围内（本周和下周）
    */
   checkDateRange(scheduleDate: string): { isValid: boolean; message?: string } {
-    console.log('📅 [日期范围检查] 开始检查报名日期范围...');
+
     
     try {
       // 获取当前北京时间
@@ -507,12 +433,6 @@ export class LiveStreamRegistrationService {
       // 解析报名日期
       const targetDate = new Date(scheduleDate + 'T00:00:00.000Z');
       
-      console.log('📅 [日期范围检查] 日期信息:');
-      console.log('  当前北京时间:', beijingNow.toISOString().split('T')[0]);
-      console.log('  本周开始:', currentWeekStart.toISOString().split('T')[0]);
-      console.log('  下周结束:', nextWeekEnd.toISOString().split('T')[0]);
-      console.log('  报名日期:', scheduleDate);
-      
       // 检查日期是否在允许范围内
       const isValid = targetDate >= currentWeekStart && targetDate <= nextWeekEnd;
       
@@ -522,7 +442,6 @@ export class LiveStreamRegistrationService {
         return { isValid: false, message };
       }
       
-      console.log('✅ [日期范围检查] 日期在允许范围内');
       return { isValid: true };
       
     } catch (error) {
@@ -535,7 +454,7 @@ export class LiveStreamRegistrationService {
    * 检查是否在报名截止时间前（可以取消报名）
    */
   canCancelRegistration(config: RegistrationConfig | null, isPrivilegeUser: boolean): boolean {
-    console.log(`🔍 [取消检查] 开始检查是否可以取消报名，VIP主播: ${isPrivilegeUser}`);
+
     
     if (!config) {
       console.warn('⚠️ [取消检查] 配置为空，无法取消报名');
@@ -556,15 +475,11 @@ export class LiveStreamRegistrationService {
     if (isPrivilegeUser) {
       closeDay = config.privilege_advance_close_day_of_week;
       closeTime = config.privilege_advance_close_time;
-      console.log(`🎯 [取消检查] VIP主播截止时间: 周${closeDay} ${closeTime}`);
     } else {
       closeDay = config.registration_close_day_of_week;
       closeTime = config.registration_close_time;
-      console.log(`📅 [取消检查] 基础用户截止时间: 周${closeDay} ${closeTime}`);
     }
     
-    console.log(`🕐 [取消检查] 当前时间: 周${currentDay} ${currentTime}`);
-    console.log(`🔍 [取消检查] 检查参数: 从周1 00:00:00 到 周${closeDay} ${closeTime}`);
     
     // 检查是否在截止时间前
     const canCancel = this.checkTimeWindow(
@@ -576,7 +491,6 @@ export class LiveStreamRegistrationService {
       closeTime
     );
     
-    console.log(`✅ [取消检查] 是否可以取消报名: ${canCancel}`);
     
     return canCancel;
   }
@@ -585,7 +499,6 @@ export class LiveStreamRegistrationService {
    * 获取用户已报名场次的详细信息
    */
   async getUserRegisteredSchedules(userId: number): Promise<void> {
-    console.log(`🔍 [已报名场次] 开始获取用户 ${userId} 的已报名场次详情...`);
     
     try {
       // 计算本周开始和结束日期（自然周）- 使用北京时间
@@ -601,7 +514,6 @@ export class LiveStreamRegistrationService {
       weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
       weekEnd.setUTCHours(23, 59, 59, 999);
       
-      console.log(`📅 [已报名场次] 查询时间范围: ${weekStart.toISOString().split('T')[0]} 到 ${weekEnd.toISOString().split('T')[0]}`);
       
       // 查询用户本周的所有报名记录（包括详细信息）
       const { data: userSchedules, error } = await supabase
@@ -622,41 +534,23 @@ export class LiveStreamRegistrationService {
         schedule.participant_ids && schedule.participant_ids.includes(userId)
       ) || [];
       
-      console.log(`📊 [已报名场次] 用户 ${userId} 本周已报名场次总数: ${userParticipatedSchedules.length}`);
       
       if (userParticipatedSchedules.length > 0) {
-        console.log(`📝 [已报名场次] 详细场次信息:`);
         
         userParticipatedSchedules.forEach((schedule, index) => {
           const userPosition = schedule.participant_ids.indexOf(userId) + 1;
           const isMainResponsible = schedule.participant_ids[0] === userId;
           const partnerIds = schedule.participant_ids.filter((id: number) => id !== userId);
           
-          console.log(`  📅 场次 ${index + 1}:`);
-          console.log(`    🆔 记录ID: ${schedule.id}`);
-          console.log(`    📅 日期: ${schedule.date}`);
-          console.log(`    ⏰ 时间段ID: ${schedule.time_slot_id}`);
-          console.log(`    👥 参与者: [${schedule.participant_ids.join(', ')}]`);
-          console.log(`    🎯 用户位置: 第${userPosition}位 ${isMainResponsible ? '(主负责人)' : '(协助者)'}`);
-          console.log(`    🤝 合作伙伴: ${partnerIds.length > 0 ? partnerIds.join(', ') : '无'}`);
-          console.log(`    📊 参与人数: ${schedule.participant_ids.length}人`);
-          console.log(`    👤 创建者: ${schedule.created_by}`);
-          console.log(`    📅 创建时间: ${schedule.created_at}`);
         });
         
         // 统计信息
         const mainResponsibleCount = userParticipatedSchedules.filter(s => s.participant_ids[0] === userId).length;
         const assistantCount = userParticipatedSchedules.length - mainResponsibleCount;
         const allPartners = [...new Set(userParticipatedSchedules.flatMap(s => s.participant_ids).filter((id: number) => id !== userId))];
-        
-        console.log(`📊 [已报名场次] 用户 ${userId} 报名统计汇总:`);
-        console.log(`  📈 总报名场次: ${userParticipatedSchedules.length}场`);
-        console.log(`  🎯 主负责人: ${mainResponsibleCount}场`);
-        console.log(`  🤝 协助者: ${assistantCount}场`);
-        console.log(`  👥 合作过的用户: ${allPartners.length > 0 ? allPartners.join(', ') : '无'}`);
-        console.log(`  📅 报名日期: ${userParticipatedSchedules.map(s => s.date).join(', ')}`);
+
       } else {
-        console.log(`📝 [已报名场次] 用户 ${userId} 本周尚未报名任何场次`);
+
       }
       
     } catch (error) {
@@ -684,7 +578,7 @@ export class LiveStreamRegistrationService {
     vipPrivilege: any;
     currentPrivilege: any;
   }> {
-    console.log(`🧪 [测试] 开始测试用户 ${userId} 的权益切换...`);
+
     
     const config = await this.getRegistrationConfig();
     if (!config) {
@@ -726,7 +620,7 @@ export class LiveStreamRegistrationService {
       }
     };
     
-    console.log(`🧪 [测试] 用户 ${userId} 权益切换测试结果:`, testResult);
+
     
     return testResult;
   }

@@ -23,13 +23,6 @@ const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
   // 日志记录函数
   const logCountdownEvent = (event: string, data?: any) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🕐 [SessionTimeoutWarning] ${event}`, {
-        timestamp: new Date().toISOString(),
-        timeRemaining: timeRemaining,
-        countdown: countdown,
-        isVisible: isVisible,
-        ...data
-      });
     }
   };
 

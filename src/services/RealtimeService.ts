@@ -32,17 +32,26 @@ class RealtimeService {
   private connectionCount: number = 0; // 连接计数器
 
   constructor() {
-    // 检查是否在HTTPS环境下，如果是则启用realtime
+    // 检查环境配置，允许在HTTP环境下使用realtime（用于本地开发）
     const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const isSecureUrl = supabaseUrl && supabaseUrl.startsWith('https://');
+    const isLocalDevelopment = supabaseUrl && (supabaseUrl.includes('localhost') || supabaseUrl.includes('127.0.0.1') || supabaseUrl.includes('47.123.26.25'));
     
     this.config = {
-      enabled: isHttps && isSecureUrl, // 只有在HTTPS页面和HTTPS URL时才启用realtime
+      enabled: isHttps && isSecureUrl || isLocalDevelopment, // 在HTTPS环境或本地开发环境下启用realtime
       maxReconnectAttempts: 5,
       reconnectDelay: 3000,
       heartbeatInterval: 30000
     };
+    
+    console.log('🔧 [RealtimeService] 配置信息:', {
+      isHttps,
+      isSecureUrl,
+      isLocalDevelopment,
+      supabaseUrl,
+      enabled: this.config.enabled
+    });
   }
 
   /**

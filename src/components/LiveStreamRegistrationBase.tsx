@@ -13,7 +13,7 @@ import LiveStreamCardContextMenu from './LiveStreamCardContextMenu';
 import LiveStreamHistoryDrawer from './LiveStreamHistoryDrawer';
 import LiveStreamScoringDrawer from './LiveStreamScoringDrawer';
 import RegistrationCountdown from './RegistrationCountdown';
-import RegistrationLimitModal from './RegistrationLimitModal.test';
+import RegistrationLimitModal from './RegistrationLimitModal';
 import { toBeijingDateStr, getWeekStart, getWeekEnd } from '../utils/timeUtils';
 import { 
   liveStreamRegistrationService, 
@@ -745,7 +745,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
   // 时间窗口变化回调
   const onTimeWindowChange = useCallback(async (canRegister: boolean) => {
     // 当时间窗口状态改变时，刷新报名状态
-    console.log('时间窗口状态改变:', canRegister);
     
     if (userProfile?.id) {
       try {
@@ -757,12 +756,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
         // 同时刷新配置，以防配置有变化
         const config = await liveStreamRegistrationService.getRegistrationConfig();
         setRegistrationConfig(config);
-        
-        console.log('✅ [时间窗口变化] 报名状态已刷新:', {
-          canRegister: canRegister,
-          newStatus: status?.statusMessage,
-          newConfig: config ? '已更新' : '未更新'
-        });
+
       } catch (error) {
         console.error('❌ [时间窗口变化] 刷新报名状态失败:', error);
       }
@@ -856,7 +850,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
       // 如果没有schedule，需要先创建一个临时记录来锁定
       let scheduleToLock = schedule;
       if (!schedule) {
-        console.log('🔒 [锁定场次] 创建临时记录用于锁定...');
         const tempScheduleData = {
           date: dateInfo.date,
           timeSlotId: timeSlot.id,
@@ -867,7 +860,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
         };
 
         scheduleToLock = await createLiveStreamSchedule(tempScheduleData);
-        console.log('✅ [锁定场次] 临时记录创建成功:', scheduleToLock.id);
       }
 
       // 锁定场次
@@ -880,17 +872,11 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
       if (updatedSchedule) {
         // 立刻更新本地状态
-        console.log('🔄 [锁定场次] 立刻更新本地状态...');
         setSchedules(prev => {
           if (schedule) {
             // 更新现有记录
             const newSchedules = prev.map(s => {
               if (s.id === schedule.id) {
-                console.log('✅ [锁定场次] 找到匹配记录，更新状态:', { 
-                  id: s.id, 
-                  oldStatus: s.status, 
-                  newStatus: 'locked'
-                });
                 return {
                   ...s,
                   ...updatedSchedule,
@@ -900,27 +886,22 @@ const LiveStreamRegistrationBase: React.FC = () => {
               return s;
             });
             
-            console.log('📊 [锁定场次] 状态更新完成，新状态数量:', newSchedules.length);
             return newSchedules;
           } else {
             // 添加新创建的锁定记录
-            console.log('✅ [锁定场次] 添加新创建的锁定记录:', updatedSchedule.id);
             return [...prev, updatedSchedule];
           }
         });
         
         message.success('场次锁定成功');
         
-        // 更新卡片
-        console.log('🔄 [锁定场次] 更新卡片渲染键...');
+        // 更新卡片 
         updateSingleCard(updatedSchedule.id);
         
         // 异步重新加载数据以确保数据一致性
         setTimeout(async () => {
-          console.log('🔄 [锁定场次] 异步重新加载数据确保一致性...');
           try {
             await loadData();
-            console.log('✅ [锁定场次] 数据重新加载完成');
           } catch (error) {
             console.warn('⚠️ [锁定场次] 数据重新加载失败:', error);
           }
@@ -954,15 +935,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
       if (updatedSchedule) {
         // 立刻更新本地状态
-        console.log('🔄 [解锁场次] 立刻更新本地状态...');
         setSchedules(prev => {
           const newSchedules = prev.map(s => {
             if (s.id === schedule.id) {
-              console.log('✅ [解锁场次] 找到匹配记录，更新状态:', { 
-                id: s.id, 
-                oldStatus: s.status, 
-                newStatus: 'available'
-              });
               return {
                 ...s,
                 ...updatedSchedule,
@@ -972,22 +947,18 @@ const LiveStreamRegistrationBase: React.FC = () => {
             return s;
           });
           
-          console.log('📊 [解锁场次] 状态更新完成，新状态数量:', newSchedules.length);
           return newSchedules;
         });
         
         message.success('场次解锁成功');
         
         // 更新卡片
-        console.log('🔄 [解锁场次] 更新卡片渲染键...');
         updateSingleCard(schedule.id);
         
         // 异步重新加载数据以确保数据一致性
         setTimeout(async () => {
-          console.log('🔄 [解锁场次] 异步重新加载数据确保一致性...');
           try {
             await loadData();
-            console.log('✅ [解锁场次] 数据重新加载完成');
           } catch (error) {
             console.warn('⚠️ [解锁场次] 数据重新加载失败:', error);
           }
@@ -1025,24 +996,12 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
       if (updatedSchedule) {
         // 立刻更新本地状态
-        console.log('🔄 [释放场次] 立刻更新本地状态...');
-        console.log('📊 [释放场次] 更新前状态:', { 
-          scheduleId: schedule?.id, 
-          currentStatus: schedule?.status,
-          managers: schedule?.managers?.length || 0
-        });
-        console.log('📊 [释放场次] 更新后数据:', updatedSchedule);
+       
         
         setSchedules(prev => {
           const newSchedules = prev.map(s => {
             if (s.id === schedule?.id) {
-              console.log('✅ [释放场次] 找到匹配记录，更新状态:', { 
-                id: s.id, 
-                oldStatus: s.status, 
-                newStatus: 'available',
-                oldManagers: s.managers?.length || 0,
-                newManagers: 0
-              });
+             
               // 使用更新后的完整数据，确保所有字段都正确
               return {
                 ...s,
@@ -1054,7 +1013,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
             return s;
           });
           
-          console.log('📊 [释放场次] 状态更新完成，新状态数量:', newSchedules.length);
           return newSchedules;
         });
         
@@ -1062,26 +1020,21 @@ const LiveStreamRegistrationBase: React.FC = () => {
         
         // 更新用户报名状态
         if (userProfile?.id) {
-          console.log('🔄 [释放场次] 更新用户报名状态...');
           try {
             const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
             setRegistrationStatus(newRegistrationStatus);
-            console.log('✅ [释放场次] 用户报名状态已更新:', newRegistrationStatus.statusMessage);
           } catch (error) {
             console.warn('⚠️ [释放场次] 更新用户报名状态失败:', error);
           }
         }
         
         // 更新卡片
-        console.log('🔄 [释放场次] 更新卡片渲染键...');
         updateSingleCard(schedule?.id || '');
         
         // 异步重新加载数据以确保数据一致性（不阻塞UI更新）
         setTimeout(async () => {
-          console.log('🔄 [释放场次] 异步重新加载数据确保一致性...');
           try {
             await loadData();
-            console.log('✅ [释放场次] 数据重新加载完成');
           } catch (error) {
             console.warn('⚠️ [释放场次] 数据重新加载失败:', error);
           }
@@ -1130,15 +1083,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
       if (updatedSchedule) {
         // 立刻更新本地状态
-        console.log('🔄 [取消报名] 立刻更新本地状态...');
         setSchedules(prev => 
           prev.map(s => {
             if (s.id === editingSchedule?.id) {
-              console.log('✅ [取消报名] 更新本地状态:', { 
-                id: s.id, 
-                oldStatus: s.status, 
-                newStatus: 'available' 
-              });
               return {
                 ...s,
                 status: 'available',
@@ -1151,11 +1098,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
         
         // 更新用户报名状态
         if (userProfile?.id) {
-          console.log('🔄 [取消报名] 更新用户报名状态...');
           try {
             const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
             setRegistrationStatus(newRegistrationStatus);
-            console.log('✅ [取消报名] 用户报名状态已更新:', newRegistrationStatus.statusMessage);
           } catch (error) {
             console.warn('⚠️ [取消报名] 更新用户报名状态失败:', error);
           }
@@ -1174,10 +1119,8 @@ const LiveStreamRegistrationBase: React.FC = () => {
         
         // 异步重新加载数据以确保数据一致性（不阻塞UI更新）
         setTimeout(async () => {
-          console.log('🔄 [取消报名] 异步重新加载数据确保一致性...');
           try {
             await loadData();
-            console.log('✅ [取消报名] 数据重新加载完成');
           } catch (error) {
             console.warn('⚠️ [取消报名] 数据重新加载失败:', error);
           }
@@ -1211,8 +1154,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
   }, []);
 
   // 统一的权限检查函数
-  const checkEditPermission = async (schedule: LiveStreamSchedule): Promise<{ hasPermission: boolean; message?: string }> => {
-    console.log('🔍 [权限检查] 开始检查编辑权限...', { scheduleId: schedule.id, status: schedule.status });
+  const checkEditPermission = async (schedule: LiveStreamSchedule): Promise<{ hasPermission: boolean; message?: string }> => {  
 
     // 检查用户登录状态
     if (!user) {
@@ -1239,7 +1181,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
       }
 
       // 实时检查记录状态（从数据库重新获取最新状态）
-      console.log('🔄 [权限检查] 实时检查记录状态...');
       const { data: latestSchedule, error: scheduleError } = await supabase
         .from('live_stream_schedules')
         .select('id, status, created_by, participant_ids, editing_by, editing_expires_at')
@@ -1256,14 +1197,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
         return { hasPermission: false, message: '记录不存在' };
       }
 
-      console.log('📊 [权限检查] 最新记录状态:', {
-        id: latestSchedule.id,
-        status: latestSchedule.status,
-        created_by: latestSchedule.created_by,
-        participant_ids: latestSchedule.participant_ids,
-        editing_by: latestSchedule.editing_by,
-        editing_expires_at: latestSchedule.editing_expires_at
-      });
 
       // 使用最新状态进行权限检查
       const currentStatus = latestSchedule.status;
@@ -1272,8 +1205,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
       if (latestSchedule.editing_expires_at) {
         const expiresAt = new Date(latestSchedule.editing_expires_at);
         const now = new Date();
-        if (now > expiresAt) {
-          console.log('⏰ [权限检查] 编辑锁定已过期，自动清理...');
+        if (now > expiresAt) {  
           // 编辑锁定过期，自动清理
           await supabase
             .from('live_stream_schedules')
@@ -1297,8 +1229,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
         const isCreator = latestSchedule.created_by === userProfile.id;
         const isParticipant = latestSchedule.participant_ids && latestSchedule.participant_ids.includes(userProfile.id);
         
-        console.log('👤 [权限检查] 创建者检查:', { isCreator, created_by: latestSchedule.created_by, user_id: userProfile.id });
-        console.log('👥 [权限检查] 参与者检查:', { isParticipant, participant_ids: latestSchedule.participant_ids, user_id: userProfile.id });
 
         if (!isCreator && !isParticipant) {
           return { 
@@ -1308,33 +1238,26 @@ const LiveStreamRegistrationBase: React.FC = () => {
         }
         
         // 检查是否可以取消报名（时间窗口检查）
-        console.log('🔍 [权限检查] 开始检查时间窗口...');
         const config = await liveStreamRegistrationService.getRegistrationConfig();
         if (config) {
           const isPrivilegeUser = config.privilege_managers.includes(userProfile.id);
-          console.log(`👤 [权限检查] 用户类型检查: VIP主播=${isPrivilegeUser}, 用户ID=${userProfile.id}, VIP主播列表=${config.privilege_managers}`);
           
           // 获取当前权益类型
           const currentPrivilegeType = liveStreamRegistrationService.getCurrentPrivilegeType(config, isPrivilegeUser);
-          console.log(`🎯 [权限检查] 当前权益类型: ${currentPrivilegeType}`);
           
           const canCancel = liveStreamRegistrationService.canCancelRegistration(config, currentPrivilegeType === 'vip');
-          console.log(`⏰ [权限检查] 时间窗口检查结果: ${canCancel}`);
           
           if (!canCancel) {
-            console.warn('❌ [权限检查] 时间窗口检查失败，无法编辑');
             return {
               hasPermission: false,
               message: '报名时间已截止，无法修改报名信息'
             };
           }
           
-          console.log('✅ [权限检查] 时间窗口检查通过');
         } else {
           console.warn('⚠️ [权限检查] 无法获取配置，跳过时间窗口检查');
         }
         
-        console.log('✅ [权限检查] booked状态权限检查通过');
         return { hasPermission: true };
         
       } else if (currentStatus === 'editing') {
@@ -1342,11 +1265,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
         const isEditor = latestSchedule.editing_by === userProfile.id;
         const isNullEditingBy = latestSchedule.editing_by === null;
         
-        console.log('✏️ [权限检查] 编辑状态检查:', { isEditor, editing_by: latestSchedule.editing_by, user_id: userProfile.id });
         
         // 如果editingBy为null，允许编辑（可能是数据库字段未正确设置）
         if (isNullEditingBy) {
-          console.log('✅ [权限检查] editingBy为null，允许编辑');
           return { hasPermission: true };
         }
         
@@ -1357,17 +1278,15 @@ const LiveStreamRegistrationBase: React.FC = () => {
           };
         }
         
-        console.log('✅ [权限检查] editing状态权限检查通过');
         return { hasPermission: true };
         
       } else if (currentStatus === 'available' || !currentStatus) {
         // available状态或无状态：任何人都可以编辑
-        console.log('✅ [权限检查] available状态，允许编辑');
         return { hasPermission: true };
         
       } else {
         // 其他状态：默认不允许编辑
-        console.log('❌ [权限检查] 状态不允许编辑:', currentStatus);
+        
         return { 
           hasPermission: false, 
           message: '该记录状态不允许编辑' 
@@ -1525,15 +1444,13 @@ const LiveStreamRegistrationBase: React.FC = () => {
   useEffect(() => {
     if (!selectedWeek) return;
     
-    console.log('🔄 [LiveStream] 使用realtime功能监听数据变化');
     
     // 可以在这里添加其他初始化逻辑
     // 数据变化会通过realtime自动处理
     
   }, [selectedWeek]);
 
-  // 注释掉原来的realtime订阅代码
-  /*
+  // 恢复 realtime 功能 - 监听 live_stream_schedules 表变化
   useEffect(() => {
     if (!selectedWeek) return;
     let reconnectAttempts = 0;
@@ -1761,7 +1678,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [selectedWeek]);
-  */
 
 
 
