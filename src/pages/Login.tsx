@@ -155,7 +155,49 @@ const Login: React.FC = () => {
           message.error(`注册失败: ${error.message}`);
         }
       } else {
-        message.success('注册成功！请查收邮箱完成账号激活');
+        // 注册成功，创建profile记录
+        if (data.user) {
+          try {
+            // 先检查是否已存在profile记录
+            const { data: existingProfile } = await supabase
+              .from('users_profile')
+              .select('id')
+              .eq('user_id', data.user.id)
+              .limit(1);
+
+            if (existingProfile && existingProfile.length > 0) {
+              console.log('用户profile已存在，跳过创建');
+              message.success('注册成功！');
+            } else {
+              const { error: profileError } = await supabase
+                .from('users_profile')
+                .insert({
+                  user_id: data.user.id,
+                  email: data.user.email,
+                  nickname: fullName || data.user.email?.split('@')[0] || '用户',
+                  status: 'active'
+                });
+
+              if (profileError) {
+                console.error('创建用户profile失败:', profileError);
+                console.error('错误详情:', {
+                  code: profileError.code,
+                  message: profileError.message,
+                  details: profileError.details,
+                  hint: profileError.hint
+                });
+                message.error(`创建用户档案失败: ${profileError.message}`);
+              } else {
+                console.log('成功创建用户profile:', data.user.id);
+                message.success('注册成功！用户档案已创建');
+              }
+            }
+          } catch (profileErr) {
+            console.error('创建profile异常:', profileErr);
+            message.warning('注册成功，但创建用户档案失败，请联系管理员');
+          }
+        }
+
         // 注册成功后切换到登录页
         setActiveTab('login');
         // 清空注册表单

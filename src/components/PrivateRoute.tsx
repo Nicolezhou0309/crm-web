@@ -23,10 +23,10 @@ export default function PrivateRoute({ children }: { children: React.ReactNode }
     return <Navigate to="/login" replace />;
   }
   
-  // 如果用户已认证但没有 profile 信息，也重定向到登录页
+  // 如果用户已认证但没有 profile 信息，显示加载屏幕而不是重定向
   if (!profile) {
-    console.warn('用户已认证但缺少 profile 信息，重定向到登录页');
-    return <Navigate to="/login" replace />;
+    console.log('用户已认证但profile还在加载中，显示加载屏幕');
+    return <LoadingScreen type="auth" message="正在初始化用户档案..." subtitle="请稍候，我们正在为您设置个人资料" />;
   }
   
   return <>{children}</>;

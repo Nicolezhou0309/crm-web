@@ -186,11 +186,64 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .from('users_profile')
             .select('*')
             .eq('user_id', sessionUser.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
             .single();
           
           if (profileError) {
-            setError(profileError.message);
-            setProfile(null);
+            // 如果profile不存在，尝试创建
+            if (profileError.code === 'PGRST116') {
+              console.log('用户profile不存在，正在创建...');
+              try {
+                const { data: newProfile, error: createError } = await supabase
+                  .from('users_profile')
+                  .insert({
+                    user_id: sessionUser.id,
+                    email: sessionUser.email,
+                    nickname: sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0] || '用户',
+                    status: 'active'
+                  })
+                  .select()
+                  .single();
+                
+                if (createError) {
+                  console.error('创建profile失败:', createError);
+                  setError(`创建用户档案失败: ${createError.message}`);
+                  // 创建失败时，创建一个临时的profile对象，避免重定向循环
+                  setProfile({
+                    id: 0,
+                    user_id: sessionUser.id,
+                    nickname: sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0] || '用户',
+                    avatar_url: undefined,
+                    password_set: undefined
+                  });
+                } else {
+                  console.log('成功创建用户profile:', newProfile);
+                  setProfile(newProfile);
+                }
+              } catch (createErr) {
+                console.error('创建profile异常:', createErr);
+                setError(`创建用户档案异常: ${createErr}`);
+                // 创建异常时，也创建一个临时的profile对象
+                setProfile({
+                  id: 0,
+                  user_id: sessionUser.id,
+                  nickname: sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0] || '用户',
+                  avatar_url: undefined,
+                  password_set: undefined
+                });
+              }
+            } else {
+              setError(profileError.message);
+              // 其他错误时，也创建一个临时的profile对象
+              setProfile({
+                id: 0,
+                user_id: sessionUser.id,
+                nickname: sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0] || '用户',
+                avatar_url: undefined,
+                password_set: undefined
+              });
+            }
           } else {
             setProfile(profileData);
             // 获取权限信息
@@ -327,9 +380,53 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               .from('users_profile')
               .select('*')
               .eq('user_id', authStatus.user.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
               .single();
             
-            if (!profileError && profileData) {
+            if (profileError) {
+              // 如果profile不存在，尝试创建
+              if (profileError.code === 'PGRST116') {
+                console.log('初始化时用户profile不存在，正在创建...');
+                try {
+                  const { data: newProfile, error: createError } = await supabase
+                    .from('users_profile')
+                    .insert({
+                      user_id: authStatus.user.id,
+                      email: authStatus.user.email,
+                      nickname: authStatus.user.user_metadata?.full_name || authStatus.user.email?.split('@')[0] || '用户',
+                      status: 'active'
+                    })
+                    .select()
+                    .single();
+                  
+                  if (!createError && newProfile) {
+                    console.log('初始化时成功创建用户profile:', newProfile);
+                    setProfile(newProfile);
+                  } else if (createError) {
+                    console.error('初始化时创建profile失败:', createError);
+                    // 创建失败时，创建一个临时的profile对象
+                    setProfile({
+                      id: 0,
+                      user_id: authStatus.user.id,
+                      nickname: authStatus.user.user_metadata?.full_name || authStatus.user.email?.split('@')[0] || '用户',
+                      avatar_url: undefined,
+                      password_set: undefined
+                    });
+                  }
+                } catch (createErr) {
+                  console.error('初始化时创建profile异常:', createErr);
+                  // 创建异常时，也创建一个临时的profile对象
+                  setProfile({
+                    id: 0,
+                    user_id: authStatus.user.id,
+                    nickname: authStatus.user.user_metadata?.full_name || authStatus.user.email?.split('@')[0] || '用户',
+                    avatar_url: undefined,
+                    password_set: undefined
+                  });
+                }
+              }
+            } else if (profileData) {
               setProfile(profileData);
             }
           } catch (profileErr) {
@@ -375,9 +472,53 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               .from('users_profile')
               .select('*')
               .eq('user_id', session.user.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
               .single();
             
-            if (!profileError && profileData) {
+            if (profileError) {
+              // 如果profile不存在，尝试创建
+              if (profileError.code === 'PGRST116') {
+                console.log('登录时用户profile不存在，正在创建...');
+                try {
+                  const { data: newProfile, error: createError } = await supabase
+                    .from('users_profile')
+                    .insert({
+                      user_id: session.user.id,
+                      email: session.user.email,
+                      nickname: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '用户',
+                      status: 'active'
+                    })
+                    .select()
+                    .single();
+                  
+                  if (!createError && newProfile) {
+                    console.log('登录时成功创建用户profile:', newProfile);
+                    setProfile(newProfile);
+                  } else if (createError) {
+                    console.error('登录时创建profile失败:', createError);
+                    // 创建失败时，创建一个临时的profile对象
+                    setProfile({
+                      id: 0,
+                      user_id: session.user.id,
+                      nickname: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '用户',
+                      avatar_url: undefined,
+                      password_set: undefined
+                    });
+                  }
+                } catch (createErr) {
+                  console.error('登录时创建profile异常:', createErr);
+                  // 创建异常时，也创建一个临时的profile对象
+                  setProfile({
+                    id: 0,
+                    user_id: session.user.id,
+                    nickname: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '用户',
+                    avatar_url: undefined,
+                    password_set: undefined
+                  });
+                }
+              }
+            } else if (profileData) {
               setProfile(profileData);
             }
           } catch (profileErr) {
