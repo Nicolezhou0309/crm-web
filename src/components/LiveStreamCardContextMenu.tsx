@@ -1,5 +1,5 @@
-import React from 'react';
-import { Dropdown, Modal } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Dropdown, Modal, message } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   EditOutlined,
@@ -9,6 +9,7 @@ import {
   LockOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
+import { useRolePermissions } from '../hooks/useRolePermissions';
 
 interface LiveStreamCardContextMenuProps {
   children: React.ReactNode;
@@ -33,7 +34,36 @@ const LiveStreamCardContextMenu: React.FC<LiveStreamCardContextMenuProps> = ({
   onCreate,
   isLocked = false,
 }) => {
+  const { hasLiveStreamManagePermission } = useRolePermissions();
+  const [hasManagePermission, setHasManagePermission] = useState<boolean>(false);
+  const [permissionChecked, setPermissionChecked] = useState<boolean>(false);
+
+  // 检查权限
+  useEffect(() => {
+    const checkPermission = async () => {
+      try {
+        const hasPermission = await hasLiveStreamManagePermission();
+        setHasManagePermission(hasPermission);
+        setPermissionChecked(true);
+      } catch (error) {
+        console.error('检查直播管理权限失败:', error);
+        setHasManagePermission(false);
+        setPermissionChecked(true);
+      }
+    };
+
+    checkPermission();
+  }, [hasLiveStreamManagePermission]);
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+    // 检查管理权限的函数
+    const checkManagePermission = () => {
+      if (!hasManagePermission) {
+        message.warning('您没有直播管理权限，无法执行此操作');
+        return false;
+      }
+      return true;
+    };
+
     switch (key) {
       case 'edit':
         onEdit?.();
@@ -42,9 +72,11 @@ const LiveStreamCardContextMenu: React.FC<LiveStreamCardContextMenuProps> = ({
         onHistory?.();
         break;
       case 'rate':
+        if (!checkManagePermission()) return;
         onRate?.();
         break;
       case 'release':
+        if (!checkManagePermission()) return;
         Modal.confirm({
           title: '确认释放场次？',
           content: '释放后该场次将变为可报名状态，确定要释放吗？',
@@ -54,6 +86,7 @@ const LiveStreamCardContextMenu: React.FC<LiveStreamCardContextMenuProps> = ({
         });
         break;
       case 'lock':
+        if (!checkManagePermission()) return;
         Modal.confirm({
           title: '确认锁定场次？',
           content: '锁定后该场次将无法被编辑或报名，确定要锁定吗？',
@@ -63,6 +96,7 @@ const LiveStreamCardContextMenu: React.FC<LiveStreamCardContextMenuProps> = ({
         });
         break;
       case 'unlock':
+        if (!checkManagePermission()) return;
         Modal.confirm({
           title: '确认解锁场次？',
           content: '解锁后该场次将变为可报名状态，确定要解锁吗？',
@@ -97,22 +131,24 @@ const LiveStreamCardContextMenu: React.FC<LiveStreamCardContextMenuProps> = ({
       icon: <ClockCircleOutlined />,
       label: '查看记录历史',
     }] : []),
-    ...(onRate ? [{
+    // 评分菜单项 - 只有拥有管理权限的用户才能看到
+    ...(hasManagePermission && onRate ? [{
       key: 'rate',
       icon: <StarOutlined />,
       label: '直播评分',
     }] : []),
-    ...(onRelease ? [{
+    // 管理权限相关菜单项 - 只有拥有管理权限的用户才能看到
+    ...(hasManagePermission && onRelease ? [{
       key: 'release',
       icon: <DeleteOutlined />,
       label: '释放场次',
       danger: true,
     }] : []),
-    // 锁定相关菜单项 - 所有卡片都可以显示
-    ...(onLock || onUnlock ? [{
+    // 锁定相关菜单项 - 只有拥有管理权限的用户才能看到
+    ...(hasManagePermission && (onLock || onUnlock) ? [{
       type: 'divider' as const,
     }] : []),
-    ...(onLock || onUnlock ? [{
+    ...(hasManagePermission && (onLock || onUnlock) ? [{
       key: isLocked ? 'unlock' : 'lock',
       icon: isLocked ? <UnlockOutlined /> : <LockOutlined />,
       label: isLocked ? '解锁场次' : '锁定场次',

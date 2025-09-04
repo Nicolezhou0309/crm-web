@@ -14,6 +14,7 @@ import {
   type LiveStreamScheduleWithScoring
 } from '../api/scoringApi';
 import { useUser } from '../context/UserContext';
+import { useRolePermissions } from '../hooks/useRolePermissions';
 import type { LiveStreamSchedule } from '../types/liveStream';
 import './LiveStreamScoringDrawer.css';
 import { toBeijingDateStr } from '../utils/timeUtils';
@@ -42,6 +43,28 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
   const [evaluationNotes, setEvaluationNotes] = useState('');
   const [scheduleWithScoring, setScheduleWithScoring] = useState<LiveStreamScheduleWithScoring | null>(null);
   const { profile } = useUser();
+  const { hasLiveStreamManagePermission } = useRolePermissions();
+  const [hasManagePermission, setHasManagePermission] = useState<boolean>(false);
+  const [permissionChecked, setPermissionChecked] = useState<boolean>(false);
+
+  // 检查权限
+  useEffect(() => {
+    const checkPermission = async () => {
+      try {
+        const hasPermission = await hasLiveStreamManagePermission();
+        setHasManagePermission(hasPermission);
+        setPermissionChecked(true);
+      } catch (error) {
+        console.error('检查直播管理权限失败:', error);
+        setHasManagePermission(false);
+        setPermissionChecked(true);
+      }
+    };
+
+    if (visible) {
+      checkPermission();
+    }
+  }, [visible, hasLiveStreamManagePermission]);
 
   // 加载评分维度和选项
   useEffect(() => {
@@ -231,6 +254,12 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
 
   // 开始评分
   const handleStartScoring = () => {
+    // 检查权限
+    if (!hasManagePermission) {
+      message.warning('您没有直播管理权限，无法执行评分操作');
+      return;
+    }
+
     console.log('开始评分 - 用户ID:', profile?.id);
     console.log('开始评分 - 日程ID:', schedule?.id);
     const initialData = createInitialScoringData();
@@ -242,6 +271,12 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
   // 保存评分
   const handleSave = async () => {
     if (!schedule || !scoringData || !profile?.id) return;
+
+    // 检查权限
+    if (!hasManagePermission) {
+      message.warning('您没有直播管理权限，无法执行评分操作');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -391,6 +426,21 @@ const LiveStreamScoringDrawer: React.FC<LiveStreamScoringDrawerProps> = ({
 
   // 渲染操作按钮
   const renderActions = () => {
+    // 如果没有权限，不显示任何操作按钮
+    if (!hasManagePermission) {
+      return (
+        <div style={{ 
+          padding: '16px', 
+          textAlign: 'center', 
+          color: '#999',
+          background: '#f5f5f5',
+          borderRadius: '6px'
+        }}>
+          您没有直播管理权限，无法进行评分操作
+        </div>
+      );
+    }
+
     if (!scoringData) {
       return (
         <Button type="primary" onClick={handleStartScoring}>

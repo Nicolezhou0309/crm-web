@@ -201,6 +201,26 @@ export const useRolePermissions = () => {
     return hasPerm;
   }, [userPermissions, isSuperAdmin, cacheTTL]);
 
+  // 检查直播管理权限（使用数据库函数）
+  const hasLiveStreamManagePermission = useCallback(async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.rpc('has_permission', {
+        resource: 'live_stream',
+        action: 'manage'
+      });
+      
+      if (error) {
+        console.error('检查直播管理权限失败:', error);
+        return false;
+      }
+      
+      return data === true;
+    } catch (error) {
+      console.error('检查直播管理权限异常:', error);
+      return false;
+    }
+  }, []);
+
   // 检查是否有多个权限中的任意一个
   const hasAnyPermission = useCallback((permissions: string[]): boolean => {
     const hasAny = isSuperAdmin || permissions.some(permission => hasPermission(permission));
@@ -323,6 +343,8 @@ export const useRolePermissions = () => {
     canManageUser,
     getManageableOrganizationIds,
     getManageableOrganizations,
+    // 直播管理权限
+    hasLiveStreamManagePermission,
     // 便捷方法
     checkPermission: hasPermission,
     checkRole: hasRole,

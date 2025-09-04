@@ -22,6 +22,7 @@ import {
   type RegistrationStatus 
 } from '../services/LiveStreamRegistrationService';
 import { useRealtimeConcurrencyControl } from '../hooks/useRealtimeConcurrencyControl';
+import { useRolePermissions } from '../hooks/useRolePermissions';
 const { Option } = Select;
 
 
@@ -737,6 +738,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
   
   // 并发控制hook
   const { checkUserRegisterLimit } = useRealtimeConcurrencyControl();
+  
+  // 权限检查hook
+  const { hasLiveStreamManagePermission } = useRolePermissions();
 
   // 时间窗口变化回调
   const onTimeWindowChange = useCallback(async (canRegister: boolean) => {
@@ -811,16 +815,41 @@ const LiveStreamRegistrationBase: React.FC = () => {
     setHistoryDrawerVisible(true);
   };
 
-  const handleContextMenuRate = (schedule: LiveStreamSchedule) => {
-    setSelectedScheduleForScoring(schedule);
-    setScoringDrawerVisible(true);
+  const handleContextMenuRate = async (schedule: LiveStreamSchedule) => {
+    try {
+      // 检查权限 - 只有拥有直播管理权限的用户可以进行评分
+      if (!userProfile?.id) {
+        message.warning('用户未登录');
+        return;
+      }
+
+      // 检查直播管理权限
+      const hasPermission = await hasLiveStreamManagePermission();
+      if (!hasPermission) {
+        message.warning('您没有直播管理权限，无法执行评分操作');
+        return;
+      }
+
+      setSelectedScheduleForScoring(schedule);
+      setScoringDrawerVisible(true);
+    } catch (error) {
+      console.error('检查评分权限失败:', error);
+      message.error('权限检查失败');
+    }
   };
 
   const handleContextMenuLock = async (schedule: LiveStreamSchedule | undefined, timeSlot: any, dateInfo: any) => {
     try {
-      // 检查权限 - 只有管理员可以锁定场次
+      // 检查权限 - 只有拥有直播管理权限的用户可以锁定场次
       if (!userProfile?.id) {
         message.warning('用户未登录');
+        return;
+      }
+
+      // 检查直播管理权限
+      const hasPermission = await hasLiveStreamManagePermission();
+      if (!hasPermission) {
+        message.warning('您没有直播管理权限，无法执行此操作');
         return;
       }
 
@@ -907,9 +936,16 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   const handleContextMenuUnlock = async (schedule: LiveStreamSchedule) => {
     try {
-      // 检查权限 - 只有管理员可以解锁场次
+      // 检查权限 - 只有拥有直播管理权限的用户可以解锁场次
       if (!userProfile?.id) {
         message.warning('用户未登录');
+        return;
+      }
+
+      // 检查直播管理权限
+      const hasPermission = await hasLiveStreamManagePermission();
+      if (!hasPermission) {
+        message.warning('您没有直播管理权限，无法执行此操作');
         return;
       }
 
@@ -967,10 +1003,16 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   const handleContextMenuRelease = async (schedule: LiveStreamSchedule) => {
     try {
-      // 检查权限
-      const permissionResult = await checkEditPermission(schedule);
-      if (!permissionResult.hasPermission) {
-        message.warning(permissionResult.message || '无权限释放此场次');
+      // 检查权限 - 只有拥有直播管理权限的用户可以释放场次
+      if (!userProfile?.id) {
+        message.warning('用户未登录');
+        return;
+      }
+
+      // 检查直播管理权限
+      const hasPermission = await hasLiveStreamManagePermission();
+      if (!hasPermission) {
+        message.warning('您没有直播管理权限，无法执行此操作');
         return;
       }
 
