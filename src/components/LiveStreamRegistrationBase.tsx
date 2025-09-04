@@ -13,7 +13,6 @@ import LiveStreamCardContextMenu from './LiveStreamCardContextMenu';
 import LiveStreamHistoryDrawer from './LiveStreamHistoryDrawer';
 import LiveStreamScoringDrawer from './LiveStreamScoringDrawer';
 import RegistrationCountdown from './RegistrationCountdown';
-import RegistrationLimitModal from './RegistrationLimitModal';
 import { toBeijingDateStr, getWeekStart, getWeekEnd } from '../utils/timeUtils';
 import { 
   liveStreamRegistrationService, 
@@ -737,7 +736,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
   const [userProfile, setUserProfile] = useState<any>(null);
   
   // 并发控制hook
-  const { checkUserRegisterLimit } = useRealtimeConcurrencyControl();
+  const { } = useRealtimeConcurrencyControl();
   
   // 权限检查hook
   const { hasLiveStreamManagePermission } = useRolePermissions();
@@ -785,13 +784,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
   const [scoringDrawerVisible, setScoringDrawerVisible] = useState(false);
   const [selectedScheduleForScoring, setSelectedScheduleForScoring] = useState<LiveStreamSchedule | null>(null);
 
-  // 3分钟限制模态框状态
-  const [limitModalVisible, setLimitModalVisible] = useState(false);
-  const [limitModalData, setLimitModalData] = useState<{
-    nextAvailableTime: Date;
-    lastRegistrationTime: Date;
-    remainingTime: number;
-  } | null>(null);
 
   // 添加卡片级别的更新状态
   const [cardUpdateKeys, setCardUpdateKeys] = useState<{ [key: string]: number }>({});
@@ -1458,42 +1450,19 @@ const LiveStreamRegistrationBase: React.FC = () => {
     const reconnectDelay = 3000;
     
     const establishConnection = () => {
-      console.log('🔄 [Realtime] 建立实时连接，监听 live_stream_schedules 表变化');
       const channel = supabase.channel('live-stream-schedules')
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
           table: 'live_stream_schedules'
         }, async (payload) => {
-          console.log('📡 [Realtime] 收到 live_stream_schedules 表变化事件:', {
-            eventType: payload.eventType,
-            table: 'live_stream_schedules',
-            payload: {
-              old: payload.old,
-              new: payload.new,
-              commit_timestamp: payload.commit_timestamp
-            }
-          });
           
           if (payload.eventType === 'INSERT') {
             const newSchedule = payload.new;
-            console.log('📝 [Realtime] 处理 INSERT 事件:', {
-              schedule_id: newSchedule.id,
-              date: newSchedule.date,
-              status: newSchedule.status,
-              participant_ids: newSchedule.participant_ids
-            });
             
             // 检查是否在当前选中的周范围内
             const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
             const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
-            
-            console.log('📅 [Realtime] 检查日期范围:', {
-              schedule_date: newSchedule.date,
-              week_start: weekStart,
-              week_end: weekEnd,
-              in_range: newSchedule.date >= weekStart && newSchedule.date <= weekEnd
-            });
             
             if (newSchedule.date >= weekStart && newSchedule.date <= weekEnd) {
               
@@ -1533,36 +1502,18 @@ const LiveStreamRegistrationBase: React.FC = () => {
               // 添加到本地状态
               setSchedules(prev => {
                 const updated = [...prev, scheduleToAdd];
-                console.log('✅ [Realtime] 添加新场次到本地状态:', {
-                  schedule_id: newSchedule.id,
-                  total_schedules: updated.length
-                });
                 return updated;
               });
               
               // 更新特定卡片
               const cardKey = newSchedule.id.toString();
               updateSingleCard(cardKey);
-              console.log('🔄 [Realtime] 更新卡片渲染键:', cardKey);
             } else {
-              console.log('⚠️ [Realtime] 新场次不在当前周范围内，跳过处理');
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedSchedule = payload.new;
-            console.log('📝 [Realtime] 处理 UPDATE 事件:', {
-              schedule_id: updatedSchedule.id,
-              old_status: payload.old?.status,
-              new_status: updatedSchedule.status,
-              participant_ids: updatedSchedule.participant_ids,
-              editing_by: updatedSchedule.editing_by
-            });
-            
             // 检查是否是编辑状态变化
             if (updatedSchedule.status === 'editing') {
-              console.log('✏️ [Realtime] 检测到编辑状态变化:', {
-                schedule_id: updatedSchedule.id,
-                editing_by: updatedSchedule.editing_by
-              });
             }
             
             // 简单更新本地状态
@@ -1601,30 +1552,19 @@ const LiveStreamRegistrationBase: React.FC = () => {
                   : schedule
               );
               
-              console.log('✅ [Realtime] 更新本地状态:', {
-                schedule_id: updatedSchedule.id,
-                old_status: payload.old?.status,
-                new_status: updatedSchedule.status,
-                total_schedules: updated.length
-              });
-              
               return updated;
             });
             
             // 更新特定卡片
             const cardKey = updatedSchedule.id.toString();
             updateSingleCard(cardKey);
-            console.log('🔄 [Realtime] 更新卡片渲染键:', cardKey);
             
             // 如果状态变为available（释放场次），更新用户报名状态
             if (updatedSchedule.status === 'available' && userProfile?.id) {
-              console.log('🔄 [Realtime] 检测到场次释放，更新用户报名状态...');
               setTimeout(async () => {
                 try {
                   const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
-                  setRegistrationStatus(newRegistrationStatus);
-                  console.log('✅ [Realtime] 用户报名状态已更新:', newRegistrationStatus.statusMessage);
-                } catch (error) {
+                  setRegistrationStatus(newRegistrationStatus);  } catch (error) {
                   console.warn('⚠️ [Realtime] 更新用户报名状态失败:', error);
                 }
               }, 100); // 延迟100ms确保数据库更新完成
@@ -1803,7 +1743,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
     try {
       setLoading(true);
       
-      // 3分钟限制检查已在创建临时记录时完成，这里不需要重复检查
       
       // 日期范围检查已在handleCardClick中完成，这里不需要重复检查
       
@@ -1900,15 +1839,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
           const recordId = editingSchedule.id;
           
           // 立刻更新本地状态，避免用户看到过时信息
-          console.log('🔄 [状态更新] 立刻更新本地状态...');
           setSchedules(prevSchedules => {
             return prevSchedules.map(schedule => {
               if (schedule.id === recordId) {
-                console.log('✅ [状态更新] 更新本地状态:', { 
-                  id: recordId, 
-                  oldStatus: schedule.status, 
-                  newStatus: 'booked' 
-                });
                 return {
                   ...schedule,
                   ...scheduleData,
@@ -1922,17 +1855,15 @@ const LiveStreamRegistrationBase: React.FC = () => {
           
           // 更新用户报名状态
           if (userProfile?.id) {
-            console.log('🔄 [状态更新] 更新用户报名状态...');
             try {
               const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
               setRegistrationStatus(newRegistrationStatus);
-              console.log('✅ [状态更新] 用户报名状态已更新:', newRegistrationStatus.statusMessage);
             } catch (error) {
               console.warn('⚠️ [状态更新] 更新用户报名状态失败:', error);
             }
           }
           
-          // 关闭弹窗并清理状态
+          // 关闭弹窗并清理状态 
           setModalVisible(false);
           setEditingSchedule(null);
           setSelectedManagers([]);
@@ -1940,10 +1871,8 @@ const LiveStreamRegistrationBase: React.FC = () => {
           
           // 异步重新加载数据以确保数据一致性（不阻塞UI更新）
           setTimeout(async () => {
-            console.log('🔄 [状态更新] 异步重新加载数据确保一致性...');
             try {
               await loadData();
-              console.log('✅ [状态更新] 数据重新加载完成');
             } catch (error) {
               console.warn('⚠️ [状态更新] 数据重新加载失败:', error);
             }
@@ -1983,9 +1912,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   // 处理编辑安排
   const handleEditSchedule = async (schedule: LiveStreamSchedule) => {
-    console.log('🔍 [编辑安排] 开始处理编辑安排...', { scheduleId: schedule.id, status: schedule.status });
-    console.log('🔍 [编辑安排] 当前用户状态:', { userId: userProfile?.id, currentStatus: registrationStatus?.statusMessage });
-    
+
     try {
       // 使用统一的权限检查函数
       const permissionResult = await checkEditPermission(schedule);
@@ -1998,45 +1925,25 @@ const LiveStreamRegistrationBase: React.FC = () => {
       
       // 对于新报名（非编辑现有记录），检查报名状态和限制
       if (!schedule.id || schedule.status === 'available' || !schedule.status) {
-        console.log('🆕 [编辑安排] 检测到新报名，检查报名状态...');
-        
+
         if (userProfile?.id) {
           // 检查用户报名状态（新报名）
           const registrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false);
-          
-          console.log('📊 [编辑安排] 用户报名状态详情:', {
-            userId: userProfile.id,
-            canRegister: registrationStatus.canRegister,
-            isPrivilegeUser: registrationStatus.isPrivilegeUser,
-            currentCount: registrationStatus.currentCount,
-            limit: registrationStatus.limit,
-            statusMessage: registrationStatus.statusMessage
-          });
+
           
           if (!registrationStatus.canRegister) {
-            console.warn('⚠️ [编辑安排] 用户当前无法报名:', registrationStatus.statusMessage);
             message.warning(registrationStatus.statusMessage || '当前无法报名');
             return;
           }
           
-          console.log('✅ [编辑安排] 报名状态检查通过:', registrationStatus.statusMessage);
         }
       } else if (schedule.status === 'booked') {
-        console.log('✏️ [编辑安排] 检测到编辑已报名场次，检查编辑权限...');
         
         if (userProfile?.id) {
           // 检查用户编辑状态（已报名场次）
           const registrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, true);
           
-          console.log('📊 [编辑安排] 用户编辑状态详情:', {
-            userId: userProfile.id,
-            canRegister: registrationStatus.canRegister,
-            isPrivilegeUser: registrationStatus.isPrivilegeUser,
-            currentPrivilegeType: registrationStatus.currentPrivilegeType,
-            currentCount: registrationStatus.currentCount,
-            limit: registrationStatus.limit,
-            statusMessage: registrationStatus.statusMessage
-          });
+          
           
           if (!registrationStatus.canRegister) {
             console.warn('⚠️ [编辑安排] 用户当前无法编辑:', registrationStatus.statusMessage);
@@ -2044,7 +1951,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
             return;
           }
           
-          console.log('✅ [编辑安排] 编辑状态检查通过:', registrationStatus.statusMessage);
+          
         }
       }
       
@@ -2062,11 +1969,11 @@ const LiveStreamRegistrationBase: React.FC = () => {
         
         // 如果是available状态且没有参与者，自动选择当前用户
         if ((schedule.status === 'available' || !schedule.status) && validManagerIds.length === 0) {
-          console.log('🆕 [编辑安排] available状态，自动选择当前用户作为直播管家');
+          
           const currentUserId = userProfile?.id ? String(userProfile.id) : null;
           if (currentUserId) {
             validManagerIds = [currentUserId];
-            console.log('✅ [编辑安排] 已自动选择当前用户:', currentUserId);
+            
           }
         }
         
@@ -2339,11 +2246,9 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   // 处理卡片点击
   const handleCardClick = async (schedule: LiveStreamSchedule | undefined, timeSlot: any, dateInfo: any) => {
-    console.log('🔍 [卡片点击] 开始处理卡片点击...', { scheduleId: schedule?.id, status: schedule?.status });
     
     // 检查是否是锁定状态
     if (schedule?.status === 'locked') {
-      console.log('🔒 [卡片点击] 场次已锁定，无法操作');
       message.warning('该场次已被锁定，无法进行报名或编辑操作');
       return;
     }
@@ -2351,7 +2256,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
     // 根据卡片状态进行不同的检查
     if (!schedule || schedule.status === 'available' || !schedule.status) {
       // 新报名：检查报名状态和限制
-      console.log('🆕 [卡片点击] 检测到新报名，检查报名状态...');
       if (!registrationStatus?.canRegister) {
         console.warn('⚠️ [卡片点击] 用户当前无法报名:', registrationStatus?.statusMessage);
         message.warning(registrationStatus?.statusMessage || '当前无法报名');
@@ -2359,7 +2263,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
       }
     } else if (schedule.status === 'booked') {
       // 编辑已报名场次：只检查时间窗口，不检查每周限制
-      console.log('✏️ [卡片点击] 检测到编辑已报名场次，检查编辑权限...');
               if (userProfile?.id) {
           try {
             const editStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, true);
@@ -2368,8 +2271,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
               message.warning(editStatus.statusMessage || '当前无法编辑');
               return;
             }
-            console.log('✅ [卡片点击] 编辑权限检查通过:', editStatus.statusMessage);
-            console.log('🎯 [卡片点击] 当前权益类型:', editStatus.currentPrivilegeType);
           } catch (error) {
             console.error('❌ [卡片点击] 编辑权限检查失败:', error);
             message.error('权限检查失败');
@@ -2380,7 +2281,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
     if (!schedule) {
       // 先检查日期范围
-      console.log('🔍 [卡片点击] 开始检查报名日期范围...');
       const dateRangeCheck = liveStreamRegistrationService.checkDateRange(dateInfo.date);
       
       if (!dateRangeCheck.isValid) {
@@ -2389,30 +2289,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
         return;
       }
       
-      console.log('✅ [卡片点击] 报名日期在允许范围内');
-      
-      // 检查3分钟限制（在创建临时记录之前）
-      console.log('🔍 [3分钟限制] 开始检查用户报名频率限制...');
-      const limitCheck = await checkUserRegisterLimit();
-      
-      if (!limitCheck.success) {
-        console.warn('⚠️ [3分钟限制] 报名频率限制检查失败:', limitCheck.error);
-        
-        // 显示3分钟限制模态框
-        if (limitCheck.nextAvailableTime && limitCheck.lastRegistrationTime) {
-          setLimitModalData({
-            nextAvailableTime: limitCheck.nextAvailableTime,
-            lastRegistrationTime: limitCheck.lastRegistrationTime,
-            remainingTime: limitCheck.remainingTime || 0
-          });
-          setLimitModalVisible(true);
-        } else {
-          message.error(limitCheck.error || '报名频率限制检查失败');
-        }
-        return;
-      }
-      
-      console.log('✅ [3分钟限制] 报名频率限制检查通过');
       
       // 创建临时记录
       try {
@@ -2496,38 +2372,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
     setConfirmModalCallback(null);
   };
 
-  // 处理3分钟限制模态框关闭
-  const handleLimitModalClose = () => {
-    setLimitModalVisible(false);
-    setLimitModalData(null);
-  };
-
-  // 处理3分钟限制模态框重试
-  const handleLimitModalRetry = async () => {
-    setLimitModalVisible(false);
-    setLimitModalData(null);
-    
-    // 重新检查3分钟限制
-    console.log('🔄 [3分钟限制] 用户点击重试，重新检查限制...');
-    const limitCheck = await checkUserRegisterLimit();
-    
-    if (limitCheck.success) {
-      console.log('✅ [3分钟限制] 重试检查通过，可以继续报名');
-      // 这里可以触发重新报名流程，或者显示成功消息
-      message.success('现在可以继续报名了！');
-    } else {
-      console.warn('⚠️ [3分钟限制] 重试检查仍然失败，重新显示模态框');
-      // 重新显示模态框
-      if (limitCheck.nextAvailableTime && limitCheck.lastRegistrationTime) {
-        setLimitModalData({
-          nextAvailableTime: limitCheck.nextAvailableTime,
-          lastRegistrationTime: limitCheck.lastRegistrationTime,
-          remainingTime: limitCheck.remainingTime || 0
-        });
-        setLimitModalVisible(true);
-      }
-    }
-  };
 
   // 获取用户profile信息
   useEffect(() => {
@@ -2564,17 +2408,12 @@ const LiveStreamRegistrationBase: React.FC = () => {
   useEffect(() => {
     const initializeRegistrationStatus = async () => {
       if (userProfile?.id) {
-        console.log(`🚀 [组件] 开始初始化用户 ${userProfile.id} 的报名状态...`);
         try {
           const [config, status] = await Promise.all([
             liveStreamRegistrationService.getRegistrationConfig(),
             liveStreamRegistrationService.getRegistrationStatus(userProfile.id)
           ]);
-          
-          console.log(`✅ [组件] 用户 ${userProfile.id} 报名状态初始化完成:`, {
-            配置: config ? '已加载' : '未加载',
-            状态: status ? `${status.statusMessage} (${status.currentCount}/${status.limit})` : '未获取'
-          });
+         
           
           setRegistrationConfig(config);
           setRegistrationStatus(status);
@@ -3048,17 +2887,6 @@ const LiveStreamRegistrationBase: React.FC = () => {
         }}
       />
 
-      {/* 3分钟限制模态框 */}
-      {limitModalData && (
-        <RegistrationLimitModal
-          visible={limitModalVisible}
-          onClose={handleLimitModalClose}
-          onRetry={handleLimitModalRetry}
-          nextAvailableTime={limitModalData.nextAvailableTime}
-          lastRegistrationTime={limitModalData.lastRegistrationTime}
-          remainingTime={limitModalData.remainingTime}
-        />
-      )}
     </div>
   );
 };

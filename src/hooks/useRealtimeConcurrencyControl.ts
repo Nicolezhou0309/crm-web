@@ -55,40 +55,6 @@ export const useRealtimeConcurrencyControl = () => {
     return userProfile?.id;
   };
 
-  // 检查用户3分钟内报名次数
-  const checkUserRegisterLimit = useCallback(async () => {
-    try {
-      const currentUserId = await getCurrentUserId();
-      if (!currentUserId) return { success: false, error: '用户未登录' };
-
-      const { data: recentRegistrations } = await supabase
-        .from('live_stream_schedules')
-        .select('created_at')
-        .eq('created_by', currentUserId)
-        .gte('created_at', new Date(Date.now() - 3 * 60 * 1000).toISOString());
-
-      if (recentRegistrations && recentRegistrations.length >= 1) {
-        const lastRegistrationTime = new Date(recentRegistrations[0].created_at).getTime();
-        const remainingTime = Math.max(0, 3 * 60 - Math.floor((Date.now() - lastRegistrationTime) / 1000));
-        const nextAvailableTime = new Date(lastRegistrationTime + 3 * 60 * 1000);
-        
-        return { 
-          success: false, 
-          error: '3分钟内最多只能报名1场直播',
-          remainingTime: remainingTime,
-          nextAvailableTime: nextAvailableTime,
-          lastRegistrationTime: new Date(lastRegistrationTime)
-        };
-      }
-
-      return { 
-        success: true, 
-        remainingRegisters: 1 - (recentRegistrations?.length || 0)
-      };
-    } catch (error) {
-      return { success: false, error: '检查报名限制失败' };
-    }
-  }, []);
 
   // 尝试获取编辑锁定
   const acquireEditLock = useCallback(async (scheduleId: string) => {
@@ -116,11 +82,7 @@ export const useRealtimeConcurrencyControl = () => {
         .single();
 
       if (!schedule.data?.created_by) {
-        // 新安排，检查报名限制
-        const limitCheck = await checkUserRegisterLimit();
-        if (!limitCheck.success) {
-          throw new Error(limitCheck.error);
-        }
+        // 新安排，直接允许创建
       }
 
       // 直接更新数据库，realtime会自动通知其他用户
@@ -153,7 +115,7 @@ export const useRealtimeConcurrencyControl = () => {
     } catch (error: any) {
       return { success: false, error: error.message };
     }
-  }, [editLocks, timeSlotLocks, checkUserRegisterLimit]);
+  }, [editLocks, timeSlotLocks]);
 
   // 释放编辑锁定
   const releaseEditLock = useCallback(async (scheduleId: string) => {
@@ -537,7 +499,6 @@ export const useRealtimeConcurrencyControl = () => {
     isConnected,
     acquireEditLock,
     releaseEditLock,
-    checkUserRegisterLimit,
     isBeingEdited: (scheduleId: string) => {
       const lock = editLocks[scheduleId];
       return lock && lock.editing_expires_at > new Date().toISOString();
