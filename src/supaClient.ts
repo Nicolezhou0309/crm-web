@@ -2,72 +2,36 @@ import { createClient } from '@supabase/supabase-js'
 import { withRetry, supabaseRetryOptions } from './utils/retryUtils'
 
 // 使用环境变量配置，移除硬编码的备用地址
-let supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 
-// 检测当前环境协议
-const isHTTPS = typeof window !== 'undefined' && window.location.protocol === 'https:'
-const isProduction = import.meta.env.PROD
-
-// 根据当前协议选择URL，优先使用HTTPS代理
-if (isHTTPS) {
-  // HTTPS环境：强制使用代理地址
-  supabaseUrl = 'https://lead.vld.com.cn/supabase'
-} else if (!supabaseUrl) {
-  // HTTP环境：使用阿里云内网地址
-  supabaseUrl = 'http://172.29.115.115:8000'
-}
-
-// 配置WebSocket URL，确保在HTTPS环境下使用WSS
-const getWebSocketUrl = () => {
-  if (isHTTPS) {
-    // HTTPS环境使用WSS协议
-    return supabaseUrl.replace('https://', 'wss://') + '/realtime/v1/websocket'
-  } else {
-    // HTTP环境使用WS协议
-    return supabaseUrl.replace('http://', 'ws://') + '/realtime/v1/websocket'
-  }
-}
-
-// 注意：服务器只支持HTTP，不支持HTTPS
-// 在生产环境中，需要通过代理或负载均衡器来处理HTTPS
-
 // 调试信息
 console.log('🔧 Supabase配置信息:', {
-  isHTTPS,
-  isProduction,
   supabaseUrl,
-  websocketUrl: getWebSocketUrl(),
   protocol: typeof window !== 'undefined' ? window.location.protocol : 'unknown',
   environment: '阿里云内网',
-  envUrl: import.meta.env.VITE_SUPABASE_URL,
-  finalUrl: supabaseUrl
+  envUrl: import.meta.env.VITE_SUPABASE_URL
 })
 
-// 如果没有设置API密钥，使用默认值
-const defaultAnonKey = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzU1Nzg1ODY3LCJleHAiOjEzMjY2NDI1ODY3fQ.h_DW3s03LaUCtf_7LepkEwmFVxdqPZ6zfHhuSMc5Ewg'
-const defaultServiceRoleKey = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzU1Nzg1ODY3LCJleHAiOjEzMjY2NDI1ODY3fQ.h_DW3s03LaUCtf_7LepkEwmFVxdqPZ6zfHhuSMc5Ewg'
-
-const finalAnonKey = supabaseAnonKey || defaultAnonKey
-const finalServiceRoleKey = supabaseServiceRoleKey || defaultServiceRoleKey
-
-if (!supabaseUrl) {
+if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(`
-    Missing Supabase URL. Please check your .env file.
+    Missing Supabase environment variables. Please check your .env file.
     
     Required variables:
     - VITE_SUPABASE_URL (e.g., https://your-project.supabase.co)
+    - VITE_SUPABASE_ANON_KEY
     
     Current values:
     - VITE_SUPABASE_URL: ${supabaseUrl || 'NOT SET'}
+    - VITE_SUPABASE_ANON_KEY: ${supabaseAnonKey ? 'SET' : 'NOT SET'}
     
     Please create a .env file in your project root with the correct values.
   `)
 }
 
 // 创建匿名用户客户端（用于基础操作）
-export const supabase = createClient(supabaseUrl, finalAnonKey, {
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
@@ -117,7 +81,7 @@ export const supabase = createClient(supabaseUrl, finalAnonKey, {
 })
 
 // 创建服务角色客户端（用于审批操作，绕过RLS策略）
-export const supabaseServiceRole = createClient(supabaseUrl, finalServiceRoleKey, {
+export const supabaseServiceRole = createClient(supabaseUrl, supabaseServiceRoleKey || supabaseAnonKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,

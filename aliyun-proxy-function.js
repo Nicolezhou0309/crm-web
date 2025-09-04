@@ -11,8 +11,8 @@ exports.handler = async (event, context) => {
   const { httpMethod, path, headers, body, queryStringParameters } = event;
   
   try {
-    // 构建目标URL
-    const targetHost = '47.123.26.25';
+    // 构建目标URL - 使用阿里云内网地址
+    const targetHost = '172.29.115.115';
     const targetPort = 8000;
     const targetPath = path || '/';
     
