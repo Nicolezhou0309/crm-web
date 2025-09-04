@@ -2,28 +2,41 @@ import { createClient } from '@supabase/supabase-js'
 import { withRetry, supabaseRetryOptions } from './utils/retryUtils'
 
 // 使用环境变量配置，移除硬编码的备用地址
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+let supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
+// 如果没有设置环境变量，使用默认的HTTP地址（服务器不支持HTTPS）
+if (!supabaseUrl) {
+  supabaseUrl = 'http://47.123.26.25:8000'
+}
+
+// 注意：服务器只支持HTTP，不支持HTTPS
+// 在生产环境中，需要通过代理或负载均衡器来处理HTTPS
+
+// 如果没有设置API密钥，使用默认值
+const defaultAnonKey = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzU1Nzg1ODY3LCJleHAiOjEzMjY2NDI1ODY3fQ.h_DW3s03LaUCtf_7LepkEwmFVxdqPZ6zfHhuSMc5Ewg'
+const defaultServiceRoleKey = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzU1Nzg1ODY3LCJleHAiOjEzMjY2NDI1ODY3fQ.h_DW3s03LaUCtf_7LepkEwmFVxdqPZ6zfHhuSMc5Ewg'
+
+const finalAnonKey = supabaseAnonKey || defaultAnonKey
+const finalServiceRoleKey = supabaseServiceRoleKey || defaultServiceRoleKey
+
+if (!supabaseUrl) {
   throw new Error(`
-    Missing Supabase environment variables. Please check your .env file.
+    Missing Supabase URL. Please check your .env file.
     
     Required variables:
     - VITE_SUPABASE_URL (e.g., https://your-project.supabase.co)
-    - VITE_SUPABASE_ANON_KEY
     
     Current values:
     - VITE_SUPABASE_URL: ${supabaseUrl || 'NOT SET'}
-    - VITE_SUPABASE_ANON_KEY: ${supabaseAnonKey ? 'SET' : 'NOT SET'}
     
     Please create a .env file in your project root with the correct values.
   `)
 }
 
 // 创建匿名用户客户端（用于基础操作）
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(supabaseUrl, finalAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
@@ -73,7 +86,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 
 // 创建服务角色客户端（用于审批操作，绕过RLS策略）
-export const supabaseServiceRole = createClient(supabaseUrl, supabaseServiceRoleKey || supabaseAnonKey, {
+export const supabaseServiceRole = createClient(supabaseUrl, finalServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,

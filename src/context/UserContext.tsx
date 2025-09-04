@@ -165,6 +165,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!authStatus.isValid) {
         console.warn('认证状态无效:', authStatus.error);
         
+        // 如果是JWT用户不存在错误，尝试清理认证状态
+        if (authStatus.error && authStatus.error.includes('does not exist')) {
+          console.log('检测到JWT用户不存在错误，清理认证状态...');
+          await tokenManager.resetAuthState();
+        }
+        
         // 简化认证失败处理：直接清除状态，不进行任何刷新操作
         setUser(null);
         setProfile(null);
@@ -436,6 +442,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false); // 整体加载完成
           }
         } else {
+          // 如果是JWT用户不存在错误，尝试清理认证状态
+          if (authStatus.error && authStatus.error.includes('does not exist')) {
+            console.log('初始化时检测到JWT用户不存在错误，清理认证状态...');
+            await tokenManager.resetAuthState();
+          }
+          
           setUser(null);
           setProfile(null);
           setPermissions(null);
