@@ -1139,9 +1139,16 @@ const LiveStreamRegistrationBase: React.FC = () => {
     // 每5分钟自动清理一次
     const interval = setInterval(performCleanup, 5 * 60 * 1000);
     
-    
+    // 组件卸载时清理所有Supabase连接
     return () => {
       clearInterval(interval);
+      console.log('🧹 [Cleanup] 清理所有Supabase连接');
+      // 强制清理所有可能的连接
+      try {
+        supabase.removeAllChannels();
+      } catch (error) {
+        console.warn('清理连接时出错:', error);
+      }
     };
   }, []);
 
@@ -1448,9 +1455,16 @@ const LiveStreamRegistrationBase: React.FC = () => {
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
     const reconnectDelay = 3000;
+    let currentChannel: any = null;
     
-    const establishConnection = () => {
-      const channel = supabase.channel('live-stream-schedules')
+    const establishConnection = (): any => {
+      // 先清理现有连接
+      if (currentChannel) {
+        console.log('🧹 [Realtime] 清理现有连接');
+        supabase.removeChannel(currentChannel);
+      }
+      
+      currentChannel = supabase.channel('live-stream-schedules')
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
@@ -1612,10 +1626,16 @@ const LiveStreamRegistrationBase: React.FC = () => {
       return channel;
     };
     
-    const channel = establishConnection();
+    const channel: any = establishConnection();
     
     return () => {
-      supabase.removeChannel(channel);
+      console.log('🧹 [Realtime] 组件卸载，清理所有连接');
+      if (currentChannel) {
+        supabase.removeChannel(currentChannel);
+      }
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [selectedWeek]);
 
