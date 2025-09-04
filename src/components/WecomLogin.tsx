@@ -32,8 +32,8 @@ const WecomLogin: React.FC<WecomLoginProps> = ({ onError }) => {
 
   // 企业微信配置
   const wecomConfig = {
-    corpId: import.meta.env.VITE_WECOM_CORP_ID || 'ww68a125fce698cb59',
-    agentId: import.meta.env.VITE_WECOM_AGENT_ID || '1000002',
+    corpId: import.meta.env.VITE_WECOM_CORP_ID,
+    agentId: import.meta.env.VITE_WECOM_AGENT_ID,
     redirectUri: import.meta.env.VITE_WECOM_REDIRECT_URI || window.location.origin + '/auth/wecom/callback',
     scope: 'snsapi_privateinfo'
   };

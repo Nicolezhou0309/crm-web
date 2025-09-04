@@ -70,7 +70,7 @@ function createSupabaseClient(): SupabaseClient {
           }
         }
       },
-      // 启用realtime配置，代理服务器支持WebSocket
+      // 启用realtime配置，处理混合内容问题
       realtime: {
         params: {
           eventsPerSecond: 10
@@ -129,7 +129,7 @@ function createSupabaseServiceRoleClient(): SupabaseClient {
           }
         }
       },
-      // 启用realtime配置，代理服务器支持WebSocket
+      // 启用realtime配置，处理混合内容问题
       realtime: {
         params: {
           eventsPerSecond: 10

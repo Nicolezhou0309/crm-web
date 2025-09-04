@@ -83,7 +83,7 @@ class CacheManager {
 }
 
 class NotificationApi {
-  private baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notification-system`;
+  private baseUrl = `${import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/notification-system`;
   private cache = new CacheManager();
 
   private async request(endpoint: string, options: RequestInit = {}) {

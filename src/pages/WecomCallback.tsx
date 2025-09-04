@@ -79,7 +79,7 @@ const WecomCallback: React.FC = () => {
           wechat_work_avatar: userInfo.wechat_work_avatar,
           wechat_work_department: userInfo.wechat_work_department,
           wechat_work_position: userInfo.wechat_work_position,
-          wechat_work_corpid: import.meta.env.VITE_WECOM_CORP_ID || 'ww68a125fce698cb59'
+          wechat_work_corpid: import.meta.env.VITE_WECOM_CORP_ID
         }
       );
 

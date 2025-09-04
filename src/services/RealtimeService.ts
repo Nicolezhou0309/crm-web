@@ -30,8 +30,13 @@ class RealtimeService {
   private heartbeatTimer: NodeJS.Timeout | null = null;
 
   constructor() {
+    // 检查是否在HTTPS环境下，如果是则启用realtime
+    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const isSecureUrl = supabaseUrl && supabaseUrl.startsWith('https://');
+    
     this.config = {
-      enabled: true, // 代理服务器支持WebSocket，启用realtime
+      enabled: isHttps && isSecureUrl, // 只有在HTTPS页面和HTTPS URL时才启用realtime
       maxReconnectAttempts: 5,
       reconnectDelay: 3000,
       heartbeatInterval: 30000
@@ -40,7 +45,10 @@ class RealtimeService {
     console.log('🔧 [RealtimeService] 初始化配置:', {
       enabled: this.config.enabled,
       protocol: typeof window !== 'undefined' ? window.location.protocol : 'unknown',
-      note: '代理服务器支持WebSocket，启用realtime功能'
+      supabaseUrl: supabaseUrl,
+      isHttps: isHttps,
+      isSecureUrl: isSecureUrl,
+      note: this.config.enabled ? 'HTTPS环境，启用realtime功能' : '非HTTPS环境或不安全URL，禁用realtime功能'
     });
   }
 
