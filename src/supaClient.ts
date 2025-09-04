@@ -10,15 +10,13 @@ const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 const isHTTPS = typeof window !== 'undefined' && window.location.protocol === 'https:'
 const isProduction = import.meta.env.PROD
 
-// 如果没有设置环境变量，根据当前协议选择URL
-if (!supabaseUrl) {
-  if (isHTTPS) {
-    // HTTPS环境：使用代理地址或HTTPS地址
-    supabaseUrl = 'https://lead.vld.com.cn/supabase'
-  } else {
-    // HTTP环境：使用阿里云内网地址
-    supabaseUrl = 'http://172.29.115.115:8000'
-  }
+// 根据当前协议选择URL，优先使用HTTPS代理
+if (isHTTPS) {
+  // HTTPS环境：强制使用代理地址
+  supabaseUrl = 'https://lead.vld.com.cn/supabase'
+} else if (!supabaseUrl) {
+  // HTTP环境：使用阿里云内网地址
+  supabaseUrl = 'http://172.29.115.115:8000'
 }
 
 // 配置WebSocket URL，确保在HTTPS环境下使用WSS
@@ -42,7 +40,9 @@ console.log('🔧 Supabase配置信息:', {
   supabaseUrl,
   websocketUrl: getWebSocketUrl(),
   protocol: typeof window !== 'undefined' ? window.location.protocol : 'unknown',
-  environment: '阿里云内网'
+  environment: '阿里云内网',
+  envUrl: import.meta.env.VITE_SUPABASE_URL,
+  finalUrl: supabaseUrl
 })
 
 // 如果没有设置API密钥，使用默认值
