@@ -49,7 +49,7 @@ export const useCommuteTimeRealtime = () => {
       // 显示计算中的提示
       message.loading('正在计算通勤时间，请稍候...', 0);
 
-      // 启动realtime监听
+      // 启动realtime监听 - 已禁用，避免WebSocket不安全连接问题
       const channelName = `commute-calculation-${followupId}`;
       const channel = supabase
         .channel(channelName)

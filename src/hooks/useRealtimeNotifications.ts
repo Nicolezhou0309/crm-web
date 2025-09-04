@@ -76,85 +76,85 @@ export const useRealtimeNotifications = () => {
     // 1. 初始加载通知
     loadNotifications(profileId);
     
-    // 2. 订阅实时通知
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useRealtimeNotifications] 启用 realtime 功能，profileId:', profileId);
-    }
+    // 2. 订阅实时通知 - 已禁用，避免WebSocket不安全连接问题
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log('[useRealtimeNotifications] 启用 realtime 功能，profileId:', profileId);
+    // }
     
-    const channel = supabase
-      .channel(`public:notifications`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications'
-      }, (payload) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Realtime][INSERT] 收到新通知:', payload);
-        }
-        const newNotification = payload.new as Notification;
-        if (newNotification.user_id !== profileId) return;
-        setNotifications(prev => {
-          const exists = prev.some(n => n.id === newNotification.id);
-          if (exists) return prev;
-          const result = [newNotification, ...prev];
-          debouncedUpdateUnreadCount(result);
-          return result;
-        });
-        setLastUpdate(Date.now());
-        showDesktopNotification(newNotification.title, newNotification.content);
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'notifications'
-      }, (payload) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Realtime][UPDATE] 通知更新:', payload);
-        }
-        const updatedNotification = payload.new as Notification;
-        if (updatedNotification.user_id !== profileId) return;
-        setNotifications(prev => {
-          const result = prev.map(n => n.id === updatedNotification.id ? updatedNotification : n);
-          debouncedUpdateUnreadCount(result);
-          return result;
-        });
-        setLastUpdate(Date.now());
-      })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'notifications'
-      }, (payload) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Realtime][DELETE] 通知删除:', payload);
-        }
-        if (payload.old.user_id !== profileId) return;
-        setNotifications(prev => {
-          const result = prev.filter(n => n.id !== payload.old.id);
-          if (result.length === 0) {
-            console.warn('[Realtime][setNotifications][DELETE] 通知数组被清空！', { prev, payload });
-          }
-          debouncedUpdateUnreadCount(result);
-          return result;
-        });
-        setLastUpdate(Date.now());
-      })
-      .subscribe((status) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Realtime] 订阅状态:', status);
-        }
-        if (status === 'SUBSCRIBED') {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Realtime] ✅ 实时通知订阅成功!');
-          }
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] ❌ 实时通知订阅失败');
-        }
-      });
+    // const channel = supabase
+    //   .channel(`public:notifications`)
+    //   .on('postgres_changes', {
+    //     event: 'INSERT',
+    //     schema: 'public',
+    //     table: 'notifications'
+    //   }, (payload) => {
+    //     if (process.env.NODE_ENV === 'development') {
+    //       console.log('[Realtime][INSERT] 收到新通知:', payload);
+    //     }
+    //     const newNotification = payload.new as Notification;
+    //     if (newNotification.user_id !== profileId) return;
+    //     setNotifications(prev => {
+    //       const exists = prev.some(n => n.id === newNotification.id);
+    //       if (exists) return prev;
+    //       const result = [newNotification, ...prev];
+    //       debouncedUpdateUnreadCount(result);
+    //       return result;
+    //     });
+    //     setLastUpdate(Date.now());
+    //     showDesktopNotification(newNotification.title, newNotification.content);
+    //   })
+    //   .on('postgres_changes', {
+    //     event: 'UPDATE',
+    //     schema: 'public',
+    //     table: 'notifications'
+    //   }, (payload) => {
+    //     if (process.env.NODE_ENV === 'development') {
+    //       console.log('[Realtime][UPDATE] 通知更新:', payload);
+    //     }
+    //     const updatedNotification = payload.new as Notification;
+    //     if (updatedNotification.user_id !== profileId) return;
+    //     setNotifications(prev => {
+    //       const result = prev.map(n => n.id === updatedNotification.id ? updatedNotification : n);
+    //       debouncedUpdateUnreadCount(result);
+    //       return result;
+    //     });
+    //     setLastUpdate(Date.now());
+    //   })
+    //   .on('postgres_changes', {
+    //     event: 'DELETE',
+    //     schema: 'public',
+    //     table: 'notifications'
+    //   }, (payload) => {
+    //     if (process.env.NODE_ENV === 'development') {
+    //       console.log('[Realtime][DELETE] 通知删除:', payload);
+    //     }
+    //     if (payload.old.user_id !== profileId) return;
+    //     setNotifications(prev => {
+    //       const result = prev.filter(n => n.id !== payload.old.id);
+    //       if (result.length === 0) {
+    //         console.warn('[Realtime][setNotifications][DELETE] 通知数组被清空！', { prev, payload });
+    //       }
+    //       debouncedUpdateUnreadCount(result);
+    //       return result;
+    //     });
+    //     setLastUpdate(Date.now());
+    //   })
+    //   .subscribe((status) => {
+    //     if (process.env.NODE_ENV === 'development') {
+    //       console.log('[Realtime] 订阅状态:', status);
+    //     }
+    //     if (status === 'SUBSCRIBED') {
+    //       if (process.env.NODE_ENV === 'development') {
+    //         console.log('[Realtime] ✅ 实时通知订阅成功!');
+    //       }
+    //     } else if (status === 'CHANNEL_ERROR') {
+    //       console.error('[Realtime] ❌ 实时通知订阅失败');
+    //     }
+    //   });
     
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // return () => {
+    //   supabase.removeChannel(channel);
+    // };
   }, [profileId]);
 
   // 重新计算未读数 - 使用useMemo优化
