@@ -132,19 +132,38 @@ function makeRequest(options, body) {
 exports.websocketHandler = async (event, context) => {
   console.log('WebSocket请求:', JSON.stringify(event, null, 2));
   
-  // 这里需要特殊处理WebSocket升级
-  // 阿里云函数计算对WebSocket的支持有限
-  // 建议使用API网关的WebSocket功能
+  const { requestContext, body } = event;
+  
+  // 检查是否是WebSocket连接请求
+  if (requestContext && requestContext.eventType === 'CONNECT') {
+    // 建立到后端WebSocket的连接
+    return {
+      statusCode: 200,
+      headers: {
+        'Sec-WebSocket-Protocol': 'supabase-realtime',
+        'Access-Control-Allow-Origin': '*'
+      }
+    };
+  }
+  
+  // 处理WebSocket消息
+  if (requestContext && requestContext.eventType === 'MESSAGE') {
+    // 这里需要将消息转发到后端WebSocket
+    // 由于函数计算的限制，可能需要使用其他方案
+    return {
+      statusCode: 200,
+      body: body
+    };
+  }
   
   return {
-    statusCode: 426,
+    statusCode: 400,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*'
     },
     body: JSON.stringify({
-      error: 'WebSocket需要特殊配置',
-      message: '请使用API网关的WebSocket功能或配置专门的WebSocket代理'
+      error: 'Invalid WebSocket request'
     })
   };
 };

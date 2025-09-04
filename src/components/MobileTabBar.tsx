@@ -21,7 +21,7 @@ const MobileTabBar: FC = () => {
 
   const tabs = [
     {
-      key: '/',
+      key: '/dashboard',
       title: '首页',
       icon: <HomeOutlined className="text-lg" />,
     },

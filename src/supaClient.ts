@@ -1,10 +1,14 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { withRetry, supabaseRetryOptions } from './utils/retryUtils'
 
 // 使用环境变量配置，移除硬编码的备用地址
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+
+// 单例模式：确保只有一个 Supabase 客户端实例
+let supabaseInstance: SupabaseClient | null = null;
+let supabaseServiceRoleInstance: SupabaseClient | null = null;
 
 // 调试信息
 console.log('🔧 Supabase配置信息:', {
@@ -30,77 +34,125 @@ if (!supabaseUrl || !supabaseAnonKey) {
   `)
 }
 
-// 创建匿名用户客户端（用于基础操作）
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-    flowType: 'pkce',
-    debug: false,
-    storage: {
-      getItem: (key) => {
-        try {
-          return localStorage.getItem(key)
-        } catch {
-          return null
+// 创建匿名用户客户端（用于基础操作）- 使用单例模式
+function createSupabaseClient(): SupabaseClient {
+  if (!supabaseInstance) {
+    console.log('🔧 创建 Supabase 匿名客户端实例');
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+        flowType: 'pkce',
+        debug: false,
+        storage: {
+          getItem: (key) => {
+            try {
+              return localStorage.getItem(`supabase-auth-${key}`)
+            } catch {
+              return null
+            }
+          },
+          setItem: (key, value) => {
+            try {
+              localStorage.setItem(`supabase-auth-${key}`, value)
+            } catch {
+              // 忽略存储错误
+            }
+          },
+          removeItem: (key) => {
+            try {
+              localStorage.removeItem(`supabase-auth-${key}`)
+            } catch {
+              // 忽略存储错误
+            }
+          }
         }
       },
-      setItem: (key, value) => {
-        try {
-          localStorage.setItem(key, value)
-        } catch {
-          // 忽略存储错误
+      realtime: {
+        params: {
+          eventsPerSecond: 10
         }
       },
-      removeItem: (key) => {
-        try {
-          localStorage.removeItem(key)
-        } catch {
-          // 忽略存储错误
+      global: {
+        headers: {
+          'X-Client-Info': 'crm-web-aliyun',
+          'Accept': 'application/json, text/plain, */*',
+          'Content-Type': 'application/json',
+          'User-Agent': 'crm-web/1.0.0'
         }
+      },
+      db: {
+        schema: 'public'
       }
-    }
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'crm-web-aliyun',
-      'Accept': 'application/json, text/plain, */*',
-      'Content-Type': 'application/json',
-      'User-Agent': 'crm-web/1.0.0'
-    }
-  },
-  db: {
-    schema: 'public'
+    });
   }
-})
+  return supabaseInstance;
+}
 
-// 创建服务角色客户端（用于审批操作，绕过RLS策略）
-export const supabaseServiceRole = createClient(supabaseUrl, supabaseServiceRoleKey || supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false,
-    flowType: 'pkce',
-    debug: false
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'crm-web-aliyun-service-role',
-      'Accept': 'application/json, text/plain, */*',
-      'Content-Type': 'application/json',
-      'User-Agent': 'crm-web/1.0.0'
-    }
-  },
-  db: {
-    schema: 'public'
+export const supabase = createSupabaseClient();
+
+// 创建服务角色客户端（用于审批操作，绕过RLS策略）- 使用单例模式
+function createSupabaseServiceRoleClient(): SupabaseClient {
+  if (!supabaseServiceRoleInstance) {
+    console.log('🔧 创建 Supabase 服务角色客户端实例');
+    supabaseServiceRoleInstance = createClient(supabaseUrl, supabaseServiceRoleKey || supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+        flowType: 'pkce',
+        debug: false,
+        storage: {
+          getItem: (key) => {
+            try {
+              return localStorage.getItem(`supabase-service-${key}`)
+            } catch {
+              return null
+            }
+          },
+          setItem: (key, value) => {
+            try {
+              localStorage.setItem(`supabase-service-${key}`, value)
+            } catch {
+              // 忽略存储错误
+            }
+          },
+          removeItem: (key) => {
+            try {
+              localStorage.removeItem(`supabase-service-${key}`)
+            } catch {
+              // 忽略存储错误
+            }
+          }
+        }
+      },
+      global: {
+        headers: {
+          'X-Client-Info': 'crm-web-aliyun-service-role',
+          'Accept': 'application/json, text/plain, */*',
+          'Content-Type': 'application/json',
+          'User-Agent': 'crm-web/1.0.0'
+        }
+      },
+      db: {
+        schema: 'public'
+      }
+    });
   }
-})
+  return supabaseServiceRoleInstance;
+}
+
+export const supabaseServiceRole = createSupabaseServiceRoleClient();
+
+// 实例检查函数 - 用于调试
+export function checkSupabaseInstances() {
+  console.log('🔍 Supabase 实例检查:', {
+    supabaseInstance: !!supabaseInstance,
+    supabaseServiceRoleInstance: !!supabaseServiceRoleInstance,
+    totalInstances: (supabaseInstance ? 1 : 0) + (supabaseServiceRoleInstance ? 1 : 0)
+  });
+}
 
 // 使用重试机制的枚举值获取
 export async function fetchEnumValues(enumName: string): Promise<string[]> {

@@ -220,7 +220,7 @@ const AppContent: React.FC = () => {
 
   // 侧边栏 key-path 映射
   const keyPathMap: { [key: string]: string } = {
-    'index': '/',
+    'index': '/dashboard',
     'leads': '/leads',
     'followups': '/followups',
     'metro-calculator': '/metro-calculator',
@@ -813,6 +813,7 @@ const AppContent: React.FC = () => {
               <PrivateRoute>
                 <Routes>
                   <Route path="/" element={<Navigate to="/live-stream-registration" replace />} />
+                  <Route path="/dashboard" element={<Index />} />
                   <Route path="/tailwind-test" element={<TailwindTest />} />
 
                   <Route path="/leads" element={

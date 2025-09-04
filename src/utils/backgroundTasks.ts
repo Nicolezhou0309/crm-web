@@ -1,3 +1,5 @@
+import { supabase } from '../supaClient';
+
 // 后台任务管理器
 class BackgroundTaskManager {
   private static instance: BackgroundTaskManager;
@@ -54,8 +56,6 @@ export const addEdgeFunctionTask = (exchangeRecordId: number) => {
   const taskId = `edge-function-${exchangeRecordId}-${Date.now()}`;
   
   const task = async () => {
-    const { supabase } = await import('../supaClient');
-    
     try {
       const { error } = await supabase.functions.invoke('issue-direct-card', {
         body: { exchange_record_id: exchangeRecordId }
