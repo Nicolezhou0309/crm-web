@@ -28,6 +28,8 @@ class RealtimeService {
   private reconnectAttempts: number = 0;
   private config: RealtimeConfig;
   private heartbeatTimer: NodeJS.Timeout | null = null;
+  private sharedChannel: any = null; // 共享的WebSocket连接
+  private connectionCount: number = 0; // 连接计数器
 
   constructor() {
     // 检查是否在HTTPS环境下，如果是则启用realtime
@@ -41,90 +43,46 @@ class RealtimeService {
       reconnectDelay: 3000,
       heartbeatInterval: 30000
     };
-
-    console.log('🔧 [RealtimeService] 初始化配置:', {
-      enabled: this.config.enabled,
-      protocol: typeof window !== 'undefined' ? window.location.protocol : 'unknown',
-      supabaseUrl: supabaseUrl,
-      isHttps: isHttps,
-      isSecureUrl: isSecureUrl,
-      note: this.config.enabled ? 'HTTPS环境，启用realtime功能' : '非HTTPS环境或不安全URL，禁用realtime功能'
-    });
   }
 
   /**
-   * 订阅数据库变化
+   * 订阅数据库变化 - 使用共享连接优化
    */
   subscribe(subscription: Omit<RealtimeSubscription, 'id' | 'channel'>): string {
     if (!this.config.enabled) {
-      console.log('⚠️ [RealtimeService] Realtime已禁用，跳过订阅:', subscription.table);
       return '';
     }
 
     const id = `${subscription.table}-${subscription.event}-${Date.now()}`;
     
     try {
-      console.log('🔄 [RealtimeService] 创建订阅:', {
-        id,
+      // 使用共享连接，避免创建多个WebSocket连接
+      if (!this.sharedChannel) {
+        this.createSharedChannel();
+      }
+
+      // 在共享连接上添加新的监听器
+      this.sharedChannel.on('postgres_changes', {
+        event: subscription.event as any,
+        schema: 'public',
         table: subscription.table,
-        event: subscription.event,
         filter: subscription.filter
+      }, (payload: any) => {
+        try {
+          subscription.callback(payload);
+        } catch (error) {
+          console.error('❌ [RealtimeService] 回调执行失败:', error);
+        }
       });
-
-      const channel = supabase
-        .channel(id)
-        .on('postgres_changes', {
-          event: subscription.event as any,
-          schema: 'public',
-          table: subscription.table,
-          filter: subscription.filter
-        }, (payload) => {
-          console.log('📡 [RealtimeService] 收到事件:', {
-            id,
-            table: subscription.table,
-            event: subscription.event,
-            payload: payload
-          });
-          
-          try {
-            subscription.callback(payload);
-          } catch (error) {
-            console.error('❌ [RealtimeService] 回调执行失败:', error);
-          }
-        })
-        .on('system', { event: 'disconnect' }, () => {
-          console.log('🔌 [RealtimeService] 系统断开连接');
-          this.isConnected = false;
-          this.handleReconnect();
-        })
-        .on('system', { event: 'reconnect' }, () => {
-          console.log('🔌 [RealtimeService] 系统重新连接');
-          this.isConnected = true;
-          this.reconnectAttempts = 0;
-        })
-        .subscribe((status) => {
-          console.log('📡 [RealtimeService] 订阅状态变化:', {
-            id,
-            status,
-            is_subscribed: status === 'SUBSCRIBED'
-          });
-
-          if (status === 'SUBSCRIBED') {
-            this.isConnected = true;
-            this.reconnectAttempts = 0;
-            this.startHeartbeat();
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('❌ [RealtimeService] 订阅失败:', id);
-            this.isConnected = false;
-            this.handleReconnect();
-          }
-        });
 
       this.subscriptions.set(id, {
         id,
-        channel,
+        channel: this.sharedChannel, // 使用共享连接
         ...subscription
       });
+
+      this.connectionCount++;
+      console.log(`🔗 [RealtimeService] 新增订阅: ${id}, 当前连接数: ${this.connectionCount}`);
 
       return id;
     } catch (error) {
@@ -134,15 +92,58 @@ class RealtimeService {
   }
 
   /**
+   * 创建共享的WebSocket连接
+   */
+  private createSharedChannel(): void {
+    const channelId = `shared-realtime-${Date.now()}`;
+    
+    this.sharedChannel = supabase
+      .channel(channelId)
+      .on('system', { event: 'disconnect' }, () => {
+        console.log('🔌 [RealtimeService] 共享连接断开');
+        this.isConnected = false;
+        this.handleReconnect();
+      })
+      .on('system', { event: 'reconnect' }, () => {
+        console.log('🔌 [RealtimeService] 共享连接重连');
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      })
+      .subscribe((status) => {
+        console.log(`🔗 [RealtimeService] 共享连接状态: ${status}`);
+        
+        if (status === 'SUBSCRIBED') {
+          this.isConnected = true;
+          this.reconnectAttempts = 0;
+          this.startHeartbeat();
+        } else if (status === 'CHANNEL_ERROR') {
+          this.isConnected = false;
+          this.handleReconnect();
+        }
+      });
+
+    console.log('🔗 [RealtimeService] 创建共享WebSocket连接');
+  }
+
+  /**
    * 取消订阅
    */
   unsubscribe(id: string): void {
     const subscription = this.subscriptions.get(id);
     if (subscription) {
-      console.log('🔌 [RealtimeService] 取消订阅:', id);
       try {
-        supabase.removeChannel(subscription.channel);
+        // 由于使用共享连接，不需要移除整个channel
+        // 只需要从订阅列表中移除
         this.subscriptions.delete(id);
+        this.connectionCount--;
+        console.log(`🔗 [RealtimeService] 移除订阅: ${id}, 当前连接数: ${this.connectionCount}`);
+        
+        // 如果没有订阅了，关闭共享连接
+        if (this.connectionCount === 0 && this.sharedChannel) {
+          supabase.removeChannel(this.sharedChannel);
+          this.sharedChannel = null;
+          console.log('🔗 [RealtimeService] 关闭共享WebSocket连接');
+        }
       } catch (error) {
         console.error('❌ [RealtimeService] 取消订阅失败:', error);
       }
@@ -153,10 +154,15 @@ class RealtimeService {
    * 取消所有订阅
    */
   unsubscribeAll(): void {
-    console.log('🔌 [RealtimeService] 取消所有订阅');
-    this.subscriptions.forEach((subscription, id) => {
-      this.unsubscribe(id);
-    });
+    this.subscriptions.clear();
+    this.connectionCount = 0;
+    
+    if (this.sharedChannel) {
+      supabase.removeChannel(this.sharedChannel);
+      this.sharedChannel = null;
+      console.log('🔗 [RealtimeService] 关闭所有连接');
+    }
+    
     this.stopHeartbeat();
   }
 
@@ -165,13 +171,11 @@ class RealtimeService {
    */
   private handleReconnect(): void {
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
-      console.error('❌ [RealtimeService] 达到最大重连次数，停止重连');
       message.error('实时连接已断开，请刷新页面重试');
       return;
     }
 
     this.reconnectAttempts++;
-    console.log(`🔄 [RealtimeService] 尝试重连 (${this.reconnectAttempts}/${this.config.maxReconnectAttempts})`);
 
     setTimeout(() => {
       this.reconnectAll();
@@ -198,7 +202,6 @@ class RealtimeService {
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
       if (!this.isConnected) {
-        console.log('💓 [RealtimeService] 心跳检测失败，尝试重连');
         this.handleReconnect();
       }
     }, this.config.heartbeatInterval);
@@ -229,6 +232,30 @@ class RealtimeService {
   }
 
   /**
+   * 获取连接数量
+   */
+  getConnectionCount(): number {
+    return this.connectionCount;
+  }
+
+  /**
+   * 获取连接状态信息
+   */
+  getConnectionInfo(): { 
+    isConnected: boolean; 
+    subscriptionCount: number; 
+    connectionCount: number;
+    hasSharedChannel: boolean;
+  } {
+    return {
+      isConnected: this.isConnected,
+      subscriptionCount: this.subscriptions.size,
+      connectionCount: this.connectionCount,
+      hasSharedChannel: !!this.sharedChannel
+    };
+  }
+
+  /**
    * 获取配置信息
    */
   getConfig(): RealtimeConfig {
@@ -240,7 +267,6 @@ class RealtimeService {
    */
   updateConfig(newConfig: Partial<RealtimeConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    console.log('🔧 [RealtimeService] 配置已更新:', this.config);
   }
 }
 

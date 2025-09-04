@@ -250,16 +250,16 @@ export const useRealtimeConcurrencyControl = () => {
     }
   }, [releaseEditLock]);
 
-    // 实时监听状态变化
+    // 实时监听状态变化 - 使用统一的RealtimeService
   useEffect(() => {
     console.log('🔄 [Realtime] 启用 realtime 功能');
-    const channel = supabase.channel('concurrency-control')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'live_stream_schedules',
-        filter: 'status=eq.editing'
-      }, async (payload) => {
+    
+    // 使用统一的RealtimeService替代直接创建channel
+    const subscriptionId = realtimeService.subscribe({
+      table: 'live_stream_schedules',
+      event: 'UPDATE',
+      filter: 'status=eq.editing',
+      callback: async (payload) => {
         console.log('📡 [Realtime] 收到 editing 状态更新事件:', {
           eventType: 'UPDATE',
           table: 'live_stream_schedules',
@@ -315,13 +315,15 @@ export const useRealtimeConcurrencyControl = () => {
         } else {
           console.log('⚠️ [Realtime] editing_by 为空，跳过处理');
         }
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'live_stream_schedules',
-        filter: 'status=eq.available'
-      }, (payload) => {
+      }
+    });
+
+    // 添加available状态监听
+    const availableSubscriptionId = realtimeService.subscribe({
+      table: 'live_stream_schedules',
+      event: 'UPDATE',
+      filter: 'status=eq.available',
+      callback: (payload) => {
         console.log('📡 [Realtime] 收到 available 状态更新事件:', {
           eventType: 'UPDATE',
           table: 'live_stream_schedules',
@@ -351,13 +353,15 @@ export const useRealtimeConcurrencyControl = () => {
         const notificationMessage = `${schedule.date} ${schedule.time_slot_id} 已可编辑`;
         console.log('📢 [Realtime] 显示通知:', notificationMessage);
         message.success(notificationMessage);
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'live_stream_schedules',
-        filter: 'status=eq.booked'
-      }, async (payload) => {
+      }
+    });
+
+    // 添加booked状态监听
+    const bookedSubscriptionId = realtimeService.subscribe({
+      table: 'live_stream_schedules',
+      event: 'UPDATE',
+      filter: 'status=eq.booked',
+      callback: async (payload: any) => {
         console.log('📡 [Realtime] 收到 booked 状态更新事件:', {
           eventType: 'UPDATE',
           table: 'live_stream_schedules',
@@ -403,13 +407,15 @@ export const useRealtimeConcurrencyControl = () => {
         const notificationMessage = `${userName} 报名了 ${schedule.date} ${schedule.time_slot_id}`;
         console.log('📢 [Realtime] 显示通知:', notificationMessage);
         message.success(notificationMessage);
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'live_stream_schedules',
-        filter: 'status=eq.locked'
-      }, async (payload) => {
+      }
+    });
+
+    // 添加locked状态监听
+    const lockedSubscriptionId = realtimeService.subscribe({
+      table: 'live_stream_schedules',
+      event: 'UPDATE',
+      filter: 'status=eq.locked',
+      callback: async (payload: any) => {
         console.log('📡 [Realtime] 收到 locked 状态更新事件:', {
           eventType: 'UPDATE',
           table: 'live_stream_schedules',
@@ -444,12 +450,14 @@ export const useRealtimeConcurrencyControl = () => {
         const notificationMessage = `${schedule.date} ${schedule.time_slot_id} 已被锁定`;
         console.log('📢 [Realtime] 显示通知:', notificationMessage);
         message.warning(notificationMessage);
-      })
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'live_stream_schedules'
-      }, async (payload) => {
+      }
+    });
+
+    // 添加INSERT事件监听
+    const insertSubscriptionId = realtimeService.subscribe({
+      table: 'live_stream_schedules',
+      event: 'INSERT',
+      callback: async (payload: any) => {
         const startTime = performance.now();
         
         try {
@@ -483,28 +491,22 @@ export const useRealtimeConcurrencyControl = () => {
             console.warn(`⚠️ [实时性能] INSERT 事件处理耗时 ${duration.toFixed(2)}ms`);
           }
         }
-      })
-      .on('system', { event: 'disconnect' }, () => {
-        console.log('🔌 [Realtime] 系统断开连接');
-        setConnectedWithDebounce(false);
-      })
-      .on('system', { event: 'reconnect' }, () => {
-        console.log('🔌 [Realtime] 系统重新连接');
-        setConnectedWithDebounce(true);
-      })
-      .subscribe((status) => {
-        console.log('📡 [Realtime] 订阅状态变化:', {
-          status: status,
-          is_subscribed: status === 'SUBSCRIBED',
-          timestamp: new Date().toISOString()
-        });
-        setConnectedWithDebounce(status === 'SUBSCRIBED');
-      });
+      }
+    });
+
+    // 监听连接状态变化
+    const connectionInfo = realtimeService.getConnectionInfo();
+    setConnectedWithDebounce(connectionInfo.isConnected);
 
     return () => {
       // 清理所有定时器
       Object.values(lockTimeouts.current).forEach(timeout => clearTimeout(timeout));
-      supabase.removeChannel(channel);
+      // 使用realtimeService取消订阅
+      if (subscriptionId) realtimeService.unsubscribe(subscriptionId);
+      if (availableSubscriptionId) realtimeService.unsubscribe(availableSubscriptionId);
+      if (bookedSubscriptionId) realtimeService.unsubscribe(bookedSubscriptionId);
+      if (lockedSubscriptionId) realtimeService.unsubscribe(lockedSubscriptionId);
+      if (insertSubscriptionId) realtimeService.unsubscribe(insertSubscriptionId);
     };
   }, []);
 

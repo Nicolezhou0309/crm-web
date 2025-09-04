@@ -58,11 +58,8 @@ import DataAnalysis from './pages/DataAnalysis';
 import OnboardingPage from './pages/OnboardingPage';
 import LiveStreamRegistration from './pages/LiveStreamRegistration';
 import LiveStreamManagement from './pages/LiveStreamManagement';
-import TailwindTest from './components/TailwindTest';
 import MetroDistanceCalculatorPage from './pages/MetroDistanceCalculatorPage';
-import RealtimeTest from './pages/RealtimeTest';
-import ButtonStyleTest from './pages/ButtonStyleTest';
-import AuthStatusTest from './pages/AuthStatusTest';
+import RealtimeConnectionMonitor from './components/RealtimeConnectionMonitor';
 
 
 
@@ -814,7 +811,6 @@ const AppContent: React.FC = () => {
                 <Routes>
                   <Route path="/" element={<Navigate to="/live-stream-registration" replace />} />
                   <Route path="/dashboard" element={<Index />} />
-                  <Route path="/tailwind-test" element={<TailwindTest />} />
 
                   <Route path="/leads" element={
                     <PermissionGate permission="lead_manage" fallback={<Error403 />}>
@@ -907,9 +903,6 @@ const AppContent: React.FC = () => {
 
                           <Route path="/metro-calculator" element={<MetroDistanceCalculatorPage />} />
 
-                          <Route path="/realtime-test" element={<RealtimeTest />} />
-                          <Route path="/button-style-test" element={<ButtonStyleTest />} />
-                          <Route path="/auth-status-test" element={<AuthStatusTest />} />
 
                                                       <Route path="/live-stream-registration" element={<LiveStreamRegistration />} />
                             <Route path="/live-stream-management" element={
@@ -934,6 +927,9 @@ const AppContent: React.FC = () => {
         
         {/* 移动端底部菜单 - 只在手机端显示 */}
         {isMobile && <MobileTabBar />}
+        
+        {/* 实时连接监控 - 开发环境显示 */}
+        {process.env.NODE_ENV === 'development' && <RealtimeConnectionMonitor />}
       </div>
     </ConfigProvider>
   );
