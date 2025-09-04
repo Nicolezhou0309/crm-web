@@ -23,10 +23,9 @@ interface PollingSubscription {
 class PollingService {
   private subscriptions: Map<string, PollingSubscription> = new Map();
   private timers: Map<string, NodeJS.Timeout> = new Map();
-  private isHTTPS: boolean;
 
   constructor() {
-    this.isHTTPS = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    // 统一使用轮询服务，不再检查HTTPS/HTTP分支
   }
 
   /**
@@ -60,14 +59,13 @@ class PollingService {
 
     this.subscriptions.set(subscriptionId, subscription);
     
-    if (this.isHTTPS) {
-      this.startPolling(subscriptionId);
-    }
+    // 统一启动轮询，不再检查HTTPS/HTTP分支
+    this.startPolling(subscriptionId);
 
     console.log(`🔄 [PollingService] 订阅创建: ${table}`, {
       subscriptionId,
-      isHTTPS: this.isHTTPS,
-      interval: finalConfig.interval
+      interval: finalConfig.interval,
+      note: '统一使用轮询服务'
     });
 
     return subscriptionId;

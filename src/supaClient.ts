@@ -11,17 +11,13 @@ const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 let supabaseInstance: SupabaseClient | null = null;
 let supabaseServiceRoleInstance: SupabaseClient | null = null;
 
-// 检查是否在HTTPS环境下
-const isHTTPS = typeof window !== 'undefined' && window.location.protocol === 'https:';
-
 // 调试信息
 console.log('🔧 Supabase配置信息:', {
   supabaseUrl,
   protocol: typeof window !== 'undefined' ? window.location.protocol : 'unknown',
-  environment: '阿里云内网',
+  environment: '生产环境',
   envUrl: import.meta.env.VITE_SUPABASE_URL,
-  isHTTPS,
-  realtimeEnabled: !isHTTPS,
+  realtimeEnabled: false, // 统一禁用realtime，使用轮询替代
   pollingServiceAvailable: true
 })
 

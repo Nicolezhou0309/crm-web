@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supaClient';
 import { message } from 'antd';
 import { useUser } from '../context/UserContext';
+import { realtimeService } from '../services/RealtimeService';
 
 interface EditLock {
   editing_by: number;
