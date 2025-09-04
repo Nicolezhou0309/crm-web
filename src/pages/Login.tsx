@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Input, Button, message, Form, Modal, Tabs, Divider } from 'antd';
-import { MailOutlined, LockOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
+import { MailOutlined, LockOutlined, UserOutlined, GiftOutlined } from '@ant-design/icons';
 import { useUser } from '../context/UserContext';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -120,10 +120,16 @@ const Login: React.FC = () => {
   };
 
   const handleRegister = async (values: any) => {
-    const { email, password, confirmPassword, fullName, phone } = values;
+    const { email, password, confirmPassword, fullName, inviteCode } = values;
     
     if (password !== confirmPassword) {
       message.error('两次输入的密码不一致');
+      return;
+    }
+
+    // 验证邀请码
+    if (!inviteCode || inviteCode !== 'vlinker567') {
+      message.error('邀请码错误，请输入正确的邀请码');
       return;
     }
 
@@ -135,8 +141,7 @@ const Login: React.FC = () => {
         password,
         options: {
           data: {
-            full_name: fullName,
-            phone: phone
+            full_name: fullName
           }
         }
       });
@@ -351,14 +356,15 @@ const Login: React.FC = () => {
               </Form.Item>
               
               <Form.Item
-                name="phone"
-                label="手机号（可选）"
+                name="inviteCode"
+                label="邀请码"
                 rules={[
-                  { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号' }
+                  { required: true, message: '请输入邀请码' },
+                  { min: 6, message: '邀请码至少6位' }
                 ]}
                 style={{ marginBottom: 16 }}
               >
-                <Input prefix={<PhoneOutlined />} placeholder="请输入手机号（可选）" />
+                <Input prefix={<GiftOutlined />} placeholder="请输入邀请码" />
               </Form.Item>
               
               <Form.Item
