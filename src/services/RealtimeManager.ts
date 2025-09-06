@@ -165,8 +165,118 @@ class RealtimeManager {
         console.log(`▶️ [RealtimeManager] 恢复页面连接: ${id}`);
         connection.isActive = true;
         connection.lastUsed = Date.now();
+        
+        // 重新订阅该连接上的所有订阅
+        this.resubscribeConnection(connection);
       }
     });
+  }
+
+  /**
+   * 重新订阅连接上的所有订阅
+   */
+  private async resubscribeConnection(connection: ConnectionInfo): Promise<void> {
+    console.log(`🔄 [RealtimeManager] 重新订阅连接: ${connection.id}`);
+    
+    // 查找该连接上的所有订阅
+    const connectionSubscriptions = Array.from(this.subscriptions.values())
+      .filter(sub => sub.userId === connection.userId && 
+                     sub.source === connection.source &&
+                     sub.connectionType === connection.connectionType);
+    
+    console.log(`🔄 [RealtimeManager] 找到 ${connectionSubscriptions.length} 个需要重新订阅的订阅`);
+    
+    // 重新创建连接
+    try {
+      // 移除旧连接
+      supabase.removeChannel(connection.channel);
+      
+      // 创建新连接
+      const newChannel = supabase.channel(connection.id);
+      connection.channel = newChannel;
+      
+      // 重新订阅所有订阅
+      for (const subscription of connectionSubscriptions) {
+        await this.resubscribeSingleSubscription(connection, subscription);
+      }
+      
+      console.log(`✅ [RealtimeManager] 连接重新订阅完成: ${connection.id}`);
+    } catch (error) {
+      console.error(`❌ [RealtimeManager] 重新订阅连接失败: ${connection.id}`, error);
+    }
+  }
+
+  /**
+   * 重新订阅单个订阅
+   */
+  private async resubscribeSingleSubscription(
+    connection: ConnectionInfo, 
+    subscription: RealtimeSubscription
+  ): Promise<void> {
+    try {
+      console.log(`🔄 [RealtimeManager] 重新订阅: ${subscription.id}`);
+      
+      // 获取存储的回调函数
+      const callback = this.subscriptionCallbacks.get(subscription.id);
+      
+      // 在连接上添加监听器
+      connection.channel.on('postgres_changes', {
+        event: subscription.event,
+        schema: 'public',
+        table: subscription.table,
+        filter: subscription.filter
+      }, (payload: any) => {
+        try {
+          console.log(`📡 [RealtimeManager] 收到数据变化: table=${subscription.table}, event=${subscription.event}`);
+          
+          if (callback) {
+            callback(payload);
+          }
+          
+          // 同时通知其他数据变化监听器
+          this.notifyDataChangeListeners(subscription.table, subscription.event, payload);
+        } catch (error) {
+          console.error('❌ [RealtimeManager] 回调执行失败:', error);
+          this.errors++;
+        }
+      });
+
+      // 订阅连接
+      connection.channel.subscribe((status: string) => {
+        console.log(`📡 [RealtimeManager] 重新订阅状态变化: ${subscription.id}, 状态: ${status}`);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log(`✅ [RealtimeManager] 重新订阅成功: ${subscription.id}`);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(`❌ [RealtimeManager] 重新订阅失败: ${subscription.id}, 状态: ${status}`);
+          this.errors++;
+          this.reconnects++;
+          
+          // 尝试重新连接
+          this.scheduleReconnect(subscription.id, {
+            table: subscription.table,
+            event: subscription.event,
+            filter: subscription.filter,
+            source: subscription.source
+          }, subscription.userId, subscription.connectionType || 'page');
+        } else if (status === 'TIMED_OUT') {
+          console.error(`❌ [RealtimeManager] 重新订阅超时: ${subscription.id}, 状态: ${status}`);
+          this.errors++;
+          this.reconnects++;
+          
+          // 尝试重新连接
+          this.scheduleReconnect(subscription.id, {
+            table: subscription.table,
+            event: subscription.event,
+            filter: subscription.filter,
+            source: subscription.source
+          }, subscription.userId, subscription.connectionType || 'page');
+        }
+      });
+      
+    } catch (error) {
+      console.error(`❌ [RealtimeManager] 重新订阅单个订阅失败: ${subscription.id}`, error);
+    }
   }
 
   /**
