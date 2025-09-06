@@ -106,7 +106,7 @@ export class LiveStreamRegistrationService {
   /**
    * 检查用户报名限制
    */
-  async checkUserLimit(userId: number, currentPrivilegeType?: 'normal' | 'vip' | 'none'): Promise<UserLimitResult | null> { 
+  async checkUserLimit(userId: number, currentPrivilegeType?: 'normal' | 'vip' | 'none', weekStart?: string, weekEnd?: string): Promise<UserLimitResult | null> { 
     
     try {
       // 获取配置
@@ -125,18 +125,27 @@ export class LiveStreamRegistrationService {
         };
       }
 
-      // 计算本周开始和结束日期（自然周）- 使用北京时间
-      const now = new Date();
-      // 正确获取北京时间：UTC时间 + 8小时
-      const beijingNow = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-      const weekStart = new Date(beijingNow);
-      const dayOfWeek = beijingNow.getUTCDay() === 0 ? 7 : beijingNow.getUTCDay(); // 将周日转换为7
-      weekStart.setUTCDate(beijingNow.getUTCDate() - dayOfWeek + 1); // 周一
-      weekStart.setUTCHours(0, 0, 0, 0);
+      // 使用传入的周开始和结束日期，如果没有传入则使用当前周
+      let startDate: Date;
+      let endDate: Date;
       
-      const weekEnd = new Date(weekStart);
-      weekEnd.setUTCDate(weekStart.getUTCDate() + 6); // 周日
-      weekEnd.setUTCHours(23, 59, 59, 999);
+      if (weekStart && weekEnd) {
+        startDate = new Date(weekStart);
+        endDate = new Date(weekEnd);
+      } else {
+        // 计算本周开始和结束日期（自然周）- 使用北京时间
+        const now = new Date();
+        // 正确获取北京时间：UTC时间 + 8小时
+        const beijingNow = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+        startDate = new Date(beijingNow);
+        const dayOfWeek = beijingNow.getUTCDay() === 0 ? 7 : beijingNow.getUTCDay(); // 将周日转换为7
+        startDate.setUTCDate(beijingNow.getUTCDate() - dayOfWeek + 1); // 周一
+        startDate.setUTCHours(0, 0, 0, 0);
+        
+        endDate = new Date(startDate);
+        endDate.setUTCDate(startDate.getUTCDate() + 6); // 周日
+        endDate.setUTCHours(23, 59, 59, 999);
+      }
 
       // 检查是否为VIP主播
       const isPrivilegeUser = config.privilege_managers.includes(userId);
@@ -145,8 +154,8 @@ export class LiveStreamRegistrationService {
         .from('live_stream_schedules')
         .select('id, participant_ids, date, status, created_by')
         .eq('status', 'booked')
-        .gte('date', weekStart.toISOString().split('T')[0])
-        .lte('date', weekEnd.toISOString().split('T')[0]);
+        .gte('date', startDate.toISOString().split('T')[0])
+        .lte('date', endDate.toISOString().split('T')[0]);
 
       if (error) {
         console.error(`❌ [限制检查] 查询用户 ${userId} 的报名记录失败:`, error);
@@ -184,8 +193,8 @@ export class LiveStreamRegistrationService {
         user_weekly_count: userWeeklyCount,
         weekly_limit: weeklyLimit,
         privilege_advance_limit: config.privilege_advance_limit,
-        week_start: weekStart.toISOString().split('T')[0],
-        week_end: weekEnd.toISOString().split('T')[0]
+        week_start: startDate.toISOString().split('T')[0],
+        week_end: endDate.toISOString().split('T')[0]
       };
 
 
@@ -338,7 +347,7 @@ export class LiveStreamRegistrationService {
   /**
    * 获取完整的报名状态
    */
-  async getRegistrationStatus(userId: number, isEditingExisting: boolean = false): Promise<RegistrationStatus> {
+  async getRegistrationStatus(userId: number, isEditingExisting: boolean = false, weekStart?: string, weekEnd?: string): Promise<RegistrationStatus> {
     // 先获取配置
     const config = await this.getRegistrationConfig();
     
@@ -349,7 +358,7 @@ export class LiveStreamRegistrationService {
     );
 
     // 根据当前权益类型检查用户限制
-    const userLimitResult = await this.checkUserLimit(userId, currentPrivilegeType);
+    const userLimitResult = await this.checkUserLimit(userId, currentPrivilegeType, weekStart, weekEnd);
 
     // 如果是编辑已报名场次，只检查时间窗口，不检查每周限制
     let canRegister: boolean;

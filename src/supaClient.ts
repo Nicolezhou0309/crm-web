@@ -74,12 +74,17 @@ function createSupabaseClient(): SupabaseClient {
       realtime: {
         params: {
           eventsPerSecond: 10
-        }
+        },
+        // 添加重连和错误处理配置
+        heartbeatIntervalMs: 30000,
+        reconnectAfterMs: (tries: number) => Math.min(tries * 1000, 30000),
+        // 添加调试配置
+        log_level: 'info'
       },
       global: {
         headers: {
           'X-Client-Info': 'crm-web-aliyun',
-          'Accept': 'application/json, text/plain, */*',
+          'Accept': 'application/json',
           'Content-Type': 'application/json',
           'User-Agent': 'crm-web/1.0.0'
         }
@@ -99,46 +104,11 @@ function createSupabaseServiceRoleClient(): SupabaseClient {
   if (!supabaseServiceRoleInstance) {
     console.log('🔧 创建 Supabase 服务角色客户端实例');
     supabaseServiceRoleInstance = createClient(supabaseUrl, supabaseServiceRoleKey || supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-        flowType: 'pkce',
-        debug: false,
-        storage: {
-          getItem: (key) => {
-            try {
-              return localStorage.getItem(`supabase-service-${key}`)
-            } catch {
-              return null
-            }
-          },
-          setItem: (key, value) => {
-            try {
-              localStorage.setItem(`supabase-service-${key}`, value)
-            } catch {
-              // 忽略存储错误
-            }
-          },
-          removeItem: (key) => {
-            try {
-              localStorage.removeItem(`supabase-service-${key}`)
-            } catch {
-              // 忽略存储错误
-            }
-          }
-        }
-      },
-      // 启用realtime配置，处理混合内容问题
-      realtime: {
-        params: {
-          eventsPerSecond: 10
-        }
-      },
+      // 服务角色客户端不需要 auth 和 realtime 配置
       global: {
         headers: {
           'X-Client-Info': 'crm-web-aliyun-service-role',
-          'Accept': 'application/json, text/plain, */*',
+          'Accept': 'application/json',
           'Content-Type': 'application/json',
           'User-Agent': 'crm-web/1.0.0'
         }

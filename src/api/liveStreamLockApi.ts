@@ -20,7 +20,7 @@ export const lockLiveStreamSchedule = async (
     const { data, error } = await supabase
       .from('live_stream_schedules')
       .update(updateData)
-      .eq('id', scheduleId)
+      .eq('id', parseInt(scheduleId))
       .select('*')
       .single();
 
@@ -78,7 +78,7 @@ export const unlockLiveStreamSchedule = async (scheduleId: string): Promise<Live
     const { data, error } = await supabase
       .from('live_stream_schedules')
       .update(updateData)
-      .eq('id', scheduleId)
+      .eq('id', parseInt(scheduleId))
       .select('*')
       .single();
 

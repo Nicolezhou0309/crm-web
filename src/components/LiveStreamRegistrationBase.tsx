@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo, useCallback } from 'react';
+import React, { useState, useEffect, memo, useCallback, useRef } from 'react';
 import { Button, Table, Modal, Form, Select, message, Tooltip } from 'antd';
 import { PlusOutlined, CheckCircleOutlined, VideoCameraAddOutlined, ClockCircleOutlined, EnvironmentOutlined, LockOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
@@ -8,6 +8,7 @@ import { lockLiveStreamSchedule, unlockLiveStreamSchedule } from '../api/liveStr
 
 import { supabase } from '../supaClient';
 import { useUser } from '../context/UserContext';
+import { useRealtimeConcurrencyControl } from '../hooks/useRealtimeConcurrencyControl';
 import UserTreeSelect from './UserTreeSelect';
 import LiveStreamCardContextMenu from './LiveStreamCardContextMenu';
 import LiveStreamHistoryDrawer from './LiveStreamHistoryDrawer';
@@ -20,8 +21,8 @@ import {
   type UserLimitResult, 
   type RegistrationStatus 
 } from '../services/LiveStreamRegistrationService';
-import { useRealtimeConcurrencyControl } from '../hooks/useRealtimeConcurrencyControl';
 import { useRolePermissions } from '../hooks/useRolePermissions';
+import { EDITING_LOCK_TIMEOUT } from '../constants/timeouts';
 const { Option } = Select;
 
 
@@ -116,6 +117,9 @@ const ScheduleCard = memo<{
       >
         <div
           key={`${schedule?.id || 'empty'}-${cardUpdateKey || 0}`}
+          data-testid="schedule-card"
+          data-date={dateInfo.date}
+          data-time-slot={timeSlot.id}
           onClick={() => onCardClick(schedule, timeSlot, dateInfo)}
           style={{
             background: 'white',
@@ -735,11 +739,465 @@ const LiveStreamRegistrationBase: React.FC = () => {
   const { user } = useUser();
   const [userProfile, setUserProfile] = useState<any>(null);
   
-  // 并发控制hook
-  const { } = useRealtimeConcurrencyControl();
+  // 并发控制相关状态 - 使用 realtime hook 的数据
+  // const [editLocks, setEditLocks] = useState<{ [key: string]: any }>({});
+  // const [timeSlotLocks, setTimeSlotLocks] = useState<{ [key: string]: any }>({});
+  // const [currentUserLocks, setCurrentUserLocks] = useState<Set<string>>(new Set());
   
   // 权限检查hook
   const { hasLiveStreamManagePermission } = useRolePermissions();
+
+  // 并发控制hook - 管理编辑状态和锁定状态
+  const {
+    editLocks: realtimeEditLocks,
+    timeSlotLocks: realtimeTimeSlotLocks,
+    currentUserLocks: realtimeCurrentUserLocks,
+    isConnected: realtimeConnected,
+    acquireEditLock: realtimeAcquireEditLock,
+    releaseEditLock: realtimeReleaseEditLock
+  } = useRealtimeConcurrencyControl({
+    onDataChange: (change) => {
+      console.log('🔄 [LiveStreamRegistrationBase] 收到实时数据变化通知:', change);
+      
+      // 根据事件类型进行精确更新
+      if (change.eventType === 'INSERT') {
+        // 新增记录：直接更新本地状态
+        if (change.schedule) {
+          const formattedSchedule = formatScheduleData(change.schedule);
+          setSchedules(prev => {
+            const existingIndex = prev.findIndex(s => s.id === change.scheduleId);
+            if (existingIndex >= 0) {
+              // 更新现有记录
+              const newSchedules = [...prev];
+              newSchedules[existingIndex] = formattedSchedule;
+              return newSchedules;
+            } else {
+              // 添加新记录
+              return [...prev, formattedSchedule];
+            }
+          });
+          updateSingleCard(change.scheduleId);
+        }
+      } else if (change.eventType === 'STATUS_CHANGE') {
+        // 状态变化：基于状态精准更新卡片
+        handleStatusChange(change);
+      } else if (change.eventType === 'DELETE') {
+        // 删除记录：从本地状态中移除
+        setSchedules(prev => prev.filter(s => s.id !== change.scheduleId));
+        updateSingleCard(change.scheduleId);
+      }
+    }
+  });
+
+  // 使用 realtime hook 的数据作为主要状态
+  const editLocks = realtimeEditLocks;
+  const timeSlotLocks = realtimeTimeSlotLocks;
+  const currentUserLocks = realtimeCurrentUserLocks;
+
+  // Realtime 重试逻辑 - 使用简单的重试机制
+  const [retryState, setRetryState] = useState({
+    isRetrying: false,
+    retryCount: 0,
+    nextRetryTime: null as number | null
+  });
+
+  // 重试相关函数
+  const startRetry = useCallback((retryFn: () => Promise<void>, error: any) => {
+    if (retryState.retryCount >= 5) {
+      console.error('❌ [Realtime] 重试次数已达上限，停止重试');
+      return;
+    }
+
+    const delay = Math.min(2000 * Math.pow(1.5, retryState.retryCount), 15000);
+    const nextRetryTime = Date.now() + delay;
+
+    setRetryState(prev => ({
+      ...prev,
+      isRetrying: true,
+      retryCount: prev.retryCount + 1,
+      nextRetryTime
+    }));
+
+
+    setTimeout(async () => {
+      try {
+        await retryFn();
+        setRetryState(prev => ({
+          ...prev,
+          isRetrying: false,
+          retryCount: 0,
+          nextRetryTime: null
+        }));
+      } catch (retryError) {
+        console.error('❌ [Realtime] 重试失败:', retryError);
+        startRetry(retryFn, retryError);
+      }
+    }, delay);
+  }, [retryState.retryCount]);
+
+  const cancelRetry = useCallback(() => {
+    setRetryState(prev => ({
+      ...prev,
+      isRetrying: false,
+      retryCount: 0,
+      nextRetryTime: null
+    }));
+  }, []);
+
+  const resetRetry = useCallback(() => {
+    setRetryState(prev => ({
+      ...prev,
+      retryCount: 0,
+      nextRetryTime: null
+    }));
+  }, []);
+
+  const manualRetry = useCallback(async (retryFn: () => Promise<void>) => {
+    setRetryState(prev => ({ ...prev, retryCount: 0 }));
+    await retryFn();
+  }, []);
+
+  // Realtime 订阅管理 - 现在由 useRealtimeConcurrencyControl 统一管理
+  // const { subscribe, unsubscribe, unsubscribeAll, isConnected, error } = useRealtime();
+  // const [subscriptionId, setSubscriptionId] = useState<string>('');
+  // const subscriptionIdRef = useRef<string>('');
+  // const isSubscribingRef = useRef<boolean>(false);
+
+  // 订阅 Realtime 频道 - 现在由 useRealtimeConcurrencyControl 统一管理
+  // const subscribeToRealtime = useCallback(async () => {
+  //   if (!user?.id) {
+  //     console.warn('⚠️ [LiveStreamRealtime] 用户未登录，无法订阅');
+  //     return;
+  //   }
+
+  //   try {
+  //     isSubscribingRef.current = true;
+      
+  //     const id = await subscribe({
+  //       table: 'live_stream_schedules',
+  //       event: '*',
+  //       source: 'LiveStreamRegistrationBase',
+  //       onData: async (payload) => {
+  //         // 处理实时数据更新
+  //         await handleRealtimeData(payload);
+  //       },
+  //       onError: (error) => {
+  //         console.error('❌ [LiveStreamRealtime] 订阅错误:', error);
+  //       }
+  //     });
+
+  //     if (id) {
+  //       subscriptionIdRef.current = id;
+  //       setSubscriptionId(id);
+  //       resetRetry(); // 重置重试状态
+  //     } else {
+  //       throw new Error('订阅返回空ID');
+  //     }
+  //   } catch (error) {
+  //     console.error('❌ [LiveStreamRealtime] 订阅失败:', error);
+  //   } finally {
+  //     isSubscribingRef.current = false;
+  //   }
+  // }, [user?.id, selectedWeek, subscribe, resetRetry, unsubscribe]);
+
+  // 取消订阅 - 现在由 useRealtimeConcurrencyControl 统一管理
+  // const unsubscribeFromRealtime = useCallback(() => {
+  //   if (subscriptionIdRef.current) {
+  //     unsubscribe(subscriptionIdRef.current);
+  //     subscriptionIdRef.current = '';
+  //     setSubscriptionId('');
+  //   }
+  // }, [unsubscribe]);
+
+
+  // 处理实时数据更新 - 现在由 useRealtimeConcurrencyControl 统一管理
+  // const handleRealtimeData = useCallback(async (payload: any) => {
+  //   try {
+  //     if (payload.eventType === 'INSERT') {
+  //       const newSchedule = payload.new;
+        
+  //       // 检查是否在当前选中的周范围内
+  //       const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+  //       const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+        
+  //       if (newSchedule.date >= weekStart && newSchedule.date <= weekEnd) {
+  //         // 构建新的schedule对象
+  //         const scheduleToAdd: LiveStreamSchedule = {
+  //           id: newSchedule.id.toString(),
+  //           date: newSchedule.date,
+  //           timeSlotId: newSchedule.time_slot_id,
+  //           status: newSchedule.status,
+  //           managers: newSchedule.participant_ids 
+  //             ? newSchedule.participant_ids.map((id: number) => ({
+  //                 id: id.toString(),
+  //                 name: '未知用户',
+  //                 department: '',
+  //                 avatar: undefined
+  //               }))
+  //             : [],
+  //           location: {
+  //             id: newSchedule.location || '',
+  //             name: newSchedule.location || ''
+  //           },
+  //           propertyType: {
+  //             id: newSchedule.notes || '',
+  //             name: newSchedule.notes || ''
+  //           },
+  //           createdAt: newSchedule.created_at,
+  //           updatedAt: newSchedule.updated_at,
+  //           createdBy: newSchedule.created_by,
+  //           editingBy: newSchedule.editing_by,
+  //           editingAt: newSchedule.editing_at,
+  //           editingExpiresAt: newSchedule.editing_expires_at,
+  //           lockType: newSchedule.lock_type,
+  //           lockReason: newSchedule.lock_reason,
+  //           lockEndTime: newSchedule.lock_end_time,
+  //         };
+          
+  //         // 添加到本地状态
+  //         setSchedules(prev => [...prev, scheduleToAdd]);
+  //         // 更新特定卡片
+  //         setCardUpdateKeys(prev => ({
+  //           ...prev,
+  //           [newSchedule.id.toString()]: (prev[newSchedule.id.toString()] || 0) + 1
+  //         }));
+  //       }
+  //     } else if (payload.eventType === 'UPDATE') {
+  //       const updatedSchedule = payload.new;
+  //       const status = updatedSchedule.status;
+        
+  //       // 编辑状态变化现在由 useRealtimeConcurrencyControl 管理
+  //       if (status === 'editing' && updatedSchedule.editing_by) {
+  //         try {
+  //           const { data: userProfile } = await supabase
+  //             .from('users_profile')
+  //             .select('nickname, email')
+  //             .eq('id', updatedSchedule.editing_by)
+  //             .single();
+
+  //           const userName = userProfile?.nickname || userProfile?.email || '未知用户';
+
+  //           const notificationMessage = `${userName} 正在编辑 ${updatedSchedule.date} ${updatedSchedule.time_slot_id}`;
+  //           message.info(notificationMessage);
+  //         } catch (error) {
+  //           console.warn('获取编辑用户信息失败:', error);
+  //         }
+  //       } else if (status === 'available') {
+  //         // 可用状态变化
+  //         const notificationMessage = `${updatedSchedule.date} ${updatedSchedule.time_slot_id} 已可编辑`;
+  //         message.success(notificationMessage);
+  //       } else if (status === 'booked') {
+  //         // 已报名状态变化
+
+  //         // 获取报名用户信息
+  //         if (updatedSchedule.created_by) {
+  //           try {
+  //             const { data: userProfile } = await supabase
+  //               .from('users_profile')
+  //               .select('nickname, email')
+  //               .eq('id', updatedSchedule.created_by)
+  //               .single();
+
+  //             const userName = userProfile?.nickname || userProfile?.email || '未知用户';
+  //             const notificationMessage = `${userName} 报名了 ${updatedSchedule.date} ${updatedSchedule.time_slot_id}`;
+  //             message.success(notificationMessage);
+  //           } catch (error) {
+  //             console.warn('获取报名用户信息失败:', error);
+  //           }
+  //         }
+  //       } else if (status === 'locked') {
+  //         // 锁定状态变化现在由 useRealtimeConcurrencyControl 管理
+  //         const notificationMessage = `${updatedSchedule.date} ${updatedSchedule.time_slot_id} 已被锁定`;
+  //         message.warning(notificationMessage);
+  //       }
+        
+  //       // 更新本地状态
+  //       setSchedules(prev => {
+  //         return prev.map(schedule => {
+  //           if (schedule.id === updatedSchedule.id.toString()) {
+  //             return {
+  //               ...schedule,
+  //               status: updatedSchedule.status,
+  //               managers: updatedSchedule.participant_ids && updatedSchedule.participant_ids.length > 0
+  //                 ? updatedSchedule.participant_ids.map((id: number) => ({
+  //                     id: id.toString(),
+  //                     name: '未知用户',
+  //                     department: '',
+  //                     avatar: undefined
+  //                   }))
+  //                 : [],
+  //               location: {
+  //                 id: updatedSchedule.location || 'default',
+  //                 name: updatedSchedule.location || ''
+  //               },
+  //               propertyType: {
+  //                 id: updatedSchedule.notes || '',
+  //                 name: updatedSchedule.notes || ''
+  //               },
+  //               createdAt: schedule.createdAt,
+  //               updatedAt: schedule.updatedAt,
+  //               createdBy: schedule.createdBy,
+  //               editingBy: updatedSchedule.editing_by,
+  //               editingAt: updatedSchedule.editing_at,
+  //               editingExpiresAt: updatedSchedule.editing_expires_at,
+  //               lockType: updatedSchedule.lock_type,
+  //               lockReason: updatedSchedule.lock_reason,
+  //               lockEndTime: updatedSchedule.lock_end_time,
+  //             };
+  //           }
+  //           return schedule;
+  //         });
+  //       });
+        
+  //       // 更新特定卡片
+  //       setCardUpdateKeys(prev => ({
+  //         ...prev,
+  //         [updatedSchedule.id.toString()]: (prev[updatedSchedule.id.toString()] || 0) + 1
+  //       }));
+        
+  //       // 如果状态变为available（释放场次），更新用户报名状态
+  //       if (updatedSchedule.status === 'available' && userProfile?.id) {
+  //         setTimeout(async () => {
+  //           try {
+  //             const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+  //             const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+              
+  //             const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false);
+  //             // 这里需要调用 setRegistrationStatus，但它在后面定义
+  //             // 暂时注释掉，在组件初始化时处理
+  //             // setRegistrationStatus(newRegistrationStatus);
+  //           } catch (error) {
+  //             console.warn('⚠️ [Realtime] 更新用户报名状态失败:', error);
+  //           }
+  //         }, 100);
+  //       }
+  //     } else if (payload.eventType === 'DELETE') {
+  //       const deletedSchedule = payload.old;
+        
+  //       // 从本地状态中移除
+  //       setSchedules(prev => prev.filter(schedule => schedule.id !== deletedSchedule.id.toString()));
+  //       // 更新特定卡片
+  //       setCardUpdateKeys(prev => ({
+  //         ...prev,
+  //         [deletedSchedule.id.toString()]: (prev[deletedSchedule.id.toString()] || 0) + 1
+  //       }));
+  //     }
+  //   } catch (error) {
+  //     console.error('❌ [LiveStreamRealtime] 处理实时数据失败:', error);
+  //   }
+  // }, [selectedWeek, userProfile?.id]);
+
+  // 并发控制相关函数
+  const getCurrentUserId = async () => {
+    if (!user) return null;
+    const { data: userProfile } = await supabase
+      .from('users_profile')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+    return userProfile?.id;
+  };
+
+  // 注意：现在使用 useRealtimeConcurrencyControl 提供的 acquireEditLock 函数
+  // const acquireEditLock = async (scheduleId: string) => {
+  //   try {
+  //     const currentUserId = await getCurrentUserId();
+  //     if (!currentUserId) throw new Error('用户未登录');
+
+  //     // 检查是否已被锁定
+  //     const existingLock = editLocks[scheduleId];
+  //     if (existingLock && existingLock.editing_expires_at > new Date().toISOString()) {
+  //       throw new Error(`该时间段正在被 ${existingLock.user_name} 编辑`);
+  //     }
+
+  //     // 检查时间段是否被锁定
+  //     const timeSlotLock = timeSlotLocks[scheduleId];
+  //     if (timeSlotLock) {
+  //       throw new Error(`该时间段已被锁定: ${timeSlotLock.lock_reason}`);
+  //     }
+
+  //     // 更新数据库
+  //     const { data, error } = await supabase
+  //       .from('live_stream_schedules')
+  //       .update({
+  //         status: 'editing',
+  //         editing_by: currentUserId,
+  //         editing_at: new Date().toISOString(),
+  //         editing_expires_at: new Date(Date.now() + EDITING_LOCK_TIMEOUT).toISOString() // 5分钟后过期
+  //       })
+  //       .eq('id', scheduleId)
+  //       .select()
+  //       .single();
+
+  //     if (error) throw error;
+
+  //     // 锁定状态现在由 useRealtimeConcurrencyControl 管理
+
+  //     return { success: true, data };
+  //   } catch (error: any) {
+  //     return { success: false, error: error.message };
+  //   }
+  // };
+
+  // 注意：现在使用 useRealtimeConcurrencyControl 提供的 releaseEditLock 函数
+  // const releaseEditLock = async (scheduleId: string) => {
+  //   try {
+  //     const currentUserId = await getCurrentUserId();
+  //     if (!currentUserId) return;
+
+  //     // 先获取当前记录状态
+  //     const { data: currentRecord } = await supabase
+  //       .from('live_stream_schedules')
+  //       .select('status')
+  //       .eq('id', scheduleId)
+  //       .single();
+
+  //     // 根据当前状态决定是否重置状态
+  //     const shouldResetStatus = currentRecord?.status !== 'booked';
+      
+  //     // 更新数据库
+  //     const updateData: any = {
+  //       editing_by: null,
+  //       editing_at: null,
+  //       editing_expires_at: null
+  //     };
+
+  //     if (shouldResetStatus) {
+  //       updateData.status = 'available';
+  //     }
+
+  //     const { error } = await supabase
+  //       .from('live_stream_schedules')
+  //       .update(updateData)
+  //       .eq('id', scheduleId)
+  //       .eq('editing_by', currentUserId)
+  //       .select();
+
+  //     if (error) {
+  //       console.error('❌ 释放编辑锁定失败:', error);
+  //       throw error;
+  //     }
+
+  //     // 锁定状态现在由 useRealtimeConcurrencyControl 管理
+  //   } catch (error) {
+  //     console.error('❌ 释放锁定失败:', error);
+  //   }
+  // };
+
+  // 注意：现在使用 useRealtimeConcurrencyControl 提供的函数
+  // 并发控制辅助函数
+  // const isBeingEdited = (scheduleId: string) => {
+  //   const lock = editLocks[scheduleId];
+  //   return lock && lock.editing_expires_at > new Date().toISOString();
+  // };
+
+  // const isLocked = (scheduleId: string) => !!timeSlotLocks[scheduleId];
+
+  // const isBeingEditedByCurrentUser = (scheduleId: string) => currentUserLocks.has(scheduleId);
+
+  // const getEditLockInfo = (scheduleId: string) => editLocks[scheduleId];
+
+  // const getTimeSlotLockInfo = (scheduleId: string) => timeSlotLocks[scheduleId];
 
   // 时间窗口变化回调
   const onTimeWindowChange = useCallback(async (canRegister: boolean) => {
@@ -747,9 +1205,13 @@ const LiveStreamRegistrationBase: React.FC = () => {
     
     if (userProfile?.id) {
       try {
+        // 计算当前选中周的开始和结束日期
+        const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+        const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+        
         // 清除缓存以确保获取最新数据
         liveStreamRegistrationService.clearConfigCache();
-        const status = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
+        const status = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false, weekStart, weekEnd);
         setRegistrationStatus(status);
         
         // 同时刷新配置，以防配置有变化
@@ -760,7 +1222,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
         console.error('❌ [时间窗口变化] 刷新报名状态失败:', error);
       }
     }
-  }, [userProfile?.id]);
+  }, [userProfile?.id, selectedWeek]);
 
   // 新增：报名状态管理
   const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
@@ -1013,7 +1475,11 @@ const LiveStreamRegistrationBase: React.FC = () => {
         // 更新用户报名状态
         if (userProfile?.id) {
           try {
-            const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
+            // 计算当前选中周的开始和结束日期
+            const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+            const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+            
+            const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false, weekStart, weekEnd);
             setRegistrationStatus(newRegistrationStatus);
           } catch (error) {
             console.warn('⚠️ [释放场次] 更新用户报名状态失败:', error);
@@ -1091,7 +1557,11 @@ const LiveStreamRegistrationBase: React.FC = () => {
         // 更新用户报名状态
         if (userProfile?.id) {
           try {
-            const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
+            // 计算当前选中周的开始和结束日期
+            const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+            const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+            
+            const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false, weekStart, weekEnd);
             setRegistrationStatus(newRegistrationStatus);
           } catch (error) {
             console.warn('⚠️ [取消报名] 更新用户报名状态失败:', error);
@@ -1128,29 +1598,58 @@ const LiveStreamRegistrationBase: React.FC = () => {
   useEffect(() => {
     const performCleanup = async () => {
       try {
+        // 检查是否有当前用户正在编辑的记录
+        const hasActiveEditing = realtimeCurrentUserLocks.size > 0;
+        
+        if (hasActiveEditing) {
+          console.log('⏸️ [Cleanup] 检测到当前用户正在编辑，跳过自动清理', {
+            activeLocks: Array.from(realtimeCurrentUserLocks)
+          });
+          return;
+        }
+        
+        // 检查是否有其他用户正在编辑的记录（通过实时锁定状态）
+        const hasOtherEditing = Object.keys(realtimeEditLocks).length > 0;
+        
+        if (hasOtherEditing) {
+          console.log('⏸️ [Cleanup] 检测到其他用户正在编辑，跳过自动清理', {
+            otherLocks: Object.keys(realtimeEditLocks).length
+          });
+          return;
+        }
+        
+        console.log('🧹 [Cleanup] 执行自动清理过期编辑状态');
         await cleanupExpiredEditingStatus();
       } catch (error) {
+        console.error('❌ [Cleanup] 自动清理失败:', error);
       }
     };
     
-    // 页面加载时立即清理一次
-    performCleanup();
+    // 页面加载时延迟清理，避免与初始化冲突
+    const initialCleanupTimer = setTimeout(performCleanup, 15000); // 15秒后清理，给更多时间
     
     // 每5分钟自动清理一次
     const interval = setInterval(performCleanup, 5 * 60 * 1000);
     
-    // 组件卸载时清理所有Supabase连接
+    // 组件卸载时清理定时器
     return () => {
+      clearTimeout(initialCleanupTimer);
       clearInterval(interval);
-      console.log('🧹 [Cleanup] 清理所有Supabase连接');
-      // 强制清理所有可能的连接
-      try {
-        supabase.removeAllChannels();
-      } catch (error) {
-        console.warn('清理连接时出错:', error);
-      }
     };
-  }, []);
+  }, [realtimeCurrentUserLocks, realtimeEditLocks]);
+
+  // Realtime 订阅管理 - 现在由 useRealtimeConcurrencyControl 统一管理
+  // useEffect(() => {
+  //   if (user?.id) {
+  //     // 用户登录后自动订阅
+  //     subscribeToRealtime();
+  //   }
+
+  //   // 组件卸载时取消订阅
+  //   return () => {
+  //     unsubscribeFromRealtime();
+  //   };
+  // }, [user?.id]);
 
   // 统一的权限检查函数
   const checkEditPermission = async (schedule: LiveStreamSchedule): Promise<{ hasPermission: boolean; message?: string }> => {  
@@ -1183,7 +1682,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
       const { data: latestSchedule, error: scheduleError } = await supabase
         .from('live_stream_schedules')
         .select('id, status, created_by, participant_ids, editing_by, editing_expires_at')
-        .eq('id', schedule.id)
+        .eq('id', parseInt(schedule.id))
         .single();
 
       if (scheduleError) {
@@ -1214,7 +1713,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
               editing_expires_at: null,
               status: 'available'
             })
-            .eq('id', schedule.id);
+            .eq('id', parseInt(schedule.id));
           
           // 更新状态为available
           latestSchedule.status = 'available';
@@ -1399,10 +1898,156 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   // 更新单个卡片的函数
   const updateSingleCard = (scheduleId: string) => {
-    setCardUpdateKeys(prev => ({
-      ...prev,
-      [scheduleId]: (prev[scheduleId] || 0) + 1
-    }));
+    setCardUpdateKeys(prev => {
+      const newKey = (prev[scheduleId] || 0) + 1;
+      return {
+        ...prev,
+        [scheduleId]: newKey
+      };
+    });
+  };
+
+  // 格式化数据库数据为组件所需格式
+  const formatScheduleData = (dbSchedule: any): LiveStreamSchedule => {
+    return {
+      id: dbSchedule.id.toString(),
+      date: dbSchedule.date,
+      timeSlotId: dbSchedule.time_slot_id,
+      status: dbSchedule.status,
+      managers: dbSchedule.participant_ids 
+        ? dbSchedule.participant_ids.map((id: number) => ({
+            id: id.toString(),
+            name: '未知用户',
+            department: '',
+            avatar: undefined
+          }))
+        : [],
+      location: {
+        id: dbSchedule.location || '',
+        name: dbSchedule.location || ''
+      },
+      propertyType: {
+        id: dbSchedule.notes || '',
+        name: dbSchedule.notes || ''
+      },
+      createdAt: dbSchedule.created_at,
+      updatedAt: dbSchedule.updated_at,
+      createdBy: dbSchedule.created_by,
+      editingBy: dbSchedule.editing_by,
+      editingAt: dbSchedule.editing_at,
+      editingExpiresAt: dbSchedule.editing_expires_at,
+      lockType: dbSchedule.lock_type,
+      lockReason: dbSchedule.lock_reason,
+      lockEndTime: dbSchedule.lock_end_time,
+    };
+  };
+
+  // 处理状态变化
+  const handleStatusChange = (change: any) => {
+    console.log('🔄 [状态变化] 处理状态变化:', {
+      scheduleId: change.scheduleId,
+      statusChange: change.statusChange,
+      schedule: change.schedule
+    });
+
+    if (!change.schedule) {
+      console.warn('⚠️ [状态变化] 缺少 schedule 数据');
+      return;
+    }
+
+    const formattedSchedule = formatScheduleData(change.schedule);
+    
+    // 更新本地状态
+    setSchedules(prev => {
+      const existingIndex = prev.findIndex(s => s.id === change.scheduleId);
+      if (existingIndex >= 0) {
+        // 更新现有记录
+        const newSchedules = [...prev];
+        newSchedules[existingIndex] = formattedSchedule;
+        console.log('🔄 [状态变化] 更新现有记录:', {
+          scheduleId: change.scheduleId,
+          oldStatus: change.statusChange?.from,
+          newStatus: change.statusChange?.to
+        });
+        return newSchedules;
+      } else {
+        // 添加新记录
+        console.log('🔄 [状态变化] 添加新记录:', change.scheduleId);
+        return [...prev, formattedSchedule];
+      }
+    });
+
+    // 更新卡片
+    updateSingleCard(change.scheduleId);
+  };
+
+  // 精确更新单个卡片数据
+  const updateSingleSchedule = async (scheduleId: string) => {
+    try {
+      console.log('🔄 [精确更新] 手动刷新单个记录:', scheduleId);
+
+      // 获取单个记录的最新数据
+      const { data: latestSchedule, error } = await supabase
+        .from('live_stream_schedules')
+        .select(`
+          id, date, time_slot_id, status, participant_ids, location, notes,
+          created_at, updated_at, created_by, editing_by, editing_at, editing_expires_at,
+          lock_type, lock_reason, lock_end_time
+        `)
+        .eq('id', parseInt(scheduleId))
+        .single();
+
+      if (error) {
+        console.error('❌ [精确更新] 获取单个记录失败:', error);
+        return;
+      }
+
+      if (!latestSchedule) {
+        console.warn('⚠️ [精确更新] 记录不存在:', scheduleId);
+        return;
+      }
+
+      // 使用统一的格式化函数
+      const formattedSchedule = formatScheduleData(latestSchedule);
+
+      // 更新本地状态
+      setSchedules(prev => {
+        const existingIndex = prev.findIndex(s => s.id === scheduleId);
+        if (existingIndex >= 0) {
+          // 更新现有记录
+          const newSchedules = [...prev];
+          newSchedules[existingIndex] = formattedSchedule;
+          return newSchedules;
+        } else {
+          // 添加新记录
+          return [...prev, formattedSchedule];
+        }
+      });
+
+      // 更新卡片
+      updateSingleCard(scheduleId);
+
+      // 异步获取新参与者的头像信息
+      if (formattedSchedule.managers.length > 0) {
+        const participantIds = formattedSchedule.managers
+          .map(manager => parseInt(manager.id))
+          .filter(id => !isNaN(id));
+        
+        if (participantIds.length > 0) {
+          // 异步更新头像，不阻塞UI
+          Promise.all([
+            fetchUserAvatars(participantIds),
+            fetchUserAvatarFrames(participantIds)
+          ]).catch(error => {
+            console.warn('⚠️ [精确更新] 获取头像信息失败:', error);
+          });
+        }
+      }
+
+      console.log('✅ [精确更新] 卡片数据已更新:', scheduleId);
+    } catch (error) {
+      console.error('❌ [精确更新] 更新单个卡片失败:', error);
+    }
   };
 
   // 随机颜色数组
@@ -1431,11 +2076,16 @@ const LiveStreamRegistrationBase: React.FC = () => {
     return Math.ceil((diff + startOfYear.day()) / 7);
   };
 
-  // 加载数据
+  // 加载数据 - 添加防抖机制
+  // 注意：时间周期切换时只重新加载数据，不重新创建realtime订阅
   useEffect(() => {
-    loadData();
-    // 测试数据库记录
-    testDatabaseRecords();
+    const timeoutId = setTimeout(() => {
+      loadData();
+      // 测试数据库记录
+      testDatabaseRecords();
+    }, 100); // 100ms 防抖
+
+    return () => clearTimeout(timeoutId);
   }, [selectedWeek]);
 
   // 注意：现在使用realtime功能，不再需要轮询检查
@@ -1449,197 +2099,19 @@ const LiveStreamRegistrationBase: React.FC = () => {
     
   }, [selectedWeek]);
 
-  // 恢复 realtime 功能 - 监听 live_stream_schedules 表变化
-  useEffect(() => {
-    if (!selectedWeek) return;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    const reconnectDelay = 3000;
-    let currentChannel: any = null;
-    
-    const establishConnection = (): any => {
-      // 先清理现有连接
-      if (currentChannel) {
-        console.log('🧹 [Realtime] 清理现有连接');
-        supabase.removeChannel(currentChannel);
-      }
-      
-      currentChannel = supabase.channel('live-stream-schedules')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'live_stream_schedules'
-        }, async (payload) => {
-          
-          if (payload.eventType === 'INSERT') {
-            const newSchedule = payload.new;
-            
-            // 检查是否在当前选中的周范围内
-            const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
-            const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
-            
-            if (newSchedule.date >= weekStart && newSchedule.date <= weekEnd) {
-              
-              // 构建新的schedule对象
-              const scheduleToAdd: LiveStreamSchedule = {
-                id: newSchedule.id.toString(),
-                date: newSchedule.date,
-                timeSlotId: newSchedule.time_slot_id,
-                status: newSchedule.status,
-                managers: newSchedule.participant_ids 
-                  ? newSchedule.participant_ids.map((id: number) => ({
-                      id: id.toString(),
-                      name: '未知用户',
-                      department: '',
-                      avatar: undefined
-                    }))
-                  : [],
-                location: {
-                  id: newSchedule.location || '',
-                  name: newSchedule.location || ''
-                },
-                propertyType: {
-                  id: newSchedule.notes || '',
-                  name: newSchedule.notes || ''
-                },
-                createdAt: newSchedule.created_at,
-                updatedAt: newSchedule.updated_at,
-                createdBy: newSchedule.created_by,
-                editingBy: newSchedule.editing_by,
-                editingAt: newSchedule.editing_at,
-                editingExpiresAt: newSchedule.editing_expires_at,
-                lockType: newSchedule.lock_type,
-                lockReason: newSchedule.lock_reason,
-                lockEndTime: newSchedule.lock_end_time,
-              };
-              
-              // 添加到本地状态
-              setSchedules(prev => {
-                const updated = [...prev, scheduleToAdd];
-                return updated;
-              });
-              
-              // 更新特定卡片
-              const cardKey = newSchedule.id.toString();
-              updateSingleCard(cardKey);
-            } else {
-            }
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedSchedule = payload.new;
-            // 检查是否是编辑状态变化
-            if (updatedSchedule.status === 'editing') {
-            }
-            
-            // 简单更新本地状态
-            setSchedules(prev => {
-              const updated = prev.map(schedule => 
-                schedule.id === updatedSchedule.id.toString() 
-                  ? {
-                      ...schedule,
-                      status: updatedSchedule.status,
-                      managers: updatedSchedule.participant_ids && updatedSchedule.participant_ids.length > 0
-                        ? updatedSchedule.participant_ids.map((id: number) => ({
-                            id: id.toString(),
-                            name: '未知用户',
-                            department: '',
-                            avatar: undefined
-                          }))
-                        : [], // 如果participant_ids为空或null，设置为空数组
-                      location: {
-                        id: updatedSchedule.location || 'default',
-                        name: updatedSchedule.location || ''
-                      },
-                      propertyType: {
-                        id: updatedSchedule.notes || '',
-                        name: updatedSchedule.notes || ''
-                      },
-                      createdAt: schedule.createdAt,
-                      updatedAt: schedule.updatedAt,
-                      createdBy: schedule.createdBy,
-                      editingBy: updatedSchedule.editing_by,
-                      editingAt: updatedSchedule.editing_at,
-                      editingExpiresAt: updatedSchedule.editing_expires_at,
-                      lockType: updatedSchedule.lock_type,
-                      lockReason: updatedSchedule.lock_reason,
-                      lockEndTime: updatedSchedule.lock_end_time,
-                    }
-                  : schedule
-              );
-              
-              return updated;
-            });
-            
-            // 更新特定卡片
-            const cardKey = updatedSchedule.id.toString();
-            updateSingleCard(cardKey);
-            
-            // 如果状态变为available（释放场次），更新用户报名状态
-            if (updatedSchedule.status === 'available' && userProfile?.id) {
-              setTimeout(async () => {
-                try {
-                  const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
-                  setRegistrationStatus(newRegistrationStatus);  } catch (error) {
-                  console.warn('⚠️ [Realtime] 更新用户报名状态失败:', error);
-                }
-              }, 100); // 延迟100ms确保数据库更新完成
-            }
-          } else if (payload.eventType === 'DELETE') {
-            const deletedSchedule = payload.old;
-            
-            // 从本地状态中移除
-            setSchedules(prev => {
-              const updated = prev.filter(schedule => schedule.id !== deletedSchedule.id.toString());
-              return updated;
-            });
-            
-            // 更新特定卡片
-            const cardKey = deletedSchedule.id.toString();
-            
-            updateSingleCard(cardKey);
-          }
-        })
-        .on('system', { event: 'disconnect' }, () => {
-        })
-        .on('system', { event: 'reconnect' }, () => {
-          reconnectAttempts = 0; // 重置重连计数
-        })
-        .subscribe((status) => {
-          
-          // 如果连接失败，尝试重新连接
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('⚠️ [Realtime] 连接失败，状态:', status);
-            
-            if (reconnectAttempts < maxReconnectAttempts) {
-              reconnectAttempts++;
-              
-              setTimeout(() => {
-                establishConnection();
-              }, reconnectDelay);
-            } else {
-              console.error('❌ [Realtime] 重连失败，已达到最大重试次数');
-            }
-          } else if (status === 'SUBSCRIBED') {
-            reconnectAttempts = 0; // 重置重连计数
-          }
-        });
-      
-      return channel;
-    };
-    
-    const channel: any = establishConnection();
-    
-    return () => {
-      console.log('🧹 [Realtime] 组件卸载，清理所有连接');
-      if (currentChannel) {
-        supabase.removeChannel(currentChannel);
-      }
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [selectedWeek]);
 
+  // 移除旧的 realtime 代码，现在使用新的手动订阅方式
 
+  // 显示连接状态 - 现在由 useRealtimeConcurrencyControl 统一管理
+  // useEffect(() => {
+  //   if (error) {
+  //     console.warn('⚠️ [LiveStreamRealtime] 连接警告:', {
+  //       error: error,
+  //       editingScheduleId: editingSchedule?.id,
+  //       timestamp: new Date().toISOString()
+  //     });
+  //   }
+  // }, [error, editingSchedule?.id]);
 
   const loadData = async () => {
     try {
@@ -1649,10 +2121,12 @@ const LiveStreamRegistrationBase: React.FC = () => {
       const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
       const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
       
+      
       const [schedulesData, timeSlotsData] = await Promise.all([
         getWeeklySchedule(weekStart, weekEnd),
         getTimeSlots()
       ]);
+
 
       setSchedules(schedulesData);
       setTimeSlots(timeSlotsData);
@@ -1736,6 +2210,8 @@ const LiveStreamRegistrationBase: React.FC = () => {
   // 获取指定日期和时间段的安排
   const getSchedule = (date: string, timeSlotId: string) => {
     const schedule = schedules.find(s => s.date === date && s.timeSlotId === timeSlotId);
+
+    
     return schedule;
   };
 
@@ -1760,6 +2236,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   // 处理创建/编辑安排
   const handleScheduleSubmit = async (values: any) => {
+
     try {
       setLoading(true);
       
@@ -1876,7 +2353,11 @@ const LiveStreamRegistrationBase: React.FC = () => {
           // 更新用户报名状态
           if (userProfile?.id) {
             try {
-              const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
+              // 计算当前选中周的开始和结束日期
+              const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+              const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+              
+              const newRegistrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false, weekStart, weekEnd);
               setRegistrationStatus(newRegistrationStatus);
             } catch (error) {
               console.warn('⚠️ [状态更新] 更新用户报名状态失败:', error);
@@ -1932,6 +2413,12 @@ const LiveStreamRegistrationBase: React.FC = () => {
 
   // 处理编辑安排
   const handleEditSchedule = async (schedule: LiveStreamSchedule) => {
+    console.log('🔧 [LiveStreamEdit] 开始处理编辑安排:', {
+      scheduleId: schedule.id,
+      currentStatus: schedule.status,
+      managers: schedule.managers,
+      timestamp: new Date().toISOString()
+    });
 
     try {
       // 使用统一的权限检查函数
@@ -1947,8 +2434,12 @@ const LiveStreamRegistrationBase: React.FC = () => {
       if (!schedule.id || schedule.status === 'available' || !schedule.status) {
 
         if (userProfile?.id) {
+          // 计算当前选中周的开始和结束日期
+          const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+          const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+          
           // 检查用户报名状态（新报名）
-          const registrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false);
+          const registrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false, weekStart, weekEnd);
 
           
           if (!registrationStatus.canRegister) {
@@ -1957,11 +2448,42 @@ const LiveStreamRegistrationBase: React.FC = () => {
           }
           
         }
+
+        // 对于已有的 available 状态记录，需要先获取编辑锁定
+        if (schedule.id && (schedule.status === 'available' || !schedule.status)) {
+          console.log('🔒 [LiveStreamEdit] 获取编辑锁定:', {
+            scheduleId: schedule.id,
+            currentStatus: schedule.status,
+            timestamp: new Date().toISOString()
+          });
+
+          const lockResult = await realtimeAcquireEditLock(schedule.id);
+          console.log('🔒 [LiveStreamEdit] 锁定结果:', {
+            success: lockResult.success,
+            error: lockResult.error,
+            timestamp: new Date().toISOString()
+          });
+          
+          if (!lockResult.success) {
+            console.warn('⚠️ [LiveStreamEdit] 获取编辑锁定失败:', lockResult.error);
+            message.warning(lockResult.error || '无法获取编辑权限');
+            return;
+          }
+
+          console.log('✅ [LiveStreamEdit] 编辑锁定获取成功:', {
+            scheduleId: schedule.id,
+            timestamp: new Date().toISOString()
+          });
+        }
       } else if (schedule.status === 'booked') {
         
         if (userProfile?.id) {
+          // 计算当前选中周的开始和结束日期
+          const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+          const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+          
           // 检查用户编辑状态（已报名场次）
-          const registrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, true);
+          const registrationStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, true, weekStart, weekEnd);
           
           
           
@@ -1976,6 +2498,12 @@ const LiveStreamRegistrationBase: React.FC = () => {
       }
       
       // 设置编辑状态
+      console.log('🔧 [LiveStreamEdit] 设置编辑状态:', {
+        scheduleId: schedule.id,
+        modalVisible: true,
+        timestamp: new Date().toISOString()
+      });
+      
       setEditingSchedule(schedule);
       setModalVisible(true);
       
@@ -2029,6 +2557,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
   const renderScheduleTable = () => {
     const weekDates = getWeekDates();
     
+
     const columns = [
       {
         title: (
@@ -2133,6 +2662,7 @@ const LiveStreamRegistrationBase: React.FC = () => {
       // 检查是否是临时记录或editing状态的记录
       const isTempSchedule = editingSchedule.managers.length === 0;
       const isEditingSchedule = editingSchedule.status === 'editing';
+      const isAvailableSchedule = editingSchedule.status === 'available' || !editingSchedule.status;
       
 
       
@@ -2188,23 +2718,40 @@ const LiveStreamRegistrationBase: React.FC = () => {
             stack: error instanceof Error ? error.stack : undefined
           });
         }
-      } else {
-        // 对于其他记录（包括editing状态的已报名记录），进行权限检查
-        const permissionResult = await checkEditPermission(editingSchedule);
-        
-        if (!permissionResult.hasPermission) {
-          console.warn('⚠️ 删除权限检查失败:', permissionResult.message);
-          message.warning(permissionResult.message || '无权限删除此记录');
-          // 即使没有权限，也要清理状态
-          setModalVisible(false);
-          setEditingSchedule(null);
-          form.resetFields();
-          return;
-        }
-        
-        
-        // 权限检查通过后，如果是editing状态记录，也删除
-        if (isEditingSchedule) {
+        } else if (isAvailableSchedule) {
+          // 对于 available 状态的记录，释放编辑锁定
+          console.log('🔓 [LiveStreamEdit] 释放编辑锁定:', {
+            scheduleId: editingSchedule.id,
+            currentStatus: editingSchedule.status,
+            timestamp: new Date().toISOString()
+          });
+
+          try {
+            await realtimeReleaseEditLock(editingSchedule.id);
+            console.log('✅ [LiveStreamEdit] 编辑锁定释放成功:', {
+              scheduleId: editingSchedule.id,
+              timestamp: new Date().toISOString()
+            });
+          } catch (error) {
+            console.error('❌ [LiveStreamEdit] 释放编辑锁定失败:', error);
+          }
+        } else {
+          // 对于其他记录（包括editing状态的已报名记录），进行权限检查
+          const permissionResult = await checkEditPermission(editingSchedule);
+          
+          if (!permissionResult.hasPermission) {
+            console.warn('⚠️ 删除权限检查失败:', permissionResult.message);
+            message.warning(permissionResult.message || '无权限删除此记录');
+            // 即使没有权限，也要清理状态
+            setModalVisible(false);
+            setEditingSchedule(null);
+            form.resetFields();
+            return;
+          }
+          
+          
+          // 权限检查通过后，如果是editing状态记录，也删除
+          if (isEditingSchedule) {
           
           try {
             const recordId = parseInt(editingSchedule.id);
@@ -2256,7 +2803,11 @@ const LiveStreamRegistrationBase: React.FC = () => {
     // 新增：更新报名状态
     if (userProfile?.id) {
       try {
-        const status = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
+        // 计算当前选中周的开始和结束日期
+        const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+        const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+        
+        const status = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false, weekStart, weekEnd);
         setRegistrationStatus(status);
       } catch (error) {
         console.error('更新报名状态失败:', error);
@@ -2285,7 +2836,11 @@ const LiveStreamRegistrationBase: React.FC = () => {
       // 编辑已报名场次：只检查时间窗口，不检查每周限制
               if (userProfile?.id) {
           try {
-            const editStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, true);
+            // 计算当前选中周的开始和结束日期
+            const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+            const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+            
+            const editStatus = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, true, weekStart, weekEnd);
             if (!editStatus.canRegister) {
               console.warn('⚠️ [卡片点击] 用户当前无法编辑:', editStatus.statusMessage);
               message.warning(editStatus.statusMessage || '当前无法编辑');
@@ -2326,7 +2881,37 @@ const LiveStreamRegistrationBase: React.FC = () => {
         
         const tempSchedule = await createLiveStreamSchedule(tempScheduleData);
         
+        console.log('🔧 [LiveStreamEdit] 临时记录创建成功:', {
+          scheduleId: tempSchedule.id,
+          status: tempSchedule.status,
+          timestamp: new Date().toISOString()
+        });
         
+        // 对于新创建的临时记录，也需要获取编辑锁定
+        if (tempSchedule.id) {
+          console.log('🔒 [LiveStreamEdit] 为新创建的临时记录获取编辑锁定:', {
+            scheduleId: tempSchedule.id,
+            timestamp: new Date().toISOString()
+          });
+
+          const lockResult = await realtimeAcquireEditLock(tempSchedule.id);
+          console.log('🔒 [LiveStreamEdit] 临时记录锁定结果:', {
+            success: lockResult.success,
+            error: lockResult.error,
+            timestamp: new Date().toISOString()
+          });
+          
+          if (!lockResult.success) {
+            console.warn('⚠️ [LiveStreamEdit] 获取临时记录编辑锁定失败:', lockResult.error);
+            message.warning(lockResult.error || '无法获取编辑权限');
+            return;
+          }
+
+          console.log('✅ [LiveStreamEdit] 临时记录编辑锁定获取成功:', {
+            scheduleId: tempSchedule.id,
+            timestamp: new Date().toISOString()
+          });
+        }
         
         setEditingSchedule(tempSchedule);
         setModalVisible(true);
@@ -2429,12 +3014,15 @@ const LiveStreamRegistrationBase: React.FC = () => {
     const initializeRegistrationStatus = async () => {
       if (userProfile?.id) {
         try {
+          // 计算当前选中周的开始和结束日期
+          const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+          const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+          
           const [config, status] = await Promise.all([
             liveStreamRegistrationService.getRegistrationConfig(),
-            liveStreamRegistrationService.getRegistrationStatus(userProfile.id)
+            liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false, weekStart, weekEnd)
           ]);
-         
-          
+
           setRegistrationConfig(config);
           setRegistrationStatus(status);
           
@@ -2448,16 +3036,20 @@ const LiveStreamRegistrationBase: React.FC = () => {
     };
 
     initializeRegistrationStatus();
-  }, [userProfile?.id]);
+  }, [userProfile?.id, selectedWeek]);
 
   // 新增：定时更新报名状态
   useEffect(() => {
     const updateRegistrationStatus = async () => {
       if (userProfile?.id) {
         try {
+          // 计算当前选中周的开始和结束日期
+          const weekStart = toBeijingDateStr(getWeekStart(selectedWeek));
+          const weekEnd = toBeijingDateStr(getWeekEnd(selectedWeek));
+          
           // 清除缓存以确保获取最新数据
           liveStreamRegistrationService.clearConfigCache();
-          const status = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id);
+          const status = await liveStreamRegistrationService.getRegistrationStatus(userProfile.id, false, weekStart, weekEnd);
           setRegistrationStatus(status);
         } catch (error) {
           console.error('更新报名状态失败:', error);
@@ -2469,13 +3061,14 @@ const LiveStreamRegistrationBase: React.FC = () => {
     const interval = setInterval(updateRegistrationStatus, 60000);
     
     return () => clearInterval(interval);
-  }, [userProfile?.id]);
+  }, [userProfile?.id, selectedWeek]);
 
   return (
-    <div>
+    <div data-testid="live-stream-registration">
+
       {/* 新增：报名状态显示 */}
       {registrationStatus && (
-        <div style={{
+        <div data-testid="registration-status" style={{
           background: registrationStatus.canRegister ? '#f6ffed' : '#fff2e8',
           border: `1px solid ${registrationStatus.canRegister ? '#b7eb8f' : '#ffbb96'}`,
           borderRadius: '6px',

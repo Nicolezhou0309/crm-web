@@ -3,6 +3,8 @@ import LiveStreamRegistrationBase from '../components/LiveStreamRegistrationBase
 import LiveStreamBanner from '../components/LiveStreamBanner';
 
 const LiveStreamRegistration: React.FC = () => {
+  // 移除页面级别的订阅管理，由 useRealtimeConcurrencyControl Hook 统一管理
+
   return (
     <div className="page-card">
       <div className="flex justify-between items-center mb-6">
@@ -16,4 +18,4 @@ const LiveStreamRegistration: React.FC = () => {
   );
 };
 
-export default LiveStreamRegistration; 
+export default LiveStreamRegistration;

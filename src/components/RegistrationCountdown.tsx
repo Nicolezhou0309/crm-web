@@ -69,23 +69,6 @@ const RegistrationCountdown: React.FC<RegistrationCountdownProps> = ({
     const currentDay = beijingNow.getDay() === 0 ? 7 : beijingNow.getDay();
     const currentTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 
-    // 添加调试日志
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🕐 [RegistrationCountdown] 时间计算调试:', {
-        timestamp: new Date().toISOString(),
-        utcTime: now.toISOString(),
-        beijingTimeStr: beijingTimeStr,
-        beijingNow: beijingNow.toISOString(),
-        currentDay: currentDay,
-        currentTime: currentTime,
-        config: {
-          registration_open_day_of_week: config.registration_open_day_of_week,
-          registration_open_time: config.registration_open_time,
-          registration_close_day_of_week: config.registration_close_day_of_week,
-          registration_close_time: config.registration_close_time
-        }
-      });
-    }
 
     // 解析时间字符串 (HH:MM)
     const parseTime = (timeStr: string) => {
@@ -107,22 +90,7 @@ const RegistrationCountdown: React.FC<RegistrationCountdownProps> = ({
       if (targetDate.getTime() <= beijingNow.getTime()) {
         targetDate.setDate(targetDate.getDate() + 7);
       }
-      
-      // 添加调试日志
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🕐 [RegistrationCountdown] createDateTime 调试:', {
-          dayOfWeek: dayOfWeek,
-          timeStr: timeStr,
-          hours: hours,
-          minutes: minutes,
-          currentDay: currentDay,
-          daysUntilTarget: daysUntilTarget,
-          targetDate: targetDate.toISOString(),
-          beijingNow: beijingNow.toISOString(),
-          isTargetPassed: targetDate.getTime() <= beijingNow.getTime()
-        });
-      }
-      
+
       return targetDate;
     };
 
@@ -133,14 +101,6 @@ const RegistrationCountdown: React.FC<RegistrationCountdownProps> = ({
         const privilegeStart = createDateTime(config.privilege_advance_open_day_of_week, config.privilege_advance_open_time);
         const privilegeEnd = createDateTime(config.privilege_advance_close_day_of_week, config.privilege_advance_close_time);
         
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🕐 [RegistrationCountdown] VIP主播时间窗口检查:', {
-            beijingNow: beijingNow.toISOString(),
-            privilegeStart: privilegeStart.toISOString(),
-            privilegeEnd: privilegeEnd.toISOString(),
-            isInPrivilegeWindow: beijingNow >= privilegeStart && beijingNow <= privilegeEnd
-          });
-        }
         
         if (beijingNow >= privilegeStart && beijingNow <= privilegeEnd) {
           return {
@@ -156,12 +116,6 @@ const RegistrationCountdown: React.FC<RegistrationCountdownProps> = ({
       const normalEnd = createDateTime(config.registration_close_day_of_week, config.registration_close_time);
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('🕐 [RegistrationCountdown] 普通用户时间窗口检查:', {
-          beijingNow: beijingNow.toISOString(),
-          normalStart: normalStart.toISOString(),
-          normalEnd: normalEnd.toISOString(),
-          isInNormalWindow: beijingNow >= normalStart && beijingNow <= normalEnd
-        });
       }
       
       if (beijingNow >= normalStart && beijingNow <= normalEnd) {
@@ -184,25 +138,11 @@ const RegistrationCountdown: React.FC<RegistrationCountdownProps> = ({
         nextOpenTime = privilegeNextOpen.getTime() < normalNextOpen.getTime() ? privilegeNextOpen : normalNextOpen;
         
         if (process.env.NODE_ENV === 'development') {
-          console.log('🕐 [RegistrationCountdown] VIP主播用户时间窗口比较:', {
-            privilegeNextOpen: privilegeNextOpen.toISOString(),
-            normalNextOpen: normalNextOpen.toISOString(),
-            selectedNextOpen: nextOpenTime.toISOString(),
-            isPrivilegeEarlier: privilegeNextOpen.getTime() < normalNextOpen.getTime()
-          });
         }
       } else {
         nextOpenTime = createDateTime(config.registration_open_day_of_week, config.registration_open_time);
       }
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🕐 [RegistrationCountdown] 时间窗口关闭，计算下次开放时间:', {
-          isPrivilegeUser: isPrivilegeUser,
-          nextOpenTime: nextOpenTime.toISOString(),
-          timeUntilNextOpen: nextOpenTime.getTime() - beijingNow.getTime(),
-          timeUntilNextOpenMinutes: Math.round((nextOpenTime.getTime() - beijingNow.getTime()) / (1000 * 60))
-        });
-      }
       
       return {
         currentWindow: 'closed' as const,
@@ -244,14 +184,6 @@ const RegistrationCountdown: React.FC<RegistrationCountdownProps> = ({
 
   // 处理倒计时结束
   const handleCountdownExpire = useCallback(() => {
-    // 添加调试日志
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🕐 [RegistrationCountdown] 倒计时结束，重新计算时间窗口:', {
-        timestamp: new Date().toISOString(),
-        currentWindowInfo: timeWindowInfo,
-        isPrivilegeUser: isPrivilegeUser
-      });
-    }
     
     // 重新计算时间窗口
     const newTimeWindowInfo = calculateNextTimeWindow();
@@ -263,14 +195,7 @@ const RegistrationCountdown: React.FC<RegistrationCountdownProps> = ({
       return newTimeWindowInfo;
     });
     
-    // 添加调试日志
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🕐 [RegistrationCountdown] 时间窗口重新计算完成:', {
-        newWindowInfo: newTimeWindowInfo,
-        isCurrentlyOpen: newTimeWindowInfo.isCurrentlyOpen,
-        hasOnTimeWindowChange: !!onTimeWindowChange
-      });
-    }
+
   }, [config, isPrivilegeUser]); // 直接依赖原始值，而不是函数
 
   if (!config) {

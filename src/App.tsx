@@ -59,7 +59,6 @@ import OnboardingPage from './pages/OnboardingPage';
 import LiveStreamRegistration from './pages/LiveStreamRegistration';
 import LiveStreamManagement from './pages/LiveStreamManagement';
 import MetroDistanceCalculatorPage from './pages/MetroDistanceCalculatorPage';
-import RealtimeConnectionMonitor from './components/RealtimeConnectionMonitor';
 
 
 
@@ -928,8 +927,6 @@ const AppContent: React.FC = () => {
         {/* 移动端底部菜单 - 只在手机端显示 */}
         {isMobile && <MobileTabBar />}
         
-        {/* 实时连接监控 - 开发环境显示 */}
-        {process.env.NODE_ENV === 'development' && <RealtimeConnectionMonitor />}
       </div>
     </ConfigProvider>
   );
