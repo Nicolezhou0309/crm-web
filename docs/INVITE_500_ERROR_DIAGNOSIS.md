@@ -4,7 +4,7 @@
 
 前端调用 `invite-user` Edge Function 时返回 500 错误：
 ```
-POST http://47.123.26.25:8000/functions/v1/invite-user 500 (Internal Server Error)
+POST https://lead-service.vld.com.cn/supabase/functions/v1/invite-user 500 (Internal Server Error)
 ```
 
 ## 🛠️ 诊断步骤
@@ -127,7 +127,7 @@ FRONTEND_URL=https://crm-web-ncioles-projects.vercel.app
 supabase secrets list
 
 # 设置环境变量（如果需要）
-supabase secrets set SUPABASE_URL=http://47.123.26.25:8000
+supabase secrets set SUPABASE_URL=https://lead-service.vld.com.cn/supabase
 supabase secrets set SUPABASE_ANON_KEY=your_anon_key
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 supabase secrets set RESEND_API_KEY=your_resend_api_key

@@ -59,6 +59,7 @@ import OnboardingPage from './pages/OnboardingPage';
 import LiveStreamRegistration from './pages/LiveStreamRegistration';
 import LiveStreamManagement from './pages/LiveStreamManagement';
 import MetroDistanceCalculatorPage from './pages/MetroDistanceCalculatorPage';
+import WecomCallback from './pages/WecomCallback';
 
 
 
@@ -409,10 +410,11 @@ const AppContent: React.FC = () => {
   // 公开页面（登录页面和设置密码页面）不需要用户认证，直接渲染
   if (isPublicPage) {
     return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/set-password" element={<SetPassword />} />
-      </Routes>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/set-password" element={<SetPassword />} />
+          <Route path="/auth/wecom/callback" element={<WecomCallback />} />
+        </Routes>
     );
   }
 

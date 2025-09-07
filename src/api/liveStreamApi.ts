@@ -557,44 +557,15 @@ export const cleanupExpiredEditingStatus = async (): Promise<void> => {
     console.log('🧹 [Cleanup] 开始清理过期的编辑状态');
     
     // 添加额外的时间缓冲，避免误清理刚过期的编辑
-    const bufferTime = 60 * 1000; // 60秒缓冲时间，更加保守
+    const bufferTime = 30 * 1000; // 30秒缓冲时间
     const cutoffTime = new Date(Date.now() - bufferTime).toISOString();
     
     console.log('🧹 [Cleanup] 清理条件:', {
       status: 'editing',
       editing_expires_at_lt: cutoffTime,
-      current_time: new Date().toISOString(),
-      buffer_time_seconds: 60
+      current_time: new Date().toISOString()
     });
     
-    // 首先查询需要清理的记录，以便记录详细信息
-    const { data: expiredRecords, error: queryError } = await supabase
-      .from('live_stream_schedules')
-      .select('id, editing_by, editing_at, editing_expires_at, date, time_slot_id')
-      .eq('status', 'editing')
-      .lt('editing_expires_at', cutoffTime);
-
-    if (queryError) {
-      console.error('❌ 查询过期编辑状态失败:', queryError);
-      throw queryError;
-    }
-
-    if (!expiredRecords || expiredRecords.length === 0) {
-      console.log('ℹ️ [Cleanup] 没有找到需要清理的过期编辑状态');
-      return;
-    }
-
-    console.log('🔍 [Cleanup] 发现过期编辑记录:', {
-      count: expiredRecords.length,
-      records: expiredRecords.map(record => ({
-        id: record.id,
-        editing_by: record.editing_by,
-        editing_expires_at: record.editing_expires_at,
-        schedule: `${record.date} ${record.time_slot_id}`
-      }))
-    });
-    
-    // 执行清理
     const { data, error } = await supabase
       .from('live_stream_schedules')
       .update({
@@ -604,22 +575,14 @@ export const cleanupExpiredEditingStatus = async (): Promise<void> => {
         editing_expires_at: null
       })
       .eq('status', 'editing')
-      .lt('editing_expires_at', cutoffTime)
-      .select('id, editing_by, editing_expires_at');
+      .lt('editing_expires_at', new Date().toISOString())
+      .select();
 
     if (error) {
       console.error('❌ 清理过期编辑状态失败:', error);
       throw error;
     }
 
-    console.log('✅ [Cleanup] 成功清理过期编辑状态:', {
-      count: data?.length || 0,
-      cleaned_records: data?.map(record => ({
-        id: record.id,
-        editing_by: record.editing_by,
-        editing_expires_at: record.editing_expires_at
-      })) || []
-    });
 
   } catch (error) {
     console.error('❌ 清理过期编辑状态时发生异常:', error);

@@ -35,7 +35,7 @@ Mixed Content: The page at 'https://your-app.vercel.app/' was loaded over HTTPS,
 1. **创建.env文件**（在项目根目录）：
 ```env
 # Supabase 配置（必需）- 目前只能使用HTTP
-VITE_SUPABASE_URL=http://47.123.26.25:8000
+VITE_SUPABASE_URL=https://lead-service.vld.com.cn/supabase
 VITE_SUPABASE_ANON_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE
 VITE_SUPABASE_SERVICE_ROLE_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE
 
@@ -59,7 +59,7 @@ addEventListener('fetch', event => {
 
 async function handleRequest(request) {
   const url = new URL(request.url)
-  const target = `http://47.123.26.25:8000${url.pathname}${url.search}`
+  const target = `https://lead-service.vld.com.cn/supabase${url.pathname}${url.search}`
   
   const response = await fetch(target, {
     method: request.method,

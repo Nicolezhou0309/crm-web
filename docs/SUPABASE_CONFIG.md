@@ -1,7 +1,7 @@
 # Supabase 配置信息
 
 ## 项目信息
-- **项目URL**: http://47.123.26.25:8000
+- **项目URL**: https://lead-service.vld.com.cn/supabase
 - **项目引用**: aliyun-supabase
 
 ⚠️ **混合内容问题**: 此服务器仅支持HTTP协议。当部署到HTTPS环境（如Vercel）时会出现混合内容错误。
@@ -25,14 +25,14 @@ eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0
 
 ## Edge Function 状态
 ✅ **email-management** 函数已部署并正常运行
-- URL: http://47.123.26.25:8000/functions/v1/email-management
+- URL: https://lead-service.vld.com.cn/supabase/functions/v1/email-management
 - 状态: 正常响应
 
 ## 前端环境变量设置
 
 在您的 `.env` 文件中设置：
 ```env
-VITE_SUPABASE_URL=http://47.123.26.25:8000
+VITE_SUPABASE_URL=https://lead-service.vld.com.cn/supabase
 VITE_SUPABASE_ANON_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE
 ```
 
@@ -40,7 +40,7 @@ VITE_SUPABASE_ANON_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIs
 
 在 Supabase Dashboard → Edge Functions → email-management → Settings 中设置：
 ```
-SUPABASE_URL=http://47.123.26.25:8000
+SUPABASE_URL=https://lead-service.vld.com.cn/supabase
 SUPABASE_ANON_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE
 SUPABASE_SERVICE_ROLE_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNicC04b2gxOG0wM2hiYjA4N3RhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU0MjI4MjEsImV4cCI6MjA3MDk5ODgyMX0.TMNhVSwNgrJHxRKQnV-GVzX_EovIQ6EIg2vXdQEWRgE
 ```

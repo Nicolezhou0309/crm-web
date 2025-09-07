@@ -3,8 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Result, Spin, Typography } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../supaClient';
-import { toBeijingTime } from '../utils/timeUtils';
+import { authenticateWithWecom } from '../api/wecomApi';
 
 const { Text, Title } = Typography;
 
@@ -37,17 +36,39 @@ const WecomCallback: React.FC = () => {
       // 调用企业微信认证服务
       const result = await authenticateWithWecom(code, state || '');
       
-      if (result.success) {
-        setStatus('success');
-        setMessage('企业微信登录成功！正在跳转...');
+      if (result.success && result.data?.userInfo) {
+        const { userInfo } = result.data;
         
-        // 延迟跳转，让用户看到成功消息
-        setTimeout(() => {
-          navigate('/', { replace: true });
-        }, 2000);
+        // 使用用户信息进行登录
+        const { success, error } = await authLogin(
+          userInfo.email,
+          '', // 企业微信用户不需要密码
+          {
+            wechat_work_userid: userInfo.UserId,
+            wechat_work_name: userInfo.name,
+            wechat_work_mobile: userInfo.mobile,
+            wechat_work_avatar: '',
+            wechat_work_department: userInfo.department,
+            wechat_work_position: userInfo.position,
+            wechat_work_corpid: userInfo.corpId
+          }
+        );
+
+        if (success) {
+          setStatus('success');
+          setMessage('企业微信登录成功！正在跳转...');
+          
+          // 延迟跳转，让用户看到成功消息
+          setTimeout(() => {
+            navigate('/', { replace: true });
+          }, 2000);
+        } else {
+          setStatus('error');
+          setError(error || '企业微信登录失败');
+        }
       } else {
         setStatus('error');
-        setError(result.error || '企业微信登录失败');
+        setError(result.error || '企业微信认证失败');
       }
     } catch (error: any) {
       console.error('处理企业微信回调失败:', error);
@@ -56,74 +77,6 @@ const WecomCallback: React.FC = () => {
     }
   };
 
-  const authenticateWithWecom = async (code: string, state: string) => {
-    try {
-      // 这里应该调用后端的企业微信认证API
-      // 由于我们使用的是前端直接处理，这里模拟认证流程
-      
-      // 1. 使用授权码获取用户信息（实际应该调用后端API）
-      const userInfo = await getWecomUserInfo(code);
-      
-      if (!userInfo) {
-        return { success: false, error: '获取企业微信用户信息失败' };
-      }
-
-      // 2. 使用用户信息进行登录
-      const { success, error } = await authLogin(
-        userInfo.email || `${userInfo.wechat_work_userid}@wecom.local`,
-        '', // 企业微信用户不需要密码
-        {
-          wechat_work_userid: userInfo.wechat_work_userid,
-          wechat_work_name: userInfo.wechat_work_name,
-          wechat_work_mobile: userInfo.wechat_work_mobile,
-          wechat_work_avatar: userInfo.wechat_work_avatar,
-          wechat_work_department: userInfo.wechat_work_department,
-          wechat_work_position: userInfo.wechat_work_position,
-          wechat_work_corpid: import.meta.env.VITE_WECOM_CORP_ID
-        }
-      );
-
-      if (success) {
-        return { success: true };
-      } else {
-        return { success: false, error };
-      }
-    } catch (error: any) {
-      console.error('企业微信认证失败:', error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  // 模拟获取企业微信用户信息（实际应该调用后端API）
-  const getWecomUserInfo = async (code: string) => {
-    try {
-      // 这里应该调用后端的企业微信API
-      // 由于我们使用的是前端直接处理，这里返回模拟数据
-      
-      // 实际项目中，应该调用类似这样的API：
-      // const response = await fetch('/api/wecom/auth', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ code })
-      // });
-      // const data = await response.json();
-      // return data.userInfo;
-
-      // 模拟用户信息
-      return {
-        wechat_work_userid: `wecom_${toBeijingTime(new Date()).valueOf()}`,
-        wechat_work_name: '企业微信用户',
-        wechat_work_mobile: '13800138000',
-        wechat_work_avatar: '',
-        wechat_work_department: '技术部',
-        wechat_work_position: '员工',
-        email: `wecom_${toBeijingTime(new Date()).valueOf()}@wecom.local`
-      };
-    } catch (error) {
-      console.error('获取企业微信用户信息失败:', error);
-      return null;
-    }
-  };
 
   const renderContent = () => {
     switch (status) {

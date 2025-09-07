@@ -66,7 +66,7 @@ node test_invite_with_logs.js
 使用curl命令直接调用函数：
 
 ```bash
-curl -X POST http://47.123.26.25:8000/functions/v1/invite-user \
+curl -X POST https://lead-service.vld.com.cn/supabase/functions/v1/invite-user \
   -H "Authorization: Bearer YOUR_ANON_KEY" \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","name":"Test User","organizationId":"your-org-id"}'
@@ -78,7 +78,7 @@ curl -X POST http://47.123.26.25:8000/functions/v1/invite-user \
 ```
 🚀 ===== 邀请用户函数开始执行 =====
 📅 执行时间: 2024-01-20T10:30:00.000Z
-🌐 请求URL: http://47.123.26.25:8000/functions/v1/invite-user
+🌐 请求URL: https://lead-service.vld.com.cn/supabase/functions/v1/invite-user
 📋 请求方法: POST
 ```
 

@@ -78,7 +78,7 @@ async function sendInviteEmail(email, name, organizationName, inviteUrl) {
 # 必需的环境变量
 RESEND_API_KEY=re_2YubhDYo_3hkfnVejj7GG3BSN3WH65ZXz
 FRONTEND_URL=https://crm-web-ncioles-projects.vercel.app
-SUPABASE_URL=http://47.123.26.25:8000
+SUPABASE_URL=https://lead-service.vld.com.cn/supabase
 SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
