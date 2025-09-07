@@ -80,7 +80,7 @@ supabase functions serve --env-file ./supabase/functions/.env.development
 
 ```bash
 # 设置Supabase配置
-supabase secrets set SUPABASE_URL=https://lead-service.vld.com.cn/supabase --project-ref aliyun-supabase
+supabase secrets set SUPABASE_URL=http://47.123.26.25:8000 --project-ref aliyun-supabase
 supabase secrets set SUPABASE_ANON_KEY=your_production_anon_key --project-ref aliyun-supabase
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your_production_service_role_key --project-ref aliyun-supabase
 
@@ -318,7 +318,7 @@ PROJECT_REF="aliyun-supabase"
 echo "设置生产环境密钥..."
 
 # Supabase配置
-supabase secrets set SUPABASE_URL="https://lead-service.vld.com.cn/supabase" --project-ref $PROJECT_REF
+supabase secrets set SUPABASE_URL="http://47.123.26.25:8000" --project-ref $PROJECT_REF
 supabase secrets set SUPABASE_ANON_KEY="your_anon_key" --project-ref $PROJECT_REF
 
 # 邮件服务

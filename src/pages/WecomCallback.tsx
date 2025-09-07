@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Result, Spin, Typography } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
-import { authenticateWithWecom } from '../api/wecomApi';
+import { handleWecomCallback } from '../api/wecomAuthApi';
 
 const { Text, Title } = Typography;
 
@@ -16,59 +16,72 @@ const WecomCallback: React.FC = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    handleWecomCallback();
+    handleWecomCallbackProcess();
   }, []);
 
-  const handleWecomCallback = async () => {
+  const handleWecomCallbackProcess = async () => {
     try {
+      // 获取企业微信回调参数
       const code = searchParams.get('code');
       const state = searchParams.get('state');
-      const appid = searchParams.get('appid');
+      const errorParam = searchParams.get('error');
 
-      console.log('企业微信回调参数:', { code, state, appid });
-
-      if (!code) {
+      if (errorParam) {
         setStatus('error');
-        setError('授权码缺失，请重新尝试企业微信登录');
+        setError(decodeURIComponent(errorParam));
         return;
       }
 
-      // 调用企业微信认证服务
-      const result = await authenticateWithWecom(code, state || '');
-      
-      if (result.success && result.data?.userInfo) {
-        const { userInfo } = result.data;
-        
-        // 使用用户信息进行登录
-        const { success, error } = await authLogin(
-          userInfo.email,
-          '', // 企业微信用户不需要密码
-          {
-            wechat_work_userid: userInfo.UserId,
-            wechat_work_name: userInfo.name,
-            wechat_work_mobile: userInfo.mobile,
-            wechat_work_avatar: '',
-            wechat_work_department: userInfo.department,
-            wechat_work_position: userInfo.position,
-            wechat_work_corpid: userInfo.corpId
-          }
-        );
+      if (!code || !state) {
+        setStatus('error');
+        setError('缺少必要的授权参数');
+        return;
+      }
 
-        if (success) {
-          setStatus('success');
-          setMessage('企业微信登录成功！正在跳转...');
-          
-          // 延迟跳转，让用户看到成功消息
-          setTimeout(() => {
-            navigate('/', { replace: true });
-          }, 2000);
-        } else {
-          setStatus('error');
-          setError(error || '企业微信登录失败');
+      // 调用后端API处理企业微信回调
+      const response = await handleWecomCallback({ code, state });
+
+      if (!response.success) {
+        setStatus('error');
+        setError(response.error || '企业微信认证失败');
+        return;
+      }
+
+      const { userInfo } = response.data || {};
+      if (!userInfo) {
+        setStatus('error');
+        setError('获取用户信息失败');
+        return;
+      }
+
+      console.log('企业微信用户信息:', userInfo);
+      
+      // 使用用户信息进行登录
+      const { success, error } = await authLogin(
+        userInfo.email,
+        '', // 企业微信用户不需要密码
+        {
+          wechat_work_userid: userInfo.UserId,
+          wechat_work_name: userInfo.name,
+          wechat_work_mobile: userInfo.mobile,
+          wechat_work_avatar: userInfo.avatar || '',
+          wechat_work_department: userInfo.department,
+          wechat_work_position: userInfo.position,
+          wechat_work_corpid: userInfo.corpId
         }
+      );
+
+      if (success) {
+        setStatus('success');
+        setMessage('企业微信登录成功！正在跳转...');
+        
+        // 延迟跳转，让用户看到成功消息
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 2000);
       } else {
         setStatus('error');
-        setError(result.error || '企业微信认证失败');
+        setError(error || '企业微信登录失败');
       }
     } catch (error: any) {
       console.error('处理企业微信回调失败:', error);

@@ -52,9 +52,12 @@ echo -e "${YELLOW}📦 解压部署文件...${NC}"
 tar -xzf $DIST_FILE
 echo -e "${GREEN}✅ 文件解压完成${NC}"
 
-# 第四步：部署到网站目录
-echo -e "${YELLOW}🚀 部署到网站目录...${NC}"
+# 第四步：清空并部署到网站目录
+echo -e "${YELLOW}🚀 清空并部署到网站目录...${NC}"
 sudo mkdir -p $WEB_ROOT
+# 清空目标目录（重要！）
+sudo rm -rf $WEB_ROOT/*
+# 部署新文件
 sudo cp -r ./* $WEB_ROOT/
 echo -e "${GREEN}✅ 文件部署完成${NC}"
 
@@ -69,7 +72,7 @@ echo -e "${YELLOW}⚙️  配置 Web 服务器...${NC}"
 if command -v nginx &> /dev/null; then
     echo "检测到 Nginx，配置 SPA 路由..."
     
-    # 创建 Nginx 配置
+    # 创建 Nginx 配置（包含长期缓存策略）
     sudo tee /etc/nginx/sites-available/crm-web > /dev/null <<EOF
 server {
     listen 80;
@@ -78,22 +81,76 @@ server {
     root $WEB_ROOT;
     index index.html;
     
-    # 处理 SPA 路由
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-    
-    # 静态资源缓存
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-    
-    # Gzip 压缩
+    # 启用 gzip 压缩
     gzip on;
     gzip_vary on;
     gzip_min_length 1024;
-    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/json
+        application/javascript
+        application/xml+rss
+        application/atom+xml
+        image/svg+xml;
+
+    # 带哈希的 JS 和 CSS 文件 - 长期缓存（1年）
+    location ~* \.(js|css)$ {
+        if (\$uri ~* \.[a-f0-9]{8,}\.(js|css)$) {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            add_header Vary "Accept-Encoding";
+        }
+        if (\$uri !~* \.[a-f0-9]{8,}\.(js|css)$) {
+            expires 1h;
+            add_header Cache-Control "public, must-revalidate";
+        }
+    }
+
+    # 图片资源长期缓存
+    location ~* \.(png|jpg|jpeg|gif|ico|svg|webp)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Vary "Accept-Encoding";
+    }
+
+    # 字体文件长期缓存
+    location ~* \.(woff|woff2|eot|ttf|otf)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Vary "Accept-Encoding";
+    }
+
+    # HTML 文件不缓存
+    location ~* \.html$ {
+        expires -1;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+    }
+
+    # 主页面路由 - SPA 支持
+    location / {
+        try_files \$uri \$uri/ /index.html;
+        
+        location = /index.html {
+            expires -1;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+            add_header Pragma "no-cache";
+        }
+    }
+
+    # 安全头设置
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # 错误页面
+    error_page 404 /index.html;
 }
 EOF
     

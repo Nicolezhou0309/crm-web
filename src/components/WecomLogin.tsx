@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, message, Typography, Space, Spin } from 'antd';
 import { WechatOutlined } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
-
+import { getWecomAuthUrl, getWecomQRCode, checkWecomLoginStatus } from '../api/wecomAuthApi';
 
 const { Text } = Typography;
 
@@ -13,63 +13,50 @@ interface WecomLoginProps {
 
 const WecomLogin: React.FC<WecomLoginProps> = ({ onError }) => {
   const [qrCodeData, setQrCodeData] = useState<string>('');
-  const [_qrCodeState, setQrCodeState] = useState<string>('');
+  const [qrCodeState, setQrCodeState] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [_polling, setPolling] = useState(false);
+  const [polling, setPolling] = useState(false);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  // 安全地获取 useAuth 和 useNavigate
+  // 安全地获取 useAuth
   let authLogin: any = null;
   
   try {
     const auth = useAuth();
     authLogin = auth.login;
   } catch (err) {
-    console.error('WecomLogin: 初始化认证或导航失败:', err);
+    console.error('WecomLogin: 初始化认证失败:', err);
     setError('组件初始化失败');
   }
 
-  // 企业微信配置
-  const wecomConfig = {
-    corpId: import.meta.env.VITE_WECOM_CORP_ID,
-    agentId: import.meta.env.VITE_WECOM_AGENT_ID,
-    redirectUri: import.meta.env.VITE_WECOM_REDIRECT_URI || window.location.origin + '/auth/wecom/callback',
-    scope: 'snsapi_privateinfo'
-  };
-
-  // 生成企业微信授权URL
-  const generateWecomAuthUrl = () => {
+  // 从后端获取企业微信授权URL
+  const generateWecomAuthUrl = async () => {
     try {
-      const state = 'wecom_auth_' + Date.now();
-      const params = new URLSearchParams({
-        appid: wecomConfig.corpId,
-        redirect_uri: encodeURIComponent(wecomConfig.redirectUri),
-        response_type: 'code',
-        scope: wecomConfig.scope,
-        state: state,
-        agentid: wecomConfig.agentId
-      });
-      
-      return `https://open.weixin.qq.com/connect/oauth2/authorize?${params.toString()}#wechat_redirect`;
+      const response = await getWecomAuthUrl();
+      if (!response.success) {
+        throw new Error(response.error || '获取授权URL失败');
+      }
+      return response.data?.authUrl;
     } catch (err) {
-      console.error('生成企业微信授权URL失败:', err);
-      throw new Error('生成授权URL失败');
+      console.error('获取企业微信授权URL失败:', err);
+      throw new Error('获取授权URL失败');
     }
   };
 
-  // 生成二维码
+  // 从后端获取二维码
   const generateQRCode = async () => {
-    if (!authLogin) {
-      message.error('认证服务未初始化，请刷新页面重试');
-      return;
-    }
-
     setLoading(true);
     try {
-      // 生成企业微信授权URL
-      const authUrl = generateWecomAuthUrl();
-      const state = 'qrcode_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      const response = await getWecomQRCode();
+      if (!response.success) {
+        throw new Error(response.error || '获取二维码失败');
+      }
+      
+      const { authUrl, state } = response.data || {};
+      if (!authUrl || !state) {
+        throw new Error('二维码数据不完整');
+      }
       
       setQrCodeData(authUrl);
       setQrCodeState(state);
@@ -92,19 +79,16 @@ const WecomLogin: React.FC<WecomLoginProps> = ({ onError }) => {
     
     const interval = setInterval(async () => {
       try {
-        // 这里应该调用后端API检查二维码状态
-        // 由于我们使用的是企业微信OAuth流程，这里简化处理
-        // 实际应该调用 /auth/wecom/qrcode/status 接口
+        const response = await checkWecomLoginStatus(state);
         
-        // 模拟检查状态（实际项目中需要实现）
-        console.log('检查二维码状态:', state);
-        
-        // 模拟扫码成功的情况（实际项目中需要根据后端返回状态判断）
-        // 这里只是示例，实际应该根据真实的API响应来判断
-        // if (扫码成功) {
-        //   handleWecomLoginSuccess(userInfo);
-        //   stopPolling();
-        // }
+        if (response.success && response.data?.userInfo) {
+          // 扫码成功，处理用户信息
+          handleWecomLoginSuccess(response.data.userInfo);
+          stopPolling();
+        } else if (response.error) {
+          console.error('检查二维码状态失败:', response.error);
+          stopPolling();
+        }
         
       } catch (error) {
         console.error('检查二维码状态失败:', error);
@@ -124,13 +108,53 @@ const WecomLogin: React.FC<WecomLoginProps> = ({ onError }) => {
   };
 
   // 处理企业微信登录成功
+  const handleWecomLoginSuccess = async (userInfo: any) => {
+    try {
+      if (!authLogin) {
+        throw new Error('认证服务未初始化');
+      }
 
-  // 刷新二维码
+      const { success, error } = await authLogin(
+        userInfo.email,
+        '', // 企业微信用户不需要密码
+        {
+          wechat_work_userid: userInfo.UserId,
+          wechat_work_name: userInfo.name,
+          wechat_work_mobile: userInfo.mobile,
+          wechat_work_avatar: userInfo.avatar || '',
+          wechat_work_department: userInfo.department,
+          wechat_work_position: userInfo.position,
+          wechat_work_corpid: userInfo.corpId
+        }
+      );
+
+      if (success) {
+        message.success('企业微信登录成功！');
+        // 登录成功后的处理逻辑
+      } else {
+        message.error(error || '企业微信登录失败');
+        onError?.(error || '企业微信登录失败');
+      }
+    } catch (error) {
+      console.error('处理企业微信登录成功失败:', error);
+      message.error('处理登录结果失败');
+      onError?.('处理登录结果失败');
+    }
+  };
 
   // 直接跳转企业微信授权页面
-  const handleDirectWecomLogin = () => {
+  const handleDirectWecomLogin = async () => {
     try {
-      const authUrl = generateWecomAuthUrl();
+      const response = await getWecomQRCode();
+      if (!response.success) {
+        throw new Error(response.error || '获取授权URL失败');
+      }
+      
+      const { authUrl } = response.data || {};
+      if (!authUrl) {
+        throw new Error('授权URL数据不完整');
+      }
+      
       window.location.href = authUrl;
     } catch (error) {
       message.error('生成授权链接失败，请重试');

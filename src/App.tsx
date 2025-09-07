@@ -405,7 +405,7 @@ const AppContent: React.FC = () => {
   // })();
 
   // 判断是否为公开页面（不需要登录）
-  const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password';
+  const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password' || location.pathname === '/auth/wecom/callback';
 
   // 公开页面（登录页面和设置密码页面）不需要用户认证，直接渲染
   if (isPublicPage) {

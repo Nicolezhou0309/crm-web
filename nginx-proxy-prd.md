@@ -21,7 +21,7 @@ CRM Web Nginx代理服务
 用户请求 → Nginx代理服务器 → 目标服务
                 ↓
         1. 静态文件服务 (React应用)
-        2. Supabase代理 (https://lead-service.vld.com.cn/supabase)
+        2. Supabase代理 (http://47.123.26.25:8000)
         3. 其他API代理 (可选)
 ```
 
@@ -214,7 +214,7 @@ server {
     
     # Supabase代理配置
     location /supabase/ {
-        proxy_pass https://lead-service.vld.com.cn/supabase/;
+        proxy_pass http://47.123.26.25:8000/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
