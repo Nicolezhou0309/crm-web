@@ -109,12 +109,11 @@
   color: #1677ff;
 }
 
-/* 滚动区域样式 */
+/* 滚动区域样式 - 改为自适应高度 */
 .followup-stage-drawer .form-scroll-area {
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: visible;
   padding-right: 8px;
-  /* 使用 flex: 1 和 minHeight: 0 来确保正确的滚动行为 */
+  height: auto;
 }
 
 .followup-stage-drawer .form-scroll-area::-webkit-scrollbar {

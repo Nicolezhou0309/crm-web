@@ -73,13 +73,13 @@ PORT=3001
 NODE_ENV=production
 
 # 前端地址（用于CORS配置）
-FRONTEND_URL=https://lead-service.vld.com.cn
+FRONTEND_URL=https://lead.vld.com.cn
 
 # 企业微信配置
 WECOM_CORP_ID=ww68a125fce698cb59
 WECOM_AGENT_ID=1000002
 WECOM_SECRET=sXQeFCLDQJkwrX5lMWDzBTEIiHK1J7-a2e7chPyqYxY
-WECOM_REDIRECT_URI=https://lead-service.vld.com.cn/auth/wecom/callback
+WECOM_REDIRECT_URI=https://lead.vld.com.cn/auth/wecom/callback
 ```
 
 ### 前端环境变量
@@ -87,16 +87,16 @@ WECOM_REDIRECT_URI=https://lead-service.vld.com.cn/auth/wecom/callback
 # 企业微信公开配置
 VITE_WECOM_CORP_ID=ww68a125fce698cb59
 VITE_WECOM_AGENT_ID=1000002
-VITE_WECOM_REDIRECT_URI=https://lead-service.vld.com.cn/auth/wecom/callback
+VITE_WECOM_REDIRECT_URI=https://lead.vld.com.cn/auth/wecom/callback
 
 # API服务地址 (已更新为路径方式)
-VITE_API_BASE_URL=https://lead-service.vld.com.cn/api
+VITE_API_BASE_URL=https://lead.vld.com.cn/api
 ```
 
 ## 📡 API接口文档
 
 ### 基础信息
-- **Base URL**: `https://lead-service.vld.com.cn/api`
+- **Base URL**: `https://lead.vld.com.cn/api`
 - **协议**: HTTPS
 - **数据格式**: JSON
 - **字符编码**: UTF-8
@@ -118,7 +118,7 @@ GET /api/health
 
 #### 请求示例
 ```bash
-curl https://lead-service.vld.com.cn/api/health
+curl https://lead.vld.com.cn/api/health
 ```
 
 #### 响应示例
@@ -139,7 +139,7 @@ GET /api/auth/wecom/url
 
 #### 请求示例
 ```bash
-curl https://lead-service.vld.com.cn/api/auth/wecom/url
+curl https://lead.vld.com.cn/api/auth/wecom/url
 ```
 
 #### 响应示例
@@ -162,7 +162,7 @@ GET /api/auth/wecom/qrcode
 
 #### 请求示例
 ```bash
-curl https://lead-service.vld.com.cn/api/auth/wecom/qrcode
+curl https://lead.vld.com.cn/api/auth/wecom/qrcode
 ```
 
 #### 响应示例
@@ -194,7 +194,7 @@ Content-Type: application/json
 
 #### 请求示例
 ```bash
-curl -X POST https://lead-service.vld.com.cn/api/auth/wecom/callback \
+curl -X POST https://lead.vld.com.cn/api/auth/wecom/callback \
   -H "Content-Type: application/json" \
   -d '{
     "code": "auth_code_from_wecom",
@@ -231,7 +231,7 @@ GET /api/auth/wecom/status?state=state_parameter
 
 #### 请求示例
 ```bash
-curl "https://lead-service.vld.com.cn/api/auth/wecom/status?state=qrcode_1234567890_abc123"
+curl "https://lead.vld.com.cn/api/auth/wecom/status?state=qrcode_1234567890_abc123"
 ```
 
 #### 响应示例
@@ -284,7 +284,7 @@ const limiter = rateLimit({
 ### CORS配置
 ```javascript
 app.use(cors({
-  origin: 'https://lead-service.vld.com.cn',
+  origin: 'https://lead.vld.com.cn',
   credentials: true
 }));
 ```
@@ -464,7 +464,7 @@ pm2 status
 systemctl status nginx
 
 # 测试API接口
-curl https://lead-service.vld.com.cn/api/health
+curl https://lead.vld.com.cn/api/health
 ```
 
 ## 🔍 故障排除

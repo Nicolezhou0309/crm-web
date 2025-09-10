@@ -8,32 +8,20 @@ import {
   message,
   Tooltip,
   Drawer,
-  Modal,
-  Form,
-  Input,
   DatePicker,
-  Select
+  Input
 } from 'antd';
 import { 
-  ReloadOutlined, 
-  PlusOutlined,
-  EditOutlined
+  ReloadOutlined
 } from '@ant-design/icons';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import { 
   getDeals, 
   getDealsCount, 
-  getDealsCommunityOptions, 
-  // getDealsContractNumberOptions,
-  // getDealsRoomNumberOptions,
-  getDealsSourceOptions,
-  getAvailableLeadIds,
-  createDeal,
-  updateDeal,
+  testDealsTableAccess,
   type Deal,
   type DealFilters
 } from '../api/dealsApi';
-import { getUsersProfile, type UserProfile } from '../api/usersApi';
 import dayjs from 'dayjs';
 import './leads-common.css';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
@@ -41,7 +29,6 @@ import { toBeijingDateStr } from '../utils/timeUtils';
 
 
 const { Title } = Typography;
-const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 const DealsList: React.FC = () => {
@@ -58,61 +45,20 @@ const DealsList: React.FC = () => {
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState('');
 
-  // 编辑状态
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
-  const [editForm] = Form.useForm();
-  const [editLoading, setEditLoading] = useState(false);
 
-  // 新增状态
-  const [addModalVisible, setAddModalVisible] = useState(false);
-  const [addForm] = Form.useForm();
-  const [addLoading, setAddLoading] = useState(false);
 
-  // 选项数据
-  const [communityOptions, setCommunityOptions] = useState<{ value: string; label: string }[]>([]);
-  // const [contractNumberOptions, setContractNumberOptions] = useState<{ value: string; label: string }[]>([]);
-  // const [roomNumberOptions, setRoomNumberOptions] = useState<{ value: string; label: string }[]>([]);
-  const [userOptions, setUserOptions] = useState<{ value: number; label: string }[]>([]);
-  const [sourceOptions, setSourceOptions] = useState<{ value: string; label: string }[]>([]);
-  const [leadIdOptions, setLeadIdOptions] = useState<{ value: string; label: string }[]>([]);
 
   useEffect(() => {
-    fetchOptions();
+    // 先测试表访问
+    testDealsTableAccess().then(result => {
+      console.log('🔍 [DealsList] 表访问测试结果:', result);
+    });
+    
     fetchData();
   }, [currentPage, pageSize, filters, sortedInfo, filteredInfo]);
 
 
 
-  const fetchOptions = async () => {
-    try {
-      // 获取社区选项
-      const communities = await getDealsCommunityOptions();
-      setCommunityOptions((communities as string[]).map(c => ({ value: c, label: c })));
-
-      // 获取渠道选项
-      const sources = await getDealsSourceOptions();
-      setSourceOptions((sources as string[]).map(s => ({ value: s, label: s })));
-
-      // 获取线索编号选项（从跟进记录中获取）
-      const leadIds = await getAvailableLeadIds();
-      setLeadIdOptions(leadIds);
-
-      // 获取合同编号选项
-      // const contractNumbers = await getDealsContractNumberOptions();
-      // setContractNumberOptions((contractNumbers as string[]).map(c => ({ value: c, label: c })));
-
-      // 获取房间编号选项
-      // const roomNumbers = await getDealsRoomNumberOptions();
-      // setRoomNumberOptions((roomNumbers as string[]).map(r => ({ value: r, label: r })));
-
-      // 获取用户选项
-      const users = await getUsersProfile();
-      setUserOptions(users.map((user: UserProfile) => ({ value: user.id, label: user.nickname })));
-    } catch (error) {
-      console.error('获取选项失败:', error);
-    }
-  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -124,7 +70,7 @@ const DealsList: React.FC = () => {
         ...filters,
         limit: pageSize,
         offset,
-        orderBy: sortedInfo.columnKey || 'created_at',
+        orderBy: sortedInfo.columnKey || 'id',
         ascending: sortedInfo.order === 'ascend' || false
       };
       
@@ -164,39 +110,57 @@ const DealsList: React.FC = () => {
     const newFilters: DealFilters = {};
 
     // 处理各个字段的筛选
-    if (filters.contractdate && filters.contractdate.length > 0 && Array.isArray(filters.contractdate[0])) {
-      const [start, end] = filters.contractdate[0];
-      if (start) newFilters.contractdate_start = start;
-      if (end) newFilters.contractdate_end = end;
+    if (filters.operation_date && filters.operation_date.length > 0 && Array.isArray(filters.operation_date[0])) {
+      const [start, end] = filters.operation_date[0];
+      if (start) newFilters.operation_date_start = start;
+      if (end) newFilters.operation_date_end = end;
     }
-    if (filters.contractnumber && filters.contractnumber.length > 0) {
-      newFilters.contractnumber = filters.contractnumber;
+    if (filters.business_number && filters.business_number.length > 0) {
+      newFilters.business_number = filters.business_number;
     }
-    if (filters.community && filters.community.length > 0) {
-      newFilters.community = filters.community;
+    if (filters.external_community_name && filters.external_community_name.length > 0) {
+      newFilters.external_community_name = filters.external_community_name;
     }
-    if (filters.roomnumber && filters.roomnumber.length > 0) {
-      newFilters.roomnumber = filters.roomnumber;
+    if (filters.room_number && filters.room_number.length > 0) {
+      newFilters.room_number = filters.room_number;
     }
-    if (filters.interviewsales && filters.interviewsales.length > 0) {
-      newFilters.interviewsales = filters.interviewsales;
+    if (filters.sales_name && filters.sales_name.length > 0) {
+      newFilters.sales_name = filters.sales_name;
     }
-    if (filters.channel && filters.channel.length > 0) {
-      newFilters.channel = filters.channel;
+    if (filters.customer_channel && filters.customer_channel.length > 0) {
+      newFilters.customer_channel = filters.customer_channel;
+    }
+    if (filters.customer_name && filters.customer_name.length > 0) {
+      newFilters.customer_name = filters.customer_name;
+    }
+    if (filters.phone && filters.phone.length > 0) {
+      newFilters.phone = filters.phone;
+    }
+    if (filters.contract_type && filters.contract_type.length > 0) {
+      newFilters.contract_type = filters.contract_type;
+    }
+    if (filters.lease_type && filters.lease_type.length > 0) {
+      newFilters.lease_type = filters.lease_type;
     }
 
     // handleTableChange 处理字符串模糊搜索
     if (filters.leadid && typeof filters.leadid[0] === 'string') {
       newFilters.leadid = [filters.leadid[0]];
     }
-    if (filters.interviewsales && typeof filters.interviewsales[0] === 'string') {
-      newFilters.interviewsales = [filters.interviewsales[0]];
+    if (filters.sales_name && typeof filters.sales_name[0] === 'string') {
+      newFilters.sales_name = [filters.sales_name[0]];
     }
-    if (filters.contractnumber && typeof filters.contractnumber[0] === 'string') {
-      newFilters.contractnumber = [filters.contractnumber[0]];
+    if (filters.business_number && typeof filters.business_number[0] === 'string') {
+      newFilters.business_number = [filters.business_number[0]];
     }
-    if (filters.roomnumber && typeof filters.roomnumber[0] === 'string') {
-      newFilters.roomnumber = [filters.roomnumber[0]];
+    if (filters.room_number && typeof filters.room_number[0] === 'string') {
+      newFilters.room_number = [filters.room_number[0]];
+    }
+    if (filters.customer_name && typeof filters.customer_name[0] === 'string') {
+      newFilters.customer_name = [filters.customer_name[0]];
+    }
+    if (filters.phone && typeof filters.phone[0] === 'string') {
+      newFilters.phone = [filters.phone[0]];
     }
 
     // 只有在筛选条件真正改变时才重置页码
@@ -212,12 +176,12 @@ const DealsList: React.FC = () => {
 
   const columns = [
     {
-      title: '合同日期',
-      dataIndex: 'contractdate',
-      key: 'contractdate',
-      width: 100,
+      title: '签约日期',
+      dataIndex: ['contract_records_data', 'operation_date'],
+      key: 'operation_date',
+      width: 120,
       sorter: true,
-      sortOrder: sortedInfo.columnKey === 'contractdate' && sortedInfo.order,
+      sortOrder: sortedInfo.columnKey === 'operation_date' && sortedInfo.order,
       filterDropdown: (props: FilterDropdownProps) => {
         const { setSelectedKeys, selectedKeys, confirm, clearFilters } = props;
         let rangeValue: [any, any] | undefined = undefined;
@@ -261,7 +225,7 @@ const DealsList: React.FC = () => {
           </div>
         );
       },
-      filteredValue: filteredInfo.contractdate || null,
+      filteredValue: filteredInfo.operation_date || null,
       render: (text: string) => text ? dayjs(text).format('YYYY-MM-DD') : '-',
     },
     {
@@ -323,46 +287,31 @@ const DealsList: React.FC = () => {
       ),
     },
     {
-      title: '约访管家',
-      dataIndex: 'interviewsales',
-      key: 'interviewsales',
-      width: 100,
-      sorter: true,
-      sortOrder: sortedInfo.columnKey === 'interviewsales' && sortedInfo.order,
-      filters: userOptions.map(option => ({ text: option.label, value: option.label })),
-      filteredValue: filteredInfo.interviewsales || null,
-      filterSearch: true,
-      render: (text: string) => text || '-',
-    },
-    {
-      title: '渠道',
-      dataIndex: 'channel',
-      key: 'channel',
-      width: 80,
-      sorter: true,
-      sortOrder: sortedInfo.columnKey === 'channel' && sortedInfo.order,
-      filters: sourceOptions.map(option => ({ text: option.label, value: option.value })),
-      filteredValue: filteredInfo.channel || null,
-      render: (text: string) => text ? <Tag color="green" style={{ margin: 0 }}>{text}</Tag> : '-',
-    },
-    {
-      title: '社区',
-      dataIndex: 'community',
-      key: 'community',
+      title: '签约社区',
+      dataIndex: ['contract_records_data', 'external_community_name'],
+      key: 'external_community_name',
       width: 120,
       sorter: true,
-      sortOrder: sortedInfo.columnKey === 'community' && sortedInfo.order,
-      filters: communityOptions.map(option => ({ text: option.label, value: option.value })),
-      filteredValue: filteredInfo.community || null,
+      sortOrder: sortedInfo.columnKey === 'external_community_name' && sortedInfo.order,
+      filteredValue: filteredInfo.external_community_name || null,
       render: (text: string) => text ? <Tag color="blue" style={{ margin: 0 }}>{text}</Tag> : '-',
     },
     {
-      title: '操作编号',
-      dataIndex: 'contractnumber',
-      key: 'contractnumber',
+      title: '签约类型',
+      dataIndex: ['contract_records_data', 'contract_type_detail'],
+      key: 'contract_type_detail',
       width: 120,
       sorter: true,
-      sortOrder: sortedInfo.columnKey === 'contractnumber' && sortedInfo.order,
+      sortOrder: sortedInfo.columnKey === 'contract_type_detail' && sortedInfo.order,
+      render: (text: string) => text || '-',
+    },
+    {
+      title: '签约操作编号',
+      dataIndex: ['contract_records_data', 'business_number'],
+      key: 'business_number',
+      width: 140,
+      sorter: true,
+      sortOrder: sortedInfo.columnKey === 'business_number' && sortedInfo.order,
       filterDropdown: (props: FilterDropdownProps) => {
         const { setSelectedKeys, selectedKeys, confirm, clearFilters } = props;
         return (
@@ -381,16 +330,16 @@ const DealsList: React.FC = () => {
           </div>
         );
       },
-      filteredValue: filteredInfo.contractnumber || null,
-      render: (text: string) => text || '-',
+      filteredValue: filteredInfo.business_number || null,
+      render: (text: string) => text ? <span style={{ fontWeight: 600, color: '#1890ff' }}>{text}</span> : '-',
     },
     {
-      title: '房间号',
-      dataIndex: 'roomnumber',
-      key: 'roomnumber',
-      width: 100,
+      title: '签约房间号',
+      dataIndex: ['contract_records_data', 'room_number'],
+      key: 'room_number',
+      width: 120,
       sorter: true,
-      sortOrder: sortedInfo.columnKey === 'roomnumber' && sortedInfo.order,
+      sortOrder: sortedInfo.columnKey === 'room_number' && sortedInfo.order,
       filterDropdown: (props: FilterDropdownProps) => {
         const { setSelectedKeys, selectedKeys, confirm, clearFilters } = props;
         return (
@@ -409,42 +358,55 @@ const DealsList: React.FC = () => {
           </div>
         );
       },
-      filteredValue: filteredInfo.roomnumber || null,
+      filteredValue: filteredInfo.room_number || null,
       render: (text: string) => text || '-',
     },
     {
-      title: '操作',
-      key: 'action',
-      fixed: 'right' as const,
+      title: '销售姓名',
+      dataIndex: ['contract_records_data', 'sales_name'],
+      key: 'sales_name',
+      width: 100,
+      sorter: true,
+      sortOrder: sortedInfo.columnKey === 'sales_name' && sortedInfo.order,
+      filteredValue: filteredInfo.sales_name || null,
+      filterSearch: true,
+      render: (text: string) => text || '-',
+    },
+    {
+      title: '租期',
+      dataIndex: ['contract_records_data', 'contract_period'],
+      key: 'contract_period',
       width: 80,
-      render: (_: string, record: Deal) => (
-        <Button 
-          type="link" 
-          size="small" 
-          icon={<EditOutlined />}
-          onClick={() => {
-            setEditingDeal(record);
-            editForm.setFieldsValue({
-              contractdate: record.contractdate ? dayjs(record.contractdate) : null,
-              leadid: record.leadid,
-              interviewsales_user_id: record.interviewsales_user_id,
-              channel: record.channel,
-              community: record.community,
-              contractnumber: record.contractnumber,
-              roomnumber: record.roomnumber,
-            });
-            setEditModalVisible(true);
-          }}
-          style={{ 
-            padding: '4px 8px', 
-            fontSize: '12px',
-            height: '24px',
-            lineHeight: '1'
-          }}
-        >
-          编辑
-        </Button>
-      ),
+      sorter: true,
+      sortOrder: sortedInfo.columnKey === 'contract_period' && sortedInfo.order,
+      render: (period: number) => period ? `${period}个月` : '-',
+    },
+    {
+      title: '官方价格',
+      dataIndex: ['contract_records_data', 'official_price'],
+      key: 'official_price',
+      width: 100,
+      sorter: true,
+      sortOrder: sortedInfo.columnKey === 'official_price' && sortedInfo.order,
+      render: (price: number) => price ? `¥${price.toLocaleString()}` : '-',
+    },
+    {
+      title: '押金',
+      dataIndex: ['contract_records_data', 'deposit'],
+      key: 'deposit',
+      width: 100,
+      sorter: true,
+      sortOrder: sortedInfo.columnKey === 'deposit' && sortedInfo.order,
+      render: (deposit: number) => deposit ? `¥${deposit.toLocaleString()}` : '-',
+    },
+    {
+      title: '是否无效',
+      dataIndex: 'invalid',
+      key: 'invalid',
+      width: 80,
+      sorter: true,
+      sortOrder: sortedInfo.columnKey === 'invalid' && sortedInfo.order,
+      render: (text: boolean) => text ? <Tag color="red">无效</Tag> : <Tag color="green">有效</Tag>,
     },
   ];
 
@@ -455,17 +417,6 @@ const DealsList: React.FC = () => {
           成交记录
         </Title>
         <Space>
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={() => {
-              addForm.resetFields();
-              setAddModalVisible(true);
-            }}
-            className="rounded-md font-medium"
-          >
-            新增成交记录
-          </Button>
           <Button 
             icon={<ReloadOutlined />} 
             onClick={fetchData}
@@ -520,210 +471,7 @@ const DealsList: React.FC = () => {
         {selectedLeadId && <LeadDetailDrawer leadid={selectedLeadId} />}
       </Drawer>
 
-      {/* 编辑成交记录模态框 */}
-              <Modal
-          title="编辑成交记录"
-          open={editModalVisible}
-          onCancel={() => setEditModalVisible(false)}
-                 onOk={async () => {
-           try {
-             setEditLoading(true);
-             const values = await editForm.validateFields();
-             
-             // 处理日期格式，移除channel和interviewsales_user_id字段（不在deals表中）
-             const { channel, interviewsales_user_id, ...updateData } = values;
-             const submitData = {
-               ...updateData,
-               contractdate: values.contractdate ? toBeijingDateStr(values.contractdate) : null,
-             };
-             
-             await updateDeal(editingDeal!.id, submitData);
-             message.success('成交记录更新成功');
-             setEditModalVisible(false);
-             fetchData(); // 刷新列表
-           } catch (error) {
-             message.error('更新成交记录失败: ' + (error as Error).message);
-           } finally {
-             setEditLoading(false);
-           }
-         }}
-        confirmLoading={editLoading}
-        destroyOnHidden
-      >
-        <Form
-          form={editForm}
-          layout="vertical"
-        >
-          <Form.Item
-            name="contractdate"
-            label="合同日期"
-            rules={[{ required: true, message: '请选择合同日期' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="leadid"
-            label="线索编号"
-            rules={[{ required: true, message: '请输入线索编号' }]}
-          >
-            <Input disabled />
-          </Form.Item>
-                     {/* 约访管家字段在followups表中，不可直接编辑 */}
-           <Form.Item
-             name="interviewsales_user_id"
-             label="约访管家"
-           >
-             <Select 
-               placeholder="约访管家在followups表中管理"
-               disabled
-             >
-               {userOptions.map(option => (
-                 <Option key={option.value} value={option.value}>
-                   {option.label}
-                 </Option>
-               ))}
-             </Select>
-           </Form.Item>
-                     {/* 渠道字段从leads表获取，不可编辑 */}
-           <Form.Item
-             name="channel"
-             label="渠道"
-           >
-             <Input disabled />
-           </Form.Item>
-                     <Form.Item
-             name="community"
-             label="社区"
-             rules={[{ required: true, message: '请选择社区' }]}
-           >
-             <Select 
-               placeholder="请选择社区"
-               showSearch
-               filterOption={(input, option) =>
-                 (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-               }
-               optionFilterProp="children"
-             >
-               {communityOptions.map(option => (
-                 <Option key={option.value} value={option.value}>
-                   {option.label}
-                 </Option>
-               ))}
-             </Select>
-           </Form.Item>
-                     <Form.Item
-             name="contractnumber"
-             label="操作编号"
-             rules={[{ required: true, message: '请输入操作编号' }]}
-           >
-             <Input placeholder="请输入操作编号" />
-           </Form.Item>
-                     <Form.Item
-             name="roomnumber"
-             label="房间号"
-             rules={[{ required: true, message: '请输入房间号' }]}
-           >
-             <Input placeholder="请输入房间号" />
-           </Form.Item>
-        </Form>
-      </Modal>
 
-      {/* 新增成交记录模态框 */}
-      <Modal
-        title="新增成交记录"
-        open={addModalVisible}
-        onCancel={() => setAddModalVisible(false)}
-        onOk={async () => {
-          try {
-            setAddLoading(true);
-            const values = await addForm.validateFields();
-            
-            // 处理日期格式
-            const submitData = {
-              ...values,
-              contractdate: values.contractdate ? toBeijingDateStr(values.contractdate) : null,
-            };
-            
-            await createDeal(submitData);
-            message.success('成交记录创建成功');
-            setAddModalVisible(false);
-            fetchData(); // 刷新列表
-          } catch (error) {
-            message.error('创建成交记录失败: ' + (error as Error).message);
-          } finally {
-            setAddLoading(false);
-          }
-        }}
-        confirmLoading={addLoading}
-        destroyOnHidden
-      >
-        <Form
-          form={addForm}
-          layout="vertical"
-        >
-          <Form.Item
-            name="contractdate"
-            label="合同日期"
-            rules={[{ required: true, message: '请选择合同日期' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="leadid"
-            label="线索编号"
-            rules={[{ required: true, message: '请选择线索编号' }]}
-          >
-            <Select 
-              placeholder="请选择线索编号"
-              showSearch
-              filterOption={(input, option) =>
-                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-              }
-              optionFilterProp="children"
-            >
-              {leadIdOptions.map(option => (
-                <Option key={option.value} value={option.value}>
-                  {option.label}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="community"
-            label="社区"
-            rules={[{ required: true, message: '请选择社区' }]}
-          >
-            <Select 
-              placeholder="请选择社区"
-              showSearch
-              filterOption={(input, option) =>
-                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-              }
-              optionFilterProp="children"
-            >
-              {communityOptions.map(option => (
-                <Option key={option.value} value={option.value}>
-                  {option.label}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="contractnumber"
-            label="操作编号"
-            rules={[{ required: true, message: '请输入操作编号' }]}
-          >
-            <Input placeholder="请输入操作编号" />
-          </Form.Item>
-          <Form.Item
-            name="roomnumber"
-            label="房间号"
-            rules={[{ required: true, message: '请输入房间号' }]}
-          >
-            <Input placeholder="请输入房间号" />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

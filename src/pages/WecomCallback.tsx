@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Result, Spin, Typography } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
-import { handleWecomCallback } from '../api/wecomAuthApi';
+import { handleWecomCallbackPost } from '../api/wecomAuthApi';
 
 const { Text, Title } = Typography;
 
@@ -21,27 +21,39 @@ const WecomCallback: React.FC = () => {
 
   const handleWecomCallbackProcess = async () => {
     try {
+      console.log('=== 企业微信回调处理开始 ===');
+      console.log('当前URL:', window.location.href);
+      console.log('URL参数:', window.location.search);
+      
       // 获取企业微信回调参数
       const code = searchParams.get('code');
       const state = searchParams.get('state');
       const errorParam = searchParams.get('error');
 
+      console.log('解析到的参数:', { code, state, errorParam });
+
       if (errorParam) {
+        console.error('企业微信回调包含错误参数:', errorParam);
         setStatus('error');
         setError(decodeURIComponent(errorParam));
         return;
       }
 
       if (!code || !state) {
+        console.error('缺少必要的授权参数:', { code: !!code, state: !!state });
         setStatus('error');
         setError('缺少必要的授权参数');
         return;
       }
 
-      // 调用后端API处理企业微信回调
-      const response = await handleWecomCallback({ code, state });
+      console.log('开始调用后端API处理企业微信回调...');
+      // 调用后端API处理企业微信回调（使用POST方法）
+      const response = await handleWecomCallbackPost({ code, state });
+
+      console.log('后端API响应:', response);
 
       if (!response.success) {
+        console.error('后端API返回失败:', response.error);
         setStatus('error');
         setError(response.error || '企业微信认证失败');
         return;
@@ -49,6 +61,7 @@ const WecomCallback: React.FC = () => {
 
       const { userInfo } = response.data || {};
       if (!userInfo) {
+        console.error('后端返回的用户信息为空');
         setStatus('error');
         setError('获取用户信息失败');
         return;
@@ -56,22 +69,18 @@ const WecomCallback: React.FC = () => {
 
       console.log('企业微信用户信息:', userInfo);
       
-      // 使用用户信息进行登录
+      console.log('开始使用用户信息进行登录...');
+      // 直接使用后端返回的完整用户信息进行登录
       const { success, error } = await authLogin(
         userInfo.email,
         '', // 企业微信用户不需要密码
-        {
-          wechat_work_userid: userInfo.UserId,
-          wechat_work_name: userInfo.name,
-          wechat_work_mobile: userInfo.mobile,
-          wechat_work_avatar: userInfo.avatar || '',
-          wechat_work_department: userInfo.department,
-          wechat_work_position: userInfo.position,
-          wechat_work_corpid: userInfo.corpId
-        }
+        userInfo // 传入完整的用户信息，包含会话数据
       );
 
+      console.log('登录结果:', { success, error });
+
       if (success) {
+        console.log('企业微信登录成功！');
         setStatus('success');
         setMessage('企业微信登录成功！正在跳转...');
         
@@ -80,6 +89,7 @@ const WecomCallback: React.FC = () => {
           navigate('/', { replace: true });
         }, 2000);
       } else {
+        console.error('企业微信登录失败:', error);
         setStatus('error');
         setError(error || '企业微信登录失败');
       }

@@ -9,6 +9,7 @@ interface UserProfile {
   id: number;
   user_id: string;
   nickname?: string;
+  organization_id?: string;
   avatar_url?: string;
   password_set?: boolean;
 }
@@ -38,6 +39,13 @@ interface UserContextType {
   // 新增：用户信息缓存功能
   getCachedUserInfo: (userId: string) => Promise<{ displayName: string; nickname?: string; email?: string }>;
   clearUserInfoCache: () => void;
+  // 新增：统一的用户数据管理
+  avatarUrl: string | null;
+  userPoints: number;
+  avatarLoading: boolean;
+  pointsLoading: boolean;
+  refreshAvatar: (forceRefresh?: boolean) => Promise<void>;
+  refreshUserPoints: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -56,11 +64,28 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false); // 新增：profile 加载状态
   
+  // 新增：统一的用户数据状态
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [userPoints, setUserPoints] = useState<number>(0);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [pointsLoading, setPointsLoading] = useState(false);
+  
   // 用户信息缓存
   const userInfoCache = useRef<Map<string, { 
     data: { displayName: string; nickname?: string; email?: string }; 
     timestamp: number; 
   }>>(new Map());
+  
+  // 新增：请求去重和缓存机制
+  const requestCache = useRef<Map<string, { 
+    data: any; 
+    timestamp: number; 
+    promise?: Promise<any>;
+  }>>(new Map());
+  
+  const CACHE_DURATION = 365 * 24 * 60 * 60 * 1000; // 1年缓存（用户信息很少变化）
+  const AVATAR_CACHE_DURATION = 365 * 24 * 60 * 60 * 1000; // 头像1年缓存（头像很少变化）
+  const POINTS_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 积分7天缓存（积分变化频率中等）
   
   // 使用 useRef 来避免循环依赖
   const userRef = useRef(user);
@@ -139,6 +164,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     };
   }, [updateActivity]);
+
 
   // 会话超时检查
   useEffect(() => {
@@ -369,6 +395,136 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     userInfoCache.current.clear();
   }, []);
 
+  // 新增：统一的头像管理
+  const refreshAvatar = useCallback(async (forceRefresh = false) => {
+    if (!profile?.id) {
+      setAvatarUrl(null);
+      return;
+    }
+
+    const cacheKey = `avatar_${profile.id}`;
+    const cached = requestCache.current.get(cacheKey);
+    const now = Date.now();
+
+    // 检查缓存是否有效（除非强制刷新）
+    if (!forceRefresh && cached && (now - cached.timestamp) < AVATAR_CACHE_DURATION) {
+      setAvatarUrl(cached.data);
+      return;
+    }
+
+    // 如果强制刷新，清除现有缓存和进行中的请求
+    if (forceRefresh) {
+      requestCache.current.delete(cacheKey);
+    }
+
+    // 如果已有进行中的请求且不是强制刷新，等待它完成
+    if (cached?.promise && !forceRefresh) {
+      try {
+        const result = await cached.promise;
+        setAvatarUrl(result);
+        return;
+      } catch (error) {
+        console.error('等待头像请求失败:', error);
+      }
+    }
+
+    setAvatarLoading(true);
+    
+    // 创建新的请求Promise
+    const requestPromise = (async () => {
+      try {
+        const { data: profileData } = await supabase
+          .from('users_profile')
+          .select('avatar_url, updated_at')
+          .eq('user_id', profile.user_id)
+          .single();
+        
+        const avatarUrl = profileData?.avatar_url || null;
+        
+        // 缓存结果
+        requestCache.current.set(cacheKey, {
+          data: avatarUrl,
+          timestamp: now
+        });
+        
+        return avatarUrl;
+      } catch (error) {
+        console.error('获取头像失败:', error);
+        return null;
+      }
+    })();
+
+    // 如果是强制刷新，立即缓存Promise以避免重复请求
+    if (forceRefresh) {
+      requestCache.current.set(cacheKey, {
+        data: null, // 临时值
+        timestamp: now,
+        promise: requestPromise
+      });
+    }
+    
+    try {
+      const avatarUrl = await requestPromise;
+      setAvatarUrl(avatarUrl);
+    } catch (error) {
+      console.error('头像请求失败:', error);
+      setAvatarUrl(null);
+    } finally {
+      setAvatarLoading(false);
+    }
+  }, [profile]);
+
+  // 新增：统一的积分管理
+  const refreshUserPoints = useCallback(async () => {
+    if (!profile?.id) {
+      setUserPoints(0);
+      return;
+    }
+
+    const cacheKey = `points_${profile.id}`;
+    const cached = requestCache.current.get(cacheKey);
+    const now = Date.now();
+
+    // 检查缓存是否有效
+    if (cached && (now - cached.timestamp) < POINTS_CACHE_DURATION) {
+      setUserPoints(cached.data);
+      return;
+    }
+
+    // 如果已有进行中的请求，等待它完成
+    if (cached?.promise) {
+      try {
+        const result = await cached.promise;
+        setUserPoints(result);
+        return;
+      } catch (error) {
+        console.error('等待积分请求失败:', error);
+      }
+    }
+
+    setPointsLoading(true);
+    
+    try {
+      // 动态导入积分API
+      const { getUserPointsInfo } = await import('../api/pointsApi');
+      const data = await getUserPointsInfo(Number(profile.id));
+      const points = data.wallet.total_points || 0;
+      
+      // 缓存结果
+      requestCache.current.set(cacheKey, {
+        data: points,
+        timestamp: now
+      });
+      
+      setUserPoints(points);
+    } catch (error) {
+      console.error('获取用户积分失败:', error);
+      setUserPoints(0);
+    } finally {
+      setPointsLoading(false);
+    }
+  }, [profile]);
+
   useEffect(() => {
     // 简化的初始化逻辑，避免循环
     const initUser = async () => {
@@ -558,6 +714,30 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []); // 移除refreshUser依赖，避免循环
 
+  // 监听用户信息更新事件
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      refreshUser();
+    };
+
+    window.addEventListener('profile_updated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('profile_updated', handleProfileUpdate);
+    };
+  }, [refreshUser]);
+
+  // 新增：profile变化时自动刷新头像和积分
+  useEffect(() => {
+    if (profile?.id) {
+      refreshAvatar();
+      refreshUserPoints();
+    } else {
+      setAvatarUrl(null);
+      setUserPoints(0);
+    }
+  }, [profile, refreshAvatar, refreshUserPoints]);
+
   const value: UserContextType = {
     user,
     profile,
@@ -571,6 +751,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isSessionExpired: sessionTimeRemaining <= 0,
     getCachedUserInfo,
     clearUserInfoCache,
+    // 新增：统一的用户数据
+    avatarUrl,
+    userPoints,
+    avatarLoading,
+    pointsLoading,
+    refreshAvatar,
+    refreshUserPoints,
   };
 
   return (

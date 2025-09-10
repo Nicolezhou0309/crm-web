@@ -101,74 +101,6 @@ class TokenManager {
     }
   }
 
-  // 企业微信登录
-  async signInWithWecom(email: string, metadata: any) {
-    try {
-      console.log('开始企业微信登录:', { email, metadata });
-      
-      // 企业微信用户登录逻辑
-      // 1. 先检查是否已存在该企业微信用户
-      const { data: existingUser, error: findError } = await supabase
-        .from('auth.users')
-        .select('*')
-        .eq('raw_user_meta_data->wechat_work_userid', metadata.wechat_work_userid)
-        .single();
-
-      if (findError && findError.code !== 'PGRST116') {
-        console.error('查询企业微信用户失败:', findError);
-        return { data: null, error: findError };
-      }
-
-      if (existingUser) {
-        // 用户已存在，直接登录
-        console.log('企业微信用户已存在，直接登录:', existingUser.id);
-        
-        // 更新用户元数据
-        const { data: updateData, error: updateError } = await supabase.auth.updateUser({
-          data: metadata
-        });
-        
-        if (updateError) {
-          console.error('更新企业微信用户元数据失败:', updateError);
-          return { data: null, error: updateError };
-        }
-        
-        // 通知监听器
-        this.notifyListeners('SIGNED_IN', { user: updateData.user });
-        
-        return { data: updateData, error: null };
-      } else {
-        // 用户不存在，创建新用户
-        console.log('企业微信用户不存在，创建新用户');
-        
-        // 使用Supabase Admin API创建用户（需要service_role权限）
-        // 由于前端无法直接调用Admin API，这里使用signUp然后手动确认
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password: '', // 企业微信用户不需要密码
-          options: {
-            data: metadata
-          }
-        });
-        
-        if (signUpError) {
-          console.error('企业微信用户注册失败:', signUpError);
-          return { data: null, error: signUpError };
-        }
-        
-        if (signUpData.user) {
-          // 用户创建成功，通知监听器
-          this.notifyListeners('SIGNED_IN', { user: signUpData.user });
-          return { data: signUpData, error: null };
-        } else {
-          return { data: null, error: new Error('企业微信用户创建失败') };
-        }
-      }
-    } catch (error) {
-      console.error('企业微信登录异常:', error);
-      return { data: null, error };
-    }
-  }
 
   // 验证OTP (用于邀请和密码重置)
   async verifyOtp(email: string, token: string, type: 'invite' | 'recovery' | 'signup' | 'magiclink' | 'email') {
@@ -200,6 +132,13 @@ class TokenManager {
         console.error('设置会话失败:', error);
         return { data: null, error };
       }
+      
+      // 设置会话成功后，通知监听器用户已登录
+      if (data?.user) {
+        console.log('设置会话成功，通知监听器用户已登录:', data.user.email);
+        this.notifyListeners('SIGNED_IN', { user: data.user });
+      }
+      
       return { data, error: null };
     } catch (error) {
       console.error('设置会话异常:', error);

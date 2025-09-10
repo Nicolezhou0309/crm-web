@@ -1,5 +1,6 @@
 import { supabase } from '../supaClient';
 import type { MetroStation } from '../utils/metroDistanceCalculator';
+import { cacheManager } from '../utils/cacheManager';
 
 /**
  * 地铁数据服务
@@ -46,6 +47,28 @@ export class MetroDataService {
     console.log('🔄 [MetroDataService] 强制刷新地铁站点数据');
     this.clearCache();
     return await this.fetchFromDatabase();
+  }
+
+  /**
+   * 使用缓存管理器获取数据
+   */
+  public async getStationsWithCacheManager(): Promise<MetroStation[]> {
+    // 先尝试从缓存管理器获取
+    const cachedData = cacheManager.getCache<MetroStation[]>(this.CACHE_KEY, this.CACHE_DURATION);
+    
+    if (cachedData) {
+      console.log('📦 [MetroDataService] 从缓存管理器获取地铁站点数据');
+      return cachedData;
+    }
+
+    // 缓存未命中，从数据库获取
+    console.log('🔄 [MetroDataService] 从数据库获取地铁站点数据');
+    const data = await this.fetchFromDatabase();
+    
+    // 存储到缓存管理器
+    cacheManager.setCache(this.CACHE_KEY, data);
+    
+    return data;
   }
 
   /**

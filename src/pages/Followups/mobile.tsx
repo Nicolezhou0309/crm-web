@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { message, Spin, Modal, Button, Upload, Select } from 'antd';
+import { message, Spin, Modal, Button, Select } from 'antd';
 import { Card, Popup, Form, Input, Button as MobileButton, Space, Selector, CheckList, CalendarPicker } from 'antd-mobile';
 import { UploadOutlined } from '@ant-design/icons';
 import { MobileFollowupStageDrawer } from './components/MobileFollowupStageDrawer';
@@ -14,6 +14,7 @@ import { getServiceManager } from '../../components/Followups/services/ServiceMa
 import { useUser } from '../../context/UserContext';
 import { supabase } from '../../supaClient';
 import imageCompression from 'browser-image-compression';
+import MultiImageUpload from '../../components/MultiImageUpload';
 import type { FollowupRecord } from './types';
 import dayjs from 'dayjs';
 import { toBeijingTime, toBeijingDateStr, getCurrentBeijingTime, getDayStart, getDayEnd, toBeijingDateTimeStr } from '../../utils/timeUtils';
@@ -733,17 +734,15 @@ const MobileFollowups: React.FC = () => {
     setCurrentEditRecord(null);
   }, []);
 
-  // 处理回退证据上传前的预览
-  const handleBeforeUpload = useCallback(async (file: File) => {
-    setRollbackEvidenceList(list => [
-      ...list,
-      {
-        file,
-        preview: URL.createObjectURL(file),
-        name: file.name,
-      },
-    ]);
-    return false;
+  // 处理回退证据上传成功
+  const handleRollbackEvidenceUploadSuccess = useCallback((urls: string[]) => {
+    // 这里可以处理上传成功后的逻辑
+    console.log('回退证据上传成功:', urls);
+  }, []);
+
+  const handleRollbackEvidenceUploadError = useCallback((error: string) => {
+    console.error('回退证据上传失败:', error);
+    message.error('上传失败: ' + error);
   }, []);
 
   // 清理预览URL的函数
@@ -1705,24 +1704,27 @@ const MobileFollowups: React.FC = () => {
             />
           </Form.Item>
           <Form.Item label="回退证据（图片，最多5张）" required>
-            <Upload
-              listType="picture-card"
-              fileList={rollbackEvidenceFileList}
-              customRequest={() => {}}
-              beforeUpload={handleBeforeUpload}
-              onRemove={handleRemoveEvidence}
-              showUploadList={{ showRemoveIcon: true }}
-              multiple
+            <MultiImageUpload
+              bucket="rollback-evidence"
+              filePathPrefix="followups-mobile"
+              onUploadSuccess={handleRollbackEvidenceUploadSuccess}
+              onUploadError={handleRollbackEvidenceUploadError}
+              enableCompression={true}
+              compressionOptions={{
+                maxSizeMB: 0.1,        // 高压缩率：0.1MB
+                maxWidthOrHeight: 800, // 高压缩率：800px
+                useWebWorker: true
+              }}
               accept="image/*"
+              maxCount={5}
+              maxSize={0.5}
+              buttonText="上传"
+              buttonIcon={<UploadOutlined />}
+              previewWidth={120}
+              previewHeight={120}
+              currentImages={rollbackEvidenceList.map(item => item.preview)}
               disabled={isUploadDisabled}
-            >
-              {shouldShowUploadButton && (
-                <div>
-                  <UploadOutlined />
-                  <div style={{ marginTop: 8 }}>上传</div>
-                </div>
-              )}
-            </Upload>
+            />
           </Form.Item>
         </Form>
       </Modal>

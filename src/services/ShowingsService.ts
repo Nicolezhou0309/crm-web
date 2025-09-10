@@ -345,7 +345,9 @@ export class ShowingsService {
         const filePath = `rollback/${fileName}`;
         
         // 上传到存储
-        const { error } = await supabase.storage.from('rollback').upload(filePath, compressedFile);
+        const { error } = await supabase.storage.from('rollback').upload(filePath, compressedFile, {
+          contentType: compressedFile.type || 'image/jpeg'
+        });
         if (error) throw error;
         
         // 获取公开URL

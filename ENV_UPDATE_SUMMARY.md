@@ -6,7 +6,7 @@
 
 ## 🔧 主要修改
 
-### 1. 前端环境变量 (.env 和 .env.production)
+### 1. 前端环境变量 (.env)
 
 **移除的配置：**
 - ❌ `VITE_WECOM_SECRET` - 敏感信息，已移至后端
@@ -14,10 +14,10 @@
 **保留的配置：**
 - ✅ `VITE_WECOM_CORP_ID=ww68a125fce698cb59` - 企业ID（公开信息）
 - ✅ `VITE_WECOM_AGENT_ID=1000002` - 应用ID（公开信息）
-- ✅ `VITE_WECOM_REDIRECT_URI=https://lead-service.vld.com.cn/auth/wecom/callback` - 回调地址
+- ✅ `VITE_WECOM_REDIRECT_URI=https://lead.vld.com.cn/auth/wecom/callback` - 回调地址
 
 **新增的配置：**
-- ✅ `VITE_API_BASE_URL=https://lead-service.vld.com.cn/api` - 后端API地址
+- ✅ `VITE_API_BASE_URL=https://lead.vld.com.cn/api` - 后端API地址
 
 ### 2. 后端环境变量 (backend/.env)
 
@@ -25,7 +25,7 @@
 - ✅ `WECOM_CORP_ID=ww68a125fce698cb59` - 企业ID
 - ✅ `WECOM_AGENT_ID=1000002` - 应用ID
 - ✅ `WECOM_SECRET=sXQeFCLDQJkwrX5lMWDzBTEIiHK1J7-a2e7chPyqYxY` - 应用密钥（敏感信息）
-- ✅ `WECOM_REDIRECT_URI=https://lead-service.vld.com.cn/auth/wecom/callback` - 回调地址
+- ✅ `WECOM_REDIRECT_URI=https://lead.vld.com.cn/auth/wecom/callback` - 回调地址
 
 ## 🎯 配置说明
 

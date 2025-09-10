@@ -4,7 +4,7 @@
 
 前端调用 `invite-user` Edge Function 时返回 500 错误：
 ```
-POST http://47.123.26.25:8000/functions/v1/invite-user 500 (Internal Server Error)
+POST 172.29.115.115:8000/functions/v1/invite-user 500 (Internal Server Error)
 ```
 
 ## 🛠️ 解决方案

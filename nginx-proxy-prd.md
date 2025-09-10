@@ -21,7 +21,7 @@ CRM Web Nginx代理服务
 用户请求 → Nginx代理服务器 → 目标服务
                 ↓
         1. 静态文件服务 (React应用)
-        2. Supabase代理 (http://47.123.26.25:8000)
+        2. Supabase代理 (172.29.115.115:8000)
         3. 其他API代理 (可选)
 ```
 
@@ -118,7 +118,7 @@ CRM Web Nginx代理服务
 - **网络**: 公网IP，开放80/443端口
 
 ### 2. 域名配置
-- **主域名**: lead.vld.com.cn
+- **主域名**: lead-service.vld.com.cn
 - **SSL证书**: Let's Encrypt免费证书
 - **DNS解析**: A记录指向服务器IP
 
@@ -175,76 +175,121 @@ http {
 
 ### 2. 站点配置
 ```nginx
-# /etc/nginx/sites-available/crm-web
+# /etc/nginx/conf.d/lead-service.conf
 server {
-    listen 80;
-    server_name lead.vld.com.cn;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name lead.vld.com.cn;
+    server_name lead-service.vld.com.cn;
     
-    # SSL证书配置
-    ssl_certificate /etc/letsencrypt/live/lead.vld.com.cn/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/lead.vld.com.cn/privkey.pem;
-    
-    # SSL配置
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-    
-    # 安全头
-    add_header X-Frame-Options DENY;
-    add_header X-Content-Type-Options nosniff;
-    add_header X-XSS-Protection "1; mode=block";
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin";
-    
-    # 静态文件缓存
+    # 静态资源缓存优化
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        root /var/www/crm-web;
         expires 1y;
         add_header Cache-Control "public, immutable";
         add_header Vary "Accept-Encoding";
         try_files $uri =404;
     }
-    
-    # Supabase代理配置
+
+    # 企业微信API - 支持长轮询
+    location /api/auth/wecom/ { 
+        proxy_pass http://127.0.0.1:3001/api/auth/wecom/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 5s;
+        proxy_read_timeout 660s;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_set_header Connection "";
+        proxy_http_version 1.1;
+        
+        # CORS支持
+        add_header Access-Control-Allow-Origin *;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization";
+        
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization";
+            add_header Content-Length 0;
+            add_header Content-Type text/plain;
+            return 200;
+        }
+    }
+
+    # 健康检查API
+    location /api/health {
+        proxy_pass http://127.0.0.1:3001/api/health;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 5s;
+        proxy_read_timeout 5s;
+    }
+
+    # 其他API（通用配置）
+    location /api/ {
+        proxy_pass http://127.0.0.1:3001/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+        proxy_buffering on;
+        
+        # CORS支持
+        add_header Access-Control-Allow-Origin *;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With";
+        
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With";
+            add_header Content-Length 0;
+            add_header Content-Type text/plain;
+            return 200;
+        }
+    }   
+
+    # Supabase API代理配置
     location /supabase/ {
-        proxy_pass http://47.123.26.25:8000/;
+        proxy_pass http://172.29.115.115:8000/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         
-        # WebSocket支持
+        # 支持WebSocket
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
         
         # 超时设置
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-        
-        # 缓冲设置
-        proxy_buffering on;
-        proxy_buffer_size 4k;
-        proxy_buffers 8 4k;
+        proxy_connect_timeout 5s;
         
         # CORS头
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Access-Control-Allow-Methods;
+        proxy_hide_header Access-Control-Allow-Headers;
         add_header Access-Control-Allow-Origin *;
         add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
-        add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With";
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, apikey, x-client-info, x-supabase-api-version";
         
         # 处理OPTIONS请求
         if ($request_method = 'OPTIONS') {
             add_header Access-Control-Allow-Origin *;
             add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
-            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With";
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, apikey, x-client-info, x-supabase-api-version";
             add_header Access-Control-Max-Age 1728000;
             add_header Content-Type 'text/plain charset=UTF-8';
             add_header Content-Length 0;
@@ -254,29 +299,33 @@ server {
     
     # 健康检查端点
     location /health {
-        return 200 '{"status":"healthy","timestamp":"$time_iso8601","service":"nginx-proxy","version":"1.0.0"}';
+        return 200 '{"status":"healthy","timestamp":"$time_iso8601","service":"crm-web","version":"1.0.0"}';
         add_header Content-Type application/json;
         access_log off;
     }
-    
-    # 静态文件服务
+
+    # 静态文件服务（React应用）
     location / {
         root /var/www/crm-web;
+        index index.html;
         try_files $uri $uri/ /index.html;
-        
-        # 安全头
-        add_header X-Frame-Options DENY;
-        add_header X-Content-Type-Options nosniff;
-        add_header X-XSS-Protection "1; mode=block";
     }
-    
-    # 错误页面
-    error_page 404 /404.html;
-    error_page 500 502 503 504 /50x.html;
-    
-    location = /50x.html {
-        root /usr/share/nginx/html;
-    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/lead-service.vld.com.cn/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/lead-service.vld.com.cn/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = lead-service.vld.com.cn) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    server_name lead-service.vld.com.cn;
+    return 404; # managed by Certbot
 }
 ```
 
@@ -304,11 +353,7 @@ sudo mkdir -p /var/www/crm-web
 
 # 复制配置文件
 sudo cp nginx.conf /etc/nginx/nginx.conf
-sudo cp crm-web.conf /etc/nginx/sites-available/crm-web
-
-# 启用站点
-sudo ln -sf /etc/nginx/sites-available/crm-web /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
+sudo cp lead-service.conf /etc/nginx/conf.d/lead-service.conf
 
 # 测试配置
 sudo nginx -t
@@ -321,7 +366,7 @@ sudo systemctl enable nginx
 ### 3. SSL证书配置
 ```bash
 # 获取Let's Encrypt证书
-sudo certbot --nginx -d lead.vld.com.cn --non-interactive --agree-tos --email admin@lead.vld.com.cn
+sudo certbot --nginx -d lead-service.vld.com.cn --non-interactive --agree-tos --email admin@lead-service.vld.com.cn
 
 # 设置自动续期
 echo "0 12 * * * /usr/bin/certbot renew --quiet" | sudo crontab -
@@ -355,9 +400,9 @@ EOF
 ## 测试方案
 
 ### 1. 功能测试
-- **HTTPS重定向测试**: 访问http://lead.vld.com.cn，验证重定向到HTTPS
+- **HTTPS重定向测试**: 访问http://lead-service.vld.com.cn，验证重定向到HTTPS
 - **静态文件测试**: 访问https://lead.vld.com.cn，验证页面正常加载
-- **Supabase代理测试**: 访问https://lead.vld.com.cn/supabase/auth/v1/token，验证代理成功
+- **Supabase代理测试**: 访问https://lead-service.vld.com.cn/supabase/auth/v1/token，验证代理成功
 - **WebSocket测试**: 验证实时功能正常工作
 - **健康检查测试**: 访问https://lead.vld.com.cn/health，验证状态返回
 
@@ -477,7 +522,7 @@ EOF
 
 ---
 
-**文档版本**: v1.0  
+**文档版本**: v2.0  
 **创建日期**: 2024年12月  
-**最后更新**: 2024年12月  
+**最后更新**: 2025年9月  
 **负责人**: 开发团队

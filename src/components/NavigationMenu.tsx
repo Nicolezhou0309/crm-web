@@ -29,6 +29,8 @@ import {
   RocketOutlined,
 } from '@ant-design/icons';
 import pkg from '../../package.json';
+import { cacheManager } from '../utils/cacheManager';
+import VersionDisplay from './VersionDisplay';
 import { useRolePermissions } from '../hooks/useRolePermissions';
 
 
@@ -502,12 +504,14 @@ const NavigationMenu: React.FC<NavigationMenuProps> = ({
         )}
         
         {/* 版本号 */}
-        <div style={{ 
-          color: '#bbb', 
-          fontSize: 12 
-        }}>
-          v{pkg.version}
-        </div>
+        <VersionDisplay 
+          style={{ 
+            color: '#bbb', 
+            fontSize: 12 
+          }}
+          showDetails={true}
+          showRefreshButton={true}
+        />
       </div>
     </div>
   );

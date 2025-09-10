@@ -7,7 +7,7 @@
 ## 🚀 部署状态
 
 - **部署状态**: ✅ 已部署并运行正常
-- **API地址**: `https://lead-service.vld.com.cn/api`
+- **API地址**: `https://lead.vld.com.cn/api`
 - **部署时间**: 2025-09-07 13:00
 - **最后更新**: 2025-09-07 14:41
 
@@ -33,7 +33,7 @@ API域名: lead-service.vld.com.cn/api
 #### 测试用例
 ```bash
 # 测试健康检查接口
-curl -X GET https://lead-service.vld.com.cn/api/api/health \
+curl -X GET https://lead.vld.com.cn/api/api/health \
   -H "Accept: application/json" \
   -v
 ```
@@ -54,7 +54,7 @@ curl -X GET https://lead-service.vld.com.cn/api/api/health \
 
 echo "🔍 测试健康检查接口..."
 
-response=$(curl -s -w "%{http_code}" https://lead-service.vld.com.cn/api/api/health)
+response=$(curl -s -w "%{http_code}" https://lead.vld.com.cn/api/api/health)
 http_code="${response: -3}"
 body="${response%???}"
 
@@ -73,7 +73,7 @@ fi
 #### 测试用例
 ```bash
 # 测试获取授权URL
-curl -X GET https://lead-service.vld.com.cn/api/api/auth/wecom/url \
+curl -X GET https://lead.vld.com.cn/api/api/auth/wecom/url \
   -H "Accept: application/json" \
   -v
 ```
@@ -101,7 +101,7 @@ curl -X GET https://lead-service.vld.com.cn/api/api/auth/wecom/url \
 #### 测试用例
 ```bash
 # 测试获取二维码
-curl -X GET https://lead-service.vld.com.cn/api/api/auth/wecom/qrcode \
+curl -X GET https://lead.vld.com.cn/api/api/auth/wecom/qrcode \
   -H "Accept: application/json" \
   -v
 ```
@@ -128,7 +128,7 @@ curl -X GET https://lead-service.vld.com.cn/api/api/auth/wecom/qrcode \
 #### 测试用例
 ```bash
 # 测试状态检查（使用无效state）
-curl -X GET "https://lead-service.vld.com.cn/api/api/auth/wecom/status?state=invalid_state" \
+curl -X GET "https://lead.vld.com.cn/api/api/auth/wecom/status?state=invalid_state" \
   -H "Accept: application/json" \
   -v
 ```
@@ -153,7 +153,7 @@ curl -X GET "https://lead-service.vld.com.cn/api/api/auth/wecom/status?state=inv
 #### SQL注入测试
 ```bash
 # 测试SQL注入
-curl -X POST https://lead-service.vld.com.cn/api/api/auth/wecom/callback \
+curl -X POST https://lead.vld.com.cn/api/api/auth/wecom/callback \
   -H "Content-Type: application/json" \
   -d '{
     "code": "'; DROP TABLE users; --",
@@ -164,7 +164,7 @@ curl -X POST https://lead-service.vld.com.cn/api/api/auth/wecom/callback \
 #### XSS测试
 ```bash
 # 测试XSS
-curl -X POST https://lead-service.vld.com.cn/api/api/auth/wecom/callback \
+curl -X POST https://lead.vld.com.cn/api/api/auth/wecom/callback \
   -H "Content-Type: application/json" \
   -d '{
     "code": "<script>alert('xss')</script>",
@@ -177,14 +177,14 @@ curl -X POST https://lead-service.vld.com.cn/api/api/auth/wecom/callback \
 #### 未授权访问测试
 ```bash
 # 测试未授权访问
-curl -X GET https://lead-service.vld.com.cn/api/api/auth/wecom/status \
+curl -X GET https://lead.vld.com.cn/api/api/auth/wecom/status \
   -H "Accept: application/json"
 ```
 
 #### 跨域测试
 ```bash
 # 测试CORS
-curl -X GET https://lead-service.vld.com.cn/api/api/health \
+curl -X GET https://lead.vld.com.cn/api/api/health \
   -H "Origin: https://malicious-site.com" \
   -H "Accept: application/json" \
   -v
@@ -200,7 +200,7 @@ curl -X GET https://lead-service.vld.com.cn/api/api/health \
 echo "🚀 测试速率限制..."
 
 for i in {1..110}; do
-    response=$(curl -s -w "%{http_code}" https://lead-service.vld.com.cn/api/api/health)
+    response=$(curl -s -w "%{http_code}" https://lead.vld.com.cn/api/api/health)
     http_code="${response: -3}"
     
     if [ "$http_code" = "429" ]; then
@@ -227,7 +227,7 @@ echo "⏱️  测试响应时间..."
 
 for i in {1..10}; do
     start_time=$(date +%s%N)
-    curl -s https://lead-service.vld.com.cn/api/api/health > /dev/null
+    curl -s https://lead.vld.com.cn/api/api/health > /dev/null
     end_time=$(date +%s%N)
     
     duration=$(( (end_time - start_time) / 1000000 ))
@@ -243,7 +243,7 @@ done
 yum install -y httpd-tools
 
 # 并发测试
-ab -n 1000 -c 10 https://lead-service.vld.com.cn/api/api/health
+ab -n 1000 -c 10 https://lead.vld.com.cn/api/api/health
 ```
 
 #### 使用wrk
@@ -253,7 +253,7 @@ git clone https://github.com/wg/wrk.git
 cd wrk && make
 
 # 并发测试
-./wrk -t12 -c400 -d30s https://lead-service.vld.com.cn/api/api/health
+./wrk -t12 -c400 -d30s https://lead.vld.com.cn/api/api/health
 ```
 
 ### 3. 负载测试
@@ -262,7 +262,7 @@ cd wrk && make
 ```yaml
 # artillery-config.yml
 config:
-  target: 'https://lead-service.vld.com.cn/api'
+  target: 'https://lead.vld.com.cn/api'
   phases:
     - duration: 60
       arrivalRate: 10
@@ -327,7 +327,7 @@ echo "端口443监听: $port_443"
 echo "端口3001监听: $port_3001"
 
 # 检查API响应
-api_response=$(curl -s -w "%{http_code}" https://lead-service.vld.com.cn/api/api/health)
+api_response=$(curl -s -w "%{http_code}" https://lead.vld.com.cn/api/api/health)
 http_code="${api_response: -3}"
 echo "API响应状态: $http_code"
 ```

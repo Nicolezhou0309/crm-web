@@ -28,10 +28,8 @@ export interface Followup {
 export interface Deal {
   id: string;
   leadid: string;
-  contractdate?: string;
-  community?: string;
-  contractnumber?: string;
-  roomnumber?: string;
+  contract_records?: string; // 关联到contract_records表的ID
+  invalid?: boolean; // 软删除标记
   created_at?: string;
   isNew?: boolean;
   isEditing?: boolean;

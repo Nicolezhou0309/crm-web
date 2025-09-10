@@ -89,19 +89,6 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
   enableManualAssign = false,
   onAllocationModeChange,
 }) => {
-  // 添加调试信息
-  console.log('🔍 [FollowupStageForm] 组件开始渲染:', { stage, record: record?.id });
-  
-  // 早期错误检查 - 必须在所有 Hooks 之前
-  if (!form) {
-    console.error('❌ [FollowupStageForm] form 参数为空');
-    return <div>表单参数错误</div>;
-  }
-  
-  if (!stage) {
-    console.warn('⚠️ [FollowupStageForm] stage 参数为空');
-    return <div>阶段参数为空</div>;
-  }
 
   // 检查数据是否已加载 - 使用更安全的方式避免循环引用
   const isDataLoaded = useMemo(() => {
@@ -179,7 +166,7 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
               options={followupstageEnum} 
               placeholder={`请选择${label}`}
               loading={followupstageEnum.length === 0}
-              disabled={followupstageEnum.length === 0 || isFieldDisabled()}
+              disabled={isFieldDisabled()}
             />
           </Form.Item>
         );
@@ -191,7 +178,7 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
               options={customerprofileEnum} 
               placeholder={`请选择${label}`}
               loading={customerprofileEnum.length === 0}
-              disabled={customerprofileEnum.length === 0 || isFieldDisabled()}
+              disabled={isFieldDisabled()}
             />
           </Form.Item>
         );
@@ -203,7 +190,7 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
               options={userratingEnum} 
               placeholder={`请选择${label}`}
               loading={userratingEnum.length === 0}
-              disabled={userratingEnum.length === 0 || isFieldDisabled()}
+              disabled={isFieldDisabled()}
             />
           </Form.Item>
         );
@@ -218,7 +205,7 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
               options={communityEnum} 
               placeholder={`请选择${label}`}
               loading={communityEnum.length === 0}
-              disabled={communityEnum.length === 0 || isFieldDisabled()}
+              disabled={isFieldDisabled()}
             />
           </Form.Item>
         );
@@ -234,13 +221,15 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
               allowClear
               disabled={isFieldDisabled()}
               onChange={(_value, selectedOptions) => {
+                // 清理循环引用，避免React警告
+                const safeSelectedOptions = JSON.parse(JSON.stringify(selectedOptions || []));
                 let selectedText = '';
-                if (selectedOptions && selectedOptions.length > 1) {
+                if (safeSelectedOptions && safeSelectedOptions.length > 1) {
                   // 只保存站点名称，不保存线路信息（与表格保持一致）
-                  selectedText = selectedOptions[1].label;
-                } else if (selectedOptions && selectedOptions.length === 1) {
+                  selectedText = safeSelectedOptions[1].label;
+                } else if (safeSelectedOptions && safeSelectedOptions.length === 1) {
                   // 只有一级选项时，保存线路名称
-                  selectedText = selectedOptions[0].label;
+                  selectedText = safeSelectedOptions[0].label;
                 }
                 
                 if (selectedText) {
@@ -469,31 +458,31 @@ export const FollowupStageForm: React.FC<FollowupStageFormProps> = ({
     );
   }, [stage, enableManualAssign, onAllocationModeChange, isFieldDisabled, communityEnum]);
 
-  // 如果关键数据未加载完成，显示加载状态
-  if (!requiredDataLoaded) {
-    return (
-      <div style={{ 
-        textAlign: 'center', 
-        padding: '40px 20px', 
-        color: '#999' 
-      }}>
-        <p>正在加载表单数据...</p>
-        <p>请稍候</p>
-      </div>
-    );
-  }
+  // 如果关键数据未加载完成，仍然显示表单，但选项为空
+  // 这样可以避免在数据异步加载时显示加载状态
+  // if (!requiredDataLoaded) {
+  //   return (
+  //     <div style={{ 
+  //       textAlign: 'center', 
+  //       padding: '40px 20px', 
+  //       color: '#999' 
+  //     }}>
+  //       <p>正在加载表单数据...</p>
+  //       <p>请稍候</p>
+  //     </div>
+  //   );
+  // }
   
-  // 如果没有字段，显示提示信息
+  // 如果没有字段，返回空的Form组件以保持布局一致性
   if (currentFields.length === 0) {
     return (
-      <div style={{ 
-        textAlign: 'center', 
-        padding: '40px 20px', 
-        color: '#999' 
-      }}>
-        <p>当前阶段无需填写额外信息</p>
-        <p>点击"下一步"继续推进</p>
-      </div>
+      <Form
+        form={form}
+        layout="vertical"
+        preserve={false}
+      >
+        {/* 空内容，但Form组件存在以连接form实例 */}
+      </Form>
     );
   }
 

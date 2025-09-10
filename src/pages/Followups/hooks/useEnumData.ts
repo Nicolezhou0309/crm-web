@@ -161,8 +161,8 @@ export const useEnumData = () => {
     const cacheKey = `enum_${enumName}`;
     const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
     
-    // 缓存15分钟有效，减少重复加载
-    if (cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < 15 * 60 * 1000) {
+    // 缓存一年有效，减少重复加载
+    if (cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < 365 * 24 * 60 * 60 * 1000) {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         try {

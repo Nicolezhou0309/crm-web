@@ -3,7 +3,7 @@
 ## 🚀 部署状态
 
 - **部署状态**: ✅ 已部署并运行正常
-- **API地址**: `https://lead-service.vld.com.cn/api`
+- **API地址**: `https://lead.vld.com.cn/api`
 - **部署时间**: 2025-09-07 13:00
 - **最后更新**: 2025-09-07 14:41
 
@@ -48,11 +48,11 @@ PM2: 最新版（部署时安装）
 ```bash
 PORT=3001
 NODE_ENV=production
-FRONTEND_URL=https://lead-service.vld.com.cn
+FRONTEND_URL=https://lead.vld.com.cn
 WECOM_CORP_ID=ww68a125fce698cb59
 WECOM_AGENT_ID=1000002
 WECOM_SECRET=sXQeFCLDQJkwrX5lMWDzBTEIiHK1J7-a2e7chPyqYxY
-WECOM_REDIRECT_URI=https://lead-service.vld.com.cn/auth/wecom/callback
+WECOM_REDIRECT_URI=https://lead.vld.com.cn/auth/wecom/callback
 ```
 
 #### PM2配置

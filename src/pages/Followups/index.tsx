@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Layout, message, Modal, Button, Form, Select, Upload, Drawer } from 'antd';
+import { Layout, message, Modal, Button, Form, Select, Drawer } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { PageHeader } from './components/PageHeader';
 import { FilterPanel } from './components/FilterPanel';
@@ -18,6 +18,7 @@ import { getServiceManager } from '../../components/Followups/services/ServiceMa
 import { useUser } from '../../context/UserContext';
 import { supabase } from '../../supaClient';
 import imageCompression from 'browser-image-compression';
+import MultiImageUpload from '../../components/MultiImageUpload';
 import RollbackList from '../RollbackList.tsx';
 import FollowupsCalendarView from '../FollowupsCalendarView';
 import LeadDetailDrawer from '../../components/LeadDetailDrawer';
@@ -641,11 +642,62 @@ const Followups: React.FC = () => {
     setLeadDetailDrawerOpen(true);
   }, []);
 
-  // 处理阶段点击
-  const handleStageClick = useCallback((record: any) => {
-    setCurrentEditRecord(record);
-    setStageDrawerOpen(true);
+  // 获取下一个阶段的工具函数
+  const getNextStage = useCallback((currentStage: string): string | null => {
+    const followupStages = ['丢单', '待接收', '确认需求', '邀约到店', '已到店', '赢单'];
+    const currentIndex = followupStages.indexOf(currentStage);
+    if (currentIndex === -1 || currentIndex === followupStages.length - 1) {
+      return null; // 无效阶段或已经是最后阶段
+    }
+    return followupStages[currentIndex + 1];
   }, []);
+
+  // 处理阶段点击
+  const handleStageClick = useCallback(async (record: any) => {
+    // 如果是待接收阶段，直接推进到确认需求阶段
+    if (record.followupstage === '待接收') {
+      console.log('🚀 [Followups] 待接收阶段自动推进到确认需求阶段:', {
+        recordId: record.id,
+        currentStage: record.followupstage,
+        nextStage: '确认需求'
+      });
+      
+      try {
+        // 使用乐观更新：直接更新本地数据
+        optimizedLocalData.updateField(record.id, 'followupstage', '确认需求');
+        
+        // 保存到数据库
+        const result = await autoSave.saveField(record.id, 'followupstage', '确认需求', record.followupstage);
+        
+        if (!result.success) {
+          // 保存失败，回滚本地数据
+          optimizedLocalData.rollbackField(record.id, 'followupstage', record.followupstage);
+          message.error('阶段推进失败: ' + (result.error || '未知错误'));
+          console.error('❌ [Followups] 待接收阶段推进失败:', result.error);
+        } else if (!result.skipped) {
+          // 保存成功（非跳过）
+          message.success('已自动推进到确认需求阶段');
+          console.log('✅ [Followups] 待接收阶段推进成功');
+          
+          // 更新分组统计
+          const currentFilters = filterManager.getCurrentFiltersFn();
+          groupManager.fetchGroupData(groupManager.groupField, currentFilters);
+        } else {
+          // 保存被跳过（值相同）
+          console.log('⏭️ [Followups] 待接收阶段推进被跳过（值相同）');
+        }
+      } catch (error: any) {
+        // 异常情况，回滚本地数据
+        optimizedLocalData.rollbackField(record.id, 'followupstage', record.followupstage);
+        message.error('阶段推进异常: ' + (error.message || '未知错误'));
+        console.error('❌ [Followups] 待接收阶段推进异常:', error);
+      }
+    } else {
+      // 其他阶段正常打开抽屉
+      setCurrentEditRecord(record);
+      setStageDrawerOpen(true);
+    }
+  }, [optimizedLocalData, autoSave, filterManager, groupManager]);
 
   // 处理抽屉保存 - 使用乐观更新，避免全局刷新
   const handleStageDrawerSave = useCallback((record: any, updatedFields: any) => {
@@ -682,17 +734,15 @@ const Followups: React.FC = () => {
     setRollbackModalVisible(true);
   }, []);
 
-  // 处理回退证据上传前的预览
-  const handleBeforeUpload = useCallback(async (file: File) => {
-    setRollbackEvidenceList(list => [
-      ...list,
-      {
-        file,
-        preview: URL.createObjectURL(file),
-        name: file.name,
-      },
-    ]);
-    return false; // 阻止自动上传
+  // 处理回退证据上传成功
+  const handleRollbackEvidenceUploadSuccess = useCallback((urls: string[]) => {
+    // 这里可以处理上传成功后的逻辑
+    console.log('回退证据上传成功:', urls);
+  }, []);
+
+  const handleRollbackEvidenceUploadError = useCallback((error: string) => {
+    console.error('回退证据上传失败:', error);
+    message.error('上传失败: ' + error);
   }, []);
 
   // 清理预览URL的函数
@@ -1008,24 +1058,27 @@ const Followups: React.FC = () => {
             />
           </Form.Item>
           <Form.Item label="回退证据（图片，最多5张）" required>
-            <Upload
-              listType="picture-card"
-              fileList={rollbackEvidenceFileList}
-              customRequest={() => {}}
-              beforeUpload={handleBeforeUpload}
-              onRemove={handleRemoveEvidence}
-              showUploadList={{ showRemoveIcon: true }}
-              multiple
+            <MultiImageUpload
+              bucket="rollback-evidence"
+              filePathPrefix="followups"
+              onUploadSuccess={handleRollbackEvidenceUploadSuccess}
+              onUploadError={handleRollbackEvidenceUploadError}
+              enableCompression={true}
+              compressionOptions={{
+                maxSizeMB: 0.1,        // 高压缩率：0.1MB
+                maxWidthOrHeight: 800, // 高压缩率：800px
+                useWebWorker: true
+              }}
               accept="image/*"
+              maxCount={5}
+              maxSize={0.5}
+              buttonText="上传"
+              buttonIcon={<UploadOutlined />}
+              previewWidth={120}
+              previewHeight={120}
+              currentImages={rollbackEvidenceList.map(item => item.preview)}
               disabled={isUploadDisabled}
-            >
-              {shouldShowUploadButton && (
-                <div>
-                  <UploadOutlined />
-                  <div style={{ marginTop: 8 }}>上传</div>
-                </div>
-              )}
-            </Upload>
+            />
           </Form.Item>
         </Form>
       </Modal>

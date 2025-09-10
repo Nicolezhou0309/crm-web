@@ -1,7 +1,7 @@
 {
   "name": "crm-web",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,10 +15,13 @@
     "test:e2e:install": "playwright install"
   },
   "dependencies": {
+    "@alicloud/pop-core": "^1.8.0",
     "@ant-design/charts": "^2.6.0",
     "@supabase/supabase-js": "^2.50.2",
     "@types/lodash": "^4.17.20",
+    "@types/qrcode": "^1.5.5",
     "@wecom/jssdk": "^2.3.1",
+    "ali-oss": "^6.23.0",
     "aliyun-oss": "^1.2.0",
     "antd": "^5.26.2",
     "antd-img-crop": "^4.25.0",
@@ -30,10 +33,12 @@
     "dotenv": "^17.2.1",
     "express": "^4.18.2",
     "http-proxy-middleware": "^2.0.6",
+    "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
     "lottie-react": "^2.4.1",
     "node-fetch": "^3.3.2",
     "pg": "^8.16.3",
+    "qrcode": "^1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-easy-crop": "^5.5.0",

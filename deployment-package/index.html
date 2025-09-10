@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="timezone" content="Asia/Shanghai" />
+
+    <title>VLINKER-CRM</title>
+    <script>
+      // 设置全局时区为北京时间
+      if (typeof Intl !== 'undefined') {
+        // 设置默认时区为Asia/Shanghai
+        Intl.DateTimeFormat.prototype.resolvedOptions = function() {
+          const options = Intl.DateTimeFormat.prototype.resolvedOptions.call(this);
+          options.timeZone = 'Asia/Shanghai';
+          return options;
+        };
+      }
+      
+      // 设置dayjs默认时区（如果使用dayjs）
+      if (typeof window !== 'undefined') {
+        window.__TIMEZONE__ = 'Asia/Shanghai';
+      }
+      
+      // ====== 页面刷新监控系统 ======
+      (function() {
+        const startTime = Date.now();
+        const sessionId = 'session_' + startTime + '_' + Math.random().toString(36).substr(2, 9);
+        let refreshCount = 0;
+        let lastRefreshTime = 0;
+        
+        // 监控页面即将卸载
+        window.addEventListener('beforeunload', function(event) {
+          const now = Date.now();
+          refreshCount++;
+          
+          
+          // 保存会话信息到localStorage
+          try {
+            localStorage.setItem('last_session_info', JSON.stringify({
+              sessionId: sessionId,
+              timestamp: new Date().toISOString(),
+              url: window.location.href,
+              duration: now - startTime,
+              refreshCount: refreshCount,
+              visibilityState: document.visibilityState
+            }));
+          } catch (e) {
+            console.warn('⚠️ [页面监控] 保存会话信息失败:', e);
+          }
+        });
+        
+        // 监控页面卸载
+        window.addEventListener('unload', function() {
+        });
+        
+        // 监控页面隐藏
+        window.addEventListener('pagehide', function() {
+        });
+        
+        // 页面加载完成时检查是否有上次的会话信息
+        window.addEventListener('load', function() {
+          const loadTime = Date.now();
+          
+          try {
+            const lastSession = localStorage.getItem('last_session_info');
+            if (lastSession) {
+              const sessionInfo = JSON.parse(lastSession);
+              localStorage.removeItem('last_session_info');
+            }
+          } catch (e) {
+            console.warn('⚠️ [页面监控] 读取上次会话信息失败:', e);
+          }
+        });
+        
+        // 监控DOM内容加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+        });
+        
+        // 监控页面焦点变化
+        window.addEventListener('focus', function() {
+        });
+        
+        window.addEventListener('blur', function() {
+        });
+        
+        // 监控网络状态变化
+        window.addEventListener('online', function() {
+        });
+        
+        window.addEventListener('offline', function() {
+        });
+        
+        // 定期记录页面状态（每30秒）
+        setInterval(function() {
+
+        }, 30000);
+        
+      })();
+      
+      // ====== hash日志结束 ======
+      // ====== hash写入localStorage兜底 ======
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        localStorage.setItem('supabase_hash', window.location.hash);
+      }
+      // ====== hash写入localStorage兜底结束 ======
+    </script>
+    <script type="module" crossorigin src="/assets/js/index-DOAWgxmB.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/js/vendor-CpJG26Rf.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/antd-CiVgXYuJ.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/supabase-D0hzhjQg.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/charts-kWkPs0L-.js">
+    <link rel="stylesheet" crossorigin href="/assets/css/index-CsPoSjt7.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html> 

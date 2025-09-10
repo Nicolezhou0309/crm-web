@@ -6,7 +6,7 @@ import { supabase } from '../../../supaClient';
  */
 export class EnumDataService {
   private cache = new Map<string, { data: any[]; timestamp: number }>();
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
+  private readonly CACHE_DURATION = 365 * 24 * 60 * 60 * 1000; // 一年缓存
 
   /**
    * 获取枚举值（带缓存）

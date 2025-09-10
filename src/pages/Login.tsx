@@ -10,6 +10,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import { tokenManager } from '../utils/tokenManager';
 import { supabase } from '../supaClient';
 import WecomLogin from '../components/WecomLogin';
+import packageJson from '../../package.json';
 
 const { TabPane } = Tabs;
 
@@ -484,6 +485,22 @@ const Login: React.FC = () => {
           autoFocus
         />
       </Modal>
+      
+      {/* 版本号显示 */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          color: '#999',
+          fontSize: '12px',
+          zIndex: 10,
+          userSelect: 'none',
+        }}
+      >
+        v{packageJson.version}
+      </div>
     </div>
   );
 };

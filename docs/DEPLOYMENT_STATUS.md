@@ -10,8 +10,8 @@
 ## 📍 API服务信息
 
 ### 服务地址
-- **API基础URL**: `https://lead-service.vld.com.cn/api`
-- **健康检查**: `https://lead-service.vld.com.cn/api/health`
+- **API基础URL**: `https://lead.vld.com.cn/api`
+- **健康检查**: `https://lead.vld.com.cn/api/health`
 - **协议**: HTTPS
 - **端口**: 443 (通过Nginx代理)
 
@@ -49,7 +49,7 @@ PM2状态: 运行中
 - **变更**: 从子域名方式改为路径方式
 - **原因**: 避免DNS解析问题，使用现有域名配置
 - **影响**: 
-  - API地址从 `https://api.lead-service.vld.com.cn` 改为 `https://lead-service.vld.com.cn/api`
+  - API地址从 `https://api.lead-service.vld.com.cn` 改为 `https://lead.vld.com.cn/api`
   - 前端配置已同步更新
   - Nginx配置已优化
 
@@ -86,7 +86,7 @@ pm2 status
 systemctl status nginx
 
 # 测试API响应
-curl https://lead-service.vld.com.cn/api/health
+curl https://lead.vld.com.cn/api/health
 
 # 查看服务日志
 pm2 logs crm-wecom-api

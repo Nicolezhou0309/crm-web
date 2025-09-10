@@ -31,8 +31,8 @@ test.describe('企业微信登录测试', () => {
     console.log('🚀 开始测试企业微信登录功能...');
     
     // 导航到线上地址
-    console.log('🌐 导航到线上地址: https://lead-service.vld.com.cn/');
-    await page.goto('https://lead-service.vld.com.cn/');
+    console.log('🌐 导航到线上地址: https://lead.vld.com.cn/');
+    await page.goto('https://lead.vld.com.cn/');
     
     // 等待页面加载
     console.log('⏳ 等待页面加载...');
@@ -160,7 +160,7 @@ test.describe('企业微信登录测试', () => {
     console.log('🚀 开始测试企业微信回调页面...');
     
     // 直接访问回调页面
-    const callbackUrl = 'https://lead-service.vld.com.cn/auth/wecom/callback?code=test123&state=test123&appid=ww68a125fce698cb59';
+    const callbackUrl = 'https://lead.vld.com.cn/auth/wecom/callback?code=test123&state=test123&appid=ww68a125fce698cb59';
     console.log('🌐 访问回调页面:', callbackUrl);
     
     await page.goto(callbackUrl);

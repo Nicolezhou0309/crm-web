@@ -524,7 +524,9 @@ export const HonorManagement: React.FC = () => {
 
       const { error } = await supabase.storage
         .from('achievement-icons')
-        .upload(filePath, compressedFile);
+        .upload(filePath, compressedFile, {
+          contentType: compressedFile.type || 'image/png'
+        });
 
       if (error) {
         console.error('[handleFrameImageUpload] 上传出错', error);

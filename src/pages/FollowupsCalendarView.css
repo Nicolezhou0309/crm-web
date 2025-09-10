@@ -205,11 +205,6 @@
   }
 }
 
-/* 加载状态样式 */
-.ant-spin-container {
-  min-height: 400px;
-}
-
 /* 日历网格样式优化 */
 .ant-picker-calendar {
   background: white;

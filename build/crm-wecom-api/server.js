@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3001;
 // 中间件配置
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'https://lead.vld.com.cn',
   credentials: true
 }));
 app.use(express.json());
@@ -300,7 +300,7 @@ app.listen(PORT, () => {
   console.log(`  企业ID: ${WECOM_CONFIG.corpId}`);
   console.log(`  应用ID: ${WECOM_CONFIG.agentId}`);
   console.log(`  回调地址: ${WECOM_CONFIG.redirectUri}`);
-  console.log(`  前端地址: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  console.log(`  前端地址: ${process.env.FRONTEND_URL || 'https://lead.vld.com.cn'}`);
 });
 
 module.exports = app;

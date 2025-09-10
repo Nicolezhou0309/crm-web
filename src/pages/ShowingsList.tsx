@@ -16,7 +16,6 @@ import {
   InputNumber,
   Tooltip,
   Drawer,
-  Upload,
 } from 'antd';
 import { 
   EditOutlined,
@@ -28,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import LeadDetailDrawer from '../components/LeadDetailDrawer';
 import ShowingConversionRate from '../components/ShowingConversionRate';
+import MultiImageUpload from '../components/MultiImageUpload';
 import { 
   type Showing,
   type ShowingFilters
@@ -260,17 +260,15 @@ const ShowingsList: React.FC = () => {
 
   // 使用服务层的回退理由选项
 
-  // 处理回退证据上传
-  const handleRollbackEvidenceUpload = async (file: File) => {
-    const options = {
-      maxSizeMB: 0.5,
-      maxWidthOrHeight: 1280,
-      useWebWorker: true,
-    };
-    const compressedFile = await imageCompression(file, options);
-    const preview = URL.createObjectURL(compressedFile);
-    setRollbackEvidenceList(prev => [...prev, { file: compressedFile, preview, name: file.name }]);
-    return false; // 阻止默认上传行为
+  // 处理回退证据上传成功
+  const handleRollbackEvidenceUploadSuccess = (urls: string[]) => {
+    // 这里可以处理上传成功后的逻辑
+    console.log('回退证据上传成功:', urls);
+  };
+
+  const handleRollbackEvidenceUploadError = (error: string) => {
+    console.error('回退证据上传失败:', error);
+    message.error('上传失败: ' + error);
   };
 
   // 清理预览URL的函数
@@ -1595,30 +1593,26 @@ const ShowingsList: React.FC = () => {
           <div style={{ marginBottom: 8, fontWeight: 400 }}>
             <span style={{ color: '#ff4d4f' }}>*</span> 回退证据
           </div>
-          <Upload
-            listType="picture-card"
-            fileList={rollbackEvidenceList.map((item, idx) => ({
-              uid: idx.toString(),
-              name: item.name,
-              status: 'done' as any,
-              url: item.preview,
-              thumbUrl: item.preview,
-            }))}
-            beforeUpload={handleRollbackEvidenceUpload}
-            onRemove={(file) => {
-              const index = parseInt(file.uid);
-              handleRemoveRollbackEvidence(index);
+          <MultiImageUpload
+            bucket="rollback-evidence"
+            filePathPrefix="showings"
+            onUploadSuccess={handleRollbackEvidenceUploadSuccess}
+            onUploadError={handleRollbackEvidenceUploadError}
+            enableCompression={true}
+            compressionOptions={{
+              maxSizeMB: 0.1,        // 高压缩率：0.1MB
+              maxWidthOrHeight: 800, // 高压缩率：800px
+              useWebWorker: true
             }}
+            accept="image/jpeg,image/png"
             maxCount={5}
-          >
-            <div>
-              <UploadOutlined />
-              <div style={{ marginTop: 8 }}>上传</div>
-            </div>
-          </Upload>
-          <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
-            支持jpg、png格式，最多5张，每张不超过500KB
-          </div>
+            maxSize={0.5}
+            buttonText="上传"
+            buttonIcon={<UploadOutlined />}
+            previewWidth={120}
+            previewHeight={120}
+            currentImages={rollbackEvidenceList.map(item => item.preview)}
+          />
         </div>
         
         <div style={{ padding: 12, background: '#fff7e6', borderRadius: 6, border: '1px solid #ffd591' }}>

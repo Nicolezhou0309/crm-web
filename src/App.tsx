@@ -4,6 +4,7 @@ import {
   UserOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
+import { useVersionCheck, VersionUpdateModal } from './hooks/useVersionCheck';
 import LottieLogo from './components/LottieLogo';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import LeadsList from './pages/LeadsList';
@@ -60,6 +61,8 @@ import LiveStreamRegistration from './pages/LiveStreamRegistration';
 import LiveStreamManagement from './pages/LiveStreamManagement';
 import MetroDistanceCalculatorPage from './pages/MetroDistanceCalculatorPage';
 import WecomCallback from './pages/WecomCallback';
+import MagicLinkCallback from './pages/MagicLinkCallback';
+import ProfileSetupModal from './components/ProfileSetupModal';
 
 
 
@@ -171,11 +174,20 @@ const App: React.FC = () => {
 const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile } = useUser();
+  const { profile, avatarUrl, userPoints, avatarLoading, refreshAvatar } = useUser();
   const { logout } = useAuth();
   const { hasRole, isSuperAdmin } = useRolePermissions();
   const [collapsed, setCollapsed] = React.useState(false);
   const [siderWidth] = React.useState(220);
+  
+  // 版本检查
+  const { 
+    versionInfo, 
+    showUpdateModal, 
+    forceRefresh, 
+    ignoreUpdate, 
+    setShowUpdateModal 
+  } = useVersionCheck();
   const minSiderWidth = 56;
 
   // 检查是否为admin角色
@@ -274,11 +286,7 @@ const AppContent: React.FC = () => {
   //   }
   // }, [location]);
   
-  // 头像状态管理
-  const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined);
-  const [avatarLoading, setAvatarLoading] = React.useState(true);
-  // 用户积分状态管理
-  const [userPoints, setUserPoints] = React.useState<number>(0);
+  // 移除重复的状态管理，现在使用UserContext统一管理
   const [profileId, setProfileId] = React.useState<number | null>(null);
 
   
@@ -305,6 +313,19 @@ const AppContent: React.FC = () => {
   
   // 详细通知抽屉状态
   const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
+  
+  // 用户信息设置弹窗状态
+  const [profileSetupVisible, setProfileSetupVisible] = React.useState(false);
+
+  // 处理用户信息设置完成
+  const handleProfileSetupComplete = () => {
+    setProfileSetupVisible(false);
+    // 刷新用户信息
+    if (profile?.user_id) {
+      // 触发UserContext重新获取用户信息
+      window.dispatchEvent(new CustomEvent('profile_updated'));
+    }
+  };
 
   // 成就系统 - 必须在所有条件渲染之前调用
   const { getEquippedAvatarFrame } = useAchievements();
@@ -312,41 +333,22 @@ const AppContent: React.FC = () => {
   // 兼容icon_url字段和frame_data.icon_url
   const frameUrl = (equippedFrame && (equippedFrame as any).icon_url) || equippedFrame?.frame_data?.icon_url;
 
-  // 获取头像URL的函数
-  const fetchAvatar = React.useCallback(async () => {
-    setAvatarLoading(true);
-    if (profile?.avatar_url) {
-      setAvatarUrl(profile.avatar_url);
-    } else {
-      setAvatarUrl(undefined);
-    }
-    setAvatarLoading(false);
-  }, [profile]);
+  // 移除重复的fetchAvatar函数，现在使用UserContext统一管理
 
-  // 获取用户积分信息
-  const loadUserPoints = React.useCallback(async (id: number) => {
-    try {
-      const data = await getUserPointsInfo(id);
-      setUserPoints(data.wallet.total_points || 0);
-    } catch (err) {
-      console.error('获取用户积分失败:', err);
-    }
-  }, []);
+  // 移除重复的loadUserPoints函数，现在使用UserContext统一管理
 
   // 监听头像刷新事件
   React.useEffect(() => {
-    fetchAvatar();
-    
     // 监听 localStorage 事件
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'avatar_refresh_token') {
-        fetchAvatar();
+        refreshAvatar();
       }
     };
     
     // 监听 window 自定义事件
     const handleAvatarRefresh = () => {
-      fetchAvatar();
+      refreshAvatar();
     };
     
     window.addEventListener('storage', handleStorage);
@@ -356,20 +358,29 @@ const AppContent: React.FC = () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('avatar_refresh_token', handleAvatarRefresh);
     };
-  }, [fetchAvatar]);
+  }, [refreshAvatar]);
 
-  // 获取用户ID和积分
+  // 判断是否为公开页面（不需要登录）
+  const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password' || location.pathname === '/auth/wecom/callback' || location.pathname === '/auth/callback';
+
+  // 获取用户ID
   React.useEffect(() => {
     if (profile?.id) {
       setProfileId(profile.id);
     }
   }, [profile]);
-  
+
+  // 检查用户信息是否完整
   React.useEffect(() => {
-    if (profileId) {
-      loadUserPoints(profileId);
+    if (profile && !isPublicPage) {
+      const needsSetup = !profile.nickname || !profile.organization_id;
+      if (needsSetup) {
+        setProfileSetupVisible(true);
+      }
     }
-  }, [profileId, loadUserPoints]);
+  }, [profile, isPublicPage]);
+  
+  // 移除重复的积分加载逻辑，现在由UserContext统一管理
 
   // 自动解锁音频播放权限
   React.useEffect(() => {
@@ -404,9 +415,6 @@ const AppContent: React.FC = () => {
   //   return match;
   // })();
 
-  // 判断是否为公开页面（不需要登录）
-  const isPublicPage = location.pathname === '/login' || location.pathname === '/set-password' || location.pathname === '/auth/wecom/callback';
-
   // 公开页面（登录页面和设置密码页面）不需要用户认证，直接渲染
   if (isPublicPage) {
     return (
@@ -414,6 +422,7 @@ const AppContent: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/set-password" element={<SetPassword />} />
           <Route path="/auth/wecom/callback" element={<WecomCallback />} />
+          <Route path="/auth/callback" element={<MagicLinkCallback />} />
         </Routes>
     );
   }
@@ -748,8 +757,8 @@ const AppContent: React.FC = () => {
                         background: '#fff',
                         zIndex: 1,
                       }}
-                      onLoad={() => setAvatarLoading(false)}
-                      onError={() => setAvatarLoading(false)}
+                      onLoad={() => {}}
+                      onError={() => {}}
                     />
                   </Badge>
                 ) : (
@@ -928,6 +937,22 @@ const AppContent: React.FC = () => {
         
         {/* 移动端底部菜单 - 只在手机端显示 */}
         {isMobile && <MobileTabBar />}
+        
+        {/* 版本更新提示模态框 */}
+        <VersionUpdateModal
+          visible={showUpdateModal}
+          versionInfo={versionInfo}
+          onRefresh={forceRefresh}
+          onIgnore={ignoreUpdate}
+          onCancel={() => setShowUpdateModal(false)}
+        />
+        
+        {/* 用户信息设置弹窗 */}
+        <ProfileSetupModal
+          visible={profileSetupVisible}
+          onComplete={handleProfileSetupComplete}
+          userProfile={profile}
+        />
         
       </div>
     </ConfigProvider>

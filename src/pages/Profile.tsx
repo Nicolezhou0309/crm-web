@@ -12,9 +12,9 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   UploadOutlined} from '@ant-design/icons';
-import ImgCrop from 'antd-img-crop';
-import imageCompression from 'browser-image-compression';
+// 已迁移到ImageUpload组件，不再需要直接导入
 import { useUser } from '../context/UserContext';
+import ImageUpload from '../components/ImageUpload';
 import { useAuth } from '../hooks/useAuth';
 import { tokenManager } from '../utils/tokenManager';
 import { supabase } from '../supaClient';
@@ -28,14 +28,13 @@ const Profile = () => {
   const [emailForm] = Form.useForm();
   const [email, setEmail] = useState('');
   const [department] = useState<string>('');
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarModal, setAvatarModal] = useState(false);
   const [avatarTs, setAvatarTs] = useState<number>(Date.now());
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  // 移除loadingProfile状态，现在使用UserContext的avatarLoading
   
   // 使用UserContext获取用户信息
-  const { user } = useUser();
+  const { user, avatarUrl, avatarLoading, refreshAvatar } = useUser();
   const { logout: authLogout } = useAuth();
 
   // 新增：user变化时自动同步email
@@ -44,6 +43,13 @@ const Profile = () => {
       setEmail(user.email);
     }
   }, [user]);
+
+  // 新增：avatarUrl变化时更新avatarTs，确保头像刷新
+  useEffect(() => {
+    if (avatarUrl) {
+      setAvatarTs(Date.now());
+    }
+  }, [avatarUrl]);
 
   // 使用角色权限Hook
   const { 
@@ -60,30 +66,8 @@ const Profile = () => {
   const { avatarFrames, getEquippedAvatarFrame, equipAvatarFrame } = useAchievements();
   const equippedFrame = getEquippedAvatarFrame();
 
-  // 1. fetchAll 提到组件作用域外部，且只查 avatar_url 字段
-  const fetchAll = async () => {
-    setLoadingProfile(true);
-    if (!user) {
-      setLoadingProfile(false);
-      return;
-    }
-    const { data: profileData } = await supabase
-      .from('users_profile')
-      .select('avatar_url, updated_at')
-      .eq('user_id', user.id)
-      .single();
-    setAvatarUrl(profileData?.avatar_url || null);
-    setAvatarTs(profileData?.updated_at ? toBeijingTime(profileData.updated_at).valueOf() : Date.now());
-    setLoadingProfile(false);
-  };
-
-  // 并行获取用户信息、部门、头像
-  useEffect(() => {
-    if (user) {
-      fetchAll();
-    }
-    // 移除 nameForm 依赖
-  }, [user]);
+  // 移除重复的fetchAll函数，现在使用UserContext统一管理头像
+  // 头像信息现在由UserContext统一提供，无需重复请求
 
   // 监听email变化，同步到邮箱表单
   useEffect(() => {
@@ -98,23 +82,20 @@ const Profile = () => {
   // 获取权限按分类分组
   const permissionsByCategory = getPermissionsByCategory();
 
-  // 头像上传处理
-  const handleAvatarUpload = async (info: any) => {
+  // 头像上传处理 - 使用新的ImageUpload组件
+  const handleAvatarUploadSuccess = async (url: string) => {
     if (!user) {
       message.error('用户信息获取失败');
       return;
     }
-    
-    if (info.file.status === 'uploading') {
-      setAvatarUploading(true);
-      return;
-    }
-    if (info.file.status === 'done') {
-      const file = info.file.originFileObj;
-      const fileExt = file.name.split('.').pop();
-      const filePath = `user_${user.id}_${Date.now()}.${fileExt}`;
 
-      // 1. 获取旧头像URL
+    try {
+      setAvatarUploading(true);
+
+      // 1. 立即更新本地缓存 - 优先显示新头像
+      setAvatarTs(Date.now());
+      
+      // 2. 获取旧头像URL
       const { data: profile } = await supabase
         .from('users_profile')
         .select('avatar_url')
@@ -122,48 +103,75 @@ const Profile = () => {
         .single();
       const oldAvatarUrl = profile?.avatar_url;
 
-      // 2. 上传新头像
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-      if (uploadError) {
-        message.error('头像上传失败');
-        setAvatarUploading(false);
-        return;
-      }
-      // 3. 获取新头像URL
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      const publicUrl = data?.publicUrl;
-      // 4. 更新profile表
+      // 3. 更新profile表
       const { error: updateError } = await supabase
         .from('users_profile')
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: url })
         .eq('user_id', user.id);
+      
       if (updateError) {
         message.error('头像保存失败');
-        setAvatarUploading(false);
         return;
       }
-      // 5. 删除旧头像（如果有且是 avatars bucket 下的文件）
-      if (oldAvatarUrl && oldAvatarUrl.includes('/avatars/')) {
-        const urlParts = oldAvatarUrl.split('/');
-        const oldFilePath = urlParts[urlParts.length - 1];
-        if (oldFilePath) {
-          const { error } = await supabase.storage.from('avatars').remove([oldFilePath]);
-          if (error) {
-            console.error('删除旧头像失败:', error);
-          }
-        } else {
-          console.warn('无法解析旧头像路径');
-        }
-      }
-      await fetchAll(); // 上传后刷新头像
-      setAvatarUploading(false);
-      message.success('头像上传成功');
+
+      // 4. 立即强制刷新UserContext中的头像缓存 - 确保全局状态同步
+      await refreshAvatar(true);
+      
+      // 5. 通知其他组件刷新
       localStorage.setItem('avatar_refresh_token', Date.now().toString());
       window.dispatchEvent(new Event('avatar_refresh_token'));
-      // 移除refreshUser调用，避免不必要的全局状态更新
+
+      // 6. 删除旧头像（支持OSS和Supabase Storage）- 异步处理，不阻塞UI
+      if (oldAvatarUrl) {
+        // 使用setTimeout确保UI更新优先
+        setTimeout(async () => {
+          try {
+            // 检查是否为OSS文件
+            if (oldAvatarUrl.includes('vlinker-crm.oss-cn-shanghai.aliyuncs.com')) {
+              // OSS文件删除
+              const { deleteImage } = await import('../utils/ossUploadUtils');
+              // 提取文件路径，移除域名和查询参数
+              const url = new URL(oldAvatarUrl);
+              const oldFilePath = url.pathname.substring(1); // 移除开头的 '/'
+              console.log('🗑️ 准备删除OSS文件:', oldFilePath);
+              const result = await deleteImage(oldFilePath);
+              if (!result.success) {
+                console.error('删除OSS旧头像失败:', result.error);
+              } else {
+                console.log('✅ OSS旧头像删除成功');
+              }
+            } else if (oldAvatarUrl.includes('/avatars/')) {
+              // Supabase Storage文件删除
+              const urlParts = oldAvatarUrl.split('/');
+              const oldFilePath = urlParts[urlParts.length - 1];
+              if (oldFilePath) {
+                const { error } = await supabase.storage.from('avatars').remove([oldFilePath]);
+                if (error) {
+                  console.error('删除Supabase旧头像失败:', error);
+                } else {
+                  console.log('✅ Supabase旧头像删除成功');
+                }
+              }
+            } else {
+              console.warn('无法识别旧头像存储类型:', oldAvatarUrl);
+            }
+          } catch (deleteError) {
+            console.error('删除旧头像异常:', deleteError);
+          }
+        }, 100);
+      }
+      
+    } catch (error) {
+      console.error('头像保存失败:', error);
+      message.error('头像保存失败');
+    } finally {
+      setAvatarUploading(false);
     }
+  };
+
+  const handleAvatarUploadError = (error: string) => {
+    console.error('头像上传失败:', error);
+    setAvatarUploading(false);
   };
 
   // 切换装备头像框
@@ -171,7 +179,7 @@ const Profile = () => {
     try {
       await equipAvatarFrame(frameId ?? ''); // 取消装备时传空字符串
       message.success(frameId ? '头像框已装备' : '已恢复默认头像框');
-      await fetchAll(); // 立即刷新本地
+      await refreshAvatar(); // 立即刷新本地
       localStorage.setItem('avatar_refresh_token', Date.now().toString());
       window.dispatchEvent(new Event('avatar_refresh_token'));
     } catch (e) {
@@ -228,78 +236,89 @@ const Profile = () => {
     <div style={{ maxWidth: 800, margin: '40px auto', padding: '0 20px' }}>
       {/* 头像+头像框预览+上传 */}
       <Card title="我的头像" style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-          <div style={{ width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Avatar
-              size={80}
-              src={(!loadingProfile && avatarUrl) ? `${avatarUrl}?t=${avatarTs}` : undefined}
-              style={{
-                backgroundColor: '#1890ff',
-                border: '2px solid #fff',
-                objectFit: 'cover',
-              }}
-              icon={<UserOutlined />}
-              onClick={async () => {
-                if (supabase && user) {
-                  const { data: profileData } = await supabase
-                    .from('users_profile')
-                    .select('avatar_url')
-                    .eq('user_id', user.id)
-                    .single();
-                  if (profileData?.avatar_url) {
-                    setAvatarUrl(profileData.avatar_url);
-                  }
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+          {/* 头像显示区域 */}
+          <div 
+            style={{ width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            onClick={async () => {
+              if (supabase && user) {
+                const { data: profileData } = await supabase
+                  .from('users_profile')
+                  .select('avatar_url')
+                  .eq('user_id', user.id)
+                  .single();
+                if (profileData?.avatar_url) {
+                  // 头像URL现在由UserContext统一管理，无需手动设置
                 }
-                setAvatarModal(true);
-              }}
-            />
-          </div>
-          <div>
-            <ImgCrop
-              cropShape="round"
-              aspect={1}
-              quality={1}
-              showGrid={false}
-              showReset
-              modalTitle="裁剪头像"
-            >
-              <Upload
-                showUploadList={false}
-                accept="image/png,image/jpeg,image/jpg"
-                disabled={avatarUploading}
-                beforeUpload={async (file) => {
-                  const options = {
-                    maxSizeMB: 1,
-                    maxWidthOrHeight: 1024,
-                    useWebWorker: true,
-                  };
-                  try {
-                    const compressedFile = await imageCompression(file, options);
-                    await handleAvatarUpload({ file: { status: 'done', originFileObj: compressedFile } });
-                    return false;
-                  } catch (e) {
-                    const errMsg = (e && typeof e === 'object' && 'message' in e) ? (e as Error).message : String(e); 
-                    message.error('图片压缩失败: ' + errMsg);
-                    return false;
-                  }
+              }
+              setAvatarModal(true);
+            }}
+          >
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="用户头像"
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  backgroundColor: '#1890ff',
+                  border: '2px solid #fff',
                 }}
-              >
-                <Button icon={<UploadOutlined />} loading={avatarUploading}>
-                  更换头像
-                </Button>
-              </Upload>
-            </ImgCrop>
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : (
+              <Avatar
+                size={80}
+                style={{
+                  backgroundColor: '#1890ff',
+                  border: '2px solid #fff',
+                }}
+                icon={<UserOutlined />}
+              />
+            )}
+          </div>
+          
+          {/* 上传按钮区域 */}
+          <div>
+            <ImageUpload
+              bucket="avatars"
+              filePath={`user_${user?.id}_${Date.now()}.jpg`}
+              onUploadSuccess={handleAvatarUploadSuccess}
+              onUploadError={handleAvatarUploadError}
+              enableCrop={true}
+              cropShape="round"
+              cropAspect={1}
+              cropQuality={1}
+              cropTitle="裁剪头像"
+              showCropGrid={false}
+              showCropReset={true}
+              compressionOptions={{
+                maxSizeMB: 1,
+                maxWidthOrHeight: 1024,
+                useWebWorker: true
+              }}
+              accept="image/png,image/jpeg,image/jpg"
+              buttonText="更换头像"
+              buttonIcon={<UploadOutlined />}
+              showPreview={false}
+              currentImageUrl={avatarUrl || undefined}
+              loading={avatarUploading}
+            />
           </div>
         </div>
         {/* 大图预览 */}
         <Modal open={avatarModal} onCancel={() => setAvatarModal(false)} footer={null}>
-          <img src={avatarUrl ? `${avatarUrl}?t=${avatarTs}` : ''} alt="头像预览" style={{ width: '100%' }} />
+          <img src={avatarUrl || ''} alt="头像预览" style={{ width: '100%' }} />
         </Modal>
       </Card>
 
       {/* 头像框系统 */}
       <Card title="我的头像框" style={{ marginBottom: 24 }}>
-        {loadingProfile || !user ? (
+        {avatarLoading || !user ? (
           <LoadingScreen type="profile" />
         ) : (
           <div>

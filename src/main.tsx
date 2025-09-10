@@ -21,6 +21,10 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import './fonts.css'
 import App from './App.tsx'
+import { cacheManager } from './utils/cacheManager'
+
+// 初始化缓存管理器，检查版本更新
+cacheManager.checkForUpdates();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

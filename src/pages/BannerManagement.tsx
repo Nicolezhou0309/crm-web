@@ -3,8 +3,9 @@ import { Table, Button, Modal, Form, Input, Switch, InputNumber, Upload, message
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import { fetchBanners, fetchBannersByPageType, createBanner, updateBanner, deleteBanner } from '../api/bannersApi';
 import { supabase } from '../supaClient';
-import ImgCrop from 'antd-img-crop';
+// 已迁移到ImageUpload组件，不再需要直接导入
 import { toBeijingTime } from '../utils/timeUtils';
+import ImageUpload from '../components/ImageUpload';
 
 interface Banner {
   id?: number;
@@ -18,59 +19,7 @@ interface Banner {
   jump_target?: string;
 }
 
-// 3x精度压缩图片
-async function compressImageTo3x(file: File, pageType: string): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      
-      // 根据页面类型设置不同的3x尺寸
-      let targetWidth, targetHeight, targetRatio;
-      if (pageType === 'live_stream_registration') {
-        targetWidth = 5760; // 1920 * 3
-        targetHeight = 600;  // 200 * 3
-        targetRatio = 9.6; // 5760/600
-      } else {
-        // 默认首页3x尺寸
-        targetWidth = 5760; // 1920 * 3
-        targetHeight = 1500; // 500 * 3
-        targetRatio = 3.84; // 5760/1500
-      }
-      
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject('canvas context error');
-      
-      // 填充白底
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // 计算目标区域
-      let sx = 0, sy = 0, sw = img.width, sh = img.height;
-      const imgRatio = img.width / img.height;
-      
-      if (imgRatio > targetRatio) {
-        // 图片太宽，裁掉两边
-        sw = img.height * targetRatio;
-        sx = (img.width - sw) / 2;
-      } else if (imgRatio < targetRatio) {
-        // 图片太高，裁掉上下
-        sh = img.width / targetRatio;
-        sy = (img.height - sh) / 2;
-      }
-      
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(blob => {
-        if (blob) resolve(blob);
-        else reject('canvas toBlob error');
-      }, 'image/jpeg', 0.92);
-    };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
-  });
-}
+// 3x精度压缩功能已迁移到ImageUpload组件中
 
 const BannerManagement: React.FC = () => {
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -202,24 +151,14 @@ const BannerManagement: React.FC = () => {
     }
   };
 
-  // Supabase Storage 上传图片，使用3x精度压缩
-  const beforeUpload = async (file: File) => {
-    setUploading(true);
-    try {
-      // 使用3x精度压缩
-      const blob = await compressImageTo3x(file, activeTab);
-      const fileExt = 'jpg';
-      const filePath = `banner/${toBeijingTime(new Date()).valueOf()}.${fileExt}`;
-      const { error } = await supabase.storage.from('banners').upload(filePath, blob, { upsert: true, contentType: 'image/jpeg' });
-      if (error) throw error;
-      const { data: publicUrlData } = supabase.storage.from('banners').getPublicUrl(filePath);
-      setImageUrl(publicUrlData.publicUrl);
-      message.success('上传成功');
-    } catch (e) {
-      message.error('上传失败');
-    }
-    setUploading(false);
-    return false;
+  // 横幅上传成功处理
+  const handleBannerUploadSuccess = (url: string) => {
+    setImageUrl(url);
+    message.success('上传成功');
+  };
+
+  const handleBannerUploadError = (error: string) => {
+    message.error('上传失败: ' + error);
   };
 
   const columns = [
@@ -304,24 +243,31 @@ const BannerManagement: React.FC = () => {
             <Input placeholder="如 https://example.com 或 /internal/page" />
           </Form.Item>
           {/* 图片上传项不加 name，只做展示和上传按钮 */}
-                      <Form.Item label={`图片（${activeTab === 'live_stream_registration' ? '3x精度5760x600' : '3x精度5760x1500'}，支持裁剪）`}>
-              <ImgCrop 
-                aspect={activeTab === 'live_stream_registration' ? 9.6 : 3.84} 
-                quality={1} 
-                modalTitle={`裁剪图片为${activeTab === 'live_stream_registration' ? '5760x600' : '5760x1500'}比例`}  
-              showGrid
-            >
-              <Upload
-                name="file"
-                showUploadList={false}
-                accept="image/*"
-                beforeUpload={beforeUpload}
-                disabled={uploading}
-              >
-                <Button icon={<UploadOutlined />} loading={uploading}>上传图片</Button>
-              </Upload>
-            </ImgCrop>
-            {imageUrl && <Image src={imageUrl} width={240} style={{ marginTop: 8 }} />}
+          <Form.Item label={`图片（${activeTab === 'live_stream_registration' ? '3x精度5760x600' : '3x精度5760x1500'}，支持裁剪）`}>
+            <ImageUpload
+              bucket="banners"
+              filePath={`banner/${toBeijingTime(new Date()).valueOf()}.jpg`}
+              onUploadSuccess={handleBannerUploadSuccess}
+              onUploadError={handleBannerUploadError}
+              enableCrop={true}
+              cropShape="rect"
+              cropAspect={activeTab === 'live_stream_registration' ? 9.6 : 3.84}
+              cropQuality={1}
+              cropTitle={`裁剪图片为${activeTab === 'live_stream_registration' ? '5760x600' : '5760x1500'}比例`}
+              showCropGrid={true}
+              compressionOptions={{
+                maxSizeMB: 1,          // 中等压缩：1MB
+                maxWidthOrHeight: activeTab === 'live_stream_registration' ? 3840 : 3840, // 中等压缩：2x精度
+                useWebWorker: true
+              }}
+              accept="image/*"
+              buttonText="上传图片"
+              buttonIcon={<UploadOutlined />}
+              previewWidth={240}
+              previewHeight={activeTab === 'live_stream_registration' ? 25 : 63}
+              currentImageUrl={imageUrl || undefined}
+              loading={uploading}
+            />
           </Form.Item>
         </Form>
       </Modal>

@@ -37,15 +37,12 @@
 
 ## 🔧 配置要求
 
-### 1. 环境变量配置
-创建 `.env.local` 文件（基于 `env.wecom.example`）：
+### 1. 前端配置
+前端只需要配置后端API地址：
 
 ```bash
-# 企业微信应用配置
-REACT_APP_WECOM_CORP_ID=ww68a125fce698cb59
-REACT_APP_WECOM_AGENT_ID=1000002
-REACT_APP_WECOM_SECRET=your_wecom_secret_here
-REACT_APP_WECOM_REDIRECT_URI=http://localhost:3000/auth/wecom/callback
+# 后端API配置
+VITE_API_BASE_URL=https://yourdomain.com/api
 ```
 
 ### 2. 路由配置
@@ -56,7 +53,10 @@ REACT_APP_WECOM_REDIRECT_URI=http://localhost:3000/auth/wecom/callback
 <Route path="/auth/wecom/callback" element={<WecomCallback />} />
 ```
 
-### 3. 企业微信应用配置
+### 3. 后端配置
+企业微信的敏感配置（CORP_ID、AGENT_ID、SECRET）现在完全在后端处理，前端不涉及任何企业微信的敏感信息。
+
+### 4. 企业微信应用配置
 在企业微信管理后台配置：
 - 授权回调域：`yourdomain.com`
 - 网页授权：`https://yourdomain.com/auth/wecom/callback`
@@ -72,9 +72,8 @@ REACT_APP_WECOM_REDIRECT_URI=http://localhost:3000/auth/wecom/callback
 
 ### 2. 开发者测试
 ```bash
-# 1. 配置环境变量
-cp env.wecom.example .env.local
-# 编辑 .env.local 填入实际配置
+# 1. 配置后端API地址
+# 在 .env.local 中设置 VITE_API_BASE_URL
 
 # 2. 启动开发服务器
 npm run dev
@@ -134,7 +133,8 @@ npm run dev
 
 ### 3. 数据安全
 - 企业微信Secret仅在后端使用
-- 前端不存储敏感信息
+- 前端不存储任何企业微信敏感信息
+- 所有企业微信配置都在后端处理
 - 使用HTTPS传输所有数据
 
 ## 📈 后续优化建议

@@ -36,8 +36,8 @@ chmod +x aliyun-existing-env-deploy.sh
 pm2 status
 
 # 测试API
-curl https://lead-service.vld.com.cn/api/health
-curl https://lead-service.vld.com.cn/api/auth/wecom/qrcode
+curl https://lead.vld.com.cn/api/health
+curl https://lead.vld.com.cn/api/auth/wecom/qrcode
 ```
 
 ## ✅ 预期结果

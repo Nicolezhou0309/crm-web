@@ -227,10 +227,13 @@ const WorkLocationPicker: React.FC<WorkLocationPickerProps> = ({ options, value,
         onClose={() => setVisible(false)}
         onConfirm={(val, extend) => {
           try {
-            if (val && val.length > 0) {
+            // 清理可能存在的循环引用
+            const safeVal = JSON.parse(JSON.stringify(val || []));
+            
+            if (safeVal && safeVal.length > 0) {
               // 工作地点级联选择器的值结构：[线路, 站点]
               // 根据业务逻辑，保存站点名称（最后一级）
-              const selectedValue = val[val.length - 1];
+              const selectedValue = safeVal[safeVal.length - 1];
               
               // 验证选中的值是否有效
               if (selectedValue && typeof selectedValue === 'string') {
@@ -791,14 +794,9 @@ export const MobileFollowupStageForm: React.FC<MobileFollowupStageFormProps> = (
   // 获取当前阶段需要的字段
   const currentFields = stageFields[stage] || [];
   
-  // 如果没有字段，显示提示信息
+  // 如果没有字段，返回null以保持移动端布局简洁
   if (currentFields.length === 0) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px 20px', color: '#999' }}>
-        <p>当前阶段无需填写额外信息</p>
-        <p>点击"下一步"继续推进</p>
-      </div>
-    );
+    return null;
   }
 
   // 渲染移动端字段

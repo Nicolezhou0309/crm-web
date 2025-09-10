@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supaClient';
 import { Card, Button, Input, Select, message, Space, Divider, Typography, Upload, Image } from 'antd';
 import { ReloadOutlined, SaveOutlined, EyeOutlined, UploadOutlined } from '@ant-design/icons';
-import ImgCrop from 'antd-img-crop';
-import imageCompression from 'browser-image-compression';
+// 已迁移到ImageUpload组件，不再需要直接导入
+import ImageUpload from './ImageUpload';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -218,37 +218,28 @@ export const AchievementIconManager: React.FC<IconManagerProps> = ({ onIconUpdat
     }
   };
 
-  const handleImageUpload = async (file: File, type: 'achievement' | 'badge', id: string) => {
+  // 成就图标上传成功处理
+  const handleAchievementImageUploadSuccess = async (url: string, type: 'achievement' | 'badge', id: string) => {
     try {
-      // 这里应该上传到您的文件存储服务（如Supabase Storage）
-      // 示例：上传到Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${type}-${id}-${Date.now()}.${fileExt}`;
-      const filePath = `achievement-icons/${fileName}`;
-
-      const { error } = await supabase.storage
-        .from('achievement-icons')
-        .upload(filePath, file);
-
-      if (error) throw error;
-
-      // 获取公共URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('achievement-icons')
-        .getPublicUrl(filePath);
-
+      const fileName = url.split('/').pop() || `${type}-${id}-${Date.now()}.png`;
+      
       // 更新数据库
       if (type === 'achievement') {
-        await updateAchievementIcon(id, fileName, 'png', publicUrl);
+        await updateAchievementIcon(id, fileName, 'png', url);
       } else {
-        await updateBadgeIcon(id, fileName, 'png', publicUrl);
+        await updateBadgeIcon(id, fileName, 'png', url);
       }
 
       message.success('图片上传成功');
     } catch (error) {
-      console.error('图片上传失败:', error);
-      message.error('图片上传失败');
+      console.error('图片保存失败:', error);
+      message.error('图片保存失败');
     }
+  };
+
+  const handleImageUploadError = (error: string) => {
+    console.error('图片上传失败:', error);
+    message.error('图片上传失败: ' + error);
   };
 
   const renderIcon = (item: Achievement | Badge) => {
@@ -406,43 +397,32 @@ export const AchievementIconManager: React.FC<IconManagerProps> = ({ onIconUpdat
 
                     {/* 图片上传 */}
                     {achievement.icon_type !== 'emoji' && (
-                      <ImgCrop
+                      <ImageUpload
+                        bucket="achievement-icons"
+                        filePath={`achievements/${achievement.id}-${Date.now()}.png`}
+                        onUploadSuccess={(url) => handleAchievementImageUploadSuccess(url, 'achievement', achievement.id)}
+                        onUploadError={handleImageUploadError}
+                        enableCrop={true}
                         cropShape="round"
-                        aspect={1}
-                        quality={1}
-                        showGrid={false}
-                        showReset
-                        modalTitle="裁剪图标"
-                      >
-                        <Upload
-                          accept="image/*"
-                          showUploadList={false}
-                          beforeUpload={async (file) => {
-                            const options = {
-                              maxSizeMB: 0.2,
-                              maxWidthOrHeight: 128,
-                              useWebWorker: true,
-                            };
-                            try {
-                              const compressedFile = await imageCompression(file, options);
-                              await handleImageUpload(compressedFile, 'achievement', achievement.id);
-                              return false;
-                            } catch (e) {
-                              console.error('图片压缩失败:', e);
-                              message.error('图片压缩失败');
-                              return false;
-                            }
-                          }}
-                        >
-                          <Button 
-                            icon={<UploadOutlined />} 
-                            size="small"
-                            style={{ width: '100%', marginBottom: '5px' }}
-                          >
-                            上传图片
-                          </Button>
-                        </Upload>
-                      </ImgCrop>
+                        cropAspect={1}
+                        cropQuality={1}
+                        cropTitle="裁剪图标"
+                        showCropGrid={false}
+                        showCropReset={true}
+                        compressionOptions={{
+                          maxSizeMB: 0.2,
+                          maxWidthOrHeight: 128,
+                          useWebWorker: true
+                        }}
+                        accept="image/*"
+                        buttonText="上传图片"
+                        buttonIcon={<UploadOutlined />}
+                        buttonSize="small"
+                        previewWidth={64}
+                        previewHeight={64}
+                        currentImageUrl={achievement.icon_url}
+                        style={{ width: '100%', marginBottom: '5px' }}
+                      />
                     )}
 
                     {/* 图标建议 */}
@@ -531,43 +511,32 @@ export const AchievementIconManager: React.FC<IconManagerProps> = ({ onIconUpdat
 
                     {/* 图片上传 */}
                     {badge.icon_type !== 'emoji' && (
-                      <ImgCrop
+                      <ImageUpload
+                        bucket="achievement-icons"
+                        filePath={`badges/${badge.id}-${Date.now()}.png`}
+                        onUploadSuccess={(url) => handleAchievementImageUploadSuccess(url, 'badge', badge.id)}
+                        onUploadError={handleImageUploadError}
+                        enableCrop={true}
                         cropShape="round"
-                        aspect={1}
-                        quality={1}
-                        showGrid={false}
-                        showReset
-                        modalTitle="裁剪图标"
-                      >
-                        <Upload
-                          accept="image/*"
-                          showUploadList={false}
-                          beforeUpload={async (file) => {
-                            const options = {
-                              maxSizeMB: 0.2,
-                              maxWidthOrHeight: 128,
-                              useWebWorker: true,
-                            };
-                            try {
-                              const compressedFile = await imageCompression(file, options);
-                              await handleImageUpload(compressedFile, 'badge', badge.id);
-                              return false;
-                            } catch (e) {
-                              console.error('图片压缩失败:', e);
-                              message.error('图片压缩失败');
-                              return false;
-                            }
-                          }}
-                        >
-                          <Button 
-                            icon={<UploadOutlined />} 
-                            size="small"
-                            style={{ width: '100%', marginBottom: '5px' }}
-                          >
-                            上传图片
-                          </Button>
-                        </Upload>
-                      </ImgCrop>
+                        cropAspect={1}
+                        cropQuality={1}
+                        cropTitle="裁剪图标"
+                        showCropGrid={false}
+                        showCropReset={true}
+                        compressionOptions={{
+                          maxSizeMB: 0.2,
+                          maxWidthOrHeight: 128,
+                          useWebWorker: true
+                        }}
+                        accept="image/*"
+                        buttonText="上传图片"
+                        buttonIcon={<UploadOutlined />}
+                        buttonSize="small"
+                        previewWidth={64}
+                        previewHeight={64}
+                        currentImageUrl={badge.icon_url}
+                        style={{ width: '100%', marginBottom: '5px' }}
+                      />
                     )}
 
                     {/* 图标建议 */}

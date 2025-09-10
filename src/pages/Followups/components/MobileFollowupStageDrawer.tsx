@@ -18,6 +18,8 @@ import { supabase } from '../../../supaClient';
 import dayjs from 'dayjs';
 import type { FollowupRecord } from '../types';
 import { ContractDealsTable } from '../../../components/Followups/ContractDealsTable';
+import { ContractSelectionModal } from '../../../components/Followups/ContractSelectionModal';
+import { createDealFromContract, testDealsTable, reassociateDeal } from '../../../api/dealsApi';
 import { MobileFollowupStageForm } from './MobileFollowupStageForm';
 import MobileUserPicker from '../../../components/MobileUserPicker';
 import './FollowupStageDrawer.css';
@@ -208,7 +210,7 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
 }) => {
   const [form] = Form.useForm();
   const [currentStep, setCurrentStep] = useState(0);
-  const [currentStage, setCurrentStage] = useState<string>('');
+  const [currentStage, setCurrentStage] = useState<string>(followupStages[1]); // 默认为'待接收'
   const [loading, setLoading] = useState(false);
   
   // 发放带看单相关状态
@@ -223,6 +225,9 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
   const [addDealModalVisible, setAddDealModalVisible] = useState(false);
   const [editingDeal, setEditingDeal] = useState<any>(null);
   const [dealForm] = Form.useForm();
+  
+  // 🆕 签约选择弹窗状态
+  const [contractSelectionOpen, setContractSelectionOpen] = useState(false);
   
   // 防止重复保存的状态
   const hasAutoSavedRef = useRef(false);
@@ -276,14 +281,36 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
     
     setDealsLoading(true);
     try {
+      // 先测试 deals 表是否存在
+      const tableTest = await testDealsTable();
+      if (!tableTest.exists) {
+        console.error('deals 表不存在或无法访问:', tableTest.error);
+        Toast.show({
+          content: 'deals 表不存在或无法访问',
+          position: 'center'
+        });
+        return;
+      }
+
+      // 查询指定 leadid 的记录
       const { data, error } = await supabase
         .from('deals')
-        .select('*')
+        .select('id, leadid, contract_records')
         .eq('leadid', record.leadid)
-        .order('created_at', { ascending: false });
+        .limit(10);
       
-      if (error) throw error;
+      if (error) {
+        console.error('获取签约记录失败:', error);
+        console.error('错误详情:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
       
+      console.log('获取到的签约记录:', data);
       setDealsList(data?.map(item => ({
         ...item,
         isEditing: false,
@@ -299,6 +326,113 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
       setDealsLoading(false);
     }
   }, [record?.leadid]);
+
+  // 🆕 重新关联的deals记录ID状态
+  const [reassociatingDealId, setReassociatingDealId] = useState<string | null>(null);
+
+  // 🆕 处理签约记录选择（支持批量创建和重新关联）
+  const handleContractSelection = useCallback(async (contractRecords: any[]) => {
+    if (!record?.leadid) {
+      Toast.show({
+        content: '缺少线索ID',
+        position: 'center'
+      });
+      return;
+    }
+
+    if (!contractRecords || contractRecords.length === 0) {
+      Toast.show({
+        content: '请选择至少一条签约记录',
+        position: 'center'
+      });
+      return;
+    }
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      if (reassociatingDealId) {
+        // 重新关联模式：只选择一条记录
+        if (contractRecords.length > 1) {
+          Toast.show({
+            content: '重新关联只能选择一条记录',
+            position: 'center'
+          });
+          return;
+        }
+
+        const contractRecord = contractRecords[0];
+        try {
+          // 使用专门的重新关联函数
+          const updatedDeal = await reassociateDeal(reassociatingDealId, contractRecord.id);
+          
+          Toast.show({
+            content: '重新关联成功',
+            position: 'center'
+          });
+          // 刷新签约记录列表
+          await fetchDealsList();
+          // 重置重新关联状态
+          setReassociatingDealId(null);
+        } catch (error) {
+          console.error('❌ [重新关联] 重新关联异常:', error);
+          const errorMessage = error instanceof Error ? error.message : '重新关联失败';
+          Toast.show({
+            content: `重新关联失败: ${errorMessage}`,
+            position: 'center'
+          });
+        }
+      } else {
+        // 批量创建模式
+        for (const contractRecord of contractRecords) {
+          try {
+            const newDeal = await createDealFromContract(contractRecord, record.leadid);
+            if (newDeal) {
+              successCount++;
+            }
+          } catch (error) {
+            errorCount++;
+            const errorMessage = error instanceof Error ? error.message : '创建失败';
+            errors.push(`业务编号 ${contractRecord.business_number}: ${errorMessage}`);
+          }
+        }
+
+        // 显示结果
+        if (successCount > 0) {
+          Toast.show({
+            content: `成功创建 ${successCount} 条签约记录`,
+            position: 'center'
+          });
+          // 刷新签约记录列表
+          await fetchDealsList();
+        }
+
+        if (errorCount > 0) {
+          Toast.show({
+            content: `创建失败 ${errorCount} 条记录`,
+            position: 'center'
+          });
+        }
+      }
+
+    } catch (error) {
+      console.error('处理签约记录失败:', error);
+      Toast.show({
+        content: '处理签约记录失败',
+        position: 'center'
+      });
+    }
+  }, [record?.leadid, fetchDealsList, reassociatingDealId]);
+
+  // 🆕 处理重新关联成交记录
+  const handleReassociateDeal = useCallback((dealRecord: any) => {
+    // 打开签约记录选择弹窗，用于重新关联
+    setContractSelectionOpen(true);
+    // 保存当前要重新关联的记录ID，用于后续处理
+    setReassociatingDealId(dealRecord.id);
+  }, []);
 
   // 🆕 新增：检查滚动位置的函数
   const checkScrollPosition = useCallback(() => {
@@ -608,7 +742,13 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
       setCurrentStep(Math.max(0, stageIndex));
       setCurrentStage(record.followupstage || '待接收');
       
-      fetchDealsList();
+      // 只在已到店和赢单阶段获取签约记录
+      if (record.followupstage === '已到店' || record.followupstage === '赢单') {
+        fetchDealsList();
+      } else {
+        // 其他阶段清空成交数据
+        setDealsList([]);
+      }
       hasAutoSavedRef.current = false;
       isClosingRef.current = false;
       hasManualSavedRef.current = false;
@@ -619,6 +759,16 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
       setShouldClose(false);
     }
   }, [record, open, fetchDealsList]);
+
+  // 监听阶段变化，在需要时获取成交数据
+  useEffect(() => {
+    if (record && open && (currentStage === '已到店' || currentStage === '赢单')) {
+      fetchDealsList();
+    } else if (record && open) {
+      // 其他阶段清空成交数据
+      setDealsList([]);
+    }
+  }, [currentStage, record, open, fetchDealsList]);
 
   // 🆕 新增：调试类名生成
   useEffect(() => {
@@ -1794,27 +1944,47 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
             paddingBottom: '20px'
           }}
         >
-          {/* 🆕 优化：直接渲染内容，减少包装div */}
+          {/* 签约记录表格 - 只在已到店和赢单阶段显示 */}
           {(currentStage === '已到店' || currentStage === '赢单') && (
             <ContractDealsTable
-              dealsList={dealsList}
-              dealsLoading={dealsLoading}
-              onAdd={handleAddDeal}
-              onEdit={handleEditDeal}
-              onDelete={(dealRecord) => {
-                if (dealRecord.isNew) {
-                  setDealsList(prev => prev.filter(item => item.id !== dealRecord.id));
-                } else {
-                  setDealsList(prev => prev.map(item =>
-                    item.id === dealRecord.id
-                      ? { ...item, isEditing: false }
-                      : item
-                  ));
+            dealsList={dealsList}
+            dealsLoading={dealsLoading}
+            onAdd={() => setContractSelectionOpen(true)}
+            onEdit={handleEditDeal}
+            onReassociate={handleReassociateDeal}
+            onDelete={async (dealRecord) => {
+              // 硬删除：直接从数据库删除
+              try {
+                const { error } = await supabase
+                  .from('deals')
+                  .delete()
+                  .eq('id', dealRecord.id);
+                
+                if (error) {
+                  Toast.show({
+                    content: '删除失败: ' + error.message,
+                    position: 'center'
+                  });
+                  return;
                 }
-              }}
-              currentRecord={record}
-              communityEnum={communityEnum}
-              setDealsList={setDealsList}
+                
+                // 从列表中移除
+                setDealsList(prev => prev.filter(item => item.id !== dealRecord.id));
+                Toast.show({
+                  content: '删除成功',
+                  position: 'center'
+                });
+              } catch (error: any) {
+                Toast.show({
+                  content: '删除失败: ' + (error.message || '未知错误'),
+                  position: 'center'
+                });
+              }
+            }}
+            showEditActions={true}
+            currentRecord={record}
+            communityEnum={communityEnum}
+            setDealsList={setDealsList}
             />
           )}
           
@@ -2132,6 +2302,14 @@ export const MobileFollowupStageDrawer: React.FC<MobileFollowupStageDrawerProps>
         onConfirm={handleDateSelect}
         value={dealForm.getFieldValue('contractdate')?.toDate()}
         precision="day"
+      />
+      
+      {/* 🆕 签约记录选择弹窗 */}
+      <ContractSelectionModal
+        open={contractSelectionOpen}
+        onClose={() => setContractSelectionOpen(false)}
+        onSelect={handleContractSelection}
+        leadid={record?.leadid || ''}
       />
     </Popup>
   );

@@ -12,7 +12,6 @@ import {
   Popup,
   Form,
   Input,
-  ImageUploader,
   ImageViewer,
   Space,
   Grid,
@@ -32,8 +31,9 @@ import { useUser } from '../context/UserContext';
 import { useAuth } from '../hooks/useAuth';
 import { tokenManager } from '../utils/tokenManager';
 import { supabase } from '../supaClient';
-import imageCompression from 'browser-image-compression';
+// 已迁移到ImageUpload组件，不再需要直接导入
 import LoadingScreen from '../components/LoadingScreen';
+import ImageUpload from '../components/ImageUpload';
 import './MobileProfile.css';
 import { toBeijingTime, toBeijingDateTimeStr } from '../utils/timeUtils';
 
@@ -43,16 +43,15 @@ const MobileProfile: React.FC = () => {
   const [emailForm] = Form.useForm();
   const [email, setEmail] = useState('');
   const [department] = useState<string>('');
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [_avatarUploading, setAvatarUploading] = useState(false);
   const [avatarModal, setAvatarModal] = useState(false);
   const [avatarTs, setAvatarTs] = useState<number>(Date.now());
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  // 移除重复状态，使用UserContext统一管理
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   
   // 使用UserContext获取用户信息
-  const { user } = useUser();
+  const { user, avatarUrl, avatarLoading, refreshAvatar } = useUser();
   const { logout: authLogout } = useAuth();
 
   // 使用角色权限Hook
@@ -69,29 +68,8 @@ const MobileProfile: React.FC = () => {
   const { avatarFrames, getEquippedAvatarFrame, equipAvatarFrame } = useAchievements();
   const equippedFrame = getEquippedAvatarFrame() || null;
 
-  // 获取用户信息
-  const fetchAll = async () => {
-    setLoadingProfile(true);
-    if (!user) {
-      setLoadingProfile(false);
-      return;
-    }
-    const { data: profileData } = await supabase
-      .from('users_profile')
-      .select('avatar_url, updated_at')
-      .eq('user_id', user.id)
-      .single();
-    setAvatarUrl(profileData?.avatar_url || null);
-    setAvatarTs(profileData?.updated_at ? toBeijingTime(profileData.updated_at).valueOf() : Date.now());
-    setLoadingProfile(false);
-  };
-
-  // 并行获取用户信息、部门、头像
-  useEffect(() => {
-    if (user) {
-      fetchAll();
-    }
-  }, [user]);
+  // 移除重复的fetchAll函数，现在使用UserContext统一管理头像
+  // 头像信息现在由UserContext统一提供，无需重复请求
 
   // 新增：user变化时自动同步email
   useEffect(() => {
@@ -113,19 +91,20 @@ const MobileProfile: React.FC = () => {
   // 获取权限按分类分组
   const permissionsByCategory = getPermissionsByCategory();
 
-  // 头像上传处理
-  const handleAvatarUpload = async (file: File) => {
+  // 头像上传处理 - 使用新的ImageUpload组件
+  const handleAvatarUploadSuccess = async (url: string) => {
     if (!user) {
       Toast.show('用户信息获取失败');
       return;
     }
-    
-    setAvatarUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `user_${user.id}_${Date.now()}.${fileExt}`;
 
-      // 1. 获取旧头像URL
+    try {
+      setAvatarUploading(true);
+
+      // 1. 立即更新本地缓存 - 优先显示新头像
+      setAvatarTs(Date.now());
+      
+      // 2. 获取旧头像URL
       const { data: profile } = await supabase
         .from('users_profile')
         .select('avatar_url')
@@ -133,50 +112,77 @@ const MobileProfile: React.FC = () => {
         .single();
       const oldAvatarUrl = profile?.avatar_url;
 
-      // 2. 上传新头像
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-      if (uploadError) {
-        Toast.show('头像上传失败');
-        return;
-      }
-      
-      // 3. 获取新头像URL
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      const publicUrl = data?.publicUrl;
-      
-      // 4. 更新profile表
+      // 3. 更新profile表
       const { error: updateError } = await supabase
         .from('users_profile')
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: url })
         .eq('user_id', user.id);
+      
       if (updateError) {
         Toast.show('头像保存失败');
         return;
       }
+
+      // 4. 立即强制刷新UserContext中的头像缓存 - 确保全局状态同步
+      await refreshAvatar(true);
       
-      // 5. 删除旧头像（如果有且是 avatars bucket 下的文件）
-      if (oldAvatarUrl && oldAvatarUrl.includes('/avatars/')) {
-        const urlParts = oldAvatarUrl.split('/');
-        const oldFilePath = urlParts[urlParts.length - 1];
-        if (oldFilePath) {
-          const { error } = await supabase.storage.from('avatars').remove([oldFilePath]);
-          if (error) {
-            console.error('删除旧头像失败:', error);
-          }
-        }
-      }
-      
-      await fetchAll(); // 上传后刷新头像
-      Toast.show('头像上传成功');
+      // 5. 通知其他组件刷新
       localStorage.setItem('avatar_refresh_token', Date.now().toString());
       window.dispatchEvent(new Event('avatar_refresh_token'));
+
+      // 6. 删除旧头像（支持OSS和Supabase Storage）- 异步处理，不阻塞UI
+      if (oldAvatarUrl) {
+        // 使用setTimeout确保UI更新优先
+        setTimeout(async () => {
+          try {
+            // 检查是否为OSS文件
+            if (oldAvatarUrl.includes('vlinker-crm.oss-cn-shanghai.aliyuncs.com')) {
+              // OSS文件删除
+              const { deleteImage } = await import('../utils/ossUploadUtils');
+              // 提取文件路径，移除域名和查询参数
+              const url = new URL(oldAvatarUrl);
+              const oldFilePath = url.pathname.substring(1); // 移除开头的 '/'
+              console.log('🗑️ 准备删除OSS文件:', oldFilePath);
+              const result = await deleteImage(oldFilePath);
+              if (!result.success) {
+                console.error('删除OSS旧头像失败:', result.error);
+              } else {
+                console.log('✅ OSS旧头像删除成功');
+              }
+            } else if (oldAvatarUrl.includes('/avatars/')) {
+              // Supabase Storage文件删除
+              const urlParts = oldAvatarUrl.split('/');
+              const oldFilePath = urlParts[urlParts.length - 1];
+              if (oldFilePath) {
+                const { error } = await supabase.storage.from('avatars').remove([oldFilePath]);
+                if (error) {
+                  console.error('删除Supabase旧头像失败:', error);
+                } else {
+                  console.log('✅ Supabase旧头像删除成功');
+                }
+              }
+            } else {
+              console.warn('无法识别旧头像存储类型:', oldAvatarUrl);
+            }
+          } catch (deleteError) {
+            console.error('删除旧头像异常:', deleteError);
+          }
+        }, 100);
+      }
+      
+      Toast.show('头像上传成功');
     } catch (error) {
-      Toast.show('头像上传失败');
+      console.error('头像保存失败:', error);
+      Toast.show('头像保存失败');
     } finally {
       setAvatarUploading(false);
     }
+  };
+
+  const handleAvatarUploadError = (error: string) => {
+    console.error('头像上传失败:', error);
+    Toast.show('头像上传失败');
+    setAvatarUploading(false);
   };
 
   // 切换装备头像框
@@ -184,7 +190,7 @@ const MobileProfile: React.FC = () => {
     try {
       await equipAvatarFrame(frameId ?? '');
       Toast.show(frameId ? '头像框已装备' : '已恢复默认头像框');
-      await fetchAll();
+      await refreshAvatar();
       localStorage.setItem('avatar_refresh_token', Date.now().toString());
       window.dispatchEvent(new Event('avatar_refresh_token'));
     } catch (e) {
@@ -246,7 +252,7 @@ const MobileProfile: React.FC = () => {
     });
   };
 
-  if (loadingProfile || !user) {
+  if (avatarLoading || !user) {
     return <LoadingScreen type="profile" />;
   }
 
@@ -267,7 +273,7 @@ const MobileProfile: React.FC = () => {
           <div className="flex items-center gap-4">
             <div className="relative">
               <Avatar
-                src={avatarUrl ? `${avatarUrl}?t=${avatarTs}` : ''}
+                src={avatarUrl || ''}
                 className="w-16 h-16"
                 onClick={() => setAvatarModal(true)}
                 fallback={<UserOutline />}
@@ -533,33 +539,32 @@ const MobileProfile: React.FC = () => {
           <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', textAlign: 'center' }}>
             更换头像
           </div>
-          <ImageUploader
-            value={[]}
-            onChange={async (files) => {
-              if (files.length > 0) {
-                const file = (files[0] as any).file;
-                if (file) {
-                  // 压缩图片
-                  try {
-                    const options = {
-                      maxSizeMB: 1,
-                      maxWidthOrHeight: 1024,
-                      useWebWorker: true,
-                    };
-                    const compressedFile = await imageCompression(file, options);
-                    await handleAvatarUpload(compressedFile);
-                    setAvatarModal(false);
-                  } catch (e) {
-                    Toast.show('图片压缩失败');
-                  }
-                }
-              }
+          <ImageUpload
+            bucket="avatars"
+            filePath={`user_${user?.id}_${Date.now()}.jpg`}
+            onUploadSuccess={(url) => {
+              handleAvatarUploadSuccess(url);
+              setAvatarModal(false);
             }}
-            maxCount={1}
-            showUpload={false}
-            upload={async (file) => {
-              return { url: URL.createObjectURL(file) };
+            onUploadError={handleAvatarUploadError}
+            enableCrop={true}
+            cropShape="round"
+            cropAspect={1}
+            cropQuality={1}
+            cropTitle="裁剪头像"
+            showCropGrid={false}
+            showCropReset={true}
+            compressionOptions={{
+              maxSizeMB: 1,
+              maxWidthOrHeight: 1024,
+              useWebWorker: true
             }}
+            accept="image/png,image/jpeg,image/jpg"
+            buttonText="选择头像"
+            previewWidth={120}
+            previewHeight={120}
+            currentImageUrl={avatarUrl || undefined}
+            loading={_avatarUploading}
           />
           <div style={{ marginTop: '16px', textAlign: 'center' }}>
             <Button
@@ -653,7 +658,7 @@ const MobileProfile: React.FC = () => {
       {/* 头像预览 */}
       {avatarUrl && (
         <ImageViewer
-          image={avatarUrl ? `${avatarUrl}?t=${avatarTs}` : ''}
+          image={avatarUrl}
           visible={false}
         />
       )}

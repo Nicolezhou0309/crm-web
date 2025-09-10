@@ -47,21 +47,49 @@ export const useAuth = (): AuthState & AuthActions => {
     try {
       setAuthError(null);
       
-      // 如果有企业微信元数据，使用特殊处理
+      // 如果有企业微信元数据，直接使用tokenManager处理
       if (metadata && metadata.wechat_work_userid) {
-        console.log('企业微信登录:', { email, metadata });
+        console.log('🔍 企业微信登录，直接使用tokenManager');
+        console.log('🔍 useAuth接收到的完整参数:', { email, metadata });
+        console.log('🔍 metadata的所有键:', Object.keys(metadata));
+        console.log('🔍 metadata是否包含session:', !!metadata.session);
         
-        // 企业微信用户登录逻辑
-        const { data, error } = await tokenManager.signInWithWecom(email, metadata);
+        // 检查是否有会话信息
+        if (!metadata.session) {
+          console.error('❌ 缺少会话信息');
+          setAuthError('缺少会话信息');
+          return { success: false, error: '缺少会话信息' };
+        }
+        
+        // 检查是否有JWT令牌
+        if (!metadata.session.access_token || !metadata.session.refresh_token) {
+          console.error('❌ 缺少有效的会话令牌:', metadata.session);
+          setAuthError('缺少有效的会话令牌');
+          return { success: false, error: '缺少有效的会话令牌' };
+        }
+        
+        console.log('🔄 使用后端返回的JWT令牌设置会话...');
+        console.log('🔑 令牌类型:', metadata.session.token_type);
+        
+        // 直接使用tokenManager设置会话
+        const { data, error } = await tokenManager.setSession(
+          metadata.session.access_token,
+          metadata.session.refresh_token
+        );
         
         if (error) {
+          console.error('❌ 设置会话失败:', error);
           const errorMessage = error instanceof Error ? error.message : '企业微信登录失败';
           setAuthError(errorMessage);
           return { success: false, error: errorMessage };
         }
         
         if (data?.user) {
-          // 登录成功后立即刷新用户状态
+          console.log('✅ 企业微信会话设置成功');
+          console.log('👤 会话用户:', data.user?.email);
+          console.log('🔑 会话类型:', metadata.session.token_type);
+          
+          // 企业微信登录成功后立即刷新用户状态
           try {
             await refreshUser();
           } catch (error) {
