@@ -7,6 +7,7 @@ import {
   SHANGHAI_METRO_STATIONS
 } from '../utils/metroDistanceCalculator';
 import MetroDataService from './MetroDataService';
+import { EnumDataService } from '../components/Followups/services/EnumDataService';
 
 /**
  * 地铁服务类
@@ -17,10 +18,12 @@ export class MetroService {
   private transferStations!: Map<string, string[]>;
   private stationToLines!: Map<string, string[]>;
   private metroDataService: MetroDataService;
+  private enumDataService: EnumDataService;
   private dynamicStations: MetroStation[] = [];
 
   private constructor() {
     this.metroDataService = MetroDataService.getInstance();
+    this.enumDataService = new EnumDataService();
     this.initializeMappings();
     this.initializeDynamicStations();
   }
@@ -61,12 +64,28 @@ export class MetroService {
   }
 
   /**
-   * 初始化动态站点数据
+   * 初始化动态站点数据（优先使用EnumDataService）
    */
   private async initializeDynamicStations(): Promise<void> {
     try {
-      this.dynamicStations = await this.metroDataService.getAllStations();
-      console.log(`✅ [MetroService] 动态加载了 ${this.dynamicStations.length} 个地铁站点`);
+      // 优先使用EnumDataService获取数据
+      const { data, error } = await this.enumDataService.getMetroStationsFormatted();
+      
+      if (error) {
+        console.warn('⚠️ [MetroService] EnumDataService获取失败，回退到MetroDataService:', error);
+        this.dynamicStations = await this.metroDataService.getAllStations();
+      } else if (data && data.length > 0) {
+        this.dynamicStations = data;
+        console.log(`✅ [MetroService] 通过EnumDataService动态加载了 ${this.dynamicStations.length} 个地铁站点`);
+      } else {
+        console.warn('⚠️ [MetroService] EnumDataService返回空数据，回退到MetroDataService');
+        this.dynamicStations = await this.metroDataService.getAllStations();
+      }
+      
+      if (this.dynamicStations.length === 0) {
+        console.warn('⚠️ [MetroService] 所有数据源都失败，使用静态数据作为备用');
+        this.dynamicStations = SHANGHAI_METRO_STATIONS;
+      }
     } catch (error) {
       console.error('❌ [MetroService] 初始化动态站点数据失败:', error);
       // 使用静态数据作为备用

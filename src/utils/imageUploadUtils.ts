@@ -181,8 +181,9 @@ export async function safeUploadImageToOSS(
 
 /**
  * 获取OSS图片的公共URL
+ * 默认过期时间：3年（94608000秒）
  */
-export function getOSSImagePublicUrl(filePath: string, expires: number = 3600): string {
+export function getOSSImagePublicUrl(filePath: string, expires: number = 94608000): string {
   return ossGetPublicUrl(filePath, expires);
 }
 

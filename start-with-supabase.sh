@@ -18,7 +18,7 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # 设置环境变量（后端只需要 Service Role Key）
-export VITE_SUPABASE_URL=http://172.29.115.115:8000
+export VITE_SUPABASE_URL=https://lead-service.vld.com.cn/supabase
 export VITE_SUPABASE_SERVICE_ROLE_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE3NTU3ODU4NjcsImV4cCI6MTMyNjY0MjU4Njd9.YnpJt0nFCQ66CudiuxycZGU51mIw6Y6Z3qGXdMWau80
 
 echo "🔍 验证 Supabase 连接..."
@@ -42,7 +42,7 @@ echo ""
 echo "✅ 服务已启动:"
 echo "   后端: http://localhost:3001"
 echo "   前端: https://lead.vld.com.cn"
-echo "   Supabase: http://172.29.115.115:8000"
+echo "   Supabase: https://lead-service.vld.com.cn/supabase"
 echo ""
 echo "按 Ctrl+C 停止所有服务"
 

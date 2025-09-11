@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片重试机制测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #40a9ff;
+        }
+        .error-button {
+            background: #ff4d4f;
+        }
+        .error-button:hover {
+            background: #ff7875;
+        }
+        .image-container {
+            margin: 10px 0;
+            min-height: 100px;
+            border: 1px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .log {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>图片重试机制测试</h1>
+    
+    <div class="test-section">
+        <h2>测试说明</h2>
+        <p>这个页面用于测试图片重试机制的各种场景：</p>
+        <ul>
+            <li><strong>正常图片</strong>：应该正常加载</li>
+            <li><strong>404错误</strong>：应该触发重试机制</li>
+            <li><strong>网络超时</strong>：应该触发重试机制</li>
+            <li><strong>服务器错误</strong>：应该触发重试机制</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>测试图片</h2>
+        <div class="image-container" id="imageContainer">
+            <p>点击按钮开始测试</p>
+        </div>
+        
+        <button class="test-button" onclick="testNormalImage()">测试正常图片</button>
+        <button class="test-button error-button" onclick="test404Error()">测试404错误</button>
+        <button class="test-button error-button" onclick="testTimeoutError()">测试超时错误</button>
+        <button class="test-button error-button" onclick="testServerError()">测试服务器错误</button>
+        <button class="test-button" onclick="clearImage()">清除图片</button>
+    </div>
+
+    <div class="test-section">
+        <h2>重试日志</h2>
+        <div class="log" id="logContainer">
+            <p>等待测试开始...</p>
+        </div>
+        <button class="test-button" onclick="clearLog()">清除日志</button>
+    </div>
+
+    <script>
+        let retryCount = 0;
+        let maxRetries = 3;
+        let currentTest = null;
+
+        function log(message) {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            logContainer.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '<p>日志已清除</p>';
+        }
+
+        function clearImage() {
+            document.getElementById('imageContainer').innerHTML = '<p>图片已清除</p>';
+            retryCount = 0;
+            currentTest = null;
+        }
+
+        function loadImageWithRetry(src, testName) {
+            if (currentTest !== testName) {
+                retryCount = 0;
+                currentTest = testName;
+            }
+
+            log(`开始加载图片: ${src} (${testName})`);
+            
+            const img = new Image();
+            const container = document.getElementById('imageContainer');
+            
+            // 显示加载状态
+            container.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="margin-bottom: 10px;">
+                        ${retryCount > 0 ? `重试中... (第${retryCount}次)` : '加载中...'}
+                    </div>
+                    <div style="width: 20px; height: 20px; border: 2px solid #1890ff; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                </div>
+            `;
+
+            img.onload = function() {
+                log(`✅ 图片加载成功: ${src}`);
+                container.innerHTML = `
+                    <img src="${src}" alt="测试图片" style="max-width: 200px; max-height: 200px; border-radius: 4px;">
+                    <div style="margin-top: 10px; color: #52c41a;">加载成功!</div>
+                `;
+                retryCount = 0;
+                currentTest = null;
+            };
+
+            img.onerror = function() {
+                retryCount++;
+                log(`❌ 图片加载失败: ${src} (第${retryCount}次失败)`);
+                
+                if (retryCount < maxRetries) {
+                    const delay = Math.pow(2, retryCount - 1) * 1000; // 指数退避
+                    log(`⏳ ${delay}ms后开始第${retryCount}次重试...`);
+                    
+                    setTimeout(() => {
+                        loadImageWithRetry(src, testName);
+                    }, delay);
+                } else {
+                    log(`💥 图片加载最终失败，已重试${retryCount}次`);
+                    container.innerHTML = `
+                        <div style="text-align: center; color: #ff4d4f;">
+                            <div style="margin-bottom: 10px;">❌ 图片加载失败</div>
+                            <div style="margin-bottom: 10px;">已重试 ${retryCount} 次</div>
+                            <button class="test-button" onclick="loadImageWithRetry('${src}', '${testName}')">手动重试</button>
+                        </div>
+                    `;
+                }
+            };
+
+            // 设置超时
+            const timeout = setTimeout(() => {
+                img.onerror();
+            }, 5000); // 5秒超时
+
+            img.onload = function() {
+                clearTimeout(timeout);
+                log(`✅ 图片加载成功: ${src}`);
+                container.innerHTML = `
+                    <img src="${src}" alt="测试图片" style="max-width: 200px; max-height: 200px; border-radius: 4px;">
+                    <div style="margin-top: 10px; color: #52c41a;">加载成功!</div>
+                `;
+                retryCount = 0;
+                currentTest = null;
+            };
+
+            img.src = src;
+        }
+
+        function testNormalImage() {
+            loadImageWithRetry('https://picsum.photos/200/200?random=1', '正常图片');
+        }
+
+        function test404Error() {
+            loadImageWithRetry('https://example.com/nonexistent-image.jpg', '404错误');
+        }
+
+        function testTimeoutError() {
+            // 使用一个很慢的图片服务来模拟超时
+            loadImageWithRetry('https://httpbin.org/delay/10', '超时错误');
+        }
+
+        function testServerError() {
+            loadImageWithRetry('https://httpbin.org/status/500', '服务器错误');
+        }
+
+        // 添加CSS动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

@@ -76,8 +76,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   showCropReset = false,
   enableCompression = true,
   compressionOptions = {
-    maxSizeMB: 1,
-    maxWidthOrHeight: 1920,
+    maxSizeMB: 0.5, // 500KB
+    maxWidthOrHeight: 1024,
     useWebWorker: true
   },
   accept = 'image/*',

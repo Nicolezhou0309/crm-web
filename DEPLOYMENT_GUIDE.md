@@ -20,7 +20,7 @@ cd frontend
 
 # 设置环境变量
 export API_BASE_URL=http://your-backend-domain:3001/api
-export SUPABASE_URL=http://172.29.115.115:8000
+export SUPABASE_URL=https://lead-service.vld.com.cn/supabase
 export SUPABASE_ANON_KEY=your_anon_key_here
 
 # 部署到 Web 服务器
@@ -55,7 +55,7 @@ export SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 | 变量名 | 说明 | 示例值 |
 |--------|------|--------|
 | `API_BASE_URL` | 后端API地址 | `http://your-backend:3001/api` |
-| `SUPABASE_URL` | Supabase实例地址 | `http://172.29.115.115:8000` |
+| `SUPABASE_URL` | Supabase实例地址 | `https://lead-service.vld.com.cn/supabase` |
 | `SUPABASE_ANON_KEY` | Supabase匿名密钥 | `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...` |
 
 ### 后端环境变量

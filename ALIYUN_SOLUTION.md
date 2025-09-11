@@ -20,7 +20,7 @@
    # API配置示例
    API名称: supabase-proxy
    请求路径: /supabase/*
-   后端服务地址: 172.29.115.115:8000
+   后端服务地址: 47.123.26.25:8000
    请求方法: ALL
    ```
 
@@ -97,7 +97,7 @@ exports.handler = async (event, context) => {
   const { httpMethod, path, headers, body } = event;
   
   // 构建目标URL
-  const targetUrl = `172.29.115.115:8000${path}`;
+  const targetUrl = `47.123.26.25:8000${path}`;
   
   // 转发请求
   const response = await fetch(targetUrl, {

@@ -15,6 +15,7 @@ import {
 // 已迁移到ImageUpload组件，不再需要直接导入
 import { useUser } from '../context/UserContext';
 import ImageUpload from '../components/ImageUpload';
+import AvatarWithRetry from '../components/AvatarWithRetry';
 import { useAuth } from '../hooks/useAuth';
 import { tokenManager } from '../utils/tokenManager';
 import { supabase } from '../supaClient';
@@ -254,32 +255,35 @@ const Profile = () => {
               setAvatarModal(true);
             }}
           >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="用户头像"
-                style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  backgroundColor: '#1890ff',
-                  border: '2px solid #fff',
-                }}
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            ) : (
-              <Avatar
-                size={80}
-                style={{
-                  backgroundColor: '#1890ff',
-                  border: '2px solid #fff',
-                }}
-                icon={<UserOutlined />}
-              />
-            )}
+            <AvatarWithRetry
+              src={avatarUrl}
+              size={80}
+              shape="circle"
+              alt="用户头像"
+              style={{
+                backgroundColor: '#1890ff',
+                border: '2px solid #fff',
+              }}
+              retryOptions={{
+                maxRetries: 3,
+                delay: 1000,
+                backoff: 'exponential',
+                showRetryButton: true,
+                retryButtonText: '重试',
+                onLoadSuccess: (src) => {
+                  console.log('✅ 头像加载成功:', src);
+                },
+                onLoadError: (error) => {
+                  console.error('❌ 头像加载失败:', error);
+                }
+              }}
+              onLoad={() => {
+                console.log('头像加载完成');
+              }}
+              onError={() => {
+                console.log('头像加载失败');
+              }}
+            />
           </div>
           
           {/* 上传按钮区域 */}
@@ -297,7 +301,7 @@ const Profile = () => {
               showCropGrid={false}
               showCropReset={true}
               compressionOptions={{
-                maxSizeMB: 1,
+                maxSizeMB: 0.5, // 500KB
                 maxWidthOrHeight: 1024,
                 useWebWorker: true
               }}

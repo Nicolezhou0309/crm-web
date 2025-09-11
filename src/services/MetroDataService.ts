@@ -1,6 +1,7 @@
 import { supabase } from '../supaClient';
 import type { MetroStation } from '../utils/metroDistanceCalculator';
 import { cacheManager } from '../utils/cacheManager';
+import { EnumDataService } from '../components/Followups/services/EnumDataService';
 
 /**
  * 地铁数据服务
@@ -13,9 +14,11 @@ export class MetroDataService {
   private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24小时缓存
   private readonly CACHE_KEY = 'metro_stations_cache';
   private readonly CACHE_TIMESTAMP_KEY = 'metro_stations_cache_timestamp';
+  private enumDataService: EnumDataService;
 
   private constructor() {
     this.loadFromLocalStorage();
+    this.enumDataService = new EnumDataService();
   }
 
   public static getInstance(): MetroDataService {
@@ -26,18 +29,51 @@ export class MetroDataService {
   }
 
   /**
-   * 获取所有地铁站点数据
+   * 获取所有地铁站点数据（优先使用EnumDataService的统一缓存）
    */
   public async getAllStations(): Promise<MetroStation[]> {
-    // 检查缓存是否有效
-    if (this.isCacheValid()) {
-      console.log('📦 [MetroDataService] 使用本地缓存的地铁站点数据');
-      return this.cachedStations;
-    }
+    try {
+      // 优先使用EnumDataService的统一缓存机制
+      const { data, error } = await this.enumDataService.getMetroStationsFormatted();
+      
+      if (error) {
+        console.warn('⚠️ [MetroDataService] EnumDataService获取失败，回退到本地缓存:', error);
+        // 回退到本地缓存
+        if (this.isCacheValid()) {
+          console.log('📦 [MetroDataService] 从本地缓存获取地铁站点数据');
+          return this.cachedStations;
+        }
+        // 如果本地缓存也无效，从数据库获取
+        return await this.fetchFromDatabase();
+      }
 
-    // 缓存无效，从数据库获取
-    console.log('🔄 [MetroDataService] 从数据库获取地铁站点数据');
-    return await this.fetchFromDatabase();
+      if (data && data.length > 0) {
+        console.log(`✅ [MetroDataService] 从EnumDataService获取 ${data.length} 个地铁站点数据`);
+        // 同步更新本地缓存作为备用
+        this.updateCache(data);
+        return data;
+      }
+
+      // 如果EnumDataService返回空数据，回退到本地缓存
+      if (this.isCacheValid()) {
+        console.log('📦 [MetroDataService] EnumDataService返回空数据，使用本地缓存');
+        return this.cachedStations;
+      }
+
+      // 最后回退到数据库获取
+      return await this.fetchFromDatabase();
+    } catch (error) {
+      console.error('❌ [MetroDataService] 获取地铁站点数据异常:', error);
+      
+      // 回退到本地缓存
+      if (this.isCacheValid()) {
+        console.log('📦 [MetroDataService] 异常回退到本地缓存');
+        return this.cachedStations;
+      }
+      
+      // 如果连本地缓存都没有，返回空数组
+      return [];
+    }
   }
 
   /**
@@ -46,6 +82,8 @@ export class MetroDataService {
   public async refreshStations(): Promise<MetroStation[]> {
     console.log('🔄 [MetroDataService] 强制刷新地铁站点数据');
     this.clearCache();
+    // 使用EnumDataService的统一缓存刷新方法
+    this.enumDataService.refreshMetroStationsCache();
     return await this.fetchFromDatabase();
   }
 

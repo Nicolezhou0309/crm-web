@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Tag, Space, Divider, Typography, Alert, message, Cascader } from 'antd';
 import { SearchOutlined, ClockCircleOutlined, EnvironmentOutlined, InfoCircleOutlined, DatabaseOutlined } from '@ant-design/icons';
 import { supabase } from '../../supaClient';
+import { EnumDataService } from '../Followups/services/EnumDataService';
 import './MetroDistanceCalculator.css';
 
 
@@ -42,6 +43,7 @@ const MetroDistanceCalculator: React.FC = () => {
   const [metroStationOptions, setMetroStationOptions] = useState<CascaderOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [systemStats, setSystemStats] = useState<any>(null);
+  const [enumDataService] = useState(() => new EnumDataService());
 
   useEffect(() => {
     // 获取地铁站数据和系统统计信息
@@ -49,45 +51,56 @@ const MetroDistanceCalculator: React.FC = () => {
     fetchSystemStats();
   }, []);
 
-  // 加载地铁站数据并构建级联选择器选项
+  // 加载地铁站数据并构建级联选择器选项（使用EnumDataService）
   const loadMetroStationOptions = async () => {
     try {
-      // 使用数据库函数获取地铁站数据
-      const { data, error } = await supabase.rpc('get_metrostations');
+      // 使用EnumDataService获取级联选项
+      const { data, error } = await enumDataService.getMetroStationCascaderOptions();
       
-      if (error) throw error;
-      
-      if (data) {
-        // 按线路分组，构建Cascader选项结构
-        const lineGroups = data.reduce((acc: any, station: any) => {
-          const line = station.line || '其他';
-          if (!acc[line]) {
-            acc[line] = [];
-          }
-          acc[line].push(station);
-          return acc;
-        }, {});
+      if (error) {
+        console.warn('⚠️ [MetroDistanceCalculator] EnumDataService获取失败，回退到直接数据库查询:', error);
+        // 回退到直接数据库查询
+        const { data: fallbackData, error: fallbackError } = await supabase.rpc('get_metrostations');
+        
+        if (fallbackError) throw fallbackError;
+        
+        if (fallbackData) {
+          // 按线路分组，构建Cascader选项结构
+          const lineGroups = fallbackData.reduce((acc: any, station: any) => {
+            const line = station.line || '其他';
+            if (!acc[line]) {
+              acc[line] = [];
+            }
+            acc[line].push(station);
+            return acc;
+          }, {});
 
-        // 构建Cascader选项结构，按线路数字顺序排列
-        const options = Object.entries(lineGroups)
-          .sort(([lineA], [lineB]) => {
-            // 提取数字进行排序
-            const getLineNumber = (line: string) => {
-              const match = line.match(/^(\d+)号线$/);
-              return match ? parseInt(match[1]) : 999999;
-            };
-            return getLineNumber(lineA) - getLineNumber(lineB);
-          })
-          .map(([line, stations]: [string, any]) => ({
-            value: line,
-            label: line,
-            children: stations.map((station: any) => ({
-              value: station.name,
-              label: station.name
-            }))
-          }));
+          // 构建Cascader选项结构，按线路数字顺序排列
+          const options = Object.entries(lineGroups)
+            .sort(([lineA], [lineB]) => {
+              // 提取数字进行排序
+              const getLineNumber = (line: string) => {
+                const match = line.match(/^(\d+)号线$/);
+                return match ? parseInt(match[1]) : 999999;
+              };
+              return getLineNumber(lineA) - getLineNumber(lineB);
+            })
+            .map(([line, stations]: [string, any]) => ({
+              value: line,
+              label: line,
+              children: stations.map((station: any) => ({
+                value: station.name,
+                label: station.name
+              }))
+            }));
 
-        setMetroStationOptions(options);
+          setMetroStationOptions(options);
+        }
+      } else if (data && data.length > 0) {
+        console.log(`✅ [MetroDistanceCalculator] 通过EnumDataService获取 ${data.length} 个地铁站级联选项`);
+        setMetroStationOptions(data);
+      } else {
+        console.warn('⚠️ [MetroDistanceCalculator] EnumDataService返回空数据');
       }
     } catch (error) {
       console.error('获取地铁站数据失败:', error);

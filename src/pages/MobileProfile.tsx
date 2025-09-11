@@ -34,6 +34,7 @@ import { supabase } from '../supaClient';
 // 已迁移到ImageUpload组件，不再需要直接导入
 import LoadingScreen from '../components/LoadingScreen';
 import ImageUpload from '../components/ImageUpload';
+import AvatarWithRetry from '../components/AvatarWithRetry';
 import './MobileProfile.css';
 import { toBeijingTime, toBeijingDateTimeStr } from '../utils/timeUtils';
 
@@ -272,12 +273,37 @@ const MobileProfile: React.FC = () => {
         <Card className="mb-4 bg-white rounded-lg shadow-sm">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <Avatar
-                src={avatarUrl || ''}
-                className="w-16 h-16"
-                onClick={() => setAvatarModal(true)}
-                fallback={<UserOutline />}
-              />
+              <div onClick={() => setAvatarModal(true)}>
+                <AvatarWithRetry
+                  src={avatarUrl}
+                  size={64}
+                  shape="circle"
+                  alt="用户头像"
+                  style={{
+                    width: '64px',
+                    height: '64px',
+                  }}
+                  retryOptions={{
+                    maxRetries: 3,
+                    delay: 1000,
+                    backoff: 'exponential',
+                    showRetryButton: true,
+                    retryButtonText: '重试',
+                    onLoadSuccess: (src) => {
+                      console.log('✅ 移动端头像加载成功:', src);
+                    },
+                    onLoadError: (error) => {
+                      console.error('❌ 移动端头像加载失败:', error);
+                    }
+                  }}
+                  onLoad={() => {
+                    console.log('移动端头像加载完成');
+                  }}
+                  onError={() => {
+                    console.log('移动端头像加载失败');
+                  }}
+                />
+              </div>
               {equippedFrame && (
                 <div className="absolute -top-1 -left-1 -right-1 -bottom-1 rounded-full border-2 border-blue-500 pointer-events-none" />
               )}
@@ -555,7 +581,7 @@ const MobileProfile: React.FC = () => {
             showCropGrid={false}
             showCropReset={true}
             compressionOptions={{
-              maxSizeMB: 1,
+              maxSizeMB: 0.5, // 500KB
               maxWidthOrHeight: 1024,
               useWebWorker: true
             }}

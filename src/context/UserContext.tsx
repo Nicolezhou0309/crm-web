@@ -395,12 +395,25 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     userInfoCache.current.clear();
   }, []);
 
-  // 新增：统一的头像管理
+  // 新增：统一的头像管理（带重试机制）
   const refreshAvatar = useCallback(async (forceRefresh = false) => {
     if (!profile?.id) {
+      console.log('⚠️ 用户profile ID不存在，跳过头像刷新:', {
+        profileId: profile?.id,
+        timestamp: new Date().toISOString(),
+        context: 'UserContext'
+      });
       setAvatarUrl(null);
       return;
     }
+
+    console.log('🔄 开始刷新头像:', {
+      profileId: profile.id,
+      userId: profile.user_id,
+      forceRefresh,
+      timestamp: new Date().toISOString(),
+      context: 'UserContext'
+    });
 
     const cacheKey = `avatar_${profile.id}`;
     const cached = requestCache.current.get(cacheKey);
@@ -408,6 +421,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 检查缓存是否有效（除非强制刷新）
     if (!forceRefresh && cached && (now - cached.timestamp) < AVATAR_CACHE_DURATION) {
+      console.log('💾 使用缓存的头像URL:', {
+        avatarUrl: cached.data,
+        cacheAge: now - cached.timestamp,
+        profileId: profile.id,
+        timestamp: new Date().toISOString(),
+        context: 'UserContext'
+      });
       setAvatarUrl(cached.data);
       return;
     }
@@ -430,16 +450,59 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setAvatarLoading(true);
     
-    // 创建新的请求Promise
+    // 创建新的请求Promise（带重试机制）
     const requestPromise = (async () => {
       try {
-        const { data: profileData } = await supabase
-          .from('users_profile')
-          .select('avatar_url, updated_at')
-          .eq('user_id', profile.user_id)
-          .single();
+        // 使用重试机制获取头像URL
+        const { withRetry } = await import('../utils/retryUtils');
         
-        const avatarUrl = profileData?.avatar_url || null;
+        const avatarUrl = await withRetry(
+          async () => {
+            const { data: profileData } = await supabase
+              .from('users_profile')
+              .select('avatar_url, updated_at')
+              .eq('user_id', profile.user_id)
+              .single();
+            
+            return profileData?.avatar_url || null;
+          },
+          {
+            maxRetries: 3,
+            delay: 1000,
+            backoff: 'exponential',
+            shouldRetry: (error: any) => {
+              // 网络错误、超时、服务器错误等应该重试
+              const retryableErrors = [
+                'NetworkError',
+                'TimeoutError',
+                'ConnectionError',
+                'fetch failed',
+                'Failed to fetch',
+                'net::ERR_',
+                '500',
+                '502',
+                '503',
+                '504'
+              ];
+              
+              return retryableErrors.some(pattern => 
+                error?.message?.includes(pattern) || 
+                error?.code?.includes(pattern) ||
+                error?.status?.toString().includes(pattern)
+              );
+            },
+            onRetry: (attempt, error) => {
+              console.warn(`🔄 头像URL获取失败，第${attempt}次重试:`, {
+                error: error.message || error,
+                attempt,
+                userId: profile.user_id,
+                delay: 1000 * Math.pow(2, attempt - 1),
+                timestamp: new Date().toISOString(),
+                context: 'UserContext'
+              });
+            }
+          }
+        );
         
         // 缓存结果
         requestCache.current.set(cacheKey, {
@@ -447,9 +510,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           timestamp: now
         });
         
+        console.log('✅ 头像URL获取成功:', {
+          avatarUrl,
+          userId: profile.user_id,
+          timestamp: new Date().toISOString(),
+          context: 'UserContext'
+        });
+        
         return avatarUrl;
       } catch (error) {
-        console.error('获取头像失败:', error);
+        console.error('❌ 获取头像URL最终失败:', {
+          error: error instanceof Error ? error.message : error,
+          userId: profile.user_id,
+          timestamp: new Date().toISOString(),
+          context: 'UserContext'
+        });
         return null;
       }
     })();
@@ -465,9 +540,20 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       const avatarUrl = await requestPromise;
+      console.log('✅ 头像刷新完成:', {
+        avatarUrl,
+        profileId: profile.id,
+        timestamp: new Date().toISOString(),
+        context: 'UserContext'
+      });
       setAvatarUrl(avatarUrl);
     } catch (error) {
-      console.error('头像请求失败:', error);
+      console.error('❌ 头像请求失败:', {
+        error: error instanceof Error ? error.message : error,
+        profileId: profile.id,
+        timestamp: new Date().toISOString(),
+        context: 'UserContext'
+      });
       setAvatarUrl(null);
     } finally {
       setAvatarLoading(false);

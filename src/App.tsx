@@ -49,6 +49,8 @@ import { Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import { UserProvider, useUser } from './context/UserContext';
 import { useAuth } from './hooks/useAuth';
+import AvatarWithRetry from './components/AvatarWithRetry';
+import './utils/avatarLogger'; // 导入头像日志工具
 import { useRolePermissions } from './hooks/useRolePermissions';
 import NotificationTemplateManager from './pages/NotificationTemplateManager';
 import ApprovalFlowManagement from './pages/ApprovalFlowManagement';
@@ -746,19 +748,33 @@ const AppContent: React.FC = () => {
                       }
                     }}
                   >
-                    <img
+                    <AvatarWithRetry
                       src={avatarUrl}
+                      size={58.5}
+                      shape="circle"
                       alt="头像"
                       style={{
-                        width: 58.5,
-                        height: 58.5,
-                        borderRadius: '50%',
-                        objectFit: 'cover',
                         background: '#fff',
                         zIndex: 1,
                       }}
-                      onLoad={() => {}}
-                      onError={() => {}}
+                      retryOptions={{
+                        maxRetries: 3,
+                        delay: 1000,
+                        backoff: 'exponential',
+                        showRetryButton: false, // 导航栏中不显示重试按钮
+                        onLoadSuccess: (src) => {
+                          console.log('✅ 导航栏头像加载成功:', src);
+                        },
+                        onLoadError: (error) => {
+                          console.error('❌ 导航栏头像加载失败:', error);
+                        }
+                      }}
+                      onLoad={() => {
+                        console.log('导航栏头像加载完成');
+                      }}
+                      onError={() => {
+                        console.log('导航栏头像加载失败');
+                      }}
                     />
                   </Badge>
                 ) : (

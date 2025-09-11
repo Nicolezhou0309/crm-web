@@ -5,7 +5,7 @@
 更新 `followups` 表的 `worklocation` 字段时出现数据库超时错误：
 
 ```
-PATCH 172.29.115.115:8000/rest/v1/followups?id=eq.xxx 500 (Internal Server Error)
+PATCH 47.123.26.25:8000/rest/v1/followups?id=eq.xxx 500 (Internal Server Error)
 Supabase 更新失败: {code: '57014', message: 'canceling statement due to statement timeout'}
 ```
 
